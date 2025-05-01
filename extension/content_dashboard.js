@@ -94,14 +94,14 @@ function displayRouteManagement() {
             let buttonGroupEl = document.createElement("div")
 
             let buttonElements = {
-                "selectFirstTen": {
-                    "label": "select first 10"
+                "selectFirstSix": {
+                    "label": "select first 6"
                 },
                 "hideChecked": {
                     "label": "hide checked"
                 },
                 "openInventory": {
-                    "label": "open inventory (max 10)"
+                    "label": "open inventory (max 6)"
                 },
                 "reloadTable": {
                     "label": "reload table"
@@ -141,13 +141,13 @@ function displayRouteManagement() {
 
             // Button actions
 
-            // Select first ten
-            buttonElements["selectFirstTen"].element.addEventListener("click", function() {
+            // Select first six
+            buttonElements["selectFirstSix"].element.addEventListener("click", function() {
                 let count = 0
                 $('#aes-table-routeManagement tbody tr').each(function() {
                     $(this).find("input").prop('checked', true);
                     count++;
-                    if (count > 10) {
+                    if (count > 5) {
                         return false;
                     }
                 })
@@ -173,7 +173,7 @@ function displayRouteManagement() {
                 //Open new tabs
                 for (let i = 0; i < pages.length; i++) {
                     window.open(pages[i], '_blank');
-                    if (i == 10) {
+                    if (i == 9) {
                         break;
                     }
                 }
