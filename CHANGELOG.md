@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added a double dash to indicate “no data” in the “Flights”-table in the aircrafts’ “Flights” tab [#65](https://github.com/ZoeBijl/airlinesim-enhancement-suite/issues/65)
 
 ### Changed
+- Set the maximum number of concurrently opened tabs to 6 to address the server’s ‘Too Many Requests’ limitation.
 
 ### Fixed
 - Fixed an issue where an error was thrown when trying to get flight data [#65](https://github.com/ZoeBijl/airlinesim-enhancement-suite/issues/65)
