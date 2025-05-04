@@ -6,7 +6,6 @@
     "version": "0.6.9",
     "author": "kevinjek@outlook.com",
     "homepage_url": "https://github.com/NEWLY2014/airlinesim-enhancement-suite",
-    "update_url": "https://github.com/NEWLY2014/airlinesim-enhancement-suite/releases",
     "action": {
         "default_icon": {
             "256": "images/AES-logo-256.png",
@@ -79,7 +78,6 @@
             "matches": ["https://*.airlinesim.aero/app/fleets*"]
         }
     ],
-    "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAlgUt+9pr5xsoJIdZtv2s/miPjNaUMf5NdIRH6wQzgWpGzMCwf46cUSL0FbpnIo6E9d6pITalABU8Dx72/isyas/da0EQNCQkYxhvu2YakUyUMyzKg0jPuxR+VyaEzDMVQKyVD1xZb/jjOkHXvGew/EHPw9BzCdhKRptRqo4gqdgifS0/xQFiqneA35Hhqwo9bh5zfhZpdMsssMHH3uGGm1f4Yeq+j2ZUtvf74v8pWR5+sVI/dFhTSpQaT60sWFYkPVwtpQ5jUwqm9vDyAH0obZxVtBqI5UkmjEJsCXmQW6QdC4+gRwTgrKc137SH+mUVRHfcXogMSa72+szX63pMUQIDAQAB",
     "permissions": ["activeTab", "declarativeContent", "storage", "unlimitedStorage"],
     "host_permissions": ["https://*.airlinesim.aero/"],
     "web_accessible_resources": [{
