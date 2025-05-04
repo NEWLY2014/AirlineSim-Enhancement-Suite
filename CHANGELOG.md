@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Personnel salary update date can now be correctly displayed. [#97](https://github.com/ZoeBijl/airlinesim-enhancement-suite/issues/97)
 - Internal: Many misspellings corrected.
-- 
+
 ## [0.6.9] - 2025-05-04
 
 ### Added
