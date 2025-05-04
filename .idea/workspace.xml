@@ -5,8 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="d3ad277b-aabc-42ef-9a32-b0eed7021d2d" name="更改" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/extension/manifest.json" beforeDir="false" afterPath="$PROJECT_DIR$/extension/manifest.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/extension/content_dashboard.js" beforeDir="false" afterPath="$PROJECT_DIR$/extension/content_dashboard.js" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -55,7 +54,7 @@
       <option name="presentableId" value="Default" />
       <updated>1746329413604</updated>
       <workItem from="1746329413949" duration="1456000" />
-      <workItem from="1746332149719" duration="13164000" />
+      <workItem from="1746332149719" duration="13471000" />
     </task>
     <servers />
   </component>

@@ -1068,7 +1068,7 @@ function displayGeneral() {
     //Body cells
     let tbody = $('<tbody></tbody>');
     generalAddScheduleRow(tbody);
-    generalAddPersonelManagementRow(tbody);
+    generalAddPersonnelManagementRow(tbody);
 
 
     let table = $('<table class="table table-bordered table-striped table-hover"></table>').append(thead, tbody);
@@ -2745,7 +2745,7 @@ function generalUpdateScheduleAction(td3) {
     td3.append(btn);
 }
 
-function generalAddPersonelManagementRow(tbody) {
+function generalAddPersonnelManagementRow(tbody) {
     let td = [];
     td.push($('<td></td>').text("Personnel Management"));
     td.push($('<td></td>'));
@@ -2755,9 +2755,9 @@ function generalAddPersonelManagementRow(tbody) {
     //Get Status
     let key = server + airline.name + 'personnelManagement';
     chrome.storage.local.get([key], function(result) {
-        let personelManagementData = result[key];
-        if (personelManagementData) {
-            let lastUpdate = personelManagementData.date;
+        let personnelManagementData = result[key];
+        if (personnelManagementData) {
+            let lastUpdate = personnelManagementData.date;
             let diff = AES.getDateDiff([todayDate.date, lastUpdate]);
             let span = $('<span></span>').text('Last personnel salary update: ' + AES.formatDateString(lastUpdate) + ' (' + diff + ' days ago).');
             if (diff >= 0 && diff < 7) {
@@ -2773,7 +2773,7 @@ function generalAddPersonelManagementRow(tbody) {
     });
 
     //Action
-    let btn = $('<button type="button" class="btn btn-xs btn-default">open personel management</button>');
+    let btn = $('<button type="button" class="btn btn-xs btn-default">open personnel management</button>');
     btn.click(function() {
         //get schedule link
         let link = $('#as-navbar-main-collapse > ul > li:eq(4) > ul > li:eq(5) > a');
