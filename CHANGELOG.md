@@ -19,9 +19,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed an issue where an error was thrown when trying to get flight data [#65](https://github.com/ZoeBijl/airlinesim-enhancement-suite/issues/65)
 - Fixed a visual issue with “Flights”-table when viewing aircraft flights [#65](https://github.com/ZoeBijl/airlinesim-enhancement-suite/issues/65)
 - In historical data of inventory, the past dates are now correctly determined. [#93](https://github.com/ZoeBijl/airlinesim-enhancement-suite/issues/93)
+- Conflict with XTH tools on salary adjustment resolved.
 - Button text beautification
 - Internal: Fixed the definition of three variables in the Route Management function.
 - Internal: Two misspellings fixed.
+- Internal: Integer parsing function reworked.
 
 ## [0.6.8] - 2024-06-09
 

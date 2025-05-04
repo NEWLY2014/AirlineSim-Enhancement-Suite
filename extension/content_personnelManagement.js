@@ -101,63 +101,51 @@ function priceUpdate(span) {
     chrome.storage.local.set({ settings: settings }, function() {
         let value = settings.personnelManagement.value;
         let type = settings.personnelManagement.type;
-        let found = 0;
-        let rowIndex = 0; // external counter
+        let updatedRows = 0;
 
-        $('.container-fluid:eq(2) table:eq(1) tbody tr').each(function() {
-            if (!$(this).find('th').length) {
-                if (settings.personnelManagement.alreadyUpdated.includes(rowIndex)) {
-                    rowIndex++;
-                    return true; // skip to next row
-                }
+        $('.container-fluid:eq(2) table:eq(1) tbody').each(function() {
+            $(this).find('tr').each(function() {
+                if (!$(this).find('th').length) {  // skip header rows
+                    let salaryInput = $(this).find('form input:eq(2)');
+                    let salary = AES.cleanInteger(salaryInput.val());
 
-                let salaryInput = $(this).find('form input:eq(2)');
-                let salary = AES.cleanInteger(salaryInput.val());
-                let average = AES.cleanInteger($(this).find('td:eq(9)').text());
-                let salaryBtn = $(this).find('td:eq(8) > form .input-group-btn input');
-                let newSalary;
+                    let averageText = $(this).find('td:eq(9)').text();
+                    averageText = averageText.replace(/\(.*?\)/g, '').trim();  // clean brackets
+                    let average = AES.cleanInteger(averageText);
 
-                switch (type) {
-                    case 'absolute':
+                    let salaryBtn = $(this).find('td:eq(8) form .input-group-btn input');
+                    let newSalary;
+
+                    if (type === 'absolute') {
                         newSalary = average + value;
-                        break;
-                    case 'perc':
-                        newSalary = Math.round((average * (1 + value * 0.01)));
-                        break;
-                    default:
+                    } else if (type === 'perc') {
+                        newSalary = Math.round(average * (1 + value * 0.01));
+                    } else {
                         newSalary = salary;
-                }
+                    }
 
-                if (newSalary != salary) {
-                    settings.personnelManagement.alreadyUpdated.push(rowIndex);
-                    chrome.storage.local.set({ settings: settings }, function() {});
-                    salaryInput.val(newSalary);
-                    salaryBtn.click();
-                    found = 1;
-                    // continue to update all rows
+                    if (newSalary !== salary) {
+                        salaryInput.val(newSalary);
+                        salaryBtn.trigger('click');  // use trigger() to simulate click reliably
+                        updatedRows++;
+                    }
                 }
-            }
-            rowIndex++; // increase external index
+            });
         });
 
-        if (!found) {
+        if (updatedRows === 0) {
             settings.personnelManagement.auto = 0;
-            settings.personnelManagement.alreadyUpdated = [];
             chrome.storage.local.set({ settings: settings }, function() {
-
-                // Save into memory
                 let today = AES.getServerDate();
                 let key = server + airline + 'personnelManagement';
-                let personnelManagementData = {
+                let data = {
                     server: server,
                     airline: airline,
                     type: 'personnelManagement',
                     date: today.date,
                     time: today.time
                 };
-                chrome.storage.local.set({
-                    [key]: personnelManagementData
-                }, function() {
+                chrome.storage.local.set({ [key]: data }, function() {
                     span.removeClass().addClass('good').text(' all salaries at set level!');
                 });
             });
