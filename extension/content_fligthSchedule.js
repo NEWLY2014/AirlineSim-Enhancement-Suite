@@ -1,7 +1,10 @@
 "use strict";
 //MAIN
-var settings, compData;
+var settings, compData, server, airline, date;
 $(function() {
+    server = AES.getServerName();
+    airline = AES.getAirline();
+    date = AES.getServerDate();
     chrome.storage.local.get(['settings'], function(result) {
         settings = result.settings;
         let label = $('<h3></h3>').text('AES Schedule');
@@ -23,9 +26,7 @@ $(function() {
             });
         } else {
             //Check if automation via competitor monitoring
-            let server = getServerName();
-            let airlineId = getAirlineId();
-            let key = server + airlineId + 'competitorMonitoring';
+            let key = server + airline.id + 'competitorMonitoring';
             chrome.storage.local.get([key], function(compMonitoringData) {
                 compData = compMonitoringData[key];
                 if (compData) {
@@ -98,7 +99,7 @@ function extractSchedule() {
         } else if (hub[route.origin] < hub[route.destination]) {
             route.od = route.destination + route.origin;
             route.direction = 'Inbound';
-        } else if (hub[route.origin] = hub[route.destination]) {
+        } else if (hub[route.origin] == hub[route.destination]) {
             if (route.origin < route.destination) {
                 route.od = route.origin + route.destination;
                 route.direction = 'Outbound';
@@ -109,16 +110,13 @@ function extractSchedule() {
         }
     });
     //Save to storage
-    let dateTime = AES.getServerDate()
-    let server = getServerName();
-    let airline = getAirlineCode();
     let newScheduleData = {
-        date: dateTime.date,
-        updateTime: dateTime.time,
+        date: date.date,
+        updateTime: date.time,
         schedule: schedule
     };
     //New key and data storage
-    let key = server + airline + 'schedule';
+    let key = server + airline.id + 'schedule';
     let defaultScheduleData = {
         type: 'schedule',
         server: server,
@@ -128,7 +126,7 @@ function extractSchedule() {
     chrome.storage.local.get({
         [key]: defaultScheduleData }, function(result) {
         let scheduleData = result[key];
-        scheduleData.date[dateTime.date] = newScheduleData;
+        scheduleData.date[date.date] = newScheduleData;
         //Push to storage
         chrome.storage.local.set({
             [key]: scheduleData }, function() {
@@ -138,7 +136,7 @@ function extractSchedule() {
                     compData.autoExtract = 0;
                     chrome.storage.local.set({
                         [compData.key]: compData }, function() {
-                        window.open('./' + airlineId + '?tab=0', '_self');
+                        window.open('./' + airline.id + '?tab=0', '_self');
                     });
                 }
             }
@@ -178,23 +176,4 @@ function extractSchedule() {
         }
         return route;
     }
-}
-//Helper Functions
-function getServerName() {
-    let server = window.location.hostname
-    server = server.split('.');
-    return server[0];
-}
-
-function getAirlineCode() {
-    let airline = $(".flight-schedule td.code:first").text().split(" ");
-    return airline[0];
-}
-
-function getAirlineId() {
-    //ID
-    let id = window.location.pathname;
-    id = id.split("/");
-    id = id[id.length - 1];
-    return id;
 }

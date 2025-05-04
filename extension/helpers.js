@@ -1,18 +1,24 @@
 /** Shared logic */
 class AES {
     /**
-     * Returns the airline name and code from the dashboard
-     * @returns {object} {name: string, code: string}
+     * Returns the airlineCode name and code from the dashboard
+     * @returns {object} {id:string, name: string, code: string, displayName: string}
      */
-    static getAirlineCode() {
-        const factsTable = document.querySelector(".facts table")
-        const nameElement = factsTable.querySelector("tr:nth-child(1) td:last-child")
-        const codeElement = factsTable.querySelector("tr:nth-child(2) td:last-child")
+    static getAirline() {
+        const table = $(".container-fluid:eq(2) .layout-row:eq(0) > .layout-col-md-4 > .as-fieldset:eq(0) table tbody");
+        const code = table.find('tr:eq(1) td:eq(1)').text().trim().replace(/[^A-Za-z0-9]/g, '');
+        const displayName = table.find('tr:eq(0) td:eq(1)').text().trim();
+        const name = displayName.replace(/[^A-Za-z0-9]/g, '');
 
-        return {
-            name: nameElement.innerText,
-            code: codeElement.innerText
+        let id;
+        try {
+            id = $('a[href*="enterprises/"]').attr('href').match(/enterprises\/(\d+)\?/)[1];
+            localStorage.setItem('airlineId', id); // save latest id
+        } catch (e) {
+            id = localStorage.getItem('airlineId'); // fallback to saved id
         }
+
+        return { id: id, code: code, name: name, displayName: displayName };
     }
 
     /**

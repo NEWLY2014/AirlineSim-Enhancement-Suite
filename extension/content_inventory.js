@@ -1,8 +1,13 @@
 "use strict";
 //MAIN
 //Global vars
-var settings, pricingData, todayDate, analysis;
+var settings, pricingData, todayDate, analysis, server, airline;
 var aesmodule = { valid: true, error: [] };
+$(function(){
+    server = AES.getServerName();
+    airline = AES.getAirline();
+
+});
 
 window.addEventListener("load", async (event) => {
     settings = await getSettings()
@@ -689,7 +694,7 @@ function displayHistory(analysis) {
         //History Options
         let fieldset = $('<fieldset></fieldset>').html('<legend>History Options</legend>');
         //Hide Now
-        let option1 = $('<div class="checkbox"></div>').html('<label><input id="aes-check-inventory-history-showNow" type="checkbox"> Show "Now" collumn</label>');
+        let option1 = $('<div class="checkbox"></div>').html('<label><input id="aes-check-inventory-history-showNow" type="checkbox"> Show "Now" column</label>');
         //Show only Priced
         let option2 = $('<div class="checkbox"></div>').html('<label><input id="aes-check-inventory-history-showOnlyPricing" type="checkbox"> Show only dates when pricing changed</label>');
 
@@ -872,10 +877,10 @@ function buildHistoryTable() {
         });
 
         //Table footer Total Rows
-        let totalCollumns = th1.length;
+        let totalColumns = th1.length;
         let footRow = [];
         let footerRows = ['pax', 'all']
-        footRow.push('<tr><td colspan="' + totalCollumns + '"></td></tr>');
+        footRow.push('<tr><td colspan="' + totalColumns + '"></td></tr>');
         //Total PAX
         footerRows.forEach(function(type) {
             let tf = [];
@@ -1080,23 +1085,11 @@ function formatCurrency(value) {
 }
 
 function getPricingInventoryKey() {
-    //Get Origin and Destination
+    // Get Origin and Destination
     let x = $("h2:first a");
     let org = $(x[0]).text();
     let dest = $(x[1]).text();
-    //get server
-    let server = AES.getServerName();
-    //get airline code
-    let airline = getAirlineCode();
-    //create key
-    let key = server + airline + org + dest + 'routeAnalysis';
+    // Create key
+    let key = server + airline.id + org + dest + 'routeAnalysis';
     return { key: key, server: server, airline: airline, type: "routeAnalysis", origin: org, destination: dest }
-}
-
-function getAirlineCode() {
-    let airline = $("#inventory-grouped-table tbody a:first").text().split(" ");
-    if (!airline[0]) {
-        airline = $("#inventory-table tbody a:first").text().split(" ");
-    }
-    return airline[0];
 }

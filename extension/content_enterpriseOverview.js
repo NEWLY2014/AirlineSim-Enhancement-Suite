@@ -1,20 +1,20 @@
 "use strict";
 //MAIN
 //Global vars
-var server, airlineId, activeTab, compData;
+var server, airline, activeTab, compData;
 $(function() {
-    server = getServerName();
-    airlineId = getAirlineId();
+    server = AES.getServerName();
+    airline = AES.getAirline();
     activeTab = $(".nav-tabs .active").attr('class').split(" ");
     activeTab = activeTab[0];
-    let key = server + airlineId + 'competitorMonitoring';
+    let key = server + airline.id + 'competitorMonitoring';
     chrome.storage.local.get([key], function(compMonitoringData) {
         compData = compMonitoringData[key];
         if (!compData) {
             compData = {
                 key: key,
                 server: server,
-                id: airlineId,
+                id: airline.id,
                 type: "competitorMonitoring",
                 tab0: {},
                 tab2: {},
@@ -28,13 +28,13 @@ $(function() {
 
 function displayMain() {
     //Clean
-    $('#aes-panel-airline-competitive-monitoring').remove();
+    $('#aes-panel-airlineCode-competitive-monitoring').remove();
     //panel
     let panel = $('<div class="as-panel"></div>');
 
     //Checkbox
     let checkbox = $('<input type="checkbox">');
-    let label = $('<label></label>').append(checkbox, ' follow this airline in Competitor Monitoring');
+    let label = $('<label></label>').append(checkbox, ' follow this airlineCode in Competitor Monitoring');
     let divCheckbox = $('<div class="checkbox"></div>').append(label);
 
     //Competitive display comp monitoring
@@ -65,10 +65,10 @@ function displayMain() {
                     displayTab2(actionBar)
                     break;
                 case 'tab3':
-                    // Nothing Controled via schedule content script
+                    // Nothing controlled via schedule content script
                     break;
                 default:
-                    console.log('Error 0925: Enterprice Overview Active Tab not found ' + activeTab)
+                    console.log('Error 0925: Enterprise Overview Active Tab not found ' + activeTab)
                     die();
             }
             displayAutomation(actionBar);
@@ -91,7 +91,7 @@ function displayMain() {
 
 
     //Add display
-    let mainDiv = $('<div id="aes-panel-airline-competitive-monitoring"></div>').append('<h3>AirlineSim Enhancement Suite Airline</h3>', panel, divComp);
+    let mainDiv = $('<div id="aes-panel-airlineCode-competitive-monitoring"></div>').append('<h3>AirlineSim Enhancement Suite Airline</h3>', panel, divComp);
     $(".container-fluid:eq(2) h2").after(mainDiv);
 }
 
@@ -106,7 +106,7 @@ function displayAutomation(actionBar) {
             if (activeTab == 'tab0') {
                 $('#aes-btn-save-tab0-data').click();
             } else {
-                window.open('./' + airlineId + '?tab=0', '_self');
+                window.open('./' + airline.id + '?tab=0', '_self');
             }
         });
         let li = $('<li></li>').append(btn, span);
@@ -159,7 +159,7 @@ function displayTab0(actionBar) {
             [compData.key]: compData }, function() {
             span.removeClass().addClass("good").text("Overview Tab data Saved!");
             if (compData.autoExtract) {
-                window.open('./' + airlineId + '?tab=2', '_self');
+                window.open('./' + airline.id + '?tab=2', '_self');
             }
 
         });
@@ -207,7 +207,7 @@ function displayTab2(actionBar) {
                 [compData.key]: compData }, function() {
                 span.removeClass().addClass("good").text("Fact and figures Tab data Saved!");
                 if (compData.autoExtract) {
-                    window.open('./' + airlineId + '?tab=3', '_self');
+                    window.open('./' + airline.id + '?tab=3', '_self');
                 }
             });
         });
@@ -227,7 +227,7 @@ function displayTab2(actionBar) {
         if (update) {
             btnSave.click();
         } else {
-            window.open('./' + airlineId + '?tab=3', '_self');
+            window.open('./' + airline.id + '?tab=3', '_self');
         }
     }
 }
@@ -316,7 +316,8 @@ function displayScheduleRow() {
 function getTab0Data() {
     let data = {};
     //airline generic ;
-    let airline = getAirline();
+    let airline = AES.getAirline();
+    data.id = airline.id;
     data.code = airline.code;
     data.name = airline.name;
     data.displayName = airline.displayName;
@@ -350,29 +351,6 @@ function getTab2Data() {
     data.fko = parseInt(table.find('tbody:eq(2) tr:eq(5) td:eq(1)').text().trim().split('(')[0].replace(/\D/g, ''), 10);
     data.tab2data = 2;
     return data;
-}
-
-function getAirline() {
-    let table = $(".container-fluid:eq(2) .layout-row:eq(0) > .layout-col-md-4 > .as-fieldset:eq(0) table tbody");
-    let code = table.find('tr:eq(1) td:eq(1)').text().trim().replace(/[^A-Za-z0-9]/g, '');
-    let displayName = table.find('tr:eq(0) td:eq(1)').text().trim();
-    let name = displayName.replace(/[^A-Za-z0-9]/g, '');
-
-    return { code: code, name: name, displayName: displayName };
-}
-
-function getAirlineId() {
-    //ID
-    let id = window.location.pathname;
-    id = id.split("/");
-    id = id[id.length - 1];
-    return id;
-}
-
-function getServerName() {
-    let server = window.location.hostname
-    server = server.split('.');
-    return server[0];
 }
 
 function formatWeekDate(date) {

@@ -2,8 +2,12 @@
 //MAIN
 //Global vars
 var aircraftData = [];
-var server, aircraftFleetKey, aircraftFleetStorageData, airlineName;
+var server, aircraftFleetKey, aircraftFleetStorageData, airline, date;
 $(function() {
+    airline = AES.getAirline();
+    server = AES.getServerName();
+    date = AES.getServerDate()
+
     if (fltmng_fleetManagementPageOpen()) {
         fltmng_getData();
         //Async start
@@ -21,9 +25,7 @@ function fltmng_fleetManagementPageOpen() {
 }
 
 function fltmng_getData() {
-    //Global
-    server = fltmng_getServerName();
-    let date = AES.getServerDate()
+
     //Aircraft
     let table = $('.as-page-fleet-management > .row > .col-md-9 > .as-panel:eq(0) table');
     let fleet = $('.as-page-fleet-management > .row > .col-md-9 > h2:eq(0)').text();
@@ -33,7 +35,7 @@ function fltmng_getData() {
             nickname: fltmng_getNickname($('td:eq(1) > div:eq(0)', this).text()),
             equipment: $('td:eq(2) > a:eq(0)', this).text(),
             age: fltmng_getAge($('td:eq(4) > span:eq(0)', this).text()),
-            maintanance: fltmng_getMaintanance($('td:eq(4) > div > span:eq(1)', this).text()),
+            maintenance: fltmng_getMaintanance($('td:eq(4) > div > span:eq(1)', this).text()),
             aircraftId: fltmng_getAircraftId($('td:eq(6) > div > div:eq(1) > a:eq(0)', this).attr('href')),
             note: fltmng_getNickname($('td:eq(7) > span > span', this).text()),
             fleet: fleet,
@@ -100,25 +102,18 @@ function fltmng_getStorageData() {
 }
 
 function fltmng_getAircraftStorageFleetData() {
-    airlineName = fltmng_getAirlineName();
-    aircraftFleetKey = server + airlineName + 'aircraftFleet';
+    aircraftFleetKey = server + airline.name + 'aircraftFleet';
     chrome.storage.local.get(aircraftFleetKey, function(result) {
         fltmng_updateAircraftFleetStorageData(result[aircraftFleetKey]);
         fltmng_saveData();
     });
 }
 
-function fltmng_getAirlineName() {
-    let name = $('#as-navbar-main-collapse > ul:eq(0) > li:eq(0) > a:eq(0) > span').text();
-    name = name.trim().replace(/[^A-Za-z0-9]/g, '');
-    return name;
-}
-
 function fltmng_updateAircraftFleetStorageData(data) {
     aircraftFleetStorageData = {
         server: server,
         type: 'aircraftFleet',
-        airline: airlineName,
+        airline: airline,
         fleet: aircraftData
     }
     if (data) {
@@ -131,7 +126,7 @@ function fltmng_updateAircraftFleetStorageData(data) {
                 date: newvalue.date,
                 equipment: newvalue.equipment,
                 fleet: newvalue.fleet,
-                maintanance: newvalue.maintanance,
+                maintanence: newvalue.maintanence,
                 nickname: newvalue.nickname,
                 note: newvalue.note,
                 registration: newvalue.registration,
@@ -200,7 +195,7 @@ function fltmng_displayAircraftProfit() {
         });
         let td = [];
         if (date) {
-            td.push(fltmng_formatMoney(profit));
+            td.push($('<td></td>').html(AES.formatCurrency(profit, 'right')));
             td.push($('<td></td>').html(AES.formatDateString(date) + '<br>' + time));
         } else {
             td.push('<td></td>', '<td></td>');
@@ -216,37 +211,4 @@ function fltmng_displaySavedAircrafts() {
 function fltmng_displayNewUpdates() {
     let span = $('<span class="good"></span>').text('Updated aircraft data for ' + aircraftData.length + ' from ' + aircraftData[0].fleet);
     return span;
-}
-
-function fltmng_getServerName() {
-    let server = window.location.hostname
-    server = server.split('.');
-    return server[0];
-}
-
-function fltmng_formatMoney(value) {
-    let container = document.createElement("td")
-    let formattedValue = Intl.NumberFormat().format(value)
-    let indicatorEl = document.createElement("span")
-    let valueEl = document.createElement("span")
-    let currencyEl = document.createElement("span")
-
-    if (value >= 0) {
-        valueEl.classList.add("good")
-        indicatorEl.innerText = "+"
-    }
-
-    if (value < 0) {
-        valueEl.classList.add("bad")
-        indicatorEl.innerText = "-"
-        formattedValue = formattedValue.replace("-", "")
-    }
-
-    valueEl.innerText = formattedValue
-    currencyEl.innerText = " AS$"
-
-    container.classList.add("aes-text-right", "aes-no-text-wrap")
-    container.append(indicatorEl, valueEl, currencyEl)
-
-    return container
 }

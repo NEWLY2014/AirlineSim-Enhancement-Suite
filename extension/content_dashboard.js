@@ -4,7 +4,7 @@
 var settings, airline, server, todayDate;
 $(function() {
     todayDate = AES.getServerDate();
-    airline = AES.getAirlineCode();
+    airline = AES.getAirline();
     server = AES.getServerName();
     chrome.storage.local.get(['settings'], function(result) {
         settings = result.settings;
@@ -81,7 +81,7 @@ function displayRouteManagement() {
     let div = $('<div id="aes-div-dashboard-routeManagement" class="as-panel"></div>');
     mainDiv.append(title, div);
     //Get schedule
-    let scheduleKey = server + airline.code + 'schedule';
+    let scheduleKey = server + airline.id + 'schedule';
     chrome.storage.local.get([scheduleKey], function(result) {
         let scheduleData = result[scheduleKey];
         if (scheduleData) {
@@ -160,7 +160,7 @@ function displayRouteManagement() {
 
             // Open Inventory
             buttonElements["openInventory"].element.addEventListener("click", function() {
-                //Get checked collumns
+                //Get checked columns
                 let pages = $('#aes-table-routeManagement tbody tr').has('input:checked').map(function() {
                     let orgdest = $(this).attr('id');
                     orgdest = orgdest.split("-");
@@ -183,10 +183,10 @@ function displayRouteManagement() {
             buttonElements["reloadTable"].element.addEventListener("click", function() {
                 generateRouteManagementTable(scheduleData);
             });
-            let divRow = $('<div class="row"></div>').append(optionsDiv, displayRouteManagementFilters(), displayRouteManagementCollumns())
+            let divRow = $('<div class="row"></div>').append(optionsDiv, displayRouteManagementFilters(), displayRouteManagementColumns())
             div.prepend(divRow);
-            //Collumns selector Checkbox listener
-            $('#aes-table-routeManagement-collumns input').change(function() {
+            // Columns selector Checkbox listener
+            $('#aes-table-routeManagement-columns input').change(function() {
                 let show;
                 if (this.checked) {
                     show = 1;
@@ -194,7 +194,7 @@ function displayRouteManagement() {
                     show = 0;
                 }
                 let value = $(this).val();
-                settings.routeManagement.tableCollumns.forEach(function(col) {
+                settings.routeManagement.tableColumns.forEach(function(col) {
                     if (col.class == value) {
                         col.show = show;
                     }
@@ -210,7 +210,7 @@ function displayRouteManagement() {
 }
 
 function setDefaultRouteManagementSettings() {
-    let collumns = [
+    let columns = [
         {
             name: 'Origin',
             class: 'aes-origin',
@@ -384,7 +384,7 @@ function setDefaultRouteManagementSettings() {
     }
   ];
     settings.routeManagement = {
-        tableCollumns: collumns,
+        tableColumns: columns,
         filter: []
     };
 }
@@ -393,14 +393,14 @@ function routeManagementApplyFilter() {
     $('#aes-table-routeManagement tbody tr').each(function() {
         let row = this;
         settings.routeManagement.filter.forEach(function(filter) {
-            let cell = $(row).find("." + filter.collumnCode).text();
+            let cell = $(row).find("." + filter.columnCode).text();
             //if(cell){
-            //Get collumn info if number or not
+            //Get column info if number or not
             let number;
-            for (let i = 0; i < settings.routeManagement.tableCollumns.length; i++) {
-                let collumn = settings.routeManagement.tableCollumns[i];
-                if (filter.collumnCode == collumn.class) {
-                    number = collumn.number;
+            for (let i = 0; i < settings.routeManagement.tableColumns.length; i++) {
+                let column = settings.routeManagement.tableColumns[i];
+                if (filter.columnCode == column.class) {
+                    number = column.number;
                     break;
                 }
             }
@@ -451,7 +451,7 @@ function displayRouteManagementFilters() {
     let tbody = $('<tbody></tbody>');
     settings.routeManagement.filter.forEach(function(fil) {
         let td = [];
-        td.push('<td><input type="hidden" value="' + fil.collumnCode + '">' + fil.collumn + '</td>');
+        td.push('<td><input type="hidden" value="' + fil.columnCode + '">' + fil.column + '</td>');
         td.push('<td>' + fil.operation + '</td>');
         td.push('<td>' + fil.value + '</td>');
         td.push('<td><a class="aes-a-routeManagement-filter-delete-row" ><span class="fa fa-trash" title="Delete row"></span></a></td>');
@@ -459,12 +459,12 @@ function displayRouteManagementFilters() {
     });
 
     //Table foot
-    //select collumn
+    //select column
     let option1 = [];
-    settings.routeManagement.tableCollumns.forEach(function(col) {
+    settings.routeManagement.tableColumns.forEach(function(col) {
         option1.push('<option value="' + col.class + '">' + col.name + '</option>');
     });
-    let select1 = $('<select id="aes-select-routeManagement-filter-collumn" class="form-control"></select>').append(option1);
+    let select1 = $('<select id="aes-select-routeManagement-filter-column" class="form-control"></select>').append(option1);
 
 
 
@@ -479,11 +479,11 @@ function displayRouteManagementFilters() {
     let btn = $('<button class="btn btn-default"></button>').text('Add Row');
     btn.click(function() {
         let td = [];
-        let collumn = $(this).closest("tr").find('#aes-select-routeManagement-filter-collumn option:selected').text();
-        let collumnVal = $(this).closest("tr").find('#aes-select-routeManagement-filter-collumn').val();
+        let column = $(this).closest("tr").find('#aes-select-routeManagement-filter-column option:selected').text();
+        let columnVal = $(this).closest("tr").find('#aes-select-routeManagement-filter-column').val();
         let operation = $(this).closest("tr").find('#aes-select-routeManagement-filter-operation option:selected').text();
         let value = $(this).closest("tr").find('#aes-select-routeManagement-filter-value').val()
-        td.push('<td><input type="hidden" value="' + collumnVal + '">' + collumn + '</td>');
+        td.push('<td><input type="hidden" value="' + columnVal + '">' + column + '</td>');
         td.push('<td>' + operation + '</td>');
         td.push('<td>' + value + '</td>');
         td.push('<td><a class="aes-a-routeManagement-filter-delete-row" ><span class="fa fa-trash" title="Delete row"></span></a></td>');
@@ -528,8 +528,8 @@ function displayRouteManagementFilters() {
         let filter = [];
         $('#aes-table-routeManagement-filter tbody tr').each(function() {
             filter.push({
-                collumnCode: $(this).find('input').val(),
-                collumn: $(this).find('td:eq(0)').text(),
+                columnCode: $(this).find('input').val(),
+                column: $(this).find('td:eq(0)').text(),
                 operation: $(this).find('td:eq(1)').text(),
                 value: $(this).find('td:eq(2)').text(),
             });
@@ -545,7 +545,7 @@ function displayRouteManagementFilters() {
     return div;
 }
 
-function displayRouteManagementCollumns() {
+function displayRouteManagementColumns() {
     //Table Head
     let th = [];
     th.push('<th>Show</th>');
@@ -554,7 +554,7 @@ function displayRouteManagementCollumns() {
     //Table body
     let tbody = $('<tbody></tbody>');
 
-    settings.routeManagement.tableCollumns.forEach(function(col) {
+    settings.routeManagement.tableColumns.forEach(function(col) {
         let td = [];
         //Checkbox
         if (col.show) {
@@ -567,14 +567,14 @@ function displayRouteManagementCollumns() {
         tbody.append($('<tr></tr>').append(td));
     });
 
-    let table = $('<table class="table table-bordered table-striped table-hover" id="aes-table-routeManagement-collumns"></table>').append(thead, tbody);
-    let divTable = $('<div id="aes-div-routeManagement-collumns" class="as-table-well" style="display: none;"></div>').append(table);
+    let table = $('<table class="table table-bordered table-striped table-hover" id="aes-table-routeManagement-columns"></table>').append(thead, tbody);
+    let divTable = $('<div id="aes-div-routeManagement-columns" class="as-table-well" style="display: none;"></div>').append(table);
 
     //Closable legend
     let link = $('<a style="cursor: pointer;"></a>').text('Columns');
     let legend = $('<legend></legend>').html(link);
     link.click(function() {
-        $('#aes-div-routeManagement-collumns').toggle();
+        $('#aes-div-routeManagement-columns').toggle();
     });
 
     let fieldset = $('<fieldset></fieldset>').append(legend, divTable);
@@ -597,7 +597,7 @@ function generateRouteManagementTable(scheduleData) {
     let schedule = scheduleData.date[dates[0]].schedule;
     //Generate top
     //Table headers
-    let collumns = settings.routeManagement.tableCollumns;
+    let columns = settings.routeManagement.tableColumns;
 
     //Generate table head
     let thead = $('<thead></thead>');
@@ -616,7 +616,7 @@ function generateRouteManagementTable(scheduleData) {
         }
     });
     th.push($('<th></th>').html(checkbox));
-    collumns.forEach(function(col) {
+    columns.forEach(function(col) {
         if (col.show) {
             let sort = $('<a></a>').html(col.name);
             sort.click(function() {
@@ -663,7 +663,7 @@ function generateRouteManagementTable(scheduleData) {
         //Checkbox
         cell.push('<td><input type="checkbox"></td>');
         //Schedule
-        collumns.forEach(function(col) {
+        columns.forEach(function(col) {
             if (col.show) {
                 if (col.value) {
                     cell.push($('<td></td>').addClass(col.class).text(cellValue[col.value]));
@@ -684,14 +684,14 @@ function generateRouteManagementTable(scheduleData) {
     let table = $('<table class="table table-bordered table-striped table-hover" id="aes-table-routeManagement"></table>').append(thead, tbody);
     let divTable = $('<div id="aes-div-routeManagement" class="as-table-well"></div>').append(table);
     $('#aes-div-dashboard-routeManagement').append(divTable)
-    //Analysis collumns
+    //Analysis columns
     //Get unique ODs
     uniqueOD = [...new Set(uniqueOD)];
     for (let i = 0; i < uniqueOD.length; i++) {
         let origin = uniqueOD[i].substring(0, 3);
         let dest = uniqueOD[i].substring(3, 6);
-        let keyOutbound = server + airline.code + origin + dest + 'routeAnalysis';
-        let keyInbound = server + airline.code + dest + origin + 'routeAnalysis';
+        let keyOutbound = server + airline.id + origin + dest + 'routeAnalysis';
+        let keyInbound = server + airline.id + dest + origin + 'routeAnalysis';
         chrome.storage.local.get([keyOutbound], function(outboundData) {
             chrome.storage.local.get([keyInbound], function(inboundData) {
                 let outAnalysis = outboundData[keyOutbound];
@@ -719,28 +719,28 @@ function generateRouteManagementTable(scheduleData) {
                     }
                 }
                 //For Outbound
-                updateRouteAnalysisCollumns(outAnalysis, outDates, routeIndex);
-                updateRouteAnalysisCollumns(inAnalysis, inDates, routeIndex);
+                updateRouteAnalysisColumns(outAnalysis, outDates, routeIndex);
+                updateRouteAnalysisColumns(inAnalysis, inDates, routeIndex);
             });
         });
     }
 }
 
-function routeManagementSortTable(collumn, number) {
+function routeManagementSortTable(column, number) {
     let tableRows = $('#aes-table-routeManagement tbody tr');
     let tableBody = $('#aes-table-routeManagement tbody');
     tableBody.empty();
     let indexes = [];
     tableRows.each(function() {
         if (number) {
-            let value = parseInt($(this).find("." + collumn).text(), 10);
+            let value = parseInt($(this).find("." + column).text(), 10);
             if (value) {
                 indexes.push(value);
             } else {
                 indexes.push(0);
             }
         } else {
-            indexes.push($(this).find("." + collumn).text());
+            indexes.push($(this).find("." + column).text());
         }
     });
     indexes = [...new Set(indexes)];
@@ -774,7 +774,7 @@ function routeManagementSortTable(collumn, number) {
     for (let i = 0; i < sorted.length; i++) {
         for (let j = tableRows.length - 1; j >= 0; j--) {
             if (number) {
-                let value = parseInt($(tableRows[j]).find("." + collumn).text(), 10);
+                let value = parseInt($(tableRows[j]).find("." + column).text(), 10);
                 if (!value) {
                     value = 0;
                 }
@@ -783,7 +783,7 @@ function routeManagementSortTable(collumn, number) {
                     tableRows.splice(j, 1);
                 }
             } else {
-                if ($(tableRows[j]).find("." + collumn).text() == sorted[i]) {
+                if ($(tableRows[j]).find("." + column).text() == sorted[i]) {
                     tableBody.append($(tableRows[j]));
                     tableRows.splice(j, 1);
                 }
@@ -792,7 +792,7 @@ function routeManagementSortTable(collumn, number) {
     }
 }
 
-function updateRouteAnalysisCollumns(data, dates, routeIndex) {
+function updateRouteAnalysisColumns(data, dates, routeIndex) {
 
     if (data) {
         let rowId = '#aes-row-' + data.origin + data.destination;
@@ -1129,7 +1129,7 @@ function displayCompetitorMonitoringAirlinesTable(div) {
         let hrows = [];
         if (compAirlines.length) {
             //head
-            //second head collumns
+            //second head columns
             let firstHead = {};
             let th = [];
             settings.competitorMonitoring.tableColumns.forEach(function(col) {
@@ -1155,13 +1155,13 @@ function displayCompetitorMonitoringAirlinesTable(div) {
             hrows.push($('<tr></tr>').append(th1));
             hrows.push($('<tr></tr>').append(th));
 
-            //Data collumns
+            //Data columns
 
             compAirlines.forEach(function myFunction(value) {
                 let data = {};
                 //Airline
                 data.airlineId = value.id;
-                //All Tab0 Collumns
+                //All Tab0 Columns
                 let dates = [];
                 for (let date in value.tab0) {
                     dates.push(date);
@@ -1188,7 +1188,7 @@ function displayCompetitorMonitoringAirlinesTable(div) {
                         data.overviewStaffDelta = getDelta(data.overviewStaff, value.tab0[dates[1]].employees);
                     }
                 }
-                //All Tab2 Collumns
+                //All Tab2 Columns
                 dates = [];
                 for (let date in value.tab2) {
                     dates.push(date);
@@ -1213,7 +1213,7 @@ function displayCompetitorMonitoringAirlinesTable(div) {
                         data.faffkoDela = getDelta(data.faffko, value.tab2[dates[1]].fko);
                     }
                 }
-                //Schedule Collumns
+                //Schedule Columns
                 if (compAirlinesSchedule[data.airlineCode]) {
                     dates = [];
                     for (let date in compAirlinesSchedule[data.airlineCode].date) {
@@ -1289,7 +1289,7 @@ function displayCompetitorMonitoringAirlinesTable(div) {
                             });
                             //Total Frequency
                             data.scheduleTotalFreqPre = data.schedulePAXFreq + data.scheduleCargoFreq;
-                            //Delta Collumns
+                            //Delta Columns
                             data.scheduleFltNrDelta = getDelta(data.scheduleFltNr, data.scheduleFltNrPre);
                             data.schedulePAXFreqDelta = getDelta(data.schedulePAXFreq, data.schedulePAXFreqPre);
                             data.scheduleCargoFreqDelta = getDelta(data.scheduleCargoFreq, data.scheduleCargoFreqPre);
@@ -1297,7 +1297,7 @@ function displayCompetitorMonitoringAirlinesTable(div) {
                         }
                     }
                 }
-                //Action collumns
+                //Action columns
                 //Open airline
                 data.actionOpenAirline = '<a class="btn btn-xs btn-default" href="/app/info/enterprises/' + data.airlineId + '">Airline</a>';
                 //Open schedule
@@ -1324,7 +1324,7 @@ function displayCompetitorMonitoringAirlinesTable(div) {
                     });
                 });
 
-                //Populate collumns
+                //Populate columns
                 let td = [];
                 settings.competitorMonitoring.tableColumns.forEach(function(col) {
                     if (col.visible) {
@@ -1345,7 +1345,7 @@ function displayCompetitorMonitoringAirlinesTable(div) {
         let tableWell = $('<div style="overflow-x:auto;" class="as-table-well"></div>').append(table);
 
         //Options
-        let divRow = $('<div class="row"></div>').append(displayCompetitorMonitoringAirlinesTableOptions(), displayCompetitorMonitoringAirlinesTableCollumns());
+        let divRow = $('<div class="row"></div>').append(displayCompetitorMonitoringAirlinesTableOptions(), displayCompetitorMonitoringAirlinesTableColumns());
         div.append(divRow, tableWell);
     });
 }
@@ -1356,7 +1356,7 @@ function displayCompetitorMonitoringAirlineScheduleTable(mainDiv, scheduleData, 
     let rows = [];
     let hrow = [];
     if (data.scheduleDateUse) {
-        let collumns = [
+        let columns = [
             {
                 field: 'schedOrigin',
                 text: 'Origin',
@@ -1423,7 +1423,7 @@ function displayCompetitorMonitoringAirlineScheduleTable(mainDiv, scheduleData, 
     ];
         //Table Head
         let th = [];
-        collumns.forEach(function(col) {
+        columns.forEach(function(col) {
             if (col.visible) {
                 //Sort
                 let sort = $('<a></a>').html(col.text);
@@ -1459,7 +1459,7 @@ function displayCompetitorMonitoringAirlineScheduleTable(mainDiv, scheduleData, 
                 schedTotalFreq: totalFreq,
                 schedHub: hub
             }
-            collumns.forEach(function(cell) {
+            columns.forEach(function(cell) {
                 if (cell.visible) {
                     td.push($('<td class="aes-comp-sched-' + cell.field + '" ></td>').html(cellValue[cell.field]));
                 }
@@ -1487,7 +1487,7 @@ function displayCompetitorMonitoringAirlineScheduleTable(mainDiv, scheduleData, 
     });
 }
 
-function displayCompetitorMonitoringAirlinesTableCollumns() {
+function displayCompetitorMonitoringAirlinesTableColumns() {
     //Table Head
     let th = [];
     th.push('<th>Show</th>');
@@ -1510,8 +1510,8 @@ function displayCompetitorMonitoringAirlinesTableCollumns() {
     });
 
     let table = $('<table class="table table-bordered table-striped table-hover"></table>').append(thead, tbody);
-    let divTable = $('<div id="aes-div-competitorMonitoring-collumns" class="as-table-well" style="display: none;"></div>').append(table);
-    //Collumns selector Checkbox listener
+    let divTable = $('<div id="aes-div-competitorMonitoring-columns" class="as-table-well" style="display: none;"></div>').append(table);
+    //Columns selector Checkbox listener
     $('input', table).change(function() {
         let show;
         if (this.checked) {
@@ -1531,7 +1531,7 @@ function displayCompetitorMonitoringAirlinesTableCollumns() {
     let link = $('<a style="cursor: pointer;"></a>').text('Columns');
     let legend = $('<legend></legend>').html(link);
     link.click(function() {
-        $('#aes-div-competitorMonitoring-collumns').toggle();
+        $('#aes-div-competitorMonitoring-columns').toggle();
     });
     let fieldset = $('<fieldset></fieldset>').append(legend, divTable);
     let div = $('<div class="col-md-4"></div>').append(fieldset);
@@ -1551,21 +1551,21 @@ function displayCompetitorMonitoringAirlinesTableOptions() {
     return optionsDiv;
 }
 
-function CompetitorMonitoringSortTable(collumn, number) {
+function CompetitorMonitoringSortTable(column, number) {
     let tableRows = $('#aes-table-competitorMonitoring tbody tr');
     let tableBody = $('#aes-table-competitorMonitoring tbody');
     tableBody.empty();
     let indexes = [];
     tableRows.each(function() {
         if (number) {
-            let value = parseInt($(this).find(".aes-" + collumn).text(), 10);
+            let value = parseInt($(this).find(".aes-" + column).text(), 10);
             if (value) {
                 indexes.push(value);
             } else {
                 indexes.push(0);
             }
         } else {
-            indexes.push($(this).find(".aes-" + collumn).text());
+            indexes.push($(this).find(".aes-" + column).text());
         }
     });
     indexes = [...new Set(indexes)];
@@ -1599,7 +1599,7 @@ function CompetitorMonitoringSortTable(collumn, number) {
     for (let i = 0; i < sorted.length; i++) {
         for (let j = tableRows.length - 1; j >= 0; j--) {
             if (number) {
-                let value = parseInt($(tableRows[j]).find(".aes-" + collumn).text(), 10);
+                let value = parseInt($(tableRows[j]).find(".aes-" + column).text(), 10);
                 if (!value) {
                     value = 0;
                 }
@@ -1608,7 +1608,7 @@ function CompetitorMonitoringSortTable(collumn, number) {
                     tableRows.splice(j, 1);
                 }
             } else {
-                if ($(tableRows[j]).find(".aes-" + collumn).text() == sorted[i]) {
+                if ($(tableRows[j]).find(".aes-" + column).text() == sorted[i]) {
                     tableBody.append($(tableRows[j]));
                     tableRows.splice(j, 1);
                 }
@@ -2108,7 +2108,7 @@ function displayAircraftProfitability() {
         });
     }
 
-    let key = server + airline.name.trim().replace(/[^A-Za-z0-9]/g, '') + 'aircraftFleet';
+    let key = server + airline.id + 'aircraftFleet';
     //Get storage fleet data
     chrome.storage.local.get(key, function(result) {
         //get aircraft flight data
@@ -2191,7 +2191,7 @@ function displayAircraftProfitability() {
                 nickname: value.nickname,
                 note: value.note,
                 age: value.age,
-                maintenance: value.maintanance,
+                maintenance: value.maintanence,
                 dateAircraft: AES.formatDateString(value.date) + ' ' + value.time,
                 totalFlights: profit.totalFlights,
                 finishedFlights: profit.finishedFlights,
@@ -2292,21 +2292,21 @@ function generateTable(tableOptionsRule) {
     let div = $('<div></div>').append(settingsDiv, tableWell);
     return div;
     //Table functions
-    function masterSortTable(collumn, number, table, collumnPrefix) {
+    function masterSortTable(column, number, table, columnPrefix) {
         let tableRows = $('tbody tr', table);
         let tableBody = $('tbody', table);
         tableBody.empty();
         let indexes = [];
         tableRows.each(function() {
             if (number) {
-                let value = parseInt($(this).find("." + collumnPrefix + collumn).text(), 10);
+                let value = parseInt($(this).find("." + columnPrefix + column).text(), 10);
                 if (value) {
                     indexes.push(value);
                 } else {
                     indexes.push(0);
                 }
             } else {
-                indexes.push($(this).find("." + collumnPrefix + collumn).text());
+                indexes.push($(this).find("." + columnPrefix + column).text());
             }
         });
         indexes = [...new Set(indexes)];
@@ -2340,7 +2340,7 @@ function generateTable(tableOptionsRule) {
         for (let i = 0; i < sorted.length; i++) {
             for (let j = tableRows.length - 1; j >= 0; j--) {
                 if (number) {
-                    let value = parseInt($(tableRows[j]).find("." + collumnPrefix + collumn).text(), 10);
+                    let value = parseInt($(tableRows[j]).find("." + columnPrefix + column).text(), 10);
                     if (!value) {
                         value = 0;
                     }
@@ -2349,7 +2349,7 @@ function generateTable(tableOptionsRule) {
                         tableRows.splice(j, 1);
                     }
                 } else {
-                    if ($(tableRows[j]).find("." + collumnPrefix + collumn).text() == sorted[i]) {
+                    if ($(tableRows[j]).find("." + columnPrefix + column).text() == sorted[i]) {
                         tableBody.append($(tableRows[j]));
                         tableRows.splice(j, 1);
                     }
@@ -2479,7 +2479,7 @@ function generateTable(tableOptionsRule) {
                         $(this).remove();
                     });
                     if (id.length) {
-                        let fleetKey = server + airline.name + 'aircraftFleet';
+                        let fleetKey = server + airline.id + 'aircraftFleet';
                         chrome.storage.local.get(fleetKey, function(result) {
                             let storedFleetData = result[fleetKey];
                             let newFleet = storedFleetData.fleet.filter(function(value) {
@@ -2521,7 +2521,7 @@ function generateTable(tableOptionsRule) {
                             filter.forEach(function(filter) {
                                 let cell = $(row).find("." + tableOptionsRule.columnPrefix + filter.titlecode).text();
                                 //if(cell){
-                                //Get collumn info if number or not
+                                //Get column info if number or not
                                 let number;
                                 for (let i = 0; i < tableOptionsRule.column.length; i++) {
                                     let column = tableOptionsRule.column[i];
@@ -2595,7 +2595,7 @@ function generateTable(tableOptionsRule) {
 
         let tbody = $('<tbody></tbody>').append(row);
         //Table foot
-        //select collumn
+        //select column
         let option1 = [];
         column.forEach(function(col) {
             option1.push('<option value="' + col.data + '">' + col.title + '</option>');
@@ -2707,7 +2707,7 @@ function generalAddScheduleRow(tbody) {
     let row = $('<tr></tr>').append(td1, td2, td3);
     tbody.append(row);
     //Get schedule
-    let scheduleKey = server + airline.code + 'schedule';
+    let scheduleKey = server + airline.id + 'schedule';
     chrome.storage.local.get([scheduleKey], function(result) {
         let scheduleData = result[scheduleKey];
         if (scheduleData) {
@@ -2753,7 +2753,7 @@ function generalAddPersonnelManagementRow(tbody) {
     let row = $('<tr></tr>').append(td);
     tbody.append(row);
     //Get Status
-    let key = server + airline.name + 'personnelManagement';
+    let key = server + airline.id + 'personnelManagement';
     chrome.storage.local.get([key], function(result) {
         let personnelManagementData = result[key];
         if (personnelManagementData) {
@@ -2788,21 +2788,21 @@ function displayDefault() {
 }
 
 //Table sort and other functions
-function SortTable(collumn, number, tableId, collumnPrefix) {
+function SortTable(column, number, tableId, columnPrefix) {
     let tableRows = $('#' + tableId + ' tbody tr');
     let tableBody = $('#' + tableId + ' tbody');
     tableBody.empty();
     let indexes = [];
     tableRows.each(function() {
         if (number) {
-            let value = parseInt($(this).find("." + collumnPrefix + collumn).text(), 10);
+            let value = parseInt($(this).find("." + columnPrefix + column).text(), 10);
             if (value) {
                 indexes.push(value);
             } else {
                 indexes.push(0);
             }
         } else {
-            indexes.push($(this).find("." + collumnPrefix + collumn).text());
+            indexes.push($(this).find("." + columnPrefix + column).text());
         }
     });
     indexes = [...new Set(indexes)];
@@ -2836,7 +2836,7 @@ function SortTable(collumn, number, tableId, collumnPrefix) {
     for (let i = 0; i < sorted.length; i++) {
         for (let j = tableRows.length - 1; j >= 0; j--) {
             if (number) {
-                let value = parseInt($(tableRows[j]).find("." + collumnPrefix + collumn).text(), 10);
+                let value = parseInt($(tableRows[j]).find("." + columnPrefix + column).text(), 10);
                 if (!value) {
                     value = 0;
                 }
@@ -2845,7 +2845,7 @@ function SortTable(collumn, number, tableId, collumnPrefix) {
                     tableRows.splice(j, 1);
                 }
             } else {
-                if ($(tableRows[j]).find("." + collumnPrefix + collumn).text() == sorted[i]) {
+                if ($(tableRows[j]).find("." + columnPrefix + column).text() == sorted[i]) {
                     tableBody.append($(tableRows[j]));
                     tableRows.splice(j, 1);
                 }

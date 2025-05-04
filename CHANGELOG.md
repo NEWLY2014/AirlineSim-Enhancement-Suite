@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0a] - 2025-05-04
+
+### Changed
+- Redesigned the data storage structure. Now, airline data is stored based on airline ID, which prevents issues of mixed information from airlines with the same name or code. However, it requires switching to the corresponding airline from the switch tab before using the tool for each airline.
+- Internal: Enhanced code reusability.
+
+### Fixed
+- Personnel salary update date can now be correctly displayed. [#97](https://github.com/ZoeBijl/airlinesim-enhancement-suite/issues/97)
+
 ## [0.6.9] - 2025-05-04
 
 ### Added

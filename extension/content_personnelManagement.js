@@ -13,8 +13,8 @@ $(function() {
                 auto: 0
             };
         }
-        server = getServerName();
-        airline = getAirline();
+        server = AES.getServerName();
+        airline = AES.getAirline();
 
         displayPersonnelManagement();
     });
@@ -77,17 +77,17 @@ function displayPersonnelManagement() {
         //Set button for auto click
         settings.personnelManagement.auto = 1;
         settings.personnelManagement.alreadyUpdated = [];
-        priceUpdate(span);
+        salaryUpdate(span);
     });
 
     //Automation
     if (settings.personnelManagement.auto) {
         span.removeClass().addClass('warning').text(' adjusting...');
-        priceUpdate(span);
+        salaryUpdate(span);
     }
 
     //Previous data
-    let key = server + airline + "personnelManagement";
+    let key = server + airline.id + "personnelManagement";
     chrome.storage.local.get([key], function(result) {
         if (result[key]) {
             p.after($('<p></p>').text('Last time updated on ' + AES.formatDateString(result[key].date) + ' ' + result[key].time));
@@ -97,7 +97,7 @@ function displayPersonnelManagement() {
     });
 }
 
-function priceUpdate(span) {
+function salaryUpdate(span) {
     chrome.storage.local.set({ settings: settings }, function() {
         let value = settings.personnelManagement.value;
         let type = settings.personnelManagement.type;
@@ -133,34 +133,21 @@ function priceUpdate(span) {
             });
         });
 
-        if (updatedRows === 0) {
-            settings.personnelManagement.auto = 0;
-            chrome.storage.local.set({ settings: settings }, function() {
-                let today = AES.getServerDate();
-                let key = server + airline + 'personnelManagement';
-                let data = {
-                    server: server,
-                    airline: airline,
-                    type: 'personnelManagement',
-                    date: today.date,
-                    time: today.time
-                };
-                chrome.storage.local.set({ [key]: data }, function() {
-                    span.removeClass().addClass('good').text(' all salaries at set level!');
-                });
+        settings.personnelManagement.auto = 0;
+        chrome.storage.local.set({ settings: settings }, function() {
+            let today = AES.getServerDate();
+            let key = server + airline.id + 'personnelManagement';
+            let data = {
+                server: server,
+                airline: airline,
+                type: 'personnelManagement',
+                date: today.date,
+                time: today.time
+            };
+            chrome.storage.local.set({ [key]: data }, function() {
+                span.removeClass().addClass('good').text(' all salaries at set level!');
             });
-        }
+        });
     });
 }
 
-
-function getAirline() {
-    let airline = $("#as-navbar-main-collapse ul li:eq(0) a:eq(0)").text().trim().replace(/[^A-Za-z0-9]/g, '');
-    return airline;
-}
-
-function getServerName() {
-    let server = window.location.hostname
-    server = server.split('.');
-    return server[0];
-}
