@@ -17,10 +17,10 @@ Marcipanas wrote [a guide](https://docs.google.com/document/d/1hzMHb3hTBXSZNtuDK
 
 ## Installation
 
-Supported platforms: chromium-based browsers (Chrome, Edge, etc.).
+Supported platforms: Chromium-based browsers (Chrome, Edge, etc.).
 This guide is based on [racsofp’s guide](https://forums.airlinesim.aero/t/manual-installation-of-the-ase-airlinesim-enhancement-suite-chrome-extension/24671).
 
-1. Download the current version from the [releases](https://github.com/ZoeBijl/airlinesim-enhancement-suite/releases) site.
+1. Download the current version from the [releases](https://github.com/NEWLY2014/airlinesim-enhancement-suite/releases) page.
    The file you look for has the format AES-vX.X.X.zip where the _X_ is replaced with numbers. Example: AES-v0.6.8.zip
 2. Unzip it.
 3. Open your browser and go to the expansion page.
@@ -28,7 +28,7 @@ This guide is based on [racsofp’s guide](https://forums.airlinesim.aero/t/manu
     - Edge: [edge://extensions](edge://extensions)
 4. In the upper right corner is a slide bar that says _enable developer_. Enable it.
 5. In the upper left should be a button that says _Load unpacked_. Click it.
-6. Find the folder (unziped!) from part 2 and select it.
+6. Find the folder (unzipped!) from part 2 and select it.
 
 The extensions should be added, and you can enable it.
 
@@ -53,7 +53,7 @@ AES comes with its own notification API. This uses AS’ notification style and 
 
 #### Usage
 
-Notifications should only be used as a response to an action by the user; don’t add notifications on page load.
+Notifications should only be used as a response to an action by the user; don’t add notifications on a page load.
 
 #### Initiate the `Notifications`:
 
@@ -71,7 +71,7 @@ To add a notification:
 notifications.add("The settings have been updated")
 ```
 
-By default, a new notification comes with the success styling (a checkmark icon and a green background). The style can be changed by passing an options object:
+By default, a new notification comes with the success styling (a checkmark icon and a green background). The style can be changed by passing an option object:
 
 ```
 notifications.new("Failed to save data", {type: "warning"})
