@@ -102,7 +102,7 @@ function fltmng_getStorageData() {
 }
 
 function fltmng_getAircraftStorageFleetData() {
-    aircraftFleetKey = server + airline.name + 'aircraftFleet';
+    aircraftFleetKey = server + airline.id + 'aircraftFleet';
     chrome.storage.local.get(aircraftFleetKey, function(result) {
         fltmng_updateAircraftFleetStorageData(result[aircraftFleetKey]);
         fltmng_saveData();
