@@ -5,10 +5,10 @@ The AirlineSim Enhancement Suite (AES) offers a set of tools to help CEOs build 
 ## Features
 
 - Aircraft profitability calculator
-- A route analyser which shows load factors for routes
+- A route analyzer which shows load factors for routes
 - A salary adjuster that uses the country average as a base
 - Competitor monitoring software
-- Easily see your route overview across with some analytics for the whole network.
+- See your route overview across with some analytics for the whole network.
 - Automatically update prices to optimal levels.
 - Automatically save historical load data.
 - Customize most of the settings to fit your airline needs.
@@ -17,13 +17,13 @@ Marcipanas wrote [a guide](https://docs.google.com/document/d/1hzMHb3hTBXSZNtuDK
 
 ## Installation
 
-Supported platforms: chromium based browsers (Chrome, Edge, etc).
+Supported platforms: chromium-based browsers (Chrome, Edge, etc.).
 This guide is based on [racsofp’s guide](https://forums.airlinesim.aero/t/manual-installation-of-the-ase-airlinesim-enhancement-suite-chrome-extension/24671).
 
 1. Download the current version from the [releases](https://github.com/ZoeBijl/airlinesim-enhancement-suite/releases) site.
-   The file you look for has the format AES.vX.X.X.zip where the _X_ is replaced with numbers. Example: AES.v0.6.8.zip
+   The file you look for has the format AES-vX.X.X.zip where the _X_ is replaced with numbers. Example: AES-v0.6.8.zip
 2. Unzip it.
-3. Open your browser and go the expansion page.
+3. Open your browser and go to the expansion page.
     - Chrome: [chrome://extensions](chrome://extensions)
     - Edge: [edge://extensions](edge://extensions)
 4. In the upper right corner is a slide bar that says _enable developer_. Enable it.
@@ -33,13 +33,13 @@ This guide is based on [racsofp’s guide](https://forums.airlinesim.aero/t/manu
 The extensions should be added, and you can enable it.
 
 ### Please note
-Until AES is available on the chrome web store, this is a methode to install it directly.
+Until AES is available on the Chrome web store, please apply this method to install it manually.
 
 ## History
 
 Marcipanas is the original developer of this extension.
 It seems they ceased development sometime in 2020.
-The community has published some updates in the meantime but no continued development has happened since.
+The community has published some updates in the meantime, but no continued development has happened since.
 
 Sources: the [original forum thread](https://forums.airlinesim.aero/t/introducing-airlinesim-enhancement-suite-beta/21684).
 
@@ -71,7 +71,7 @@ To add a notification:
 notifications.add("The settings have been updated")
 ```
 
-By default a new notification comes with the success styling (a checkmark icon and a green background). The style can be changed by passing an options object:
+By default, a new notification comes with the success styling (a checkmark icon and a green background). The style can be changed by passing an options object:
 
 ```
 notifications.new("Failed to save data", {type: "warning"})
