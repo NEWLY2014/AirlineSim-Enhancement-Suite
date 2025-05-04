@@ -2753,7 +2753,7 @@ function generalAddPersonelManagementRow(tbody) {
     let row = $('<tr></tr>').append(td);
     tbody.append(row);
     //Get Status
-    let key = server + airline.name + 'personelManagement';
+    let key = server + airline.name + 'personnelManagement';
     chrome.storage.local.get([key], function(result) {
         let personelManagementData = result[key];
         if (personelManagementData) {
