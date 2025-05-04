@@ -88,3 +88,4 @@ The possible values for `type` are:
 - racsofp for their update and installation documentation
 - Robert73 for the updated manifest file
 - Zoë Bijl for the continued development
+- NEWLY2014 for the continued development
