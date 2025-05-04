@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.6.9] - 2025-05-04
 
 ### Added
 - Added a double dash to indicate “no data” in the “Flights”-table in the aircrafts’ “Flights” tab [#65](https://github.com/ZoeBijl/airlinesim-enhancement-suite/issues/65)
@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Fixed an issue where an error was thrown when trying to get flight data [#65](https://github.com/ZoeBijl/airlinesim-enhancement-suite/issues/65)
 - Fixed a visual issue with “Flights”-table when viewing aircraft flights [#65](https://github.com/ZoeBijl/airlinesim-enhancement-suite/issues/65)
+- In historical data of inventory, the past dates are now correctly determined. [#93](https://github.com/ZoeBijl/airlinesim-enhancement-suite/issues/93)
 
 ### Removed
 

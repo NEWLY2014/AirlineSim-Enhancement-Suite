@@ -780,11 +780,13 @@ function buildHistoryTable() {
             }
         }
     }
+
+    dates.sort();
+    dates.reverse();
     if (numberOfDates) {
         dates = dates.slice(0, numberOfDates);
     }
-    dates.sort();
-    dates.reverse();
+
     if (dates.length) {
 
         //Headrows
