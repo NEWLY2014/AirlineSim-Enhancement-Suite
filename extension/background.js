@@ -112,7 +112,7 @@ function setDefaultInvPricingSettings() {
 }
 
 //MAIN
-chrome.runtime.onInstalled.addEventListener(function() {
+chrome.runtime.onInstalled.addListener(function() {
     setDefaultSettings();
     chrome.declarativeContent.onPageChanged.removeRules(undefined, function() {
         chrome.declarativeContent.onPageChanged.addRules([{

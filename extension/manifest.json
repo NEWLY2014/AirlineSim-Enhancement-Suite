@@ -59,11 +59,11 @@
             "matches": ["https://*.airlinesim.aero/app/enterprise/dashboard*"]
         },
         {
-            "js": ["content_personelManagement.js"],
+            "js": ["content_personnelManagement.js"],
             "matches": ["https://*.airlinesim.aero/action/enterprise/staffOverview*"]
         },
         {
-            "js": ["content_enterpriceOverview.js"],
+            "js": ["content_enterpriseOverview.js"],
             "matches": ["https://*.airlinesim.aero/app/info/enterprises/*"]
         },
         {

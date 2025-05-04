@@ -21,10 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - In historical data of inventory, the past dates are now correctly determined. [#93](https://github.com/ZoeBijl/airlinesim-enhancement-suite/issues/93)
 - Button text beautification
 - Internal: Fixed the definition of three variables in the Route Management function.
-- Internal: One misspelling fixed.
-- Internal: One deprecated function replaced.
-
-### Removed
+- Internal: Two misspellings fixed.
 
 ## [0.6.8] - 2024-06-09
 
