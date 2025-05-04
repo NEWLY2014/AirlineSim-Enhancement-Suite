@@ -95,16 +95,16 @@ function displayRouteManagement() {
 
             let buttonElements = {
                 "selectFirstSix": {
-                    "label": "select first 6"
+                    "label": "Select first 6"
                 },
                 "hideChecked": {
-                    "label": "hide checked"
+                    "label": "Hide checked"
                 },
                 "openInventory": {
-                    "label": "open inventory (max 6)"
+                    "label": "Open inventory (max 6)"
                 },
                 "reloadTable": {
-                    "label": "reload table"
+                    "label": "Reload table"
                 }
             }
 
@@ -866,14 +866,14 @@ function updateRouteAnalysisCollumns(data, dates, routeIndex) {
     let totalLoad;
     let totalLoadDelta;
 
-    outDates = getInvPricingAnalaysisPricingDate(dataOut.date);
+    let outDates = getInvPricingAnalaysisPricingDate(dataOut.date);
     if (outDates.analysis) {
         $('#aes-row-invPricing-' + origin + dest + '-analysis', tbody).text(AES.formatDateString(outDates.analysis));
-        outIndex = dataOut.date[outDates.analysis].routeIndex;
+        let outIndex = dataOut.date[outDates.analysis].routeIndex;
         let td = $('#aes-row-invPricing-' + origin + dest + '-OWindex', tbody);
         td.html(displayIndex(outIndex));
         if (outDates.analysisOneBefore) {
-            outIndexChange = dataOut.date[outDates.analysis].routeIndex - dataOut.date[outDates.analysisOneBefore].routeIndex
+            let outIndexChange = dataOut.date[outDates.analysis].routeIndex - dataOut.date[outDates.analysisOneBefore].routeIndex
             td.append(displayIndexChange(outIndexChange));
         }
     }
@@ -2141,7 +2141,7 @@ function displayAircraftProfitability() {
                         data: data,
                         columnPrefix: 'aes-aircraftProfit-',
                         tableSettings: 1,
-                        options: ['openAircraft', 'removeAircraft', 'reloadTableAircraftProfit', 'applyFilter', 'removeSelected'],
+                        options: ['selectFirstSix','openAircraft', 'hideSelected', 'applyFilter', 'reloadTableAircraftProfit', 'removeAircraft'],
                         filter: settings.aircraftProfitability.filter,
                         hideColumn: settings.aircraftProfitability.hideColumn,
                         tableSettingStorage: 'aircraftProfitability'
@@ -2403,6 +2403,9 @@ function generateTable(tableOptionsRule) {
         //Functions
         function masterTableOptionsHandle(value) {
             switch (value) {
+                case 'selectFirstSix':
+                    return masterTableOptionsSelectFirstSix();
+                    break;
                 case 'openAircraft':
                     return masterTableOptionsOpenAircraft();
                     break;
@@ -2415,15 +2418,30 @@ function generateTable(tableOptionsRule) {
                 case 'applyFilter':
                     return masterTableOptionsApplyFilter();
                     break;
-                case 'removeSelected':
-                    return masterTableOptionsRemoveSelected();
+                case 'hideSelected':
+                    return masterTableOptionsHideSelected();
                     break;
                 default:
                     // code block
             }
             //Option Functions
+            function masterTableOptionsSelectFirstSix() {
+                let btn = $('<button type="button" class="btn btn-default">Select first six</button>');
+                btn.click(function() {
+                    let count = 0;
+                    $('tbody tr', table).each(function() {
+                        $(this).find('input[type="checkbox"]').prop('checked', true);
+                        count++;
+                        if (count >= 6) {
+                            return false; // break out of .each loop
+                        }
+                    });
+                });
+                return btn;
+            }
+
             function masterTableOptionsOpenAircraft() {
-                let btn = $('<button type="button" class="btn btn-default">open aircraft (max 10)</button>');
+                let btn = $('<button type="button" class="btn btn-default">Open aircraft (max 6)</button>');
                 btn.click(function() {
                     let urls = $('tbody tr', table).has('input:checked').map(function() {
                         let id = $(this).attr('id');
@@ -2433,7 +2451,7 @@ function generateTable(tableOptionsRule) {
                     //Open new tabs
                     for (let i = 0; i < urls.length; i++) {
                         window.open(urls[i], '_blank');
-                        if (i == 10) {
+                        if (i == 5) {
                             break;
                         }
                     }
@@ -2442,7 +2460,7 @@ function generateTable(tableOptionsRule) {
             }
 
             function masterTableOptionsReloadTableAP() {
-                let btn = $('<button type="button" class="btn btn-default">reload table</button>');
+                let btn = $('<button type="button" class="btn btn-default">Reload table</button>');
                 btn.click(function() {
                     displayAircraftProfitability();
                 });
@@ -2450,7 +2468,7 @@ function generateTable(tableOptionsRule) {
             }
 
             function masterTableOptionsRemoveAircraft() {
-                let btn = $('<button type="button" class="btn btn-default">remove aircraft (permanent)</button>');
+                let btn = $('<button type="button" class="btn btn-default">Remove aircraft (permanent)</button>');
                 btn.click(function() {
                     let id = [];
                     let aircraftKey = [];
@@ -2485,7 +2503,7 @@ function generateTable(tableOptionsRule) {
             }
 
             function masterTableOptionsApplyFilter() {
-                let btn = $('<button type="button" class="btn btn-default">apply filter</button>');
+                let btn = $('<button type="button" class="btn btn-default">Apply filter</button>');
                 btn.click(function() {
                     let filter = [];
                     table.closest(".as-panel").find('fieldset:eq(1) table tbody tr').each(function() {
@@ -2549,8 +2567,8 @@ function generateTable(tableOptionsRule) {
                 return btn;
             }
 
-            function masterTableOptionsRemoveSelected() {
-                let btn = $('<button type="button" class="btn btn-default">hide selected</button>');
+            function masterTableOptionsHideSelected() {
+                let btn = $('<button type="button" class="btn btn-default">Hide selected</button>');
                 btn.click(function() {
                     $('tbody tr', table).has('input:checked').remove();
                 });

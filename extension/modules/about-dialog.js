@@ -80,7 +80,7 @@ class AboutDialog {
             <img src="${chrome.runtime.getURL('images/AES-logo-128.png')}">
             <h2>AirlineSim Enhancement Suite</h2>
             <p>Version ${version}</p>
-            <p>Copyright &copy; 2020-2024 AES Authors. MIT License.</p>
+            <p>Copyright &copy; 2020-2025 AES Authors. MIT License.</p>
         `
 
         return body

@@ -8,15 +8,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.6.9] - 2025-05-04
 
 ### Added
-- Added a double dash to indicate “no data” in the “Flights”-table in the aircrafts’ “Flights” tab [#65](https://github.com/ZoeBijl/airlinesim-enhancement-suite/issues/65)
+- Added a double dash to indicate “no data” in the “Flights”-table in the aircraft’s “Flights” tab [#65](https://github.com/ZoeBijl/airlinesim-enhancement-suite/issues/65)
+- Added the "Select first 6" function to the aircraft profitability page on the dashboard.
 
 ### Changed
 - Set the maximum number of concurrently opened tabs to 6 to address the server’s ‘Too Many Requests’ limitation.
+- Rearranged the order of the buttons for the aircraft profitability page on the dashboard.
 
 ### Fixed
 - Fixed an issue where an error was thrown when trying to get flight data [#65](https://github.com/ZoeBijl/airlinesim-enhancement-suite/issues/65)
 - Fixed a visual issue with “Flights”-table when viewing aircraft flights [#65](https://github.com/ZoeBijl/airlinesim-enhancement-suite/issues/65)
 - In historical data of inventory, the past dates are now correctly determined. [#93](https://github.com/ZoeBijl/airlinesim-enhancement-suite/issues/93)
+- Button text beautification
+- Internal: Fixed the definition of three variables in the Route Management function.
+- Internal: One misspelling fixed.
+- Internal: One deprecated function replaced.
 
 ### Removed
 
