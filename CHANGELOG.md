@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Internal: getAirline() function reworked.
-- 
+- Internal: Data structure of Competitor Monitoring reworked.
 
 ### Fixed
 - Competitor monitoring can now correctly fetch schedules and display the info of schedules on the dashboard. [#2](https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/issues/2)
