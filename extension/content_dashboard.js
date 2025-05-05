@@ -1118,7 +1118,7 @@ function displayCompetitorMonitoringAirlinesTable(div) {
                 if (items[key].type == 'schedule') {
                     if (items[key].server == server) {
                         let airline = items[key].airline
-                        compAirlinesSchedule[airline] = items[key];
+                        compAirlinesSchedule[airline.id] = items[key];
                     }
                 }
             }
@@ -1168,6 +1168,7 @@ function displayCompetitorMonitoringAirlinesTable(div) {
                 }
                 dates.sort(function(a, b) { return b - a });
                 if (dates.length) {
+                    data.airlineId = value.tab0[dates[0]].id;
                     data.airlineCode = value.tab0[dates[0]].code;
                     data.airlineName = value.tab0[dates[0]].displayName;
                     data.overviewDate = AES.formatDateString(dates[0]);
@@ -1214,9 +1215,9 @@ function displayCompetitorMonitoringAirlinesTable(div) {
                     }
                 }
                 //Schedule Columns
-                if (compAirlinesSchedule[data.airlineCode]) {
+                if (compAirlinesSchedule[data.airlineId]) {
                     dates = [];
-                    for (let date in compAirlinesSchedule[data.airlineCode].date) {
+                    for (let date in compAirlinesSchedule[data.airlineId].date) {
                         dates.push(date);
                     }
                     dates.sort(function(a, b) { return b - a });
@@ -1229,7 +1230,7 @@ function displayCompetitorMonitoringAirlinesTable(div) {
                         data.scheduleCargoFreq = 0;
                         data.schedulePAXFreq = 0;
                         data.scheduleFltNr = 0;
-                        compAirlinesSchedule[data.airlineCode].date[dates[0]].schedule.forEach(function(schedule) {
+                        compAirlinesSchedule[data.airlineId].date[dates[0]].schedule.forEach(function(schedule) {
                             //Hubs
                             let hub = schedule.od.slice(0, 3);
                             if (hubs[hub]) {
@@ -1270,7 +1271,7 @@ function displayCompetitorMonitoringAirlinesTable(div) {
                             data.scheduleCargoFreqPre = 0;
                             data.schedulePAXFreqPre = 0;
                             data.scheduleFltNrPre = 0;
-                            compAirlinesSchedule[data.airlineCode].date[dates[1]].schedule.forEach(function(schedule) {
+                            compAirlinesSchedule[data.airlineId].date[dates[1]].schedule.forEach(function(schedule) {
                                 //Hubs
                                 let hub = schedule.od.slice(0, 3);
                                 if (hubs[hub]) {
@@ -1301,17 +1302,17 @@ function displayCompetitorMonitoringAirlinesTable(div) {
                 //Open airline
                 data.actionOpenAirline = '<a class="btn btn-xs btn-default" href="/app/info/enterprises/' + data.airlineId + '">Airline</a>';
                 //Open schedule
-                if (compAirlinesSchedule[data.airlineCode]) {
-                    data.actionOpenSchedule = $('<button type="button" id="aes-compMon-btn-schedule-' + data.airlineCode + '" class="btn btn-xs btn-default">Schedule</button>');
+                if (compAirlinesSchedule[data.airlineId]) {
+                    data.actionOpenSchedule = $('<button type="button" id="aes-compMon-btn-schedule-' + data.airlineId + '" class="btn btn-xs btn-default">Schedule</button>');
                     //Create schedule table
-                    $('#aes-div-dashboard').on('click', 'button#aes-compMon-btn-schedule-' + data.airlineCode, function() {
-                        displayCompetitorMonitoringAirlineScheduleTable(div, compAirlinesSchedule[data.airlineCode], data);
+                    $('#aes-div-dashboard').on('click', 'button#aes-compMon-btn-schedule-' + data.airlineId, function() {
+                        displayCompetitorMonitoringAirlineScheduleTable(div, compAirlinesSchedule[data.airlineId], data);
                     });
                 }
                 //Remove airline '
-                data.actionRemoveAirline = $('<button type="button" id="aes-compMon-btn-remove-' + data.airlineCode + '" class="btn btn-xs btn-default">Remove</button>');
+                data.actionRemoveAirline = $('<button type="button" id="aes-compMon-btn-remove-' + data.airlineId + '" class="btn btn-xs btn-default">Remove</button>');
                 //Remove airline action
-                $('#aes-div-dashboard').on('click', 'button#aes-compMon-btn-remove-' + data.airlineCode, function() {
+                $('#aes-div-dashboard').on('click', 'button#aes-compMon-btn-remove-' + data.airlineId, function() {
                     let key = server + data.airlineId + 'competitorMonitoring';
                     let remove = $(this);
                     chrome.storage.local.get([key], function(compMonitoringData) {

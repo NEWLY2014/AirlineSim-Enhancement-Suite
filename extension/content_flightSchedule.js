@@ -126,6 +126,7 @@ function extractSchedule() {
     chrome.storage.local.get({
         [key]: defaultScheduleData }, function(result) {
         let scheduleData = result[key];
+        scheduleData.airline = airline;
         scheduleData.date[date.date] = newScheduleData;
         //Push to storage
         chrome.storage.local.set({

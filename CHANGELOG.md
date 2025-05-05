@@ -12,8 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 
 
 ### Fixed
-- Competitor monitoring can now correctly fetch schedule and display the info of schedule on dashboard. [#2](https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/issues/2)
-- Various Misspellings corrected. 
+- Competitor monitoring can now correctly fetch schedules and display the info of schedules on the dashboard. [#2](https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/issues/2)
+- Internal: Various Misspellings corrected. 
+- Internal: Airline Info can be correctly stored under fleet management and personnel management page.
 
 ## [0.7.0a] - 2025-05-04
 
