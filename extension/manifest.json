@@ -45,7 +45,7 @@
             "matches": ["https://*.airlinesim.aero/app/com/inventory/*"]
         },
         {
-            "js": ["content_fligthSchedule.js"],
+            "js": ["content_flightSchedule.js"],
             "matches": ["https://*.airlinesim.aero/app/info/enterprises/*tab=3"]
         },
         {

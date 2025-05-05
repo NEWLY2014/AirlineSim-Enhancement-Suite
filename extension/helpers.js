@@ -1,36 +1,120 @@
 /** Shared logic */
 class AES {
-    /**
-     * Returns the airlineCode name and code from the dashboard
-     * @returns {object} {id:string, name: string, code: string, displayName: string}
-     */
-    static getAirline() {
-        const table = $(".container-fluid:eq(2) .layout-row:eq(0) > .layout-col-md-4 > .as-fieldset:eq(0) table tbody");
-        const code = table.find('tr:eq(1) td:eq(1)').text().trim().replace(/[^A-Za-z0-9]/g, '');
-        const displayName = table.find('tr:eq(0) td:eq(1)').text().trim();
-        const name = displayName.replace(/[^A-Za-z0-9]/g, '');
-
-        let id;
-        try {
-            id = $('a[href*="enterprises/"]').attr('href').match(/enterprises\/(\d+)\?/)[1];
-            localStorage.setItem('airlineId', id); // save latest id
-        } catch (e) {
-            id = localStorage.getItem('airlineId'); // fallback to saved id
-        }
-
-        return { id: id, code: code, name: name, displayName: displayName };
-    }
 
     /**
      * Returns the server name
      * @returns {string} server name
      */
     static getServerName() {
-        const hostname = window.location.hostname
-        const servername = hostname.split(".")[0]
+        const hostname = window.location.hostname;
+        const servername = hostname.split(".")[0];
 
         return servername
     }
+
+    /**
+     * Returns the airline info from the dashboard, with fallback to localStorage
+     * @returns {object} {id:string, name: string, code: string, displayName: string}
+     */
+    static getAirline() {
+        const server = AES.getServerName();
+        const serverKey = `${server}_airlinesData`;
+        const serverAirlinesData = JSON.parse(localStorage.getItem(serverKey) || '{}');
+        console.debug('Loaded serverAirlinesData:', serverAirlinesData);
+
+        let table;
+        const url = window.location.href;
+
+        // Selector logic
+        if (
+            (url.includes('/app/info/enterprises/') && !url.includes('tab')) ||
+            (url.includes('/app/info/enterprises/') && url.includes('tab=0'))
+        ) {
+            table = $('div.as-table-well table tbody');
+            console.debug('Using as-table-well selector');
+        } else {
+            table = $('div.as-panel.facts table tbody');
+            console.debug('Using as-panel.facts selector');
+        }
+
+        let displayName = '';
+        let code = '';
+
+        table.find('tr').each(function () {
+            const tr = $(this);
+            let label = '';
+            let value = '';
+
+            if (tr.find('th').length > 0) {
+                label = tr.find('th').text().trim().toLowerCase();
+                value = tr.find('td').text().trim();
+            } else {
+                label = tr.find('td:first').text().trim().toLowerCase();
+                const valueCell = tr.find('td:last');
+                value = valueCell.find('span, a').length > 0
+                    ? valueCell.find('span, a').first().text().trim()
+                    : valueCell.text().trim();
+            }
+
+            console.debug('Table row label:', label, '| value:', value);
+
+            if (label === 'name') {
+                displayName = value;
+                console.debug('Extracted displayName from table:', displayName);
+            }
+            if (label === 'code') {
+                code = value.replace(/[^A-Za-z0-9]/g, '');
+                console.debug('Extracted code from table:', code);
+            }
+        });
+
+        // Fallback logic
+        if (!displayName) {
+            if (
+                url.includes('/app/enterprise/dashboard') ||
+                (url.includes('/app/info/enterprises/') && !url.includes('tab')) ||
+                (url.includes('/app/info/enterprises/') && url.includes('tab=0'))
+            ) {
+                console.debug('No fallback (page type excludes fallback)');
+            } else if (url.includes('/app/info/enterprises/') && url.includes('tab') && !url.includes('tab=0')) {
+                displayName = $('h2 span').first().text().trim();
+                console.debug('Fallback displayName from <h2><span>:', displayName);
+            } else {
+                displayName = $('.as-navbar-main .dropdown > a.name span').first().text().trim() ||
+                    $('.as-navbar-main .dropdown > a.name').first().text().trim() ||
+                    $('title').text().split('|')[0].trim();
+                console.debug('Fallback displayName from navbar or title:', displayName);
+            }
+        }
+
+        const name = displayName.replace(/[^A-Za-z0-9]/g, '_');
+        console.debug('Normalized name key:', name);
+
+        if (typeof serverAirlinesData[name] !== 'object' || serverAirlinesData[name] === null) {
+            serverAirlinesData[name] = {};
+            console.debug(`Initialized new entry for ${name}`);
+        }
+
+        const href = $('a[href*="tab=2"]').attr('href') || $('a[href*="enterprises/"]').attr('href');
+        const match = href?.match(/enterprises\/(\d+)/) || href?.match(/\.\/(\d+)/);
+        let id = match ? match[1] : serverAirlinesData[name].id || null;
+        console.debug('Extracted or fallback ID:', id);
+
+        if (!code && serverAirlinesData[name].code) {
+            code = serverAirlinesData[name].code;
+            console.debug('Fallback code from localStorage:', code);
+        }
+
+        serverAirlinesData[name].id = id;
+        serverAirlinesData[name].code = code;
+
+        localStorage.setItem(serverKey, JSON.stringify(serverAirlinesData));
+        console.debug('Updated serverAirlinesData saved:', serverAirlinesData);
+
+        return { id: id, code: code, name: name, displayName: displayName };
+    }
+
+
 
     /**
      * Formats a currency value local standards

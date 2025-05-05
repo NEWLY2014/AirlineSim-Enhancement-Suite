@@ -28,13 +28,13 @@ $(function() {
 
 function displayMain() {
     //Clean
-    $('#aes-panel-airlineCode-competitive-monitoring').remove();
+    $('#aes-panel-airline-competitive-monitoring').remove();
     //panel
     let panel = $('<div class="as-panel"></div>');
 
     //Checkbox
     let checkbox = $('<input type="checkbox">');
-    let label = $('<label></label>').append(checkbox, ' follow this airlineCode in Competitor Monitoring');
+    let label = $('<label></label>').append(checkbox, ' Follow this airline in Competitor Monitoring');
     let divCheckbox = $('<div class="checkbox"></div>').append(label);
 
     //Competitive display comp monitoring
@@ -91,7 +91,7 @@ function displayMain() {
 
 
     //Add display
-    let mainDiv = $('<div id="aes-panel-airlineCode-competitive-monitoring"></div>').append('<h3>AirlineSim Enhancement Suite Airline</h3>', panel, divComp);
+    let mainDiv = $('<div id="aes-panel-airline-competitive-monitoring"></div>').append('<h3>AirlineSim Enhancement Suite Airline</h3>', panel, divComp);
     $(".container-fluid:eq(2) h2").after(mainDiv);
 }
 
@@ -218,8 +218,6 @@ function displayTab2(actionBar) {
     }
 
 
-
-
     actionBar.append(li);
 
     //Automation
@@ -282,8 +280,8 @@ function displayScheduleRow() {
     }
     dates.sort(function(a, b) { return b - a });
     if (dates.length) {
-        let code = compData.tab0[dates[0]].code;
-        let scheduleKey = server + code + 'schedule';
+        let id = compData.tab0[dates[0]].id;
+        let scheduleKey = server + id + 'schedule';
         chrome.storage.local.get([scheduleKey], function(result) {
             let scheduleData = result[scheduleKey];
             if (scheduleData) {
