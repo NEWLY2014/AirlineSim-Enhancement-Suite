@@ -5,7 +5,11 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="d3ad277b-aabc-42ef-9a32-b0eed7021d2d" name="更改" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/CHANGELOG.md" beforeDir="false" afterPath="$PROJECT_DIR$/CHANGELOG.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/extension/content_aircraftFlights.js" beforeDir="false" afterPath="$PROJECT_DIR$/extension/content_aircraftFlights.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/extension/content_dashboard.js" beforeDir="false" afterPath="$PROJECT_DIR$/extension/content_dashboard.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/extension/helpers.js" beforeDir="false" afterPath="$PROJECT_DIR$/extension/helpers.js" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -33,6 +37,7 @@
     &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
     &quot;git-widget-placeholder&quot;: &quot;next&quot;,
     &quot;junie.onboarding.icon.badge.shown&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/Users/xuyunhao/Documents/GitHub/AirlineSim-Enhancement-Suite&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
     &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
     &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
@@ -45,7 +50,7 @@
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-js-predefined-d6986cc7102b-f27c65a3e318-JavaScript-WS-251.23774.424" />
+        <option value="bundled-js-predefined-d6986cc7102b-6a121458b545-JavaScript-WS-251.25410.117" />
       </set>
     </attachedChunks>
   </component>
@@ -61,6 +66,8 @@
       <workItem from="1746369586971" duration="8305000" />
       <workItem from="1746406344686" duration="510000" />
       <workItem from="1746407140508" duration="9886000" />
+      <workItem from="1746842095593" duration="2161000" />
+      <workItem from="1746844266342" duration="3719000" />
     </task>
     <servers />
   </component>

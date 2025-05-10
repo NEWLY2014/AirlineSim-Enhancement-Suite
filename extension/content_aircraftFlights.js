@@ -98,18 +98,17 @@ function display() {
     $('.as-page-aircraft > h1:eq(0)').after(div);
 }
 
-function extractAllFlightProfit(type) {
-    aircraftFlightData.flights.forEach(function(value) {
-        if (type == 'finished') {
-            if (value.status == 'finished' || value.status == 'inflight') {
-
-            } else {
-                return
+async function extractAllFlightProfit(type) {
+    for (const value of aircraftFlightData.flights) {
+        if (type === 'finished') {
+            if (value.status !== 'finished' && value.status !== 'inflight') {
+                continue;
             }
         }
-        let url = 'https://' + aircraftFlightData.server + '.airlinesim.aero/action/info/flight?id=' + value.id;
+        const url = 'https://' + aircraftFlightData.server + '.airlinesim.aero/action/info/flight?id=' + value.id;
         window.open(url, '_blank');
-    });
+        await AES.sleep(100);  // Interval 100ms
+    }
 }
 
 function displayFlightProfit() {
@@ -195,7 +194,7 @@ function getFlights() {
     const table = document.querySelector("#aircraft-flight-instances-table")
     const rows = table.querySelectorAll("tbody tr")
     const flights = []
-    
+
     for (const row of rows) {
         const flight = {
             status: null,
@@ -211,13 +210,13 @@ function getFlights() {
             throw new Error("getFlights(): no valid value for `url`")
             continue
         }
-        
+
         flight.status = row.querySelector(".flightStatusPanel")?.innerText.trim()
         flight.id = url.match(/\d+/)[0]
         flight.row = $(row)
         flights.push(flight)
     }
-    
+
     return flights
 }
 

@@ -245,4 +245,19 @@ class AES {
         return isNaN(parsed) ? 0 : parsed;
     }
 
+    // Sleep for some time
+    static sleep(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    // Open pages with delay
+    static async openPagesWithDelay(pages) {
+        for (let i = 0; i < pages.length; i++) {
+            if (i >= 20) break;
+            window.open(pages[i], '_blank');
+            await AES.sleep(200);  // 改成非零
+        }
+    }
+
+
 }
