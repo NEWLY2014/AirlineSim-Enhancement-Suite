@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Empty aircraft categories are now hidden without breaking layout. [#8](https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/issues/8)
+- Updated the dropdown menu.[#7](https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/issues/7)
+- Rev for minor versions can now be displayed on the Chrome extension management page. [#12](https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/issues/12)
 
 ## [0.7.0c] - 2025-05-10
 
