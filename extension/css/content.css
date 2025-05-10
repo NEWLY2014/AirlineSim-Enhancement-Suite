@@ -68,11 +68,15 @@
     justify-self: center;
 }
 
-/* Hide empty aircraft categories */
+/* Hide empty aircraft categories without breaking layout */
 .as-fieldset:has(.types):not(:has(li)) {
-    display: none;
+    visibility: hidden;
+    height: 0;
+    overflow: hidden;
 }
 
 [class^="layout-col-md"]:has(.types):not(:has(li)) {
-    display: none;
+    visibility: hidden;
+    height: 0;
+    overflow: hidden;
 }

@@ -747,7 +747,7 @@ function routeManagementSortTable(column, number) {
         sorted.sort(function(a, b) {
             if (a > b) return -1;
             if (a < b) return 1;
-            if (a = b) return 0;
+            if (a == b) return 0;
         });
     } else {
         sorted.sort();
@@ -1573,7 +1573,7 @@ function CompetitorMonitoringSortTable(column, number) {
         sorted.sort(function(a, b) {
             if (a > b) return -1;
             if (a < b) return 1;
-            if (a = b) return 0;
+            if (a == b) return 0;
         });
     } else {
         sorted.sort();

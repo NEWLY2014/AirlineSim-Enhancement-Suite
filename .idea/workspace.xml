@@ -7,8 +7,8 @@
     <list default="true" id="d3ad277b-aabc-42ef-9a32-b0eed7021d2d" name="更改" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/CHANGELOG.md" beforeDir="false" afterPath="$PROJECT_DIR$/CHANGELOG.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/extension/content_fleetManagement.js" beforeDir="false" afterPath="$PROJECT_DIR$/extension/content_fleetManagement.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/extension/modules/aes-menu.js" beforeDir="false" afterPath="$PROJECT_DIR$/extension/modules/aes-menu.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/extension/content_dashboard.js" beforeDir="false" afterPath="$PROJECT_DIR$/extension/content_dashboard.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/extension/css/content.css" beforeDir="false" afterPath="$PROJECT_DIR$/extension/css/content.css" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -67,7 +67,7 @@
       <workItem from="1746406344686" duration="510000" />
       <workItem from="1746407140508" duration="9886000" />
       <workItem from="1746842095593" duration="2161000" />
-      <workItem from="1746844266342" duration="15193000" />
+      <workItem from="1746844266342" duration="21471000" />
     </task>
     <servers />
   </component>
