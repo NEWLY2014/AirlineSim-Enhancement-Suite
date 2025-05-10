@@ -55,10 +55,14 @@ function fltmng_getNickname(value) {
 }
 
 function fltmng_getAge(value) {
-    value = value.replace(/[a-z]/gi, '');
+    if (value.includes('UTC')) {
+        return 0;
+    } else {
+        value = value.replace(/[a-z]/gi, '');
     value = value.replace(',', '.');
     value = parseFloat(value);
     return value;
+    }
 }
 
 function fltmng_getMaintanance(value) {

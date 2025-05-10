@@ -4,15 +4,16 @@ class AESMenu {
     #menu
 
     constructor(target) {
-        this.#container = this.#createContainer()
-        this.#button = this.#createButton()
-        this.#menu = this.#createMenu()
-
-        this.#container.append(this.#button, this.#menu)
         if (!target) {
             throw new Error(`AESMenu: \`target\` is ${target}`)
         }
-        target.after(this.#container)
+
+        this.#container = this.#createContainer()
+        this.#button = this.#createButton()
+        this.#menu = this.#createMenu()
+        this.#container.append(this.#button, this.#menu)
+
+        target.after(this.#container);
     }
 
     /**
@@ -37,7 +38,7 @@ class AESMenu {
         button.setAttribute("tabindex", "0")
         button.dataset.toggle = "dropdown"
         button.className = "dropdown-toggle"
-        button.innerText = "AES"
+        button.textContent = "AES"
         button.style = "cursor: pointer"
         button.append(caret)
 
