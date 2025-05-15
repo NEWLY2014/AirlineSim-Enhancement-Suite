@@ -172,7 +172,7 @@ function displayRouteManagement() {
 
                 //Open new tabs
                 for (let i = 0; i < pages.length; i++) {
-                    if (i >= 5) break;
+                    if (i >= 6) break;
                     window.open(pages[i], '_blank');
                 }
             });
