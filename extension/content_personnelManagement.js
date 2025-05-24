@@ -97,47 +97,47 @@ function displayPersonnelManagement() {
     });
 }
 
-function salaryUpdate(span) {
-    chrome.storage.local.set({ settings: settings }, function() {
+async function salaryUpdate(span) {
+    chrome.storage.local.set({ settings: settings }, async function() {
         let value = settings.personnelManagement.value;
         let type = settings.personnelManagement.type;
         let updatedRows = 0;
 
-        $('.container-fluid:eq(2) table:eq(1) tbody').each(function() {
-            $(this).find('tr').each(function() {
-                if (!$(this).find('th').length) {  // skip header rows
-                    let salaryInput = $(this).find('form input:eq(2)');
-                    let salary = AES.cleanInteger(salaryInput.val());
+        const rows = $('.container-fluid:eq(2) table:eq(1) tbody tr').toArray();
 
-                    let averageText = $(this).find('td:eq(9)').text();
-                    averageText = averageText.replace(/\(.*?\)/g, '').trim();  // clean brackets
-                    let average = AES.cleanInteger(averageText);
+        for (const row of rows) {
+            const $row = $(row);
+            if ($row.find('th').length) continue; // Skip header
 
-                    let salaryBtn = $(this).find('td:eq(8) form .input-group-btn input');
-                    let newSalary;
+            const salaryInput = $row.find('form input:eq(2)');
+            const salary = AES.cleanInteger(salaryInput.val());
 
-                    if (type === 'absolute') {
-                        newSalary = average + value;
-                    } else if (type === 'perc') {
-                        newSalary = Math.round(average * (1 + value * 0.01));
-                    } else {
-                        newSalary = salary;
-                    }
+            let averageText = $row.find('td:eq(9)').text().replace(/\(.*?\)/g, '').trim();
+            const average = AES.cleanInteger(averageText);
+            const salaryBtn = $row.find('td:eq(8) form .input-group-btn input');
 
-                    if (newSalary !== salary) {
-                        salaryInput.val(newSalary);
-                        salaryBtn.trigger('click');  // use trigger() to simulate click reliably
-                        updatedRows++;
-                    }
-                }
-            });
-        });
+            let newSalary = salary;
+            if (type === 'absolute') {
+                newSalary = average + value;
+            } else if (type === 'perc') {
+                newSalary = Math.round(average * (1 + value * 0.01));
+            }
+
+            if (newSalary !== salary) {
+                salaryInput.val(newSalary).trigger('input');
+                salaryBtn.closest('form')[0].submit();
+                updatedRows++;
+
+                // Delay to allow form submission to complete
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+        }
 
         settings.personnelManagement.auto = 0;
         chrome.storage.local.set({ settings: settings }, function() {
-            let today = AES.getServerDate();
-            let key = server + airline.id + 'personnelManagement';
-            let data = {
+            const today = AES.getServerDate();
+            const key = server + airline.id + 'personnelManagement';
+            const data = {
                 server: server,
                 airline: airline,
                 type: 'personnelManagement',
@@ -150,4 +150,5 @@ function salaryUpdate(span) {
         });
     });
 }
+
 

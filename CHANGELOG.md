@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2025-05-24
+
+### Fixed
+- Open new tabs for route management can now correctly open 6 tabs. 
+
+### Changed
+- Personnel management: All salary adjustments can now be correctly saved with only one refresh.
+
 ## [0.7.0d] - 2025-05-10
 
 ### Changed
