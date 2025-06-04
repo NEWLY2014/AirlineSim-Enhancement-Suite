@@ -87,5 +87,5 @@ The possible values for `type` are:
 - Marcipanas for the original development
 - racsofp for their update and installation documentation
 - Robert73 for the updated manifest file
-- Zoë Bijl for the continued development
+- Zoë Bijl for the continued development, and Robert Fridolin for the assistance
 - NEWLY2014 for the continued development
