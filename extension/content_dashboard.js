@@ -2190,7 +2190,7 @@ function displayAircraftProfitability() {
                 nickname: value.nickname,
                 note: value.note,
                 age: value.age,
-                maintenance: value.maintanence,
+                maintenance: value.maintenance,
                 dateAircraft: AES.formatDateString(value.date) + ' ' + value.time,
                 totalFlights: profit.totalFlights,
                 finishedFlights: profit.finishedFlights,

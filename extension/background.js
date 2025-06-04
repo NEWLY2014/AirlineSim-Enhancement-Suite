@@ -29,7 +29,7 @@ function setDefaultScheduleSettings() {
     let schedule = {
         autoExtract: 0
     };
-    //Cmp setttings
+    //Cmp settings
     return schedule;
 }
 
@@ -38,7 +38,7 @@ function setDefaultGeneralSettings() {
     let general = {
         defaultDashboard: 'general'
     };
-    //Cmp setttings
+    //Cmp settings
     return general;
 }
 
@@ -55,7 +55,7 @@ function setDefaultInvPricingSettings() {
             numberOfDates: "5"
         }
     };
-    //Cmp setttings
+    //Cmp settings
     let steps = [
         {
             min: 0,

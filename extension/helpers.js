@@ -261,3 +261,5 @@ class AES {
 
 
 }
+
+module.exports = AES;

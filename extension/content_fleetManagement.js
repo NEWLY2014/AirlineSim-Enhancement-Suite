@@ -35,7 +35,7 @@ function fltmng_getData() {
             nickname: fltmng_getNickname($('td:eq(1) > div:eq(0)', this).text()),
             equipment: $('td:eq(2) > a:eq(0)', this).text(),
             age: fltmng_getAge($('td:eq(4) > span:eq(0)', this).text()),
-            maintenance: fltmng_getMaintanance($('td:eq(4) > div > span:eq(1)', this).text()),
+            maintenance: fltmng_getMaintenance($('td:eq(4) > div > span:eq(1)', this).text()),
             aircraftId: fltmng_getAircraftId($('td:eq(6) > div > div:eq(1) > a:eq(0)', this).attr('href')),
             note: fltmng_getNickname($('td:eq(7) > span > span', this).text()),
             fleet: fleet,
@@ -65,7 +65,7 @@ function fltmng_getAge(value) {
     }
 }
 
-function fltmng_getMaintanance(value) {
+function fltmng_getMaintenance(value) {
     value = value.replace('%', '');
     value = value.replace(',', '.');
     value = parseFloat(value);
@@ -130,7 +130,7 @@ function fltmng_updateAircraftFleetStorageData(data) {
                 date: newvalue.date,
                 equipment: newvalue.equipment,
                 fleet: newvalue.fleet,
-                maintanence: newvalue.maintanence,
+                maintenance: newvalue.maintenance,
                 nickname: newvalue.nickname,
                 note: newvalue.note,
                 registration: newvalue.registration,
