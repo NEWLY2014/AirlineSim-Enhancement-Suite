@@ -151,7 +151,7 @@ function extractSchedule() {
         //Flight number
         let flightNumber = $(".code:eq(0)", row).text().split(' ');
         flightNumber = parseInt(flightNumber[1], 10);
-        //Check if exist alraedy
+        //Check if flight number exists already
         if (!route.flightNumber) {
             route.flightNumber = {};
         }

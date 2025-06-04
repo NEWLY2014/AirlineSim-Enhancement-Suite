@@ -69,7 +69,7 @@ async function displayInventory() {
                 //Do nothing
             } else {
                 //Pricing not updated today
-                //Check if new price avaialble
+                //Check if new price available
                 if (analysis.hasValue('newPrice')) {
                     //Update price
                     if (settings.invPricing.autoPriceUpdate) {
@@ -79,7 +79,7 @@ async function displayInventory() {
             }
         } else {
             //Today update does not exists
-            //Check if new price avaialble
+            //Check if new price available
             if (analysis.hasValue('newPrice')) {
                 //Update price
                 if (settings.invPricing.autoPriceUpdate) {
@@ -411,7 +411,7 @@ function getAnalysis(flights, prices, storedData) {
         });
         //if no cmp flights
         if (cmpFlights.length) {
-            //Check if current price flights avaialble
+            //Check if current price flights available
             let flightsArray = cmpFlights.filter(function(flight) {
                 return (flight.price == price);
             });
