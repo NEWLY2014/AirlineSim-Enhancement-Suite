@@ -1,0 +1,7 @@
+{
+  "name": "airlinesim-enhancement-suite",
+  "version": "0.0.1",
+  "scripts": {
+    "test": "node test/helpers.test.js"
+  }
+}
