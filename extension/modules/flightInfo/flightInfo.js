@@ -1,4 +1,4 @@
-class AESFlightInfo {
+class FlightInfo {
     #data = null;
 
     constructor() {
@@ -6,7 +6,7 @@ class AESFlightInfo {
     }
 
     /**
-     * Initializes the AESFlightInfo module
+     * Initializes the FlightInfo module
      * @returns {Promise<void>}
      */
     async init() {
@@ -242,11 +242,11 @@ class AESFlightInfo {
     }
 }
 
-// Initialize the AESFlightInfo class when the DOM is fully loaded
+// Initialize the FlightInfo class when the DOM is fully loaded
 //document.addEventListener('DOMContentLoaded', async () => {
-//    const flightInfo = new AESFlightInfo();
+//    const flightInfo = new FlightInfo();
 //    await flightInfo.init();
 //});
 
 // Because this AS-Site not fires the DOMContentLoaded event, we need to force the run!
-new AESFlightInfo().init();
+new FlightInfo().init();
