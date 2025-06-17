@@ -1,7 +1,5 @@
 class AESFlightInfo {
     #data = null;
-    #saveMessageSpan = null;
-
 
     constructor() {
         // Initialize only
@@ -89,19 +87,17 @@ class AESFlightInfo {
      * @returns {Promise<void>}
      */
     async #saveData() {
-        this.#saveMessageSpan = document.createElement('span');
         const key = `${this.#data.server}${this.#data.type}${this.#data.flightId}`;
+        const notifications = new Notifications();
         try {
             await chrome.storage.local.set({ [key]: this.#data });
-            this.#saveMessageSpan.classList.add('good');
-            this.#saveMessageSpan.textContent = 'Flight info data saved!';
             const result = await chrome.storage.local.get(['settings']);
             if (result?.settings?.flightInfo?.autoClose) {
                 window.close();
             }
+            notifications.add("Flight information saved successfully.", {type: "success"});
         } catch (e) {
-            this.#saveMessageSpan.classList.add('error');
-            this.#saveMessageSpan.textContent = 'Error during saving!';
+            notifications.add("Flight information save failed.", {type: "error"});
             console.error(e);
         }
     }
@@ -114,7 +110,8 @@ class AESFlightInfo {
         const heading = this.#createHeading();
         const container = this.#createContainer(heading, panel);
 
-        const anchor = document.querySelector('body > .container-fluid:nth-of-type(1) > h1:nth-of-type(1)');
+        const anchor = document.querySelector('body > .container-fluid > h1');
+
         if (anchor) {
             anchor.insertAdjacentElement('afterend', container);
         }
@@ -141,13 +138,9 @@ class AESFlightInfo {
         well.className = 'as-table-well';
         well.appendChild(table);
 
-        const statusParagraph = document.createElement('p');
-        statusParagraph.appendChild(this.#saveMessageSpan);
-
         const panel = document.createElement('div');
         panel.className = 'as-panel';
         panel.appendChild(well);
-        panel.appendChild(statusParagraph);
 
         return panel;
     }
@@ -174,7 +167,8 @@ class AESFlightInfo {
         table.className = 'aes-table table table-bordered table-striped table-hover';
         table.appendChild(this.#buildTableHead());
         table.appendChild(this.#buildTableBody());
-        table.appendChild(this.#buildTableFooter());
+        // Footer is not really needed from my perspective
+        //table.appendChild(this.#buildTableFooter());
         return table;
     }
 
@@ -210,7 +204,8 @@ class AESFlightInfo {
             ['Y', 'C', 'F', 'PAX', 'Cargo', 'Total'].forEach(label => {
                 const td = document.createElement('td');
                 td.className = 'aes-text-right';
-                td.textContent = AES.formatCurrency(values[label]);
+                const currencyEl = AES.formatCurrency(values[label], "right");
+                td.appendChild(currencyEl);
                 row.appendChild(td);
             });
             tbody.appendChild(row);
@@ -248,7 +243,10 @@ class AESFlightInfo {
 }
 
 // Initialize the AESFlightInfo class when the DOM is fully loaded
-document.addEventListener('DOMContentLoaded', async () => {
-    const flightInfo = new AESFlightInfo();
-    await flightInfo.init();
-});
+//document.addEventListener('DOMContentLoaded', async () => {
+//    const flightInfo = new AESFlightInfo();
+//    await flightInfo.init();
+//});
+
+// Because this AS-Site not fires the DOMContentLoaded event, we need to force the run!
+new AESFlightInfo().init();
