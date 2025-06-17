@@ -67,7 +67,7 @@
         },
         {
             "js": [
-                "modules/flightinfo/aes-flightinfo.js"
+                "modules/flightInfo/flightInfo.js"
             ],
             "matches": ["https://*.airlinesim.aero/action/info/flight*"]
         },
