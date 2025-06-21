@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Flights with stopover will only be parsed as separate legs. [#14](https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/issues/14)
 - Stopover flights and "active in future" pax flights will no longer be considered as cargo flights.
+- Flight info will be correctly extracted on free game worlds. [#13](https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/issues/13)
 
 ## [0.7.0] - 2025-05-24
 
