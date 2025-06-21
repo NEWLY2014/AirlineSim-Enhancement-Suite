@@ -68,7 +68,9 @@
             "matches": ["https://*.airlinesim.aero/app/info/enterprises/*"]
         },
         {
-            "js": ["content_flightInfo.js"],
+            "js": [
+                "modules/flightInfo/flightInfo.js"
+            ],
             "matches": ["https://*.airlinesim.aero/action/info/flight*"]
         },
         {
