@@ -3,8 +3,8 @@
     "name": "AirlineSim Enhancement Suite",
     "short_name": "AES",
     "description": "Great quality of live improvements for AirlineSim",
-    "version": "0.7.0",
-    "version_name": "0.7.0",
+    "version": "0.7.1",
+    "version_name": "0.7.1",
     "homepage_url": "https://github.com/NEWLY2014/airlinesim-enhancement-suite",
     "action": {
         "default_icon": {
@@ -36,13 +36,13 @@
                 "modules/notification.js",
                 "modules/notifications.js"
             ],
-            "matches": ["https://*.airlinesim.aero/app/*", "https://*.airlinesim.aero/action/*"]
+            "matches": [
+                "https://*.airlinesim.aero/app/*",
+                "https://*.airlinesim.aero/action/*"
+            ]
         },
         {
-            "js": [
-                "content_inventory.js",
-                "modules/inventory/validation.js"
-            ],
+            "js": ["content_inventory.js", "modules/inventory/validation.js"],
             "matches": ["https://*.airlinesim.aero/app/com/inventory/*"]
         },
         {
@@ -59,7 +59,9 @@
         },
         {
             "js": ["content_personnelManagement.js"],
-            "matches": ["https://*.airlinesim.aero/action/enterprise/staffOverview*"]
+            "matches": [
+                "https://*.airlinesim.aero/action/enterprise/staffOverview*"
+            ]
         },
         {
             "js": ["content_enterpriseOverview.js"],
@@ -86,10 +88,18 @@
             "matches": ["https://*.airlinesim.aero/app/info/ors*"]
         }
     ],
-    "permissions": ["activeTab", "declarativeContent", "storage", "unlimitedStorage"],
+    "permissions": [
+        "activeTab",
+        "declarativeContent",
+        "storage",
+        "unlimitedStorage"
+    ],
     "host_permissions": ["https://*.airlinesim.aero/"],
-    "web_accessible_resources": [{
-        "resources": ["/images/*"],
-        "matches": ["https://*.airlinesim.aero/*"]
-    }]
+    "options_page": "options.html",
+    "web_accessible_resources": [
+        {
+            "resources": ["/images/*"],
+            "matches": ["https://*.airlinesim.aero/*"]
+        }
+    ]
 }

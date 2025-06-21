@@ -1,23 +1,189 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
-    <script src="js/jquery-3.4.1.min.js"></script>
-    <title>AirlineSim Enhancement Suite Data Manager</title>
-  </head>
-  <body>
+    <head>
+        <link
+            rel="stylesheet"
+            href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
+            integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh"
+            crossorigin="anonymous"
+        />
+        <link
+            rel="stylesheet"
+            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css"
+        />
+        <script src="js/vendor/jquery-3.7.1.slim.min.js"></script>
+        <title>AirlineSim Enhancement Suite Import/Export</title>
+        <style>
+            .backup-restore-section {
+                background-color: #f8f9fa;
+                border: 1px solid #dee2e6;
+                border-radius: 0.375rem;
+                padding: 1.5rem;
+                margin-bottom: 2rem;
+            }
+            .data-stats {
+                background-color: #e9ecef;
+                border-radius: 0.375rem;
+                padding: 1rem;
+                margin-bottom: 1rem;
+            }
+            .file-input-wrapper {
+                position: relative;
+                overflow: hidden;
+                display: inline-block;
+            }
+            .file-input-wrapper input[type="file"] {
+                position: absolute;
+                left: -9999px;
+            }
+            .status-message {
+                margin-top: 1rem;
+                padding: 0.75rem;
+                border-radius: 0.375rem;
+                display: none;
+            }
+            .status-success {
+                background-color: #d4edda;
+                border: 1px solid #c3e6cb;
+                color: #155724;
+            }
+            .status-error {
+                background-color: #f8d7da;
+                border: 1px solid #f5c6cb;
+                color: #721c24;
+            }
+            .status-warning {
+                background-color: #fff3cd;
+                border: 1px solid #ffeaa7;
+                color: #856404;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container pt-3" id="display">
+            <h1>
+                <i class="fas fa-file-import"></i> AirlineSim Enhancement Suite
+                Import/Export
+            </h1>
 
-    <div class="container pt-3" id="display">
-      <h1>AirlineSim Enhancement Suite Data Manager</h1>
-      <p>Page under development...</p>
-      <div class="form-inline" id="aes-div-topSelect">
-      </div>
-      <div id="aes-div-dataDisplay">
-      </div>
+            <!-- Backup and Restore Section -->
+            <div class="backup-restore-section">
+                <h2><i class="fas fa-shield-alt"></i> Backup & Restore</h2>
+                <p class="text-muted">
+                    Backup your AES data to a file or restore from a previous
+                    backup.
+                </p>
 
+                <div class="row">
+                    <div class="col-md-6">
+                        <h4><i class="fas fa-download"></i> Backup Data</h4>
+                        <div class="data-stats" id="aes-data-stats">
+                            <h6>Current Data Summary:</h6>
+                            <div id="aes-stats-content">Loading...</div>
+                        </div>
+                        <div class="form-group">
+                            <label for="aes-backup-type">Backup Type:</label>
+                            <select class="form-control" id="aes-backup-type">
+                                <option value="all">All Data</option>
+                                <option value="settings">Settings Only</option>
+                                <option value="schedule">Schedule Data</option>
+                                <option value="pricing">Pricing Data</option>
+                                <option value="competitorMonitoring">
+                                    Competitor Monitoring
+                                </option>
+                                <option value="flightInfo">Flight Info</option>
+                                <option value="aircraftData">
+                                    Aircraft Data
+                                </option>
+                            </select>
+                        </div>
+                        <button class="btn btn-primary" id="aes-backup-btn">
+                            <i class="fas fa-download"></i> Create Backup
+                        </button>
+                    </div>
 
+                    <div class="col-md-6">
+                        <h4><i class="fas fa-upload"></i> Restore Data</h4>
+                        <div class="form-group">
+                            <label for="aes-restore-file"
+                                >Select Backup File:</label
+                            >
+                            <div class="file-input-wrapper">
+                                <input
+                                    type="file"
+                                    id="aes-restore-file"
+                                    accept=".json"
+                                    class="form-control-file"
+                                    style="display: none"
+                                />
+                                <button
+                                    type="button"
+                                    class="btn btn-outline-secondary"
+                                    id="aes-choose-file-btn"
+                                >
+                                    <i class="fas fa-file-upload"></i> Choose
+                                    File
+                                </button>
+                                <span
+                                    id="aes-selected-file-name"
+                                    class="ml-2 text-muted"
+                                ></span>
+                            </div>
+                            <small class="form-text text-muted"
+                                >Select a JSON backup file created by AES</small
+                            >
+                        </div>
+                        <div class="form-group">
+                            <label for="aes-restore-mode">Restore Mode:</label>
+                            <select class="form-control" id="aes-restore-mode">
+                                <option value="merge">
+                                    Merge with existing data
+                                </option>
+                                <option value="replace">
+                                    Replace existing data
+                                </option>
+                            </select>
+                        </div>
+                        <button
+                            class="btn btn-success"
+                            id="aes-restore-btn"
+                            disabled
+                        >
+                            <i class="fas fa-upload"></i> Restore Data
+                        </button>
+                    </div>
+                </div>
 
-    </div>
-  </body>
-  <script src="options.js"></script>
+                <div class="status-message" id="aes-status-message"></div>
+            </div>
+
+            <!-- Data Cleanup Section -->
+            <div class="backup-restore-section">
+                <h2><i class="fas fa-trash-alt"></i> Data Cleanup</h2>
+                <p class="text-muted">Remove data to free up storage space.</p>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <button
+                            class="btn btn-warning btn-block mb-2"
+                            id="aes-clear-old-data-btn"
+                        >
+                            <i class="fas fa-calendar-times"></i> Clear Old Data
+                            (>30 days)
+                        </button>
+                    </div>
+                    <div class="col-md-6">
+                        <button
+                            class="btn btn-danger btn-block"
+                            id="aes-clear-all-data-btn"
+                        >
+                            <i class="fas fa-exclamation-triangle"></i> Clear
+                            All Data
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </body>
+    <script src="options.js"></script>
 </html>
