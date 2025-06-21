@@ -50,6 +50,7 @@ class OnlineReservationSystem {
                 const title = img.getAttribute('title');
                 const number = title && title.match(/-?\d+/)?.[0];
                 if (number) {
+                    img.style.marginRight = '6px';
                     img.insertAdjacentElement('afterend', this.#generateSpanElement(number));
                 }
             }
