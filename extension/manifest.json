@@ -36,13 +36,13 @@
                 "modules/notification.js",
                 "modules/notifications.js"
             ],
-            "matches": ["https://*.airlinesim.aero/app/*", "https://*.airlinesim.aero/action/*"]
+            "matches": [
+                "https://*.airlinesim.aero/app/*",
+                "https://*.airlinesim.aero/action/*"
+            ]
         },
         {
-            "js": [
-                "content_inventory.js",
-                "modules/inventory/validation.js"
-            ],
+            "js": ["content_inventory.js", "modules/inventory/validation.js"],
             "matches": ["https://*.airlinesim.aero/app/com/inventory/*"]
         },
         {
@@ -59,7 +59,9 @@
         },
         {
             "js": ["content_personnelManagement.js"],
-            "matches": ["https://*.airlinesim.aero/action/enterprise/staffOverview*"]
+            "matches": [
+                "https://*.airlinesim.aero/action/enterprise/staffOverview*"
+            ]
         },
         {
             "js": ["content_enterpriseOverview.js"],
@@ -78,10 +80,18 @@
             "matches": ["https://*.airlinesim.aero/app/fleets*"]
         }
     ],
-    "permissions": ["activeTab", "declarativeContent", "storage", "unlimitedStorage"],
+    "permissions": [
+        "activeTab",
+        "declarativeContent",
+        "storage",
+        "unlimitedStorage"
+    ],
     "host_permissions": ["https://*.airlinesim.aero/"],
-    "web_accessible_resources": [{
-        "resources": ["/images/*"],
-        "matches": ["https://*.airlinesim.aero/*"]
-    }]
+    "options_page": "options.html",
+    "web_accessible_resources": [
+        {
+            "resources": ["/images/*"],
+            "matches": ["https://*.airlinesim.aero/*"]
+        }
+    ]
 }
