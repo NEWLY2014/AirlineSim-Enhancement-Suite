@@ -41,140 +41,117 @@ $(function() {
 });
 //FUNCTIONS
 function extractSchedule() {
-    //Update text
-    //'<span class="warning"> Extracting...</span>';
+    // Update UI
     let span = $('<span class="warning"></span>').text('Extracting...');
     $('#aes-panel-schedule').append(span);
     $('#aes-extractSchedule-btn').remove();
 
-    //Get table
-    let tbody = $('.flight-schedule table tbody');
-    //Extract schedule
-    //Each tbody
+    // Pull every table-body and build an array of route-segments
+    let tbodyList = $('.flight-schedule table tbody');
     let schedule = [];
-    for (let i = 0; i < tbody.length; i++) {
-        //Each row
+
+    for (let i = 0; i < tbodyList.length; i++) {
         let destinationCount = 0;
-        let rows = $('tr', tbody[i]);
+        let rows = $('tr', tbodyList[i]);
         let route = {};
+
         for (let j = 0; j < rows.length; j++) {
-            if (rows[j].className == 'important origin') {
-                //origin
+            let cls = rows[j].className;
+
+            if (cls === 'important origin') {
+                // origin row
                 route.origin = $('a', rows[j]).text();
-            } else if (rows[j].className == 'destination') {
-                //Check if first destination
+
+            } else if (cls === 'destination') {
+                // on a second+ destination, push the prior segment
                 if (destinationCount) {
-                    //Push array and reset values
                     schedule.push(route);
-                    route = {
-                        origin: route.origin
-                    };
+                    route = { origin: route.origin };
                 }
-                //destination
                 route.destination = $('a', rows[j]).text();
                 destinationCount++;
-            } else if (rows[j].className != 'head') {
-                //line row
+
+            } else if (cls !== 'head') {
+                // line-detail row; skip A→C “via B” rows
+                let remarkText = $(".remarks", rows[j]).text();
+                if (remarkText.includes('via')) continue;
+
                 route = getLineDetails(rows[j], route);
             }
         }
-        //Push array and reset values
+
+        // push the last segment for this table
         schedule.push(route);
-        route = {};
     }
-    //Handle extracted schedule
-    //Get hubs
+
+    // build hub counts for OD logic
     let hub = {};
-    schedule.forEach(function(route) {
-        if (!hub[route.origin]) {
-            hub[route.origin] = 0;
-        }
-        hub[route.origin]++;
-    });
-    //Generate OD
-    schedule.forEach(function(route) {
-        if (hub[route.origin] > hub[route.destination]) {
-            route.od = route.origin + route.destination;
-            route.direction = 'Outbound';
-        } else if (hub[route.origin] < hub[route.destination]) {
-            route.od = route.destination + route.origin;
-            route.direction = 'Inbound';
-        } else if (hub[route.origin] == hub[route.destination]) {
+    schedule.forEach(r => { hub[r.origin] = (hub[r.origin]||0) + 1 });
+
+    // assign od & direction
+    schedule.forEach(route => {
+        if      (hub[route.origin] > hub[route.destination]) { route.od = route.origin + route.destination; route.direction = 'Outbound'; }
+        else if (hub[route.origin] < hub[route.destination]) { route.od = route.destination + route.origin; route.direction = 'Inbound';  }
+        else {
             if (route.origin < route.destination) {
-                route.od = route.origin + route.destination;
-                route.direction = 'Outbound';
+                route.od = route.origin + route.destination; route.direction = 'Outbound';
             } else {
-                route.od = route.destination + route.origin;
-                route.direction = 'Inbound';
+                route.od = route.destination + route.origin; route.direction = 'Inbound';
             }
         }
     });
-    //Save to storage
-    let newScheduleData = {
-        date: date.date,
-        updateTime: date.time,
-        schedule: schedule
-    };
-    //New key and data storage
+
+    // save into chrome.storage
+    let newScheduleData = { date: date.date, updateTime: date.time, schedule };
     let key = server + airline.id + 'schedule';
-    let defaultScheduleData = {
-        type: 'schedule',
-        server: server,
-        airline: airline,
-        date: {}
-    };
-    chrome.storage.local.get({
-        [key]: defaultScheduleData }, function(result) {
+    let defaultScheduleData = { type: 'schedule', server, airline, date: {} };
+
+    chrome.storage.local.get({ [key]: defaultScheduleData }, function(result) {
         let scheduleData = result[key];
         scheduleData.airline = airline;
         scheduleData.date[date.date] = newScheduleData;
-        //Push to storage
-        chrome.storage.local.set({
-            [key]: scheduleData }, function() {
+        chrome.storage.local.set({ [key]: scheduleData }, function() {
             span.removeClass().addClass('good').text('Schedule extracted!');
-            if (compData) {
-                if (compData.autoExtract) {
-                    compData.autoExtract = 0;
-                    chrome.storage.local.set({
-                        [compData.key]: compData }, function() {
-                        window.open('./' + airline.id + '?tab=0', '_self');
-                    });
-                }
+            if (compData && compData.autoExtract) {
+                compData.autoExtract = 0;
+                chrome.storage.local.set({ [compData.key]: compData }, function() {
+                    window.open('./' + airline.id + '?tab=0', '_self');
+                });
             }
         });
     });
-
-
-
-    //Schedule Functions
-    function getLineDetails(row, route) {
-        //Flight number
-        let flightNumber = $(".code:eq(0)", row).text().split(' ');
-        flightNumber = parseInt(flightNumber[1], 10);
-        //Check if flight number exists already
-        if (!route.flightNumber) {
-            route.flightNumber = {};
-        }
-        if (!route.flightNumber[flightNumber]) {
-            route.flightNumber[flightNumber] = {
-                paxFreq: 0,
-                cargoFreq: 0,
-                remark: $(".remarks", row).text(),
-                valid: $(".valid", row).text()
-            }
-        }
-        //Get Frequency
-        let days = $(".days", row).text().split('');
-        for (let i = 0; i < days.length; i++) {
-            if (days[i] >= '0' && days[i] <= '9') {
-                //Check if cargo or pax
-                if (route.flightNumber[flightNumber].remark) {
-                    route.flightNumber[flightNumber].cargoFreq++;
-                } else {
-                    route.flightNumber[flightNumber].paxFreq++;
-                }
-            }
-        }
-        return route;
-    }
 }
+
+function getLineDetails(row, route) {
+    // parse flight number
+    let parts = $(".code:eq(0)", row).text().split(' ');
+    let flightNumber = parseInt(parts[1], 10);
+
+    // ensure container
+    if (!route.flightNumber) route.flightNumber = {};
+
+    // always re-initialize the entry
+    let remark = $(".remarks", row).text();
+    let valid  = $(".valid", row).text();
+
+    route.flightNumber[flightNumber] = {
+        paxFreq:   0,
+        cargoFreq: 0,
+        remark,
+        valid
+    };
+
+    // count days: cargo vs pax based on remark
+    let days   = $(".days", row).text().split('');
+    let isCargo = remark.includes('CARGO FLIGHT');
+
+    for (let d of days) {
+        if (d >= '0' && d <= '9') {
+            if (isCargo) route.flightNumber[flightNumber].cargoFreq++;
+            else         route.flightNumber[flightNumber].paxFreq++;
+        }
+    }
+
+    return route;
+}
+

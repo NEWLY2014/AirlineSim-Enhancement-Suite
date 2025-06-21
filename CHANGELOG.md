@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.1] - 2025-06-21
+
+### Added
+- Import/export functionality of options. Thanks [malshoff](https://github.com/malshoff) for the contribution. [#23](https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/pull/23)
+
+### Changed
+- Internal: Flight extraction function splitted from main code. Thanks [Baymax2009](https://github.com/Baymax2909) for the contribution. [#24](https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/pull/24)
+- A-B-C stopover flights will no longer be counted into flight frequency of A-C.
+
+### Fixed
+- Flights with stopover will only be parsed as separate legs. [#14](https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/issues/14)
+- Stopover flights and "active in future" pax flights will no longer be considered as cargo flights.
+
 ## [0.7.0] - 2025-05-24
 
 ### Fixed
