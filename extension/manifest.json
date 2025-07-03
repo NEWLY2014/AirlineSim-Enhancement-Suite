@@ -80,6 +80,12 @@
         {
             "js": ["content_fleetManagement.js"],
             "matches": ["https://*.airlinesim.aero/app/fleets*"]
+        },
+        {
+            "js": [
+                "modules/onlineReservationSystem/onlineReservationSystem.js"
+            ],
+            "matches": ["https://*.airlinesim.aero/app/info/ors*"]
         }
     ],
     "permissions": [
