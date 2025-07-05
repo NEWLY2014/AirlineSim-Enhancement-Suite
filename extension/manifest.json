@@ -3,8 +3,8 @@
     "name": "AirlineSim Enhancement Suite",
     "short_name": "AES",
     "description": "Great quality of live improvements for AirlineSim",
-    "version": "0.7.0",
-    "version_name": "0.7.0",
+    "version": "0.7.1",
+    "version_name": "0.7.1",
     "homepage_url": "https://github.com/NEWLY2014/airlinesim-enhancement-suite",
     "action": {
         "default_icon": {
@@ -68,7 +68,9 @@
             "matches": ["https://*.airlinesim.aero/app/info/enterprises/*"]
         },
         {
-            "js": ["content_flightInfo.js"],
+            "js": [
+                "modules/flightInfo/flightInfo.js"
+            ],
             "matches": ["https://*.airlinesim.aero/action/info/flight*"]
         },
         {
@@ -78,6 +80,12 @@
         {
             "js": ["content_fleetManagement.js"],
             "matches": ["https://*.airlinesim.aero/app/fleets*"]
+        },
+        {
+            "js": [
+                "modules/onlineReservationSystem/onlineReservationSystem.js"
+            ],
+            "matches": ["https://*.airlinesim.aero/app/info/ors*"]
         }
     ],
     "permissions": [

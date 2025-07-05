@@ -212,7 +212,7 @@ function getFlights() {
         }
 
         flight.status = row.querySelector(".flightStatusPanel")?.innerText.trim()
-        flight.id = url.match(/\d+/)[0]
+        flight.id = parseInt(url.match(/id=(\d+)/)[1], 10)
         flight.row = $(row)
         flights.push(flight)
     }
