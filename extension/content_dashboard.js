@@ -1473,6 +1473,15 @@ function displayCompetitorMonitoring() {
     //
     if (!settings.competitorMonitoring) {
         setDefaultCompetitorMonitoringSettings();
+    } else {
+        // Ensure Remove airline column is visible for existing users
+        let removeColumn = settings.competitorMonitoring.tableColumns.find(
+            (col) => col.field === "actionRemoveAirline"
+        );
+        if (removeColumn && removeColumn.visible === 0) {
+            removeColumn.visible = 1;
+            chrome.storage.local.set({ settings: settings }, function () {});
+        }
     }
 
     //Display airlines table
@@ -2498,7 +2507,7 @@ function setDefaultCompetitorMonitoringSettings() {
             field: "actionRemoveAirline",
             text: "Remove airline",
             headGroup: "Actions",
-            visible: 0,
+            visible: 1,
             number: 0,
         },
     ];
