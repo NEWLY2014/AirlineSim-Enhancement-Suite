@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Configuration backup can now be created with the correct extension version.
 
+### Removed
+- Internal: Obsolete test modules
+
 ## [0.7.1] - 2025-06-21
 
 ### Added
