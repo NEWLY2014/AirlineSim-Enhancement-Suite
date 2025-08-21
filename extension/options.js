@@ -227,9 +227,10 @@ function createBackup() {
         }
 
         // Create backup object with metadata
+        const manifest = chrome.runtime.getManifest()
         const backup = {
             metadata: {
-                version: "0.7.0",
+                version: manifest.version_name,
                 created: new Date().toISOString(),
                 type: backupType,
                 itemCount: Object.keys(backupData).length,

@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.2] - 2025-08-21
+
+### Added
+- ORS scores are now displayed as numbers. Thanks [Baymax2009](https://github.com/Baymax2909) for the contribution. [#26](https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/pull/26)
+
+### Fixed
+- Configuration backup can now be created with the correct extension version.
+
 ## [0.7.1] - 2025-06-21
 
 ### Added
