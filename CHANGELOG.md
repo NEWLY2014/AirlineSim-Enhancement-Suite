@@ -5,16 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.7.3] - TBD
+## [0.7.3] - 2025-11-01
 
 ### Changed
 
-- The formula used to calculate load indices is reworked. [#]
+- The formula used to calculate load indices is reworked. [#27](https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/issues/27)
 
 ### Fixed
 
+- History data comparison on Inventory pages:
+  - "Now" data can now correctly compare to the data from the latest analysis date.
+  - The latest analysis date can now correctly display its comparison versus the earlier date.
+  - Percentage changes can now display with the correct sign. [#28](https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/issues/28)
+  - Columns can now match correctly when having "Show 'now' column" ticked.
 - Internal: Minor spelling mistakes
-
 
 ## [0.7.2] - 2025-08-21
 
