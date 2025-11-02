@@ -125,7 +125,7 @@ function getFlights() {
  */
 function getFlight(row) {
     const cells = row.querySelectorAll("td")
-    const flightNumber = cells[1].querySelector("a[href*=numbers").innerText
+    const flightNumber = cells[1].querySelector("a[href*=numbers]").innerText
     const date = cells[2].innerText
     const compCode = getCompCode(cells[5].innerText)
     const capacity = cells[6].innerText
@@ -514,7 +514,7 @@ function generateRouteIndex(analysis) {
     //Each CMP index
     for (let cmp in analysis.data) {
         if (analysis.data[cmp].valid) {
-            let index = (analysis.data[cmp].analysisPricePoint + (analysis.getLoad(cmp) * 100 * 3)) / 4;
+            let index = analysis.data[cmp].analysisPricePoint * (10 ** (analysis.getLoad(cmp) - 1));
             analysis.data[cmp].index = Math.round(index);
         }
     }
