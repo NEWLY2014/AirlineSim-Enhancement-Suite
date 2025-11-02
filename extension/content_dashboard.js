@@ -1077,12 +1077,12 @@ function displayGeneral() {
     mainDiv.append(title, div);
 }
 
-//Display COmpetitor Monitoring
+//Display Competitor Monitoring
 function displayCompetitorMonitoring() {
     //Div
     let div = $('<div id="aes-div-dashboard-competitorMonitoring" class="as-panel"></div>');
 
-    //Check ROute Managemetn seetings
+    //Check Route Management Settings
     //
     if (!settings.competitorMonitoring) {
         setDefaultCompetitorMonitoringSettings();
