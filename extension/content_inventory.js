@@ -450,63 +450,71 @@ function getAnalysis(flights, prices, storedData) {
 }
 
 function generateRecommendation(analysis, prices) {
-    for (let cmp in analysis.data) {
-        analysis.data[cmp].recommendation = 0;
-        if (analysis.data[cmp].valid) {
-            if (analysis.data[cmp].useCurrentPrice) {
-                //Find recommendation
-                let load = Math.round(analysis.getLoad(cmp) * 100);
-                //Find step
-                let step;
-                for (let i in settings.invPricing.recommendation[cmp].steps) {
-                    step = settings.invPricing.recommendation[cmp].steps[i];
-                    if (load >= step.min && load <= step.max) {
-                        break;
-                    }
-                }
-                //Find new price point
-                let newPricePoint = prices[cmp].currentPricePoint + step.step;
-                //See if new price in bounds for Drop
-                if (step.step < 0) {
-                    analysis.data[cmp].recType = 'bad';
-                    if (newPricePoint < settings.invPricing.recommendation[cmp].minPrice) {
-                        newPricePoint = settings.invPricing.recommendation[cmp].minPrice;
-                    }
-                }
-                //See if new price in bounds for Raise
-                if (step.step > 0) {
-                    analysis.data[cmp].recType = 'good';
-                    if (newPricePoint > settings.invPricing.recommendation[cmp].maxPrice) {
-                        newPricePoint = settings.invPricing.recommendation[cmp].maxPrice;
-                    }
-                }
-                //see if already at highest/lowest price point
-                if (step.step != 0) {
-                    if (newPricePoint == prices[cmp].currentPricePoint) {
-                        if (newPricePoint == settings.invPricing.recommendation[cmp].minPrice) {
-                            //Already at lowest point
-                            analysis.data[cmp].recommendation = 'Already at lowest price!';
-                        }
-                        if (newPricePoint == settings.invPricing.recommendation[cmp].maxPrice) {
-                            //Already at highest point
-                            analysis.data[cmp].recommendation = 'Already at highest price!';
-                        }
-                    }
-                } else {
-                    analysis.data[cmp].recType = 'neutral';
-                }
-                //check if not set by exceptions
-                if (!analysis.data[cmp].recommendation) {
-                    analysis.data[cmp].recommendation = step.name;
-                    analysis.data[cmp].newPriceChange = step.step;
-                    if (step.step) {
-                        analysis.data[cmp].newPricePoint = newPricePoint;
-                        analysis.data[cmp].newPrice = Math.round(newPricePoint / 100 * prices[cmp].defaultPrice);
-                    }
-                }
+    for (const cmp in analysis.data) {
+        const item = analysis.data[cmp];
+        item.recommendation = 0;
+
+        if (!item.valid || !item.useCurrentPrice) {
+            continue;
+        }
+
+        const config = settings.invPricing.recommendation[cmp];
+        const load = Math.round(analysis.getLoad(cmp) * 100);
+
+        // Find matching step
+        let step = null;
+        for (const s of config.steps) {
+            if (load >= s.min && load <= s.max) {
+                step = s;
+                break;
+            }
+        }
+
+        if (!step) {
+            item.recType = 'neutral';
+            item.recommendation = 'No matching recommendation step!';
+            continue;
+        }
+
+        // Recommendation type
+        if (step.step < 0) {
+            item.recType = 'bad';
+        } else if (step.step > 0) {
+            item.recType = 'good';
+        } else {
+            item.recType = 'neutral';
+        }
+
+        // Always enforce bounds
+        const rawPricePoint = prices[cmp].currentPricePoint + step.step;
+        const newPricePoint = Math.min(
+            config.maxPrice,
+            Math.max(config.minPrice, rawPricePoint)
+        );
+
+        // If adjustment is blocked by boundary
+        if (step.step !== 0 && newPricePoint === prices[cmp].currentPricePoint) {
+            if (newPricePoint === config.minPrice) {
+                item.recommendation = 'Already at lowest price!';
+            } else if (newPricePoint === config.maxPrice) {
+                item.recommendation = 'Already at highest price!';
+            }
+        }
+
+        // Normal assignment
+        if (!item.recommendation) {
+            item.recommendation = step.name;
+            item.newPriceChange = step.step;
+
+            if (step.step !== 0) {
+                item.newPricePoint = newPricePoint;
+                item.newPrice = Math.round(
+                    (newPricePoint / 100) * prices[cmp].defaultPrice
+                );
             }
         }
     }
+
     return analysis;
 }
 
