@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Minimum and maximum price limits will be enforced at all times.
+- Fixed an issue that might cause the price to go beyond the set maximum or below the set minimum.
 
 ## [0.7.3] - 2025-11-01
 
