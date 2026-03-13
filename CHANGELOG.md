@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Fixed an issue that might cause price boundaries to be inactive when the price is beyond the set maximum or below the set minimum.
+- 
 ## [0.7.3] - 2025-11-01
 
 ### Changed
