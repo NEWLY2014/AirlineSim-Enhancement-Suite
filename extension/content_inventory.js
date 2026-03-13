@@ -476,7 +476,7 @@ function generateRecommendation(analysis, prices) {
             continue;
         }
 
-        // Recommendation type
+        // Set recommendation type
         if (step.step < 0) {
             item.recType = 'bad';
         } else if (step.step > 0) {
@@ -485,15 +485,15 @@ function generateRecommendation(analysis, prices) {
             item.recType = 'neutral';
         }
 
-        // Always enforce bounds
+        // Always calculate and clamp
         const rawPricePoint = prices[cmp].currentPricePoint + step.step;
         const newPricePoint = Math.min(
             config.maxPrice,
             Math.max(config.minPrice, rawPricePoint)
         );
 
-        // If adjustment is blocked by boundary
-        if (step.step !== 0 && newPricePoint === prices[cmp].currentPricePoint) {
+        // Boundary message when no actual movement is possible
+        if (newPricePoint === prices[cmp].currentPricePoint && step.step !== 0) {
             if (newPricePoint === config.minPrice) {
                 item.recommendation = 'Already at lowest price!';
             } else if (newPricePoint === config.maxPrice) {
@@ -504,9 +504,10 @@ function generateRecommendation(analysis, prices) {
         // Normal assignment
         if (!item.recommendation) {
             item.recommendation = step.name;
-            item.newPriceChange = step.step;
+            item.newPriceChange = newPricePoint - prices[cmp].currentPricePoint;
 
-            if (step.step !== 0) {
+            // Store corrected value if current price was out of bounds
+            if (newPricePoint !== prices[cmp].currentPricePoint || step.step !== 0) {
                 item.newPricePoint = newPricePoint;
                 item.newPrice = Math.round(
                     (newPricePoint / 100) * prices[cmp].defaultPrice
