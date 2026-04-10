@@ -358,7 +358,11 @@ function clearOldData() {
                 // For items with date objects (like schedule data)
                 let hasRecentData = false;
                 for (let dateKey in item.date) {
-                    const itemDate = new Date(parseInt(dateKey));
+                    const itemDate = parseStorageDateKey(dateKey);
+                    if (!itemDate) {
+                        hasRecentData = true;
+                        break;
+                    }
                     if (itemDate.getTime() > cutoffDate) {
                         hasRecentData = true;
                         break;
@@ -388,6 +392,28 @@ function clearOldData() {
             showStatusMessage("No old data found to clear.", "info");
         }
     });
+}
+
+function parseStorageDateKey(dateKey) {
+    const value = String(dateKey);
+
+    if (/^\d{8}$/.test(value)) {
+        const year = parseInt(value.substring(0, 4), 10);
+        const month = parseInt(value.substring(4, 6), 10);
+        const day = parseInt(value.substring(6, 8), 10);
+        const parsedDate = new Date(year, month - 1, day);
+
+        if (
+            parsedDate.getFullYear() === year &&
+            parsedDate.getMonth() === month - 1 &&
+            parsedDate.getDate() === day
+        ) {
+            return parsedDate;
+        }
+    }
+
+    const parsedDate = new Date(value);
+    return isNaN(parsedDate.getTime()) ? null : parsedDate;
 }
 
 function clearAllData() {

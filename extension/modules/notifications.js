@@ -3,7 +3,7 @@ class Notifications {
     container
 
     constructor() {
-        const target = document.querySelector("nav.as-navbar-main + .container-fluid")
+        const target = document.querySelector("nav.as-navbar-main + .container-fluid") || document.body
         const container = document.querySelector(".feedbackPanel")
         this.container = container
         if (!container) {

@@ -13,15 +13,52 @@ function setDefaultSettings() {
         schedule: setDefaultScheduleSettings()
     };
     chrome.storage.local.get(['settings'], function(result) {
-        let settings = result.settings;
-        if (!settings) {
-            settings = aesSettings;
-            chrome.storage.local.set({ settings: aesSettings }, function() {
+        let settings = mergeDefaultSettings(result.settings || {}, aesSettings);
+        chrome.storage.local.set({ settings: settings }, function() {
 
-            });
-        }
+        });
     });
     //
+}
+
+function mergeDefaultSettings(settings, defaults) {
+    if (!settings || typeof settings !== 'object' || Array.isArray(settings)) {
+        return cloneSettings(defaults);
+    }
+
+    let merged = cloneSettings(settings);
+    for (let key in defaults) {
+        const defaultValue = defaults[key];
+        const currentValue = merged[key];
+
+        if (currentValue === undefined) {
+            merged[key] = cloneSettings(defaultValue);
+        } else if (
+            defaultValue &&
+            typeof defaultValue === 'object' &&
+            !Array.isArray(defaultValue)
+        ) {
+            merged[key] = mergeDefaultSettings(currentValue, defaultValue);
+        }
+    }
+
+    return merged;
+}
+
+function cloneSettings(value) {
+    if (Array.isArray(value)) {
+        return value.map(cloneSettings);
+    }
+
+    if (value && typeof value === 'object') {
+        let clone = {};
+        for (let key in value) {
+            clone[key] = cloneSettings(value[key]);
+        }
+        return clone;
+    }
+
+    return value;
 }
 
 function setDefaultScheduleSettings() {

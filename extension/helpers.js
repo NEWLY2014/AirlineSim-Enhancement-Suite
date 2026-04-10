@@ -76,15 +76,22 @@ class AES {
             }
         }
 
-        const name = displayName.replace(/[^A-Za-z0-9]/g, '_');
+        const href = $('a[href*="tab=2"]').attr('href') || $('a[href*="enterprises/"]').attr('href');
+        const match = href?.match(/enterprises\/(\d+)/) || href?.match(/\.\/(\d+)/);
+        const idFromHref = match ? match[1] : null;
+        const name = displayName
+            ? displayName.replace(/[^A-Za-z0-9]/g, '_')
+            : (idFromHref ? `airline_${idFromHref}` : null);
+
+        if (!name) {
+            throw new Error("Unable to determine airline from the current page");
+        }
 
         if (typeof serverAirlinesData[name] !== 'object' || serverAirlinesData[name] === null) {
             serverAirlinesData[name] = {};
         }
 
-        const href = $('a[href*="tab=2"]').attr('href') || $('a[href*="enterprises/"]').attr('href');
-        const match = href?.match(/enterprises\/(\d+)/) || href?.match(/\.\/(\d+)/);
-        let id = match ? match[1] : serverAirlinesData[name].id || null;
+        let id = idFromHref || serverAirlinesData[name].id || null;
 
         if (!code && serverAirlinesData[name].code) {
             code = serverAirlinesData[name].code;

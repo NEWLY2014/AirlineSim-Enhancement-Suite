@@ -5,12 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- Fixed old data cleanup so storage dates in `YYYYMMDD` format are parsed correctly and recent history is not removed by mistake.
+- Fixed settings initialization so existing users receive newly added default settings after an update.
+- Fixed airline detection to avoid storing data under an empty airline key when the current page lacks expected airline details.
+- Fixed notifications initialization so pages without the expected navbar container no longer fail when creating the notification panel.
+
 ## [0.7.4] - 2026-03-06
 
 ### Fixed
 
 - Fixed an issue that might cause price boundaries to be inactive when the price is beyond the set maximum or below the set minimum.
-- 
+
 ## [0.7.3] - 2025-11-01
 
 ### Changed
