@@ -2594,7 +2594,7 @@ function displayAircraftProfitability() {
                         data: data,
                         columnPrefix: 'aes-aircraftProfit-',
 	                    tableSettings: 1,
-	                    options: ['selectFirstSix','openAircraft', 'hideSelected', 'reloadTableAircraftProfit', 'removeAircraft'],
+	                    options: ['selectFirstSix', 'hideSelected', 'openAircraft', 'reloadTableAircraftProfit', 'removeAircraft'],
 	                    filter: settings.aircraftProfitability.filter,
 	                    hideColumn: settings.aircraftProfitability.hideColumn,
 	                    tableSettingStorage: 'aircraftProfitability',

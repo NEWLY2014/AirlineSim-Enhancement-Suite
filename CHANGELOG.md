@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.5] - 2026-04-10
+
 ### Fixed
 
 - Refactored Dashboard tables to share one rendering/control architecture across Route Management, Competitor Monitoring, and Aircraft Profitability, with consistent action buttons, filter controls, column controls, and remove confirmations.
@@ -14,8 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed Dashboard column chooser panels so Competitor Monitoring and Aircraft Profitability stay open while multiple columns are toggled.
 - Fixed Competitor Monitoring controls so the filter panel also appears when no competitors are currently tracked.
 - Improved Dashboard filtering so removing a filter restores matching rows, text columns support substring matching, and Aircraft Profitability averages are recalculated from filtered rows.
+- Unified Route Management and Aircraft Profitability action button order.
 - Expanded Competitor Monitoring facts and figures extraction to include operated flights, seats offered, seat kilometer offered, units offered, and freight kilometer offered.
 - Improved Dashboard Competitor Monitoring loading by indexing tracked competitors per controlled airline and loading only their schedule data.
+- Removed an unused extension permission and added Chrome Web Store privacy and listing preparation materials.
 - Fixed reported Inventory and Dashboard runtime errors caused by missing page elements or unavailable storage references.
 - Fixed Aircraft Profitability age aggregation so age is averaged in the summary row instead of summed.
 - Fixed source archive hygiene so development-only repository files are excluded from generated archives.
@@ -230,7 +234,15 @@ for pointing it out).
 
 _First release._
 
-[unreleased]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.6.8...HEAD
+[unreleased]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.7.5...HEAD
+[0.7.5]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.7.4...v0.7.5
+[0.7.4]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.7.3...v0.7.4
+[0.7.3]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.7.2...v0.7.3
+[0.7.2]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.7.1...v0.7.2
+[0.7.1]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.7.0...v0.7.1
+[0.7.0]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.6.10...v0.7.0
+[0.6.10]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.6.9...v0.6.10
+[0.6.9]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.6.8...v0.6.9
 [0.6.8]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.6.7...v0.6.8
 [0.6.7]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.6.6...v0.6.7
 [0.6.6]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.6.5...v0.6.6

@@ -32,6 +32,10 @@ This guide is based on [racsofp’s guide](https://forums.airlinesim.aero/t/manu
 
 The extensions should be added, and you can enable it.
 
+## Privacy
+
+AES stores extension settings and extracted AirlineSim gameplay data locally in the browser. See [PRIVACY.md](PRIVACY.md) for details.
+
 ### Please note
 Until AES is available on the Chrome web store, please apply this method to install it manually.
 
