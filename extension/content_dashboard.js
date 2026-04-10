@@ -452,7 +452,7 @@ function buildDashboardFilterPanel(options) {
         tfoot
     );
     let applyBtn = $('<button type="button" class="btn btn-default">Apply filter</button>');
-    let status = $('<span></span>');
+    let status = $('<span class="aes-dashboard-filter-status"></span>');
     applyBtn.click(function() {
         let filters = serializeFilters();
         updateSummary();
@@ -532,12 +532,12 @@ function buildGeneratedDashboardTableSettings(tableOptionsRule, table) {
         valueField: 'titlecode',
         labelField: 'title',
         onApply: function(filter, status) {
-            status.removeClass().addClass('warning').text(' saving...');
+            status.removeClass('good bad warning').addClass('warning').text('Saving...');
             settings[tableOptionsRule.tableSettingStorage].filter = filter;
             dashboardStorage.set({ settings: settings }, function() {
-                status.removeClass().addClass('warning').text(' filtering...');
+                status.removeClass('good bad warning').addClass('warning').text('Filtering...');
                 applyDashboardTableFilters(table, filter, tableOptionsRule.column, 'titlecode', tableOptionsRule.columnPrefix);
-                status.removeClass().addClass('good').text(' done!');
+                status.removeClass('good bad warning').addClass('good').text('Done');
             });
         }
     })));
@@ -997,15 +997,15 @@ function displayRouteManagementFilters() {
         buildDashboardFilterPanel({
             filters: settings.routeManagement.filter,
             columns: getRouteManagementDashboardColumns(),
-            valueField: 'columnCode',
-            labelField: 'column',
+            valueField: 'filterValue',
+            labelField: 'title',
             onApply: function(filter, status) {
-                status.removeClass().addClass('warning').text(' saving...');
+                status.removeClass('good bad warning').addClass('warning').text('Saving...');
                 settings.routeManagement.filter = filter;
                 dashboardStorage.set({ settings: settings }, function() {
-                    status.removeClass().addClass('warning').text(' filtering...');
+                    status.removeClass('good bad warning').addClass('warning').text('Filtering...');
                     routeManagementApplyFilter();
-                    status.removeClass().addClass('good').text(' done!');
+                    status.removeClass('good bad warning').addClass('good').text('Done');
                 });
             }
         })
@@ -1948,16 +1948,16 @@ function displayCompetitorMonitoringAirlinesTableFilters(table, columns) {
         valueField: 'data',
         labelField: 'title',
         onApply: function(filter, status) {
-            status.removeClass().addClass('warning').text(' saving...');
+            status.removeClass('good bad warning').addClass('warning').text('Saving...');
             settings.competitorMonitoring.filter = filter;
             dashboardStorage.set({ settings: settings }, function() {
                 if (!table) {
-                    status.removeClass().addClass('good').text(' saved!');
+                    status.removeClass('good bad warning').addClass('good').text('Saved');
                     return;
                 }
-                status.removeClass().addClass('warning').text(' filtering...');
+                status.removeClass('good bad warning').addClass('warning').text('Filtering...');
                 applyDashboardTableFilters(table, filter, columns, 'data');
-                status.removeClass().addClass('good').text(' done!');
+                status.removeClass('good bad warning').addClass('good').text('Done');
             });
         }
     }));
