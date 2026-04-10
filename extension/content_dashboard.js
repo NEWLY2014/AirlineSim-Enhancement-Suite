@@ -1954,23 +1954,31 @@ function displayCompetitorMonitoringAirlinesTableOptions(table, compAirlinesSche
     let actions = $('<div class="btn-group aes-dashboard-control-actions"></div>');
     let openAirlineBtn = $('<button type="button" class="btn btn-default">Open airline page</button>');
     let showScheduleBtn = $('<button type="button" class="btn btn-default">Show airline schedule</button>');
-    let removeBtn = $('<button type="button" class="btn btn-default aes-dashboard-confirm-action">Remove competitor</button>');
+    let removeBtn = $('<button type="button" class="btn btn-default aes-dashboard-confirm-action">Remove airline</button>');
     let reloadBtn = $('<button type="button" class="btn btn-default">Reload table</button>');
-    if (table) {
-        actions.append(openAirlineBtn, showScheduleBtn, removeBtn);
+    actions.append(openAirlineBtn, showScheduleBtn, removeBtn, reloadBtn);
+    if (!table) {
+        openAirlineBtn.prop('disabled', true);
+        showScheduleBtn.prop('disabled', true);
+        removeBtn.prop('disabled', true);
     }
-    actions.append(reloadBtn);
     let optionsDiv = $('<div class="col-md-4"></div>').append(
         buildDashboardControlPanel('Actions', '', actions, true)
     );
 
     openAirlineBtn.click(function() {
+        if (!table) {
+            return;
+        }
         getSelectedCompetitorRows(table).slice(0, 6).forEach(function(rowData) {
             window.open('/app/info/enterprises/' + rowData.airlineId, '_blank');
         });
     });
 
     showScheduleBtn.click(function() {
+        if (!table) {
+            return;
+        }
         let rows = getSelectedCompetitorRows(table);
         if (!rows.length || !compAirlinesSchedule[rows[0].airlineId]) {
             return;
@@ -1979,11 +1987,14 @@ function displayCompetitorMonitoringAirlinesTableOptions(table, compAirlinesSche
     });
 
     removeBtn.click(function() {
+        if (!table) {
+            return;
+        }
         let btn = $(this);
         let rows = getSelectedCompetitorRows(table);
         if (!rows.length) {
-            btn.removeClass('btn-warning').addClass('btn-default').text('Select competitor first').delay(900).queue(function(next) {
-                $(this).text('Remove competitor');
+            btn.removeClass('btn-warning').addClass('btn-default').text('Select airline first').delay(900).queue(function(next) {
+                $(this).text('Remove airline');
                 next();
             });
             return;
@@ -2010,7 +2021,7 @@ function displayCompetitorMonitoringAirlinesTableOptions(table, compAirlinesSche
                     $('#aes-compMon-row-' + rowData.airlineId, table).remove();
                     removeCompetitorFromIndex(rowData.airlineId);
                 });
-                btn.data('confirm', false).removeClass('btn-warning').addClass('btn-default').text('Remove competitor');
+                btn.data('confirm', false).removeClass('btn-warning').addClass('btn-default').text('Remove airline');
             });
         });
     });
