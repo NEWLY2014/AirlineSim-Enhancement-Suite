@@ -234,7 +234,7 @@ function buildDashboardTable(options) {
     if (options.selectable) {
         let checkbox = $('<input type="checkbox">');
         checkbox.change(function() {
-            $('tbody tr input[type="checkbox"]', tableHtml).prop('checked', this.checked);
+            $('tbody tr:visible input[type="checkbox"]', tableHtml).prop('checked', this.checked);
         });
         categoryCells.push($('<th rowspan="2"></th>').append(checkbox));
     }
@@ -284,6 +284,7 @@ function buildDashboardTable(options) {
         if (options.rowId) {
             row.attr('id', options.rowId(rowData));
         }
+        row.data('aesDashboardRowData', rowData);
         bodyRows.push(row);
     });
 
@@ -292,6 +293,9 @@ function buildDashboardTable(options) {
     tableHtml.append(thead, tbody);
     if (options.footer) {
         tableHtml.append(buildDashboardTableFooter(options, visibleColumns));
+        tableHtml.data('aesDashboardFooterColumns', visibleColumns);
+        tableHtml.data('aesDashboardColumnPrefix', options.columnPrefix || '');
+        updateDashboardTableFooter(tableHtml);
     }
 
     return {
@@ -303,38 +307,69 @@ function buildDashboardTable(options) {
 function buildDashboardTableFooter(options, visibleColumns) {
     let cells = [];
     if (options.selectable) {
-        cells.push('<th>Total / Avg</th>');
+        cells.push('<th>Average</th>');
     }
 
     visibleColumns.forEach(function(column) {
-        if (!column.number) {
+        if (!column.number || column.id || column.aggregate === false) {
             cells.push('<td></td>');
             return;
         }
 
-        let values = options.data.map(function(rowData) {
-            return parseFloat(rowData[column.data]);
-        }).filter(function(value) {
-            return !isNaN(value);
-        });
-
-        let result = '';
-        if (values.length) {
-            result = values.reduce(function(total, value) {
-                return total + value;
-            }, 0);
-            if (column.aggregate === 'average') {
-                result = Math.round((result / values.length) * 10) / 10;
-            }
-        }
-
-        cells.push($('<td></td>').html(formatDashboardCell(column.format, result)));
+        cells.push($('<td></td>'));
     });
 
     return $('<tfoot></tfoot>').append($('<tr></tr>').append(cells));
 }
 
+function parseDashboardNumber(value) {
+    if (value === undefined || value === null) {
+        return NaN;
+    }
+    return parseFloat(String(value).replace(/,/g, '').replace(/[^0-9.-]/g, ''));
+}
+
+function updateDashboardTableFooter(table) {
+    let columns = table.data('aesDashboardFooterColumns');
+    if (!columns) {
+        return;
+    }
+
+    let columnPrefix = table.data('aesDashboardColumnPrefix') || '';
+    let rowCells = $('tfoot tr', table).children();
+    let offset = $('thead tr:last th', table).length - columns.length;
+
+    columns.forEach(function(column, index) {
+        let footerCell = rowCells.eq(index + offset);
+        if (!column.number || column.id || column.aggregate === false) {
+            footerCell.empty();
+            return;
+        }
+
+        let columnClass = getDashboardColumnClass(columnPrefix, column);
+        let values = $('tbody tr', table).filter(function() {
+            return $(this).css('display') != 'none';
+        }).map(function() {
+            return parseDashboardNumber($(this).find("." + columnClass).text());
+        }).toArray().filter(function(value) {
+            return !isNaN(value);
+        });
+
+        if (!values.length) {
+            footerCell.empty();
+            return;
+        }
+
+        let result = values.reduce(function(total, value) {
+            return total + value;
+        }, 0) / values.length;
+        result = Math.round(result * 10) / 10;
+        footerCell.html(formatDashboardCell(column.format, result));
+    });
+}
+
 function applyDashboardTableFilters(table, filters, columns, filterValueField, columnPrefix) {
+    $('tbody tr', table).show();
     $('tbody tr', table).each(function() {
         let row = this;
         filters.forEach(function(filter) {
@@ -349,29 +384,30 @@ function applyDashboardTableFilters(table, filters, columns, filterValueField, c
             let cell = $(row).find("." + getDashboardColumnClass(columnPrefix || '', column)).text();
             let value = filter.value;
             if (column.number) {
-                cell = cell ? parseFloat(cell) : 0;
-                value = value ? parseFloat(value) : 0;
+                cell = cell ? parseDashboardNumber(cell) : 0;
+                value = value ? parseDashboardNumber(value) : 0;
             }
 
             switch (filter.operation) {
                 case '=':
-                    if (cell != value) $(row).remove();
+                    if (cell != value) $(row).hide();
                     break;
                 case '!=':
-                    if (cell == value) $(row).remove();
+                    if (cell == value) $(row).hide();
                     break;
                 case '>':
-                    if (cell < value) $(row).remove();
+                    if (cell < value) $(row).hide();
                     break;
                 case '<':
-                    if (cell > value) $(row).remove();
+                    if (cell > value) $(row).hide();
                     break;
                 case 'contains':
-                    if (String(cell).toLowerCase().indexOf(String(value).toLowerCase()) == -1) $(row).remove();
+                    if (String(cell).toLowerCase().indexOf(String(value).toLowerCase()) == -1) $(row).hide();
                     break;
             }
         });
     });
+    updateDashboardTableFooter(table);
 }
 
 function buildDashboardFilterPanel(options) {
@@ -389,11 +425,9 @@ function buildDashboardFilterPanel(options) {
         columnOptions.push('<option value="' + (column.filterValue || column.data) + '">' + column.title + '</option>');
     });
     let columnSelect = $('<select class="form-control"></select>').append(columnOptions);
-    let operationSelect = $('<select class="form-control"></select>').append(
-        (options.operations || ['=', '!=', '>', '<']).map(function(operation) {
-            return $('<option></option>').text(operation);
-        })
-    );
+    let operationSelect = $('<select class="form-control"></select>');
+    updateOperationOptions();
+    columnSelect.change(updateOperationOptions);
     let input = $('<input type="text" class="form-control" style="min-width: 50px;">');
     let addBtn = $('<button type="button" class="btn btn-default"></button>').text('Add');
     addBtn.click(function() {
@@ -444,6 +478,22 @@ function buildDashboardFilterPanel(options) {
             $('<td></td>').append(deleteBtn)
         ];
     }
+
+    function updateOperationOptions() {
+        let selectedColumn = options.columns.find(function(column) {
+            let value = column.filterValue || column.data;
+            return value == columnSelect.val();
+        });
+        let operations = options.operations;
+        if (!operations) {
+            operations = selectedColumn && selectedColumn.number ? ['=', '!=', '>', '<'] : ['=', '!=', 'contains'];
+        } else if (typeof operations == 'function') {
+            operations = operations(selectedColumn);
+        }
+        operationSelect.empty().append(operations.map(function(operation) {
+            return $('<option></option>').text(operation);
+        }));
+    }
 }
 
 function buildGeneratedDashboardTableSettings(tableOptionsRule, table) {
@@ -489,7 +539,7 @@ function buildGeneratedDashboardAction(value, tableOptionsRule, table) {
         case 'selectFirstSix':
             return $('<button type="button" class="btn btn-default">Select first 6</button>').click(function() {
                 let count = 0;
-                $('tbody tr', table).each(function() {
+                $('tbody tr:visible', table).each(function() {
                     $(this).find('input[type="checkbox"]').prop('checked', true);
                     count++;
                     if (count >= 6) {
@@ -499,7 +549,7 @@ function buildGeneratedDashboardAction(value, tableOptionsRule, table) {
             });
         case 'openAircraft':
             return $('<button type="button" class="btn btn-default">Open aircraft (max 6)</button>').click(function() {
-                let urls = $('tbody tr', table).has('input:checked').map(function() {
+                let urls = $('tbody tr:visible', table).has('input:checked').map(function() {
                     return 'https://' + server + '.airlinesim.aero/app/fleets/aircraft/' + $(this).attr('id') + '/1';
                 }).toArray();
                 for (let i = 0; i < urls.length; i++) {
@@ -518,7 +568,7 @@ function buildGeneratedDashboardAction(value, tableOptionsRule, table) {
                 let btn = $(this);
                 let id = [];
                 let aircraftKey = [];
-                $('tbody tr', table).has('input:checked').each(function() {
+                $('tbody tr:visible', table).has('input:checked').each(function() {
                     let localId = $(this).attr('id');
                     id.push(localId);
                     aircraftKey.push(server + 'aircraftFlights' + localId);
@@ -542,7 +592,8 @@ function buildGeneratedDashboardAction(value, tableOptionsRule, table) {
                         return id.indexOf(String(value.aircraftId)) == -1;
                     });
                     dashboardStorage.set({ [fleetKey]: storedFleetData }, function() {
-                        $('tbody tr', table).has('input:checked').remove();
+                        $('tbody tr:visible', table).has('input:checked').remove();
+                        updateDashboardTableFooter(table);
                         btn.data('confirm', false).removeClass('btn-warning').addClass('btn-default').text('Remove aircraft');
                         dashboardStorage.remove(aircraftKey, function() {});
                     });
@@ -550,7 +601,8 @@ function buildGeneratedDashboardAction(value, tableOptionsRule, table) {
             });
         case 'hideSelected':
             return $('<button type="button" class="btn btn-default">Hide checked</button>').click(function() {
-                $('tbody tr', table).has('input:checked').remove();
+                $('tbody tr:visible', table).has('input:checked').remove();
+                updateDashboardTableFooter(table);
             });
         default:
             return null;
@@ -670,7 +722,7 @@ function displayRouteManagement() {
             // Select first 6
             buttonElements["selectFirstSix"].element.addEventListener("click", function() {
                 let count = 0
-                $('#aes-table-routeManagement tbody tr').each(function() {
+                $('#aes-table-routeManagement tbody tr:visible').each(function() {
                     $(this).find("input").prop('checked', true);
                     count++;
                     if (count > 5) {
@@ -681,13 +733,13 @@ function displayRouteManagement() {
 
             // Remove checked
             buttonElements["hideChecked"].element.addEventListener("click", function() {
-                $('#aes-table-routeManagement tbody tr').has('input:checked').remove();
+                $('#aes-table-routeManagement tbody tr:visible').has('input:checked').remove();
             });
 
             // Open Inventory
             buttonElements["openInventory"].element.addEventListener("click", function() {
                 //Get checked columns
-                let pages = $('#aes-table-routeManagement tbody tr').has('input:checked').map(function() {
+                let pages = $('#aes-table-routeManagement tbody tr:visible').has('input:checked').map(function() {
                     let orgdest = $(this).attr('id');
                     orgdest = orgdest.split("-");
                     orgdest = orgdest[2];
@@ -898,52 +950,7 @@ function setDefaultRouteManagementSettings() {
 }
 
 function routeManagementApplyFilter() {
-    $('#aes-table-routeManagement tbody tr').each(function() {
-        let row = this;
-        settings.routeManagement.filter.forEach(function(filter) {
-            let cell = $(row).find("." + filter.columnCode).text();
-            //if(cell){
-            //Get column info if number or not
-            let number;
-            for (let i = 0; i < settings.routeManagement.tableColumns.length; i++) {
-                let column = settings.routeManagement.tableColumns[i];
-                if (filter.columnCode == column.class) {
-                    number = column.number;
-                    break;
-                }
-            }
-            let value = filter.value;
-            if (number) {
-                if (cell) {
-                    cell = parseInt(cell, 10);
-                }
-                if (value) {
-                    value = parseInt(value, 10);
-                }
-            }
-            switch (filter.operation) {
-                case '=':
-                    if (cell != value) {
-                        $(row).remove();
-                    }
-                    break;
-                case '!=':
-                    if (cell == value) {
-                        $(row).remove();
-                    }
-                    break;
-                case '>':
-                    if (cell < value) {
-                        $(row).remove();
-                    }
-                    break;
-                case '<':
-                    if (cell > value) {
-                        $(row).remove();
-                    }
-            }
-        });
-    });
+    applyDashboardTableFilters($('#aes-table-routeManagement'), settings.routeManagement.filter, getRouteManagementDashboardColumns(), 'filterValue');
 }
 
 function getRouteManagementDashboardColumns() {
@@ -958,15 +965,6 @@ function getRouteManagementDashboardColumns() {
             visible: col.show,
             sortable: 1
         };
-    });
-    columns.push({
-        category: 'Actions',
-        title: 'Action',
-        data: 'actionInventory',
-        className: 'aes-routeManagement-action',
-        visible: 1,
-        sortable: 0,
-        filterable: false
     });
     return columns;
 }
@@ -1079,6 +1077,7 @@ function generateRouteManagementTable(scheduleData) {
     });
     let divTable = $('<div id="aes-div-routeManagement"></div>').append(table.tableWell);
     $('#aes-div-dashboard-routeManagement').append(divTable)
+    routeManagementApplyFilter();
     //Analysis columns
     //Get unique ODs
     uniqueOD = [...new Set(uniqueOD)];
@@ -1628,47 +1627,14 @@ function displayCompetitorMonitoringAirlinesTable(div) {
                         }
                     }
                 }
-                //Action columns
-                //Open airline
-                data.actionOpenAirline = '<a class="btn btn-xs btn-default" href="/app/info/enterprises/' + data.airlineId + '">Airline</a>';
-                //Open schedule
-                if (compAirlinesSchedule[data.airlineId]) {
-                    data.actionOpenSchedule = $('<button type="button" id="aes-compMon-btn-schedule-' + data.airlineId + '" class="btn btn-xs btn-default">Schedule</button>');
-                    //Create schedule table
-                    $('#aes-div-dashboard').on('click.aesCompetitorMonitoring', 'button#aes-compMon-btn-schedule-' + data.airlineId, function() {
-                        displayCompetitorMonitoringAirlineScheduleTable(div, compAirlinesSchedule[data.airlineId], data);
-                    });
-                }
-                //Remove airline '
-                data.actionRemoveAirline = $('<button type="button" id="aes-compMon-btn-remove-' + data.airlineId + '" class="btn btn-xs btn-default aes-dashboard-confirm-action">Remove competitor</button>');
-                //Remove airline action
-                $('#aes-div-dashboard').on('click.aesCompetitorMonitoring', 'button#aes-compMon-btn-remove-' + data.airlineId, function() {
-                    if (!$(this).data('confirm')) {
-                        $(this).data('confirm', true).removeClass('btn-default').addClass('btn-warning').text('Confirm remove 1');
-                        return;
-                    }
-                    let key = data.competitorMonitoringKey;
-                    let remove = $(this);
-                    dashboardStorage.get([key], function(compMonitoringData) {
-                        let compData = compMonitoringData[key];
-                        if (!compData) {
-                            return;
-                        }
-                        compData.tracking = 0;
-                        dashboardStorage.set({
-                            [compData.key]: compData }, function() {
-                            $(remove).closest("tr").remove();
-                            removeCompetitorFromIndex(compData.id);
-                        });
-                    });
-                });
-
                 tableData.push(data);
 
             });
             }
 
-            let tableColumns = settings.competitorMonitoring.tableColumns.map(function(col) {
+            let tableColumns = settings.competitorMonitoring.tableColumns.filter(function(col) {
+                return col.headGroup != 'Actions';
+            }).map(function(col) {
                 return {
                     category: col.headGroup,
                     title: col.text,
@@ -1691,7 +1657,7 @@ function displayCompetitorMonitoringAirlinesTable(div) {
                 tableId: 'aes-table-competitorMonitoring',
                 columns: tableColumns,
                 data: tableData,
-                selectable: false,
+                selectable: true,
                 footer: false,
                 rowId: function(row) {
                     return 'aes-compMon-row-' + row.airlineId;
@@ -1699,7 +1665,7 @@ function displayCompetitorMonitoringAirlinesTable(div) {
             });
             applyDashboardTableFilters(table.table, settings.competitorMonitoring.filter || [], tableColumns, 'data');
             let divRow = $('<div class="row aes-dashboard-controls"></div>').append(
-                displayCompetitorMonitoringAirlinesTableOptions(),
+                displayCompetitorMonitoringAirlinesTableOptions(table.table, compAirlinesSchedule, div, removeCompetitorFromIndex),
                 displayCompetitorMonitoringAirlinesTableFilters(table.table, tableColumns),
                 displayCompetitorMonitoringAirlinesTableColumns()
             );
@@ -1924,9 +1890,13 @@ function displayCompetitorMonitoringAirlineScheduleTable(mainDiv, scheduleData, 
 
 function displayCompetitorMonitoringAirlinesTableColumns() {
     let visibleCount = settings.competitorMonitoring.tableColumns.filter(function(col) {
+        return col.headGroup != 'Actions';
+    }).filter(function(col) {
         return col.visible;
     }).length;
-    let picker = buildDashboardColumnsPicker(settings.competitorMonitoring.tableColumns, {
+    let picker = buildDashboardColumnsPicker(settings.competitorMonitoring.tableColumns.filter(function(col) {
+        return col.headGroup != 'Actions';
+    }), {
         groupField: 'headGroup',
         labelField: 'text',
         valueField: 'field',
@@ -1950,7 +1920,6 @@ function displayCompetitorMonitoringAirlinesTableFilters(table, columns) {
         columns: columns,
         valueField: 'data',
         labelField: 'title',
-        operations: ['=', '!=', '>', '<', 'contains'],
         onApply: function(filter, status) {
             status.removeClass().addClass('warning').text(' saving...');
             settings.competitorMonitoring.filter = filter;
@@ -1964,23 +1933,89 @@ function displayCompetitorMonitoringAirlinesTableFilters(table, columns) {
     return div;
 }
 
-function displayCompetitorMonitoringAirlinesTableOptions() {
+function displayCompetitorMonitoringAirlinesTableOptions(table, compAirlinesSchedule, mainDiv, removeCompetitorFromIndex) {
     let actions = $('<div class="btn-group aes-dashboard-control-actions"></div>');
-    let btn = $('<button type="button" class="btn btn-default">Reload table</button>');
-    actions.append(btn);
+    let openAirlineBtn = $('<button type="button" class="btn btn-default">Open airline page</button>');
+    let showScheduleBtn = $('<button type="button" class="btn btn-default">Show airline schedule</button>');
+    let removeBtn = $('<button type="button" class="btn btn-default aes-dashboard-confirm-action">Remove competitor</button>');
+    let reloadBtn = $('<button type="button" class="btn btn-default">Reload table</button>');
+    if (table) {
+        actions.append(openAirlineBtn, showScheduleBtn, removeBtn);
+    }
+    actions.append(reloadBtn);
     let optionsDiv = $('<div class="col-md-4"></div>').append(
         buildDashboardControlPanel('Actions', '', actions, true)
     );
+
+    openAirlineBtn.click(function() {
+        getSelectedCompetitorRows(table).slice(0, 6).forEach(function(rowData) {
+            window.open('/app/info/enterprises/' + rowData.airlineId, '_blank');
+        });
+    });
+
+    showScheduleBtn.click(function() {
+        let rows = getSelectedCompetitorRows(table);
+        if (!rows.length || !compAirlinesSchedule[rows[0].airlineId]) {
+            return;
+        }
+        displayCompetitorMonitoringAirlineScheduleTable(mainDiv, compAirlinesSchedule[rows[0].airlineId], rows[0]);
+    });
+
+    removeBtn.click(function() {
+        let btn = $(this);
+        let rows = getSelectedCompetitorRows(table);
+        if (!rows.length) {
+            btn.removeClass('btn-warning').addClass('btn-default').text('Select competitor first').delay(900).queue(function(next) {
+                $(this).text('Remove competitor');
+                next();
+            });
+            return;
+        }
+        if (!btn.data('confirm')) {
+            btn.data('confirm', true).removeClass('btn-default').addClass('btn-warning').text('Confirm remove ' + rows.length);
+            return;
+        }
+
+        let keys = rows.map(function(rowData) {
+            return rowData.competitorMonitoringKey;
+        });
+        dashboardStorage.get(keys, function(compMonitoringData) {
+            let updates = {};
+            rows.forEach(function(rowData) {
+                let compData = compMonitoringData[rowData.competitorMonitoringKey];
+                if (compData) {
+                    compData.tracking = 0;
+                    updates[compData.key] = compData;
+                }
+            });
+            dashboardStorage.set(updates, function() {
+                rows.forEach(function(rowData) {
+                    $('#aes-compMon-row-' + rowData.airlineId, table).remove();
+                    removeCompetitorFromIndex(rowData.airlineId);
+                });
+                btn.data('confirm', false).removeClass('btn-warning').addClass('btn-default').text('Remove competitor');
+            });
+        });
+    });
+
     //Reload table
-    btn.click(function() {
+    reloadBtn.click(function() {
         displayCompetitorMonitoring();
     });
 
     return optionsDiv;
 }
 
+function getSelectedCompetitorRows(table) {
+    return $('tbody tr:visible', table).has('input:checked').map(function() {
+        return $(this).data('aesDashboardRowData');
+    }).toArray().filter(function(rowData) {
+        return !!rowData;
+    });
+}
+
 function getDefaultCompetitorMonitoringColumns() {
-    return [
+    let columns = [
         {
             field: 'airlineId',
             text: 'ID',
@@ -2274,29 +2309,11 @@ function getDefaultCompetitorMonitoringColumns() {
             headGroup: 'Schedule',
             visible: 1,
             number: 1
-    },
-        {
-            field: 'actionOpenAirline',
-            text: 'Open airline page',
-            headGroup: 'Actions',
-            visible: 1,
-            number: 0
-    },
-        {
-            field: 'actionOpenSchedule',
-            text: 'Show airline schedule',
-            headGroup: 'Actions',
-            visible: 1,
-            number: 0
-    },
-        {
-            field: 'actionRemoveAirline',
-            text: 'Remove airline',
-            headGroup: 'Actions',
-            visible: 0,
-            number: 0
     }
   ];
+    return columns.filter(function(column) {
+        return column.headGroup != 'Actions';
+    });
 }
 
 function setDefaultCompetitorMonitoringSettings() {
@@ -2322,6 +2339,10 @@ function ensureCompetitorMonitoringSettings() {
         settings.competitorMonitoring.tableColumns = defaultColumns;
         return;
     }
+
+    settings.competitorMonitoring.tableColumns = settings.competitorMonitoring.tableColumns.filter(function(column) {
+        return column.headGroup != 'Actions';
+    });
 
     settings.competitorMonitoring.tableColumns.forEach(function(column) {
         if (column.field == 'faffkoDela') {
@@ -2621,6 +2642,7 @@ function generateTable(tableOptionsRule) {
             return idColumn ? dataValue[idColumn.data] : null;
         }
     });
+    applyDashboardTableFilters(dashboardTable.table, tableOptionsRule.filter || [], tableOptionsRule.column, 'titlecode', tableOptionsRule.columnPrefix);
     return $('<div></div>').append(buildGeneratedDashboardTableSettings(tableOptionsRule, dashboardTable.table), dashboardTable.tableWell);
 }
 //Display general helper functions
@@ -2657,7 +2679,7 @@ function generalAddScheduleRow(tbody) {
 }
 
 function generalUpdateScheduleAction(td3) {
-    let btn = $('<button type="button" class="btn btn-xs btn-default">extract schedule data</button>');
+    let btn = $('<button type="button" class="btn btn-default">Extract schedule data</button>');
     btn.click(function() {
         settings.schedule.autoExtract = 1;
         //get schedule link
@@ -2697,7 +2719,7 @@ function generalAddPersonnelManagementRow(tbody) {
     });
 
     //Action
-    let btn = $('<button type="button" class="btn btn-xs btn-default">open personnel management</button>');
+    let btn = $('<button type="button" class="btn btn-default">Open personnel management</button>');
     btn.click(function() {
         //get schedule link
         let link = $('#as-navbar-main-collapse > ul > li:eq(4) > ul > li:eq(5) > a');

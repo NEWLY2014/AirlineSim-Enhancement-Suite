@@ -10,7 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Refactored Dashboard tables to share one rendering/control architecture across Route Management, Competitor Monitoring, and Aircraft Profitability, with consistent action buttons, filter controls, column controls, and remove confirmations.
-- Added Dashboard Competitor Monitoring filters, including substring matching for airline names.
+- Added Dashboard Competitor Monitoring filters and moved competitor row actions into the shared action toolbar.
+- Improved Dashboard filtering so removing a filter restores matching rows, text columns support substring matching, and Aircraft Profitability averages are recalculated from filtered rows.
 - Expanded Competitor Monitoring facts and figures extraction to include operated flights, seats offered, seat kilometer offered, units offered, and freight kilometer offered.
 - Improved Dashboard Competitor Monitoring loading by indexing tracked competitors per controlled airline and loading only their schedule data.
 - Fixed reported Inventory and Dashboard runtime errors caused by missing page elements or unavailable storage references.
