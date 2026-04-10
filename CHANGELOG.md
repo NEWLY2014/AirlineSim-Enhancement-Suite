@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed source archive hygiene so development-only repository files are excluded from generated archives.
 - Fixed Manifest V3 compliance issues by removing remote stylesheets from extension pages and replacing deprecated `ShowPageAction` usage.
 - Fixed Competitor Monitoring so each controlled airline has its own competitor list instead of sharing one server-wide list.
 - Fixed old data cleanup so storage dates in `YYYYMMDD` format are parsed correctly and recent history is not removed by mistake.
