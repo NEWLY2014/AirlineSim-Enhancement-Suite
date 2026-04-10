@@ -9,19 +9,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.7.5] - 2026-04-10
 
+### Added
+
+- Added Dashboard filters for Competitor Monitoring, including substring matching for text fields.
+- Added additional Competitor Monitoring facts and figures extraction for operated flights, seats offered, seat kilometer offered, units offered, and freight kilometer offered.
+- Added local release and Chrome Web Store preparation materials, including a packaging script, privacy policy, and store listing draft.
+
+### Changed
+
+- Refactored Dashboard tables to share one rendering and control architecture across Route Management, Competitor Monitoring, and Aircraft Profitability.
+- Moved Competitor Monitoring row actions into the shared Dashboard action toolbar and aligned Dashboard action button order across Route Management and Aircraft Profitability.
+- Improved Dashboard filtering and aggregate behavior so filters, column toggles, and Aircraft Profitability averages stay in sync with the visible table state.
+
+### Removed
+
+- Removed an unused extension permission to reduce Chrome Web Store review scope.
+
 ### Fixed
 
-- Refactored Dashboard tables to share one rendering/control architecture across Route Management, Competitor Monitoring, and Aircraft Profitability, with consistent action buttons, filter controls, column controls, and remove confirmations.
-- Added Dashboard Competitor Monitoring filters and moved competitor row actions into the shared action toolbar.
 - Fixed Dashboard column chooser panels so Competitor Monitoring and Aircraft Profitability stay open while multiple columns are toggled.
 - Fixed Competitor Monitoring controls so the filter panel also appears when no competitors are currently tracked.
-- Improved Dashboard filtering so removing a filter restores matching rows, text columns support substring matching, and Aircraft Profitability averages are recalculated from filtered rows.
-- Unified Route Management and Aircraft Profitability action button order.
-- Expanded Competitor Monitoring facts and figures extraction to include operated flights, seats offered, seat kilometer offered, units offered, and freight kilometer offered.
 - Improved Dashboard Competitor Monitoring loading by indexing tracked competitors per controlled airline and loading only their schedule data.
-- Removed an unused extension permission and added Chrome Web Store privacy and listing preparation materials.
-- Fixed reported Inventory and Dashboard runtime errors caused by missing page elements or unavailable storage references.
-- Fixed Aircraft Profitability age aggregation so age is averaged in the summary row instead of summed.
+- Fixed Fleet Management so updating aircraft data no longer creates a phantom aircraft entry when the default fleet is empty. [#29](https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/issues/29)
+- Fixed reported Inventory and Dashboard runtime errors caused by missing page elements or unavailable storage references. [#4](https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/issues/4) [#5](https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/issues/5) [#6](https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/issues/6)
+- Fixed Aircraft Profitability age aggregation so age is averaged in the summary row instead of summed. [#9](https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/issues/9)
 - Fixed source archive hygiene so development-only repository files are excluded from generated archives.
 - Fixed Manifest V3 compliance issues by removing remote stylesheets from extension pages and replacing deprecated `ShowPageAction` usage.
 - Fixed Competitor Monitoring so each controlled airline has its own competitor list instead of sharing one server-wide list.
