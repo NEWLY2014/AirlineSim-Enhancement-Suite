@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Refactored Dashboard tables to share one rendering/control architecture across Route Management, Competitor Monitoring, and Aircraft Profitability, with consistent action buttons, filter controls, column controls, and remove confirmations.
 - Added Dashboard Competitor Monitoring filters and moved competitor row actions into the shared action toolbar.
+- Fixed Dashboard column chooser panels so Competitor Monitoring and Aircraft Profitability stay open while multiple columns are toggled.
+- Fixed Competitor Monitoring controls so the filter panel also appears when no competitors are currently tracked.
 - Improved Dashboard filtering so removing a filter restores matching rows, text columns support substring matching, and Aircraft Profitability averages are recalculated from filtered rows.
 - Expanded Competitor Monitoring facts and figures extraction to include operated flights, seats offered, seat kilometer offered, units offered, and freight kilometer offered.
 - Improved Dashboard Competitor Monitoring loading by indexing tracked competitors per controlled airline and loading only their schedule data.
@@ -111,13 +113,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Internal: Enhanced code reusability.
 
 ### Fixed
-- Personnel salary update date can now be correctly displayed. [#97](https://github.com/ZoeBijl/airlinesim-enhancement-suite/issues/97)
+- Personnel salary update date can now be correctly displayed. [#97](https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/issues/97)
 - Internal: Many misspellings corrected.
 
 ## [0.6.9] - 2025-05-04
 
 ### Added
-- Added a double dash to indicate “no data” in the “Flights”-table in the aircraft’s “Flights” tab [#65](https://github.com/ZoeBijl/airlinesim-enhancement-suite/issues/65)
+- Added a double dash to indicate “no data” in the “Flights”-table in the aircraft’s “Flights” tab [#65](https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/issues/65)
 - Added the "Select first 6" function to the aircraft profitability page on the dashboard.
 
 ### Changed
@@ -125,9 +127,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Rearranged the order of the buttons for the aircraft profitability page on the dashboard.
 
 ### Fixed
-- Fixed an issue where an error was thrown when trying to get flight data [#65](https://github.com/ZoeBijl/airlinesim-enhancement-suite/issues/65)
-- Fixed a visual issue with “Flights”-table when viewing aircraft flights [#65](https://github.com/ZoeBijl/airlinesim-enhancement-suite/issues/65)
-- In historical data of inventory, the past dates are now correctly determined. [#93](https://github.com/ZoeBijl/airlinesim-enhancement-suite/issues/93)
+- Fixed an issue where an error was thrown when trying to get flight data [#65](https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/issues/65)
+- Fixed a visual issue with “Flights”-table when viewing aircraft flights [#65](https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/issues/65)
+- In historical data of inventory, the past dates are now correctly determined. [#93](https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/issues/93)
 - Conflict with XTH tools on salary adjustment resolved.
 - Button text beautification
 - Internal: Fixed the definition of three variables in the Route Management function.
@@ -137,27 +139,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.6.8] - 2024-06-09
 
 ### Added
-- Added `AES.getDate()` helper function [#26](https://github.com/ZoeBijl/airlinesim-enhancement-suite/issues/26)
-- Format large numbers according to your localisation settings [#11](https://github.com/ZoeBijl/airlinesim-enhancement-suite/issues/11)
-- Improved legibility of status text in dark mode [#13](https://github.com/ZoeBijl/airlinesim-enhancement-suite/issues/13)
-- Added a menu with helpful links related to AES [#32](https://github.com/ZoeBijl/airlinesim-enhancement-suite/pull/32)
-- Added an about screen with some basic info related to AES [#33](https://github.com/ZoeBijl/airlinesim-enhancement-suite/issues/33)
+- Added `AES.getDate()` helper function [#26](https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/issues/26)
+- Format large numbers according to your localisation settings [#11](https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/issues/11)
+- Improved legibility of status text in dark mode [#13](https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/issues/13)
+- Added a menu with helpful links related to AES [#32](https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/pull/32)
+- Added an about screen with some basic info related to AES [#33](https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/issues/33)
 - Added code validation in places as to prevent future UI changes breaking data
 - Added CSS to hide empty aircraft manufacturing categories
 
 ### Changed
-- Updated the AUTHORS file [#21](https://github.com/ZoeBijl/airlinesim-enhancement-suite/issues/21)
+- Updated the AUTHORS file [#21](https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/issues/21)
 - Ported some parts from jQuery to vanilla JavaScript
-- Changed AES table styling to take up less horizontal space in some cases [#14](https://github.com/ZoeBijl/airlinesim-enhancement-suite/issues/14)
-- Changed the inventory page styling to make it easier to read [#25](https://github.com/ZoeBijl/airlinesim-enhancement-suite/pull/25)
+- Changed AES table styling to take up less horizontal space in some cases [#14](https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/issues/14)
+- Changed the inventory page styling to make it easier to read [#25](https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/pull/25)
 
 ### Fixed
-- Fixed an issue where inventory pages wouldn’t close automatically [#17](https://github.com/ZoeBijl/airlinesim-enhancement-suite/issues/17)
-- Fixed an issue where the route management schedule couldn’t be updated [#16](https://github.com/ZoeBijl/airlinesim-enhancement-suite/issues/16)
-- Fixed an issue where no new data was written from the inventory pages [#25](https://github.com/ZoeBijl/airlinesim-enhancement-suite/pull/25)
+- Fixed an issue where inventory pages wouldn’t close automatically [#17](https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/issues/17)
+- Fixed an issue where the route management schedule couldn’t be updated [#16](https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/issues/16)
+- Fixed an issue where no new data was written from the inventory pages [#25](https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/pull/25)
 
 ### Removed
-- Removed duplicate helper functions [#28](https://github.com/ZoeBijl/airlinesim-enhancement-suite/issues/28)
+- Removed duplicate helper functions [#28](https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/issues/28)
 
 ## [0.6.7] - 2024-05-05
 
@@ -228,9 +230,9 @@ for pointing it out).
 
 _First release._
 
-[unreleased]: https://github.com/ZoeBijl/airlinesim-enhancement-suite/compare/v0.6.8...HEAD
-[0.6.8]: https://github.com/ZoeBijl/airlinesim-enhancement-suite/compare/v0.6.7...v0.6.8
-[0.6.7]: https://github.com/ZoeBijl/airlinesim-enhancement-suite/compare/v0.6.6...v0.6.7
-[0.6.6]: https://github.com/ZoeBijl/airlinesim-enhancement-suite/compare/v0.6.5...v0.6.6
-[0.6.5]: https://github.com/ZoeBijl/airlinesim-enhancement-suite/compare/v0.6.4...v0.6.5
-[0.6.4]: https://github.com/ZoeBijl/airlinesim-enhancement-suite/releases/tag/v0.6.4
+[unreleased]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.6.8...HEAD
+[0.6.8]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.6.7...v0.6.8
+[0.6.7]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.6.6...v0.6.7
+[0.6.6]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.6.5...v0.6.6
+[0.6.5]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.6.4...v0.6.5
+[0.6.4]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/releases/tag/v0.6.4

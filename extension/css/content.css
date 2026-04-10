@@ -86,6 +86,15 @@
     overflow: auto;
 }
 
+.aes-dashboard-filter-operation {
+    min-width: 96px;
+    width: 96px;
+}
+
+.aes-dashboard-filter-operation .form-control {
+    min-width: 96px;
+}
+
 /* Specific */
 .aes-aircraftProfit-profit {
     text-align: right;

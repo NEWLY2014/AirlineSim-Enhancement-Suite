@@ -2,6 +2,7 @@
 //MAIN
 //Global vars
 var settings, airline, server, todayDate;
+var dashboardControlPanelExpanded = {};
 const dashboardStorage = globalThis.chrome?.storage?.local;
 $(function() {
     if (!dashboardStorage) {
@@ -75,6 +76,9 @@ function dashboardHandle() {
 }
 
 function buildDashboardControlPanel(title, summary, content, expanded) {
+    if (dashboardControlPanelExpanded[title] !== undefined) {
+        expanded = dashboardControlPanelExpanded[title];
+    }
     let body = $('<div class="aes-dashboard-control-panel-body"></div>').append(content);
     if (!expanded) {
         body.hide();
@@ -86,6 +90,7 @@ function buildDashboardControlPanel(title, summary, content, expanded) {
     );
     toggle.click(function() {
         body.toggle();
+        dashboardControlPanelExpanded[title] = body.is(':visible');
     });
 
     let legend = $('<legend></legend>').append(toggle);
@@ -436,12 +441,12 @@ function buildDashboardFilterPanel(options) {
 
     let tfoot = $('<tfoot></tfoot>').append($('<tr></tr>').append(
         $('<td></td>').html(columnSelect),
-        $('<td></td>').html(operationSelect),
+        $('<td class="aes-dashboard-filter-operation"></td>').html(operationSelect),
         $('<td></td>').html(input),
         $('<td></td>').append(addBtn)
     ));
     let table = $('<table class="table table-bordered table-striped table-hover"></table>').append(
-        $('<thead></thead>').append('<tr><th>Column</th><th>Operation</th><th>Value</th><th></th></tr>'),
+        $('<thead></thead>').append('<tr><th>Column</th><th class="aes-dashboard-filter-operation">Operation</th><th>Value</th><th></th></tr>'),
         tbody,
         tfoot
     );
@@ -473,7 +478,7 @@ function buildDashboardFilterPanel(options) {
         });
         return [
             $('<td></td>').append($('<input type="hidden">').val(titleCode), title),
-            $('<td></td>').text(operation),
+            $('<td class="aes-dashboard-filter-operation"></td>').text(operation),
             $('<td></td>').text(value),
             $('<td></td>').append(deleteBtn)
         ];
@@ -490,9 +495,13 @@ function buildDashboardFilterPanel(options) {
         } else if (typeof operations == 'function') {
             operations = operations(selectedColumn);
         }
+        let currentOperation = operationSelect.val();
         operationSelect.empty().append(operations.map(function(operation) {
             return $('<option></option>').text(operation);
         }));
+        if (operations.indexOf(currentOperation) != -1) {
+            operationSelect.val(currentOperation);
+        }
     }
 }
 
@@ -1648,7 +1657,11 @@ function displayCompetitorMonitoringAirlinesTable(div) {
             });
 
             if (!compAirlines.length) {
-                let divRow = $('<div class="row aes-dashboard-controls"></div>').append(displayCompetitorMonitoringAirlinesTableOptions(), displayCompetitorMonitoringAirlinesTableColumns());
+                let divRow = $('<div class="row aes-dashboard-controls"></div>').append(
+                    displayCompetitorMonitoringAirlinesTableOptions(),
+                    displayCompetitorMonitoringAirlinesTableFilters(null, tableColumns),
+                    displayCompetitorMonitoringAirlinesTableColumns()
+                );
                 div.append(divRow, '<p><span class="warning">No airlines marked for competitor monitoring. Open airline info page to mark airline for tracking.</span></p>');
                 return;
             }
@@ -1924,6 +1937,10 @@ function displayCompetitorMonitoringAirlinesTableFilters(table, columns) {
             status.removeClass().addClass('warning').text(' saving...');
             settings.competitorMonitoring.filter = filter;
             dashboardStorage.set({ settings: settings }, function() {
+                if (!table) {
+                    status.removeClass().addClass('good').text(' saved!');
+                    return;
+                }
                 status.removeClass().addClass('warning').text(' filtering...');
                 applyDashboardTableFilters(table, filter, columns, 'data');
                 status.removeClass().addClass('good').text(' done!');
@@ -2228,7 +2245,7 @@ function getDefaultCompetitorMonitoringColumns() {
     },
         {
             field: 'faffkoDelta',
-            text: 'Freight kilometer offered (FKO) &Delta;',
+            text: 'FKO &Delta;',
             headGroup: 'Figures',
             visible: 0,
             number: 1
@@ -2347,7 +2364,10 @@ function ensureCompetitorMonitoringSettings() {
     settings.competitorMonitoring.tableColumns.forEach(function(column) {
         if (column.field == 'faffkoDela') {
             column.field = 'faffkoDelta';
-            column.text = 'Freight kilometer offered (FKO) &Delta;';
+            column.text = 'FKO &Delta;';
+        }
+        if (column.field == 'faffkoDelta') {
+            column.text = 'FKO &Delta;';
         }
     });
 

@@ -20,7 +20,7 @@ Marcipanas wrote [a guide](https://docs.google.com/document/d/1hzMHb3hTBXSZNtuDK
 Supported platforms: Chromium-based browsers (Chrome, Edge, etc.).
 This guide is based on [racsofp’s guide](https://forums.airlinesim.aero/t/manual-installation-of-the-ase-airlinesim-enhancement-suite-chrome-extension/24671).
 
-1. Download the current version from the [releases](https://github.com/NEWLY2014/airlinesim-enhancement-suite/releases) page.
+1. Download the current version from the [releases](https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/releases) page.
    The file you look for has the format AES-vX.X.X.zip where the _X_ is replaced with numbers. Example: AES-v0.6.8.zip
 2. Unzip it.
 3. Open your browser and go to the expansion page.
