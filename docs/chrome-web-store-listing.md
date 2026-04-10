@@ -1,4 +1,4 @@
-# Chrome Web Store Listing Draft
+# Chrome Web Store Listing
 
 ## Name
 
