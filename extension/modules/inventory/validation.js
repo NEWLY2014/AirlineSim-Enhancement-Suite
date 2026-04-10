@@ -30,6 +30,11 @@ class Validation {
         let checkboxes = $('.col-md-10 > div > .as-panel:eq(1) > div > div > div:eq(0) fieldset:eq(2) > div input')
         let valid
         let messages = []
+        if (checkboxes.length < 4) {
+            this.valid = false
+            this.errors.push("Unable to validate “Apply settings to”. The inventory page layout might have changed.")
+            return
+        }
         checkboxes.each(function(index) {
             switch (index) {
                 case 0:
@@ -79,7 +84,8 @@ class Validation {
         let labels = $('fieldset:eq(0) label', container)
         
         labels.each(function() {
-            if (!$('input', this)[0].checked) {
+            const input = $('input', this)[0]
+            if (input && !input.checked) {
                 valid = false
                 messages.push(`Please check “${$(this).text()}” under “Service Classes” in the “Data”-panel`)
             }
@@ -101,7 +107,8 @@ class Validation {
         let labels = $('fieldset:eq(1) label', container)
         labels.each(function(index) {
             if (index === 1 || index === 2) {
-                if (!$('input', this)[0].checked) {
+                const input = $('input', this)[0]
+                if (input && !input.checked) {
                     let message = `Please check “${$(this).text()}” under “Flight Status” in the “Data”-panel`
                     valid = false
                     messages.push(message)
@@ -158,7 +165,7 @@ class Validation {
         let messages = []
         let container = $('.col-md-10 > div > .as-panel:eq(1) > div > div > div:eq(1) .layout-col-md-3')
         let checkboxes = $('fieldset:eq(3) input', container)
-        if (checkboxes[0].checked) {
+        if (checkboxes.length && checkboxes[0].checked) {
             let message = `Please uncheck “${$('fieldset:eq(3) label', container).text()}” under “Settings” in the “Data”-panel`
             valid = false
             messages.push(message)

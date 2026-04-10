@@ -2,11 +2,15 @@
 //MAIN
 //Global vars
 var settings, airline, server, todayDate;
+const dashboardStorage = globalThis.chrome?.storage?.local;
 $(function() {
+    if (!dashboardStorage) {
+        return;
+    }
     todayDate = AES.getServerDate();
     airline = AES.getAirline();
     server = AES.getServerName();
-    chrome.storage.local.get(['settings'], function(result) {
+    dashboardStorage.get(['settings'], function(result) {
         settings = result.settings;
 
         displayDashboard();
@@ -46,7 +50,7 @@ function displayDashboard() {
 function dashboardHandle() {
     let value = $("#aes-select-dashboard-main").val();
     settings.general.defaultDashboard = value;
-    chrome.storage.local.set({ settings: settings }, function() {});
+    dashboardStorage.set({ settings: settings }, function() {});
     switch (value) {
         case 'general':
             displayGeneral();
@@ -82,7 +86,7 @@ function displayRouteManagement() {
     mainDiv.append(title, div);
     //Get schedule
     let scheduleKey = server + airline.id + 'schedule';
-    chrome.storage.local.get([scheduleKey], function(result) {
+    dashboardStorage.get([scheduleKey], function(result) {
         let scheduleData = result[scheduleKey];
         if (scheduleData) {
             // Table
@@ -197,7 +201,7 @@ function displayRouteManagement() {
                         col.show = show;
                     }
                 });
-                chrome.storage.local.set({ settings: settings }, function() {});
+                dashboardStorage.set({ settings: settings }, function() {});
             });
 
         } else {
@@ -533,7 +537,7 @@ function displayRouteManagementFilters() {
             });
         });
         settings.routeManagement.filter = filter;
-        chrome.storage.local.set({ settings: settings }, function() {
+        dashboardStorage.set({ settings: settings }, function() {
             saveSpan.removeClass().addClass('warning').text(' filtering...');
             routeManagementApplyFilter()
             saveSpan.removeClass().addClass('good').text(' done!');
@@ -690,8 +694,8 @@ function generateRouteManagementTable(scheduleData) {
         let dest = uniqueOD[i].substring(3, 6);
         let keyOutbound = server + airline.id + origin + dest + 'routeAnalysis';
         let keyInbound = server + airline.id + dest + origin + 'routeAnalysis';
-        chrome.storage.local.get([keyOutbound], function(outboundData) {
-            chrome.storage.local.get([keyInbound], function(inboundData) {
+        dashboardStorage.get([keyOutbound], function(outboundData) {
+            dashboardStorage.get([keyInbound], function(inboundData) {
                 let outAnalysis = outboundData[keyOutbound];
                 let inAnalysis = inboundData[keyInbound];
                 let outDates, inDates;
@@ -1102,7 +1106,7 @@ function displayCompetitorMonitoring() {
 function displayCompetitorMonitoringAirlinesTable(div) {
     let compAirlines = [];
     let compAirlinesSchedule = [];
-    chrome.storage.local.get(null, function(items) {
+    dashboardStorage.get(null, function(items) {
         let legacyKeysToRemove = [];
         let migratedCompetitorData = {};
 
@@ -1330,13 +1334,13 @@ function displayCompetitorMonitoringAirlinesTable(div) {
                 $('#aes-div-dashboard').on('click', 'button#aes-compMon-btn-remove-' + data.airlineId, function() {
                     let key = data.competitorMonitoringKey;
                     let remove = $(this);
-                    chrome.storage.local.get([key], function(compMonitoringData) {
+                    dashboardStorage.get([key], function(compMonitoringData) {
                         let compData = compMonitoringData[key];
                         if (!compData) {
                             return;
                         }
                         compData.tracking = 0;
-                        chrome.storage.local.set({
+                        dashboardStorage.set({
                             [compData.key]: compData }, function() {
                             $(remove).closest("tr").remove();
                         });
@@ -1368,8 +1372,8 @@ function displayCompetitorMonitoringAirlinesTable(div) {
         div.append(divRow, tableWell);
 
         if (Object.keys(migratedCompetitorData).length) {
-            chrome.storage.local.set(migratedCompetitorData, function() {
-                chrome.storage.local.remove(legacyKeysToRemove, function() {});
+            dashboardStorage.set(migratedCompetitorData, function() {
+                dashboardStorage.remove(legacyKeysToRemove, function() {});
             });
         }
     });
@@ -1550,7 +1554,7 @@ function displayCompetitorMonitoringAirlinesTableColumns() {
                 col.visible = show;
             }
         });
-        chrome.storage.local.set({ settings: settings }, function() {});
+        dashboardStorage.set({ settings: settings }, function() {});
     });
     //Closable legend
     let link = $('<a style="cursor: pointer;"></a>').text('Columns');
@@ -2065,7 +2069,8 @@ function displayAircraftProfitability() {
             data: 'age',
             sortable: 1,
             visible: 1,
-            number: 1
+            number: 1,
+            aggregate: 'average'
     },
         {
             category: 'Aircraft',
@@ -2135,7 +2140,7 @@ function displayAircraftProfitability() {
 
     let key = server + airline.id + 'aircraftFleet';
     //Get storage fleet data
-    chrome.storage.local.get(key, function(result) {
+    dashboardStorage.get(key, function(result) {
         //get aircraft flight data
         let aircraftFleetData = result[key];
         if (aircraftFleetData) {
@@ -2143,7 +2148,7 @@ function displayAircraftProfitability() {
             aircraftFleetData.fleet.forEach(function(value) {
                 keys.push(server + 'aircraftFlights' + value.aircraftId);
             });
-            chrome.storage.local.get(keys, function(result) {
+            dashboardStorage.get(keys, function(result) {
                 for (let aircraftFlightData in result) {
                     for (let i = 0; i < aircraftFleetData.fleet.length; i++) {
                         if (aircraftFleetData.fleet[i].aircraftId == result[aircraftFlightData].aircraftId) {
@@ -2300,7 +2305,7 @@ function generateTable(tableOptionsRule) {
     });
     let thead = $('<thead></thead>').append(table.row.head);
     let tbody = $('<tbody></tbody>').append(table.row.body);
-    table.tableHtml.append(thead, tbody);
+    table.tableHtml.append(thead, tbody, masterTableFooter());
     let tableWell = $('<div style="overflow-x:auto;" class="as-table-well"></div>').append(table.tableHtml);
 
     //Table Settings
@@ -2317,6 +2322,46 @@ function generateTable(tableOptionsRule) {
     let div = $('<div></div>').append(settingsDiv, tableWell);
     return div;
     //Table functions
+    function masterTableFooter() {
+        let cells = [];
+
+        if (tableOptionsRule.tableSettings) {
+            cells.push('<th>Total / Avg</th>');
+        }
+
+        tableOptionsRule.column.forEach(function(colValue) {
+            if (!colValue.visible) {
+                return;
+            }
+
+            if (!colValue.number) {
+                cells.push('<td></td>');
+                return;
+            }
+
+            const values = tableOptionsRule.data.map(function(dataValue) {
+                return parseFloat(dataValue[colValue.data]);
+            }).filter(function(value) {
+                return !isNaN(value);
+            });
+
+            let result = '';
+            if (values.length) {
+                result = values.reduce(function(total, value) {
+                    return total + value;
+                }, 0);
+
+                if (colValue.aggregate === 'average') {
+                    result = Math.round((result / values.length) * 10) / 10;
+                }
+            }
+
+            cells.push($('<td></td>').html(masterCellFormat(colValue.format, result)));
+        });
+
+        return $('<tfoot></tfoot>').append($('<tr></tr>').append(cells));
+    }
+
     function masterSortTable(column, number, table, columnPrefix) {
         let tableRows = $('tbody tr', table);
         let tableBody = $('tbody', table);
@@ -2324,7 +2369,7 @@ function generateTable(tableOptionsRule) {
         let indexes = [];
         tableRows.each(function() {
             if (number) {
-                let value = parseInt($(this).find("." + columnPrefix + column).text(), 10);
+                let value = parseFloat($(this).find("." + columnPrefix + column).text());
                 if (value) {
                     indexes.push(value);
                 } else {
@@ -2365,7 +2410,7 @@ function generateTable(tableOptionsRule) {
         for (let i = 0; i < sorted.length; i++) {
             for (let j = tableRows.length - 1; j >= 0; j--) {
                 if (number) {
-                    let value = parseInt($(tableRows[j]).find("." + columnPrefix + column).text(), 10);
+                    let value = parseFloat($(tableRows[j]).find("." + columnPrefix + column).text());
                     if (!value) {
                         value = 0;
                     }
@@ -2505,7 +2550,7 @@ function generateTable(tableOptionsRule) {
                     });
                     if (id.length) {
                         let fleetKey = server + airline.id + 'aircraftFleet';
-                        chrome.storage.local.get(fleetKey, function(result) {
+                        dashboardStorage.get(fleetKey, function(result) {
                             let storedFleetData = result[fleetKey];
                             let newFleet = storedFleetData.fleet.filter(function(value) {
                                 let keep = 1;
@@ -2517,9 +2562,9 @@ function generateTable(tableOptionsRule) {
                                 return keep;
                             });
                             storedFleetData.fleet = newFleet;
-                            chrome.storage.local.set({
+                            dashboardStorage.set({
                                 [fleetKey]: storedFleetData }, function() {
-                                chrome.storage.local.remove(aircraftKey, function() {});
+                                dashboardStorage.remove(aircraftKey, function() {});
                             });
                         });
                     }
@@ -2540,7 +2585,7 @@ function generateTable(tableOptionsRule) {
                         })
                     });
                     settings[tableOptionsRule.tableSettingStorage].filter = filter;
-                    chrome.storage.local.set({ settings: settings }, function() {
+                    dashboardStorage.set({ settings: settings }, function() {
                         $('tbody tr', table).each(function() {
                             let row = this;
                             filter.forEach(function(filter) {
@@ -2558,10 +2603,10 @@ function generateTable(tableOptionsRule) {
                                 let value = filter.value;
                                 if (number) {
                                     if (cell) {
-                                        cell = parseInt(cell, 10);
+                                        cell = parseFloat(cell);
                                     }
                                     if (value) {
-                                        value = parseInt(value, 10);
+                                        value = parseFloat(value);
                                     }
                                 }
                                 switch (filter.operation) {
@@ -2702,7 +2747,7 @@ function generateTable(tableOptionsRule) {
 
                 tableOptionsRule.hideColumn = newHideColumns;
                 settings[tableOptionsRule.tableSettingStorage].hideColumn = tableOptionsRule.hideColumn;
-                chrome.storage.local.set({ settings: settings }, function() {});
+                dashboardStorage.set({ settings: settings }, function() {});
             })
             if (col.visible) {
                 input.prop('checked', true);
@@ -2733,7 +2778,7 @@ function generalAddScheduleRow(tbody) {
     tbody.append(row);
     //Get schedule
     let scheduleKey = server + airline.id + 'schedule';
-    chrome.storage.local.get([scheduleKey], function(result) {
+    dashboardStorage.get([scheduleKey], function(result) {
         let scheduleData = result[scheduleKey];
         if (scheduleData) {
             let lastUpdate = getDate('schedule', scheduleData.date);
@@ -2763,7 +2808,7 @@ function generalUpdateScheduleAction(td3) {
         settings.schedule.autoExtract = 1;
         //get schedule link
         let link = $('#enterprise-dashboard table:eq(0) tfoot td a:eq(2)');
-        chrome.storage.local.set({ settings: settings }, function() {
+        dashboardStorage.set({ settings: settings }, function() {
             link[0].click();
         });
     });
@@ -2779,7 +2824,7 @@ function generalAddPersonnelManagementRow(tbody) {
     tbody.append(row);
     //Get Status
     let key = server + airline.id + 'personnelManagement';
-    chrome.storage.local.get([key], function(result) {
+    dashboardStorage.get([key], function(result) {
         let personnelManagementData = result[key];
         if (personnelManagementData) {
             let lastUpdate = personnelManagementData.date;
@@ -2820,7 +2865,7 @@ function SortTable(column, number, tableId, columnPrefix) {
     let indexes = [];
     tableRows.each(function() {
         if (number) {
-            let value = parseInt($(this).find("." + columnPrefix + column).text(), 10);
+            let value = parseFloat($(this).find("." + columnPrefix + column).text());
             if (value) {
                 indexes.push(value);
             } else {
@@ -2861,7 +2906,7 @@ function SortTable(column, number, tableId, columnPrefix) {
     for (let i = 0; i < sorted.length; i++) {
         for (let j = tableRows.length - 1; j >= 0; j--) {
             if (number) {
-                let value = parseInt($(tableRows[j]).find("." + columnPrefix + column).text(), 10);
+                let value = parseFloat($(tableRows[j]).find("." + columnPrefix + column).text());
                 if (!value) {
                     value = 0;
                 }

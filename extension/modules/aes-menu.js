@@ -5,7 +5,7 @@ class AESMenu {
 
     constructor(target) {
         if (!target) {
-            throw new Error(`AESMenu: \`target\` is ${target}`)
+            return
         }
 
         this.#container = this.#createContainer()
@@ -165,4 +165,7 @@ class AESMenu {
     }
 }
 
-new AESMenu(document.querySelector("#as-navbar-main-collapse .navbar-nav > li:nth-child(5)"))
+new AESMenu(
+    document.querySelector("#as-navbar-main-collapse .navbar-nav > li:nth-child(5)") ||
+    document.querySelector("#as-navbar-main-collapse .navbar-nav > li:last-child")
+)
