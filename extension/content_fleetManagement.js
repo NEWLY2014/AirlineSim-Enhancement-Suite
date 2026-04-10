@@ -2,7 +2,7 @@
 //MAIN
 //Global vars
 var aircraftData = [];
-var server, aircraftFleetKey, aircraftFleetStorageData, airline, date;
+var server, aircraftFleetKey, aircraftFleetStorageData, airline, date, currentFleet;
 $(function() {
     airline = AES.getAirline();
     server = AES.getServerName();
@@ -28,17 +28,22 @@ function fltmng_getData() {
 
     //Aircraft
     let table = $('.as-page-fleet-management > .row > .col-md-9 > .as-panel:eq(0) table');
-    let fleet = $('.as-page-fleet-management > .row > .col-md-9 > h2:eq(0)').text();
+    currentFleet = fltmng_normalizeFleetName($('.as-page-fleet-management > .row > .col-md-9 > h2:eq(0)').text());
     $('tbody tr', table).each(function() {
+        let aircraftId = fltmng_getAircraftId($('td:eq(6) > div > div:eq(1) > a:eq(0)', this).attr('href'));
+        if (!aircraftId) {
+            return;
+        }
+
         let data = {
             registration: $('td:eq(1) > span:eq(0)', this).text(),
             nickname: fltmng_getNickname($('td:eq(1) > div:eq(0)', this).text()),
             equipment: $('td:eq(2) > a:eq(0)', this).text(),
             age: fltmng_getAge($('td:eq(4) > span:eq(0)', this).text()),
             maintenance: fltmng_getMaintenance($('td:eq(4) > div > span:eq(1)', this).text()),
-            aircraftId: fltmng_getAircraftId($('td:eq(6) > div > div:eq(1) > a:eq(0)', this).attr('href')),
+            aircraftId: aircraftId,
             note: fltmng_getNickname($('td:eq(7) > span > span', this).text()),
-            fleet: fleet,
+            fleet: currentFleet,
             date: date.date,
             time: date.time
         }
@@ -52,6 +57,10 @@ function fltmng_getNickname(value) {
     } else {
         return value;
     }
+}
+
+function fltmng_normalizeFleetName(value) {
+    return (value || '').trim();
 }
 
 function fltmng_getAge(value) {
@@ -138,7 +147,8 @@ function fltmng_updateAircraftFleetStorageData(data) {
             });
         });
 
-        //push all old aircrafts that dont have new data
+        //Push old aircrafts from other fleets. Aircraft missing from the
+        //current fleet page has moved or been removed and should not linger.
         data.fleet.forEach(function(value) {
             let found = 0;
             newfleet.forEach(function(newValue) {
@@ -146,7 +156,7 @@ function fltmng_updateAircraftFleetStorageData(data) {
                     found = 1;
                 }
             });
-            if (!found) {
+            if (!found && fltmng_normalizeFleetName(value.fleet) != currentFleet) {
                 newfleet.push(value);
             }
         });
@@ -185,6 +195,10 @@ function fltmng_displayAircraftProfit() {
     //Body
     $('tbody tr', table).each(function() {
         let id = fltmng_getAircraftId($('td:eq(6) > div > div:eq(1) > a:eq(0)', this).attr('href'));
+        if (!id) {
+            return;
+        }
+
         let profit, date, time;
         aircraftData.forEach(function(value) {
             if (value.aircraftId == id) {
@@ -213,6 +227,6 @@ function fltmng_displaySavedAircrafts() {
 }
 
 function fltmng_displayNewUpdates() {
-    let span = $('<span class="good"></span>').text('Updated aircraft data for ' + aircraftData.length + ' from ' + aircraftData[0].fleet);
+    let span = $('<span class="good"></span>').text('Updated aircraft data for ' + aircraftData.length + ' from ' + currentFleet);
     return span;
 }

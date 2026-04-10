@@ -1,19 +1,23 @@
 "use strict";
 //MAIN
 //Global vars
-var server, airline, activeTab, compData;
+var server, airline, ownerAirline, activeTab, compData;
 $(function() {
     server = AES.getServerName();
     airline = AES.getAirline();
+    ownerAirline = AES.getCurrentAirline();
     activeTab = $(".nav-tabs .active").attr('class').split(" ");
     activeTab = activeTab[0];
-    let key = server + airline.id + 'competitorMonitoring';
-    chrome.storage.local.get([key], function(compMonitoringData) {
-        compData = compMonitoringData[key];
+    let key = AES.getCompetitorMonitoringKey(server, ownerAirline.id, airline.id);
+    let legacyKey = AES.getCompetitorMonitoringKey(server, null, airline.id);
+    chrome.storage.local.get([key, legacyKey], function(compMonitoringData) {
+        compData = compMonitoringData[key] || compMonitoringData[legacyKey];
         if (!compData) {
             compData = {
                 key: key,
                 server: server,
+                ownerId: ownerAirline.id,
+                ownerAirline: ownerAirline,
                 id: airline.id,
                 type: "competitorMonitoring",
                 tab0: {},
@@ -21,6 +25,10 @@ $(function() {
                 tracking: 0,
                 autoExtract: 0
             }
+        } else {
+            compData.key = key;
+            compData.ownerId = ownerAirline.id;
+            compData.ownerAirline = ownerAirline;
         }
         displayMain();
     });

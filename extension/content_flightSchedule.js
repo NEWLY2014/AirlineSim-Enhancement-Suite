@@ -1,9 +1,10 @@
 "use strict";
 //MAIN
-var settings, compData, server, airline, date;
+var settings, compData, server, airline, ownerAirline, date;
 $(function() {
     server = AES.getServerName();
     airline = AES.getAirline();
+    ownerAirline = AES.getCurrentAirline();
     date = AES.getServerDate();
     chrome.storage.local.get(['settings'], function(result) {
         settings = result.settings;
@@ -26,11 +27,15 @@ $(function() {
             });
         } else {
             //Check if automation via competitor monitoring
-            let key = server + airline.id + 'competitorMonitoring';
-            chrome.storage.local.get([key], function(compMonitoringData) {
-                compData = compMonitoringData[key];
+            let key = AES.getCompetitorMonitoringKey(server, ownerAirline.id, airline.id);
+            let legacyKey = AES.getCompetitorMonitoringKey(server, null, airline.id);
+            chrome.storage.local.get([key, legacyKey], function(compMonitoringData) {
+                compData = compMonitoringData[key] || compMonitoringData[legacyKey];
                 if (compData) {
                     if (compData.autoExtract) {
+                        compData.key = key;
+                        compData.ownerId = ownerAirline.id;
+                        compData.ownerAirline = ownerAirline;
                         btn.click();
                     }
                 }
@@ -154,4 +159,3 @@ function getLineDetails(row, route) {
 
     return route;
 }
-

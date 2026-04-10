@@ -1103,13 +1103,29 @@ function displayCompetitorMonitoringAirlinesTable(div) {
     let compAirlines = [];
     let compAirlinesSchedule = [];
     chrome.storage.local.get(null, function(items) {
+        let legacyKeysToRemove = [];
+        let migratedCompetitorData = {};
+
         //Get data
         for (let key in items) {
             if (items[key].type) {
                 if (items[key].type == 'competitorMonitoring') {
                     if (items[key].server == server) {
-                        if (items[key].tracking) {
-                            compAirlines.push(items[key]);
+                        let compData = items[key];
+                        if (!compData.ownerId && compData.id && airline.id) {
+                            const newKey = AES.getCompetitorMonitoringKey(server, airline.id, compData.id);
+                            compData = {
+                                ...compData,
+                                key: newKey,
+                                ownerId: airline.id,
+                                ownerAirline: airline
+                            };
+                            migratedCompetitorData[newKey] = compData;
+                            legacyKeysToRemove.push(key);
+                        }
+
+                        if (compData.ownerId == airline.id && compData.tracking) {
+                            compAirlines.push(compData);
                         }
                     }
                 }
@@ -1159,6 +1175,7 @@ function displayCompetitorMonitoringAirlinesTable(div) {
                 let data = {};
                 //Airline
                 data.airlineId = value.id;
+                data.competitorMonitoringKey = value.key;
                 //All Tab0 Columns
                 let dates = [];
                 for (let date in value.tab0) {
@@ -1311,10 +1328,13 @@ function displayCompetitorMonitoringAirlinesTable(div) {
                 data.actionRemoveAirline = $('<button type="button" id="aes-compMon-btn-remove-' + data.airlineId + '" class="btn btn-xs btn-default">Remove</button>');
                 //Remove airline action
                 $('#aes-div-dashboard').on('click', 'button#aes-compMon-btn-remove-' + data.airlineId, function() {
-                    let key = server + data.airlineId + 'competitorMonitoring';
+                    let key = data.competitorMonitoringKey;
                     let remove = $(this);
                     chrome.storage.local.get([key], function(compMonitoringData) {
                         let compData = compMonitoringData[key];
+                        if (!compData) {
+                            return;
+                        }
                         compData.tracking = 0;
                         chrome.storage.local.set({
                             [compData.key]: compData }, function() {
@@ -1346,6 +1366,12 @@ function displayCompetitorMonitoringAirlinesTable(div) {
         //Options
         let divRow = $('<div class="row"></div>').append(displayCompetitorMonitoringAirlinesTableOptions(), displayCompetitorMonitoringAirlinesTableColumns());
         div.append(divRow, tableWell);
+
+        if (Object.keys(migratedCompetitorData).length) {
+            chrome.storage.local.set(migratedCompetitorData, function() {
+                chrome.storage.local.remove(legacyKeysToRemove, function() {});
+            });
+        }
     });
 }
 

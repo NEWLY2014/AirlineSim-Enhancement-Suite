@@ -106,6 +106,42 @@ class AES {
     }
 
     /**
+     * Returns the airline currently controlled by the user from the navbar.
+     * @returns {object} {id:string, name: string, code: string, displayName: string}
+     */
+    static getCurrentAirline() {
+        const server = AES.getServerName();
+        const serverKey = `${server}_airlinesData`;
+        const serverAirlinesData = JSON.parse(localStorage.getItem(serverKey) || '{}');
+        const displayName = $('.as-navbar-main .dropdown > a.name span').first().text().trim() ||
+            $('.as-navbar-main .dropdown > a.name').first().text().trim();
+        const name = displayName ? displayName.replace(/[^A-Za-z0-9]/g, '_') : null;
+        const data = name ? serverAirlinesData[name] : null;
+
+        return {
+            id: data?.id || null,
+            code: data?.code || '',
+            name: name,
+            displayName: displayName
+        };
+    }
+
+    /**
+     * Returns the storage key for a competitor-monitoring record.
+     * @param {string} server
+     * @param {string} ownerAirlineId
+     * @param {string} competitorAirlineId
+     * @returns {string}
+     */
+    static getCompetitorMonitoringKey(server, ownerAirlineId, competitorAirlineId) {
+        if (ownerAirlineId) {
+            return `${server}${ownerAirlineId}_${competitorAirlineId}competitorMonitoring`;
+        }
+
+        return `${server}${competitorAirlineId}competitorMonitoring`;
+    }
+
+    /**
      * Formats a currency value local standards
      * @param {integer} currency value
      * @param {string} alignment: "right" | "left"

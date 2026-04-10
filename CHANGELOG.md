@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed Competitor Monitoring so each controlled airline has its own competitor list instead of sharing one server-wide list.
 - Fixed old data cleanup so storage dates in `YYYYMMDD` format are parsed correctly and recent history is not removed by mistake.
 - Fixed settings initialization so existing users receive newly added default settings after an update.
 - Fixed airline detection to avoid storing data under an empty airline key when the current page lacks expected airline details.
