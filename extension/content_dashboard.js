@@ -36,7 +36,6 @@ function displayDashboard() {
           <option value="routeManagement">Route Management</option>
           <option value="competitorMonitoring">Competitor Monitoring</option>
           <option value="aircraftProfitability">Aircraft Profitability</option>
-          <option value="other">None</option>
         </select>
       </div>
     </div>
@@ -44,6 +43,9 @@ function displayDashboard() {
     </div>
     `
     );
+    if (settings.general.defaultDashboard == 'other') {
+        settings.general.defaultDashboard = 'general';
+    }
     $("#aes-select-dashboard-main").val(settings.general.defaultDashboard);
 }
 
@@ -71,6 +73,57 @@ function dashboardHandle() {
             displayDefault();
     }
 }
+
+function buildDashboardControlPanel(title, summary, content, expanded) {
+    let body = $('<div class="aes-dashboard-control-panel-body"></div>').append(content);
+    if (!expanded) {
+        body.hide();
+    }
+
+    let toggle = $('<button type="button" class="btn btn-default aes-dashboard-control-toggle"></button>').append(
+        $('<span></span>').text(title),
+        $('<span class="aes-dashboard-control-summary"></span>').text(summary || '')
+    );
+    toggle.click(function() {
+        body.toggle();
+    });
+
+    return $('<div class="aes-dashboard-control-panel"></div>').append(toggle, body);
+}
+
+function buildDashboardColumnsPicker(columns, options) {
+    let groups = {};
+    columns.forEach(function(col) {
+        let group = col[options.groupField] || 'Columns';
+        if (!groups[group]) {
+            groups[group] = [];
+        }
+        groups[group].push(col);
+    });
+
+    let content = $('<div class="aes-dashboard-columns"></div>');
+    for (let group in groups) {
+        let groupDiv = $('<div class="aes-dashboard-column-group"></div>');
+        groupDiv.append($('<div class="aes-dashboard-column-group-title"></div>').text(group));
+        let grid = $('<div class="aes-dashboard-column-grid"></div>');
+
+        groups[group].forEach(function(col) {
+            let input = $('<input type="checkbox">').val(col[options.valueField]);
+            input.prop('checked', !!col[options.visibleField]);
+            input.change(function() {
+                options.onChange(col, this.checked);
+            });
+
+            grid.append($('<label class="aes-dashboard-column-choice"></label>').append(input, $('<span></span>').html(col[options.labelField])));
+        });
+
+        groupDiv.append(grid);
+        content.append(groupDiv);
+    }
+
+    return content;
+}
+
 //Route Management Dashbord
 function displayRouteManagement() {
     //Check ROute Managemetn seetings
@@ -141,7 +194,9 @@ function displayRouteManagement() {
 
             fieldsetEl.append(legendEl, buttonGroupEl)
 
-            let optionsDiv = $('<div class="col-md-4"></div>').append(fieldsetEl);
+            let optionsDiv = $('<div class="col-md-4"></div>').append(
+                buildDashboardControlPanel('Actions', 'Select, hide, open, reload', buttonGroupEl, true)
+            );
 
             // Button actions
 
@@ -185,24 +240,8 @@ function displayRouteManagement() {
             buttonElements["reloadTable"].element.addEventListener("click", function() {
                 generateRouteManagementTable(scheduleData);
             });
-            let divRow = $('<div class="row"></div>').append(optionsDiv, displayRouteManagementFilters(), displayRouteManagementColumns())
+            let divRow = $('<div class="row aes-dashboard-controls"></div>').append(optionsDiv, displayRouteManagementFilters(), displayRouteManagementColumns(scheduleData))
             div.prepend(divRow);
-            // Columns selector Checkbox listener
-            $('#aes-table-routeManagement-columns input').change(function() {
-                let show;
-                if (this.checked) {
-                    show = 1;
-                } else {
-                    show = 0;
-                }
-                let value = $(this).val();
-                settings.routeManagement.tableColumns.forEach(function(col) {
-                    if (col.class == value) {
-                        col.show = show;
-                    }
-                });
-                dashboardStorage.set({ settings: settings }, function() {});
-            });
 
         } else {
             //no schedule
@@ -501,23 +540,18 @@ function displayRouteManagementFilters() {
     tf.push($('<td></td>').append(btn));
     let tfoot = $('<tfoot></tfoot>').append($('<tr></tr>').append(tf));
     let table = $('<table class="table table-bordered table-striped table-hover" id="aes-table-routeManagement-filter"></table>').append(thead, tbody, tfoot);
-    let divTable = $('<div id="aes-div-routeManagement-filter" class="as-table-well"></div>').append(table);
+    let divTable = $('<div id="aes-div-routeManagement-filter" class="as-table-well aes-dashboard-filter-table"></div>').append(table);
 
 
     //
     let saveBtn = $('<button class="btn btn-default">apply filter</button>');
     let saveSpan = $('<span></span>');
 
-    //Closable legend
-    let link = $('<a style="cursor: pointer;"></a>').text('Filters');
-    let legend = $('<legend></legend>').html(link);
-    link.click(function() {
-        divForAll.toggle();
-    });
-
-    let divForAll = $('<div style="display: none;"></div>').append(divTable, saveBtn, saveSpan);
-    let fieldset = $('<fieldset></fieldset>').append(legend, divForAll);
-    let div = $('<div class="col-md-4"></div>').append(fieldset);
+    let divForAll = $('<div></div>').append(divTable, $('<div class="aes-dashboard-control-actions"></div>').append(saveBtn, saveSpan));
+    let filterCount = settings.routeManagement.filter.length;
+    let div = $('<div class="col-md-4"></div>').append(
+        buildDashboardControlPanel('Filters', filterCount ? filterCount + ' active' : 'No active filters', divForAll, false)
+    );
 
     //Delete row for filter row
     table.on("click", ".aes-a-routeManagement-filter-delete-row", function() {
@@ -547,40 +581,25 @@ function displayRouteManagementFilters() {
     return div;
 }
 
-function displayRouteManagementColumns() {
-    //Table Head
-    let th = [];
-    th.push('<th>Show</th>');
-    th.push('<th>Column</th>');
-    let thead = $('<thead></thead>').append($('<tr></tr>').append(th));
-    //Table body
-    let tbody = $('<tbody></tbody>');
-
-    settings.routeManagement.tableColumns.forEach(function(col) {
-        let td = [];
-        //Checkbox
-        if (col.show) {
-            td.push('<td><input value="' + col.class + '" type="checkbox" checked></td>');
-        } else {
-            td.push('<td><input value="' + col.class + '" type="checkbox"></td>');
+function displayRouteManagementColumns(scheduleData) {
+    let visibleCount = settings.routeManagement.tableColumns.filter(function(col) {
+        return col.show;
+    }).length;
+    let picker = buildDashboardColumnsPicker(settings.routeManagement.tableColumns, {
+        groupField: 'category',
+        labelField: 'name',
+        valueField: 'class',
+        visibleField: 'show',
+        onChange: function(col, checked) {
+            col.show = checked ? 1 : 0;
+            dashboardStorage.set({ settings: settings }, function() {
+                generateRouteManagementTable(scheduleData);
+            });
         }
-        //Name
-        td.push('<td>' + col.name + '</td>');
-        tbody.append($('<tr></tr>').append(td));
     });
-
-    let table = $('<table class="table table-bordered table-striped table-hover" id="aes-table-routeManagement-columns"></table>').append(thead, tbody);
-    let divTable = $('<div id="aes-div-routeManagement-columns" class="as-table-well" style="display: none;"></div>').append(table);
-
-    //Closable legend
-    let link = $('<a style="cursor: pointer;"></a>').text('Columns');
-    let legend = $('<legend></legend>').html(link);
-    link.click(function() {
-        $('#aes-div-routeManagement-columns').toggle();
-    });
-
-    let fieldset = $('<fieldset></fieldset>').append(legend, divTable);
-    let div = $('<div class="col-md-4"></div>').append(fieldset);
+    let div = $('<div class="col-md-4"></div>').append(
+        buildDashboardControlPanel('Columns', visibleCount + ' shown', picker, false)
+    );
     return div;
 }
 
@@ -1346,9 +1365,13 @@ function displayCompetitorMonitoringAirlinesTable(div) {
                     });
                 }
                 //Remove airline '
-                data.actionRemoveAirline = $('<button type="button" id="aes-compMon-btn-remove-' + data.airlineId + '" class="btn btn-xs btn-default">Remove</button>');
+                data.actionRemoveAirline = $('<button type="button" id="aes-compMon-btn-remove-' + data.airlineId + '" class="btn btn-xs btn-default aes-dashboard-confirm-action">Stop tracking</button>');
                 //Remove airline action
                 $('#aes-div-dashboard').on('click.aesCompetitorMonitoring', 'button#aes-compMon-btn-remove-' + data.airlineId, function() {
+                    if (!$(this).data('confirm')) {
+                        $(this).data('confirm', true).removeClass('btn-default').addClass('btn-warning').text('Confirm');
+                        return;
+                    }
                     let key = data.competitorMonitoringKey;
                     let remove = $(this);
                     dashboardStorage.get([key], function(compMonitoringData) {
@@ -1386,7 +1409,7 @@ function displayCompetitorMonitoringAirlinesTable(div) {
         let tableWell = $('<div style="overflow-x:auto;" class="as-table-well"></div>').append(table);
 
         //Options
-        let divRow = $('<div class="row"></div>').append(displayCompetitorMonitoringAirlinesTableOptions(), displayCompetitorMonitoringAirlinesTableColumns());
+        let divRow = $('<div class="row aes-dashboard-controls"></div>').append(displayCompetitorMonitoringAirlinesTableOptions(), displayCompetitorMonitoringAirlinesTableColumns());
         div.append(divRow, tableWell);
 
         };
@@ -1607,61 +1630,34 @@ function displayCompetitorMonitoringAirlineScheduleTable(mainDiv, scheduleData, 
 }
 
 function displayCompetitorMonitoringAirlinesTableColumns() {
-    //Table Head
-    let th = [];
-    th.push('<th>Show</th>');
-    th.push('<th>Column</th>');
-    let thead = $('<thead></thead>').append($('<tr></tr>').append(th));
-    //Table body
-    let tbody = $('<tbody></tbody>');
-
-    settings.competitorMonitoring.tableColumns.forEach(function(col) {
-        let td = [];
-        //Checkbox
-        if (col.visible) {
-            td.push('<td><input value="' + col.field + '" type="checkbox" checked></td>');
-        } else {
-            td.push('<td><input value="' + col.field + '" type="checkbox"></td>');
+    let visibleCount = settings.competitorMonitoring.tableColumns.filter(function(col) {
+        return col.visible;
+    }).length;
+    let picker = buildDashboardColumnsPicker(settings.competitorMonitoring.tableColumns, {
+        groupField: 'headGroup',
+        labelField: 'text',
+        valueField: 'field',
+        visibleField: 'visible',
+        onChange: function(col, checked) {
+            col.visible = checked ? 1 : 0;
+            dashboardStorage.set({ settings: settings }, function() {
+                displayCompetitorMonitoring();
+            });
         }
-        //Name
-        td.push('<td>' + col.text + '</td>');
-        tbody.append($('<tr></tr>').append(td));
     });
-
-    let table = $('<table class="table table-bordered table-striped table-hover"></table>').append(thead, tbody);
-    let divTable = $('<div id="aes-div-competitorMonitoring-columns" class="as-table-well" style="display: none;"></div>').append(table);
-    //Columns selector Checkbox listener
-    $('input', table).change(function() {
-        let show;
-        if (this.checked) {
-            show = 1;
-        } else {
-            show = 0;
-        }
-        let value = $(this).val();
-        settings.competitorMonitoring.tableColumns.forEach(function(col) {
-            if (col.field == value) {
-                col.visible = show;
-            }
-        });
-        dashboardStorage.set({ settings: settings }, function() {});
-    });
-    //Closable legend
-    let link = $('<a style="cursor: pointer;"></a>').text('Columns');
-    let legend = $('<legend></legend>').html(link);
-    link.click(function() {
-        $('#aes-div-competitorMonitoring-columns').toggle();
-    });
-    let fieldset = $('<fieldset></fieldset>').append(legend, divTable);
-    let div = $('<div class="col-md-4"></div>').append(fieldset);
+    let div = $('<div class="col-md-4"></div>').append(
+        buildDashboardControlPanel('Columns', visibleCount + ' shown', picker, false)
+    );
     return div;
 }
 
 function displayCompetitorMonitoringAirlinesTableOptions() {
-    let divFieldset = $('<fieldset></fieldset>').html('<legend>Options</legend>');
+    let actions = $('<div class="aes-dashboard-control-actions"></div>');
     let btn = $('<button type="button" class="btn btn-default">reload table</button>');
-    divFieldset.append(btn);
-    let optionsDiv = $('<div class="col-md-4"></div>').append(divFieldset);
+    actions.append(btn);
+    let optionsDiv = $('<div class="col-md-4"></div>').append(
+        buildDashboardControlPanel('Actions', 'Reload table', actions, true)
+    );
     //Reload table
     btn.click(function() {
         displayCompetitorMonitoring();
@@ -2260,12 +2256,13 @@ function displayAircraftProfitability() {
                         column: columns,
                         data: data,
                         columnPrefix: 'aes-aircraftProfit-',
-                        tableSettings: 1,
-                        options: ['selectFirstSix','openAircraft', 'hideSelected', 'applyFilter', 'reloadTableAircraftProfit', 'removeAircraft'],
-                        filter: settings.aircraftProfitability.filter,
-                        hideColumn: settings.aircraftProfitability.hideColumn,
-                        tableSettingStorage: 'aircraftProfitability'
-                    });
+	                    tableSettings: 1,
+	                    options: ['selectFirstSix','openAircraft', 'hideSelected', 'applyFilter', 'reloadTableAircraftProfit', 'removeAircraft'],
+	                    filter: settings.aircraftProfitability.filter,
+	                    hideColumn: settings.aircraftProfitability.hideColumn,
+	                    tableSettingStorage: 'aircraftProfitability',
+	                    onColumnChange: displayAircraftProfitability
+	                });
                 } else {
                     //Never happens or only when fleet = 0 because of updated script this output is copied bellow
                     tableDiv = $('<p class="warning"></p>').text('No aircraft data in memory. Open fleet management to extract aircraft data.')
@@ -2398,16 +2395,16 @@ function generateTable(tableOptionsRule) {
     table.tableHtml.append(thead, tbody, masterTableFooter());
     let tableWell = $('<div style="overflow-x:auto;" class="as-table-well"></div>').append(table.tableHtml);
 
-    //Table Settings
-    let settingsDiv = '';
-    if (tableOptionsRule.tableSettings) {
-        let divCol = [];
-        //Options
-        divCol.push($('<div class="col-md-4"></div>').html(masterTableOptions(table.tableHtml, tableOptionsRule.options)));
-        divCol.push($('<div class="col-md-4"></div>').html(masterTableFilter(tableOptionsRule.filter, tableOptionsRule.column)));
-        divCol.push($('<div class="col-md-4"></div>').html(masterTableColumns()));
-        settingsDiv = $('<div class="row"></div>').append(divCol)
-    }
+	    //Table Settings
+	    let settingsDiv = '';
+	    if (tableOptionsRule.tableSettings) {
+	        let divCol = [];
+	        //Options
+	        divCol.push($('<div class="col-md-4"></div>').append(masterTableOptions(table.tableHtml, tableOptionsRule.options)));
+	        divCol.push($('<div class="col-md-4"></div>').append(masterTableFilter(tableOptionsRule.filter, tableOptionsRule.column)));
+	        divCol.push($('<div class="col-md-4"></div>').append(masterTableColumns()));
+	        settingsDiv = $('<div class="row aes-dashboard-controls"></div>').append(divCol)
+	    }
 
     let div = $('<div></div>').append(settingsDiv, tableWell);
     return div;
@@ -2542,8 +2539,8 @@ function generateTable(tableOptionsRule) {
         }
     }
 
-    function masterTableOptions(table, options) {
-        let div = $('<div></div>');
+	    function masterTableOptions(table, options) {
+	        let div = $('<div class="aes-dashboard-control-actions"></div>');
         options.forEach(function(value, index) {
             if (index) {
                 let span = $('<span> </span>');
@@ -2551,14 +2548,7 @@ function generateTable(tableOptionsRule) {
             }
             div.append(masterTableOptionsHandle(value));
         });
-        //Closable legend
-        let link = $('<a style="cursor: pointer;"></a>').text('Options');
-        let legend = $('<legend></legend>').html(link);
-        link.click(function() {
-            div.toggle();
-        });
-        let fieldset = $('<fieldset></fieldset>').append(legend, div);
-        return fieldset;
+	        return buildDashboardControlPanel('Actions', 'Select, hide, open, remove', div, true);
 
         //Functions
         function masterTableOptionsHandle(value) {
@@ -2627,21 +2617,31 @@ function generateTable(tableOptionsRule) {
                 return btn;
             }
 
-            function masterTableOptionsRemoveAircraft() {
-                let btn = $('<button type="button" class="btn btn-default">Remove aircraft (permanent)</button>');
-                btn.click(function() {
-                    let id = [];
-                    let aircraftKey = [];
-                    $('tbody tr', table).has('input:checked').each(function() {
-                        let localId = $(this).attr('id');
-                        id.push(localId);
-                        aircraftKey.push(server + 'aircraftFlights' + localId);
-                        $(this).remove();
-                    });
-                    if (id.length) {
-                        let fleetKey = server + airline.id + 'aircraftFleet';
-                        dashboardStorage.get(fleetKey, function(result) {
-                            let storedFleetData = result[fleetKey];
+	            function masterTableOptionsRemoveAircraft() {
+	                let btn = $('<button type="button" class="btn btn-default aes-dashboard-confirm-action">Remove aircraft</button>');
+	                btn.click(function() {
+	                    let id = [];
+	                    let aircraftKey = [];
+	                    $('tbody tr', table).has('input:checked').each(function() {
+	                        let localId = $(this).attr('id');
+	                        id.push(localId);
+	                        aircraftKey.push(server + 'aircraftFlights' + localId);
+	                    });
+	                    if (!id.length) {
+	                        btn.removeClass('btn-warning').addClass('btn-default').text('Select aircraft first').delay(900).queue(function(next) {
+	                            $(this).text('Remove aircraft');
+	                            next();
+	                        });
+	                        return;
+	                    }
+	                    if (!btn.data('confirm')) {
+	                        btn.data('confirm', true).removeClass('btn-default').addClass('btn-warning').text('Confirm remove ' + id.length);
+	                        return;
+	                    }
+	                    if (id.length) {
+	                        let fleetKey = server + airline.id + 'aircraftFleet';
+	                        dashboardStorage.get(fleetKey, function(result) {
+	                            let storedFleetData = result[fleetKey];
                             let newFleet = storedFleetData.fleet.filter(function(value) {
                                 let keep = 1;
                                 id.forEach(function(idVal) {
@@ -2651,22 +2651,24 @@ function generateTable(tableOptionsRule) {
                                 });
                                 return keep;
                             });
-                            storedFleetData.fleet = newFleet;
-                            dashboardStorage.set({
-                                [fleetKey]: storedFleetData }, function() {
-                                dashboardStorage.remove(aircraftKey, function() {});
-                            });
-                        });
-                    }
-                });
-                return btn;
-            }
+	                            storedFleetData.fleet = newFleet;
+	                            dashboardStorage.set({
+	                                [fleetKey]: storedFleetData }, function() {
+	                                $('tbody tr', table).has('input:checked').remove();
+	                                btn.data('confirm', false).removeClass('btn-warning').addClass('btn-default').text('Remove aircraft');
+	                                dashboardStorage.remove(aircraftKey, function() {});
+	                            });
+	                        });
+	                    }
+	                });
+	                return btn;
+	            }
 
             function masterTableOptionsApplyFilter() {
                 let btn = $('<button type="button" class="btn btn-default">Apply filter</button>');
                 btn.click(function() {
                     let filter = [];
-                    table.closest(".as-panel").find('fieldset:eq(1) table tbody tr').each(function() {
+                    table.closest(".as-panel").find('.aes-dashboard-filter-table table tbody tr').each(function() {
                         filter.push({
                             titlecode: $(this).find('input').val(),
                             title: $(this).find('td:eq(0)').text(),
@@ -2786,16 +2788,10 @@ function generateTable(tableOptionsRule) {
         tf.push($('<td></td>').html(input));
         tf.push($('<td></td>').append(btn));
         let tfoot = $('<tfoot></tfoot>').append($('<tr></tr>').append(tf));
-        let tableFilter = $('<table class="table table-bordered table-striped table-hover"></table>').append(thead, tbody, tfoot);
-        let divTable = $('<div class="as-table-well"></div>').append(tableFilter);
-        //Closable legend
-        let link = $('<a style="cursor: pointer;"></a>').text('Filter');
-        let legend = $('<legend></legend>').html(link);
-        link.click(function() {
-            divTable.toggle();
-        });
-        let fieldset = $('<fieldset></fieldset>').append(legend, divTable);
-        return fieldset;
+	        let tableFilter = $('<table class="table table-bordered table-striped table-hover"></table>').append(thead, tbody, tfoot);
+	        let divTable = $('<div class="as-table-well aes-dashboard-filter-table"></div>').append(tableFilter);
+	        let filterCount = filter ? filter.length : 0;
+	        return buildDashboardControlPanel('Filters', filterCount ? filterCount + ' active' : 'No active filters', divTable, false);
         //Functions
         function masterTableFilterAddBodyRow(titleCode, title, operation, value) {
             let td = [];
@@ -2811,53 +2807,38 @@ function generateTable(tableOptionsRule) {
         }
     }
 
-    function masterTableColumns() {
-        //Table head
-        let th = [];
-        th.push('<th>Show</th>');
-        th.push('<th>Column</th>');
-        let thead = $('<thead></thead>').append($('<tr></tr>').append(th));
-        //Table body
-        let row = [];
-        tableOptionsRule.column.forEach(function(col) {
-            let td = []
-            let input = $('<input value="' + col.data + '" type="checkbox">');
-            input.change(function() {
-                if (!tableOptionsRule.hideColumn) {
-                    tableOptionsRule.hideColumn = [];
-                }
-                let newHideColumns = [];
-                let currentColumn = $(this).val();
-                newHideColumns = tableOptionsRule.hideColumn.filter(function(value) {
-                    return value != currentColumn;
-                });
-                if (!this.checked) {
-                    newHideColumns.push(currentColumn);
-                }
+	    function masterTableColumns() {
+	        let visibleCount = tableOptionsRule.column.filter(function(col) {
+	            return col.visible;
+	        }).length;
+	        let picker = buildDashboardColumnsPicker(tableOptionsRule.column, {
+	            groupField: 'category',
+	            labelField: 'title',
+	            valueField: 'data',
+	            visibleField: 'visible',
+	            onChange: function(col, checked) {
+	                if (!tableOptionsRule.hideColumn) {
+	                    tableOptionsRule.hideColumn = [];
+	                }
+	                let currentColumn = col.data;
+	                let newHideColumns = tableOptionsRule.hideColumn.filter(function(value) {
+	                    return value != currentColumn;
+	                });
+	                if (!checked) {
+	                    newHideColumns.push(currentColumn);
+	                }
 
-                tableOptionsRule.hideColumn = newHideColumns;
-                settings[tableOptionsRule.tableSettingStorage].hideColumn = tableOptionsRule.hideColumn;
-                dashboardStorage.set({ settings: settings }, function() {});
-            })
-            if (col.visible) {
-                input.prop('checked', true);
-            }
-            td.push($('<td></td>').append(input));
-            td.push($('<td></td>').text(col.title));
-            row.push($('<tr></tr>').append(td));
-        });
-        let tbody = $('<tbody></tbody>').append(row);
-        let tableColumns = $('<table class="table table-bordered table-striped table-hover"></table>').append(thead, tbody);
-        let divTable = $('<div class="as-table-well"></div>').append(tableColumns).hide();
-        //Closable legend
-        let link = $('<a style="cursor: pointer;"></a>').text('Columns');
-        let legend = $('<legend></legend>').html(link);
-        link.click(function() {
-            divTable.toggle();
-        });
-        let fieldset = $('<fieldset></fieldset>').append(legend, divTable);
-        return fieldset;
-    }
+	                tableOptionsRule.hideColumn = newHideColumns;
+	                settings[tableOptionsRule.tableSettingStorage].hideColumn = tableOptionsRule.hideColumn;
+	                dashboardStorage.set({ settings: settings }, function() {
+	                    if (tableOptionsRule.onColumnChange) {
+	                        tableOptionsRule.onColumnChange();
+	                    }
+	                });
+	            }
+	        });
+	        return buildDashboardControlPanel('Columns', visibleCount + ' shown', picker, false);
+	    }
 }
 //Display general helper functions
 function generalAddScheduleRow(tbody) {

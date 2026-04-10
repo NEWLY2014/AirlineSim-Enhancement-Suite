@@ -16,6 +16,82 @@
     white-space: nowrap;
 }
 
+.aes-dashboard-controls {
+    margin-bottom: 12px;
+}
+
+.aes-dashboard-control-panel {
+    margin-bottom: 10px;
+}
+
+.aes-dashboard-control-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+    text-align: left;
+}
+
+.aes-dashboard-control-summary {
+    color: #666;
+    font-size: 12px;
+    font-weight: normal;
+}
+
+.aes-dashboard-control-panel-body {
+    margin-top: 8px;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background: #f8f8f8;
+}
+
+.aes-dashboard-control-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.aes-dashboard-columns {
+    display: grid;
+    gap: 10px;
+    max-height: 280px;
+    overflow: auto;
+}
+
+.aes-dashboard-column-group-title {
+    margin-bottom: 4px;
+    color: #555;
+    font-weight: bold;
+}
+
+.aes-dashboard-column-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 4px 8px;
+}
+
+.aes-dashboard-column-choice {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    margin: 0;
+    padding: 3px 4px;
+    border-radius: 4px;
+    font-weight: normal;
+    line-height: 1.25;
+}
+
+.aes-dashboard-column-choice:hover {
+    background: #eee;
+}
+
+.aes-dashboard-filter-table {
+    max-height: 280px;
+    overflow: auto;
+}
+
 /* Specific */
 .aes-aircraftProfit-profit {
     text-align: right;

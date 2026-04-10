@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Improved Dashboard controls for Route Management, Competitor Monitoring, and Aircraft Profitability with compact panels, faster column toggles, and safer remove actions.
 - Improved Dashboard Competitor Monitoring loading by indexing tracked competitors per controlled airline and loading only their schedule data.
 - Fixed reported Inventory and Dashboard runtime errors caused by missing page elements or unavailable storage references.
 - Fixed Aircraft Profitability age aggregation so age is averaged in the summary row instead of summed.
