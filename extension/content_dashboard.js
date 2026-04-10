@@ -124,6 +124,468 @@ function buildDashboardColumnsPicker(columns, options) {
     return content;
 }
 
+function getDashboardColumnClass(columnPrefix, column) {
+    return column.className || column.cellClass || (columnPrefix + column.data);
+}
+
+function formatDashboardCell(type, value) {
+    if (value === undefined || value === null || value === '') {
+        return '';
+    }
+
+    switch (type) {
+        case 'money': {
+            if (!value) {
+                return '';
+            }
+            let span = $('<span></span>');
+            let text = '';
+            if (value > 0) {
+                span.addClass('good');
+                text = '+';
+            }
+            if (value < 0) {
+                span.addClass('bad');
+            }
+            span.text(text + new Intl.NumberFormat().format(value) + ' AS$');
+            return span;
+        }
+        default:
+            return value;
+    }
+}
+
+function sortDashboardTable(table, columnClass, number) {
+    let tableRows = $('tbody tr', table);
+    let tableBody = $('tbody', table);
+    tableBody.empty();
+    let indexes = [];
+    tableRows.each(function() {
+        if (number) {
+            let value = parseFloat($(this).find("." + columnClass).text());
+            indexes.push(value ? value : 0);
+        } else {
+            indexes.push($(this).find("." + columnClass).text());
+        }
+    });
+    indexes = [...new Set(indexes)];
+    let sorted = [...indexes];
+    if (number) {
+        sorted.sort(function(a, b) {
+            if (a > b) return -1;
+            if (a < b) return 1;
+            return 0;
+        });
+    } else {
+        sorted.sort();
+    }
+    let same = 1;
+    for (let i = 0; i < indexes.length; i++) {
+        if (indexes[i] !== sorted[i]) {
+            same = 0;
+        }
+    }
+    if (same) {
+        if (number) {
+            sorted.sort(function(a, b) {
+                if (a < b) return -1;
+                if (a > b) return 1;
+                return 0;
+            });
+        } else {
+            sorted.reverse();
+        }
+    }
+    for (let i = 0; i < sorted.length; i++) {
+        for (let j = tableRows.length - 1; j >= 0; j--) {
+            let value = number ? parseFloat($(tableRows[j]).find("." + columnClass).text()) : $(tableRows[j]).find("." + columnClass).text();
+            if (number && !value) {
+                value = 0;
+            }
+            if (value == sorted[i]) {
+                tableBody.append($(tableRows[j]));
+                tableRows.splice(j, 1);
+            }
+        }
+    }
+}
+
+function buildDashboardTable(options) {
+    let tableHtml = $('<table class="table table-bordered table-striped table-hover"></table>');
+    if (options.tableId) {
+        tableHtml.attr('id', options.tableId);
+    }
+
+    let visibleColumns = options.columns.filter(function(column) {
+        return column.visible;
+    });
+    let categoryCounts = {};
+    visibleColumns.forEach(function(column) {
+        let category = column.category || 'Columns';
+        if (!categoryCounts[category]) {
+            categoryCounts[category] = 0;
+        }
+        categoryCounts[category]++;
+    });
+
+    let categoryCells = [];
+    let headerCells = [];
+    if (options.selectable) {
+        let checkbox = $('<input type="checkbox">');
+        checkbox.change(function() {
+            $('tbody tr input[type="checkbox"]', tableHtml).prop('checked', this.checked);
+        });
+        categoryCells.push($('<th rowspan="2"></th>').append(checkbox));
+    }
+
+    for (let category in categoryCounts) {
+        categoryCells.push($('<th colspan="' + categoryCounts[category] + '"></th>').text(category));
+    }
+
+    visibleColumns.forEach(function(column) {
+        if (column.sortable) {
+            let columnClass = getDashboardColumnClass(options.columnPrefix || '', column);
+            let sort = $('<a></a>').html(column.title);
+            sort.click(function() {
+                sortDashboardTable(tableHtml, columnClass, column.number);
+            });
+            headerCells.push($('<th style="cursor: pointer;"></th>').html(sort));
+        } else {
+            headerCells.push($('<th></th>').html(column.title));
+        }
+    });
+
+    let headRows = [];
+    if (Object.keys(categoryCounts).length) {
+        headRows.push($('<tr></tr>').append(categoryCells));
+        headRows.push($('<tr></tr>').append(headerCells));
+    } else {
+        if (options.selectable) {
+            headerCells.unshift($('<th></th>'));
+        }
+        headRows.push($('<tr></tr>').append(headerCells));
+    }
+
+    let bodyRows = [];
+    options.data.forEach(function(rowData) {
+        let cells = [];
+        if (options.selectable) {
+            cells.push('<td><input type="checkbox"></td>');
+        }
+        visibleColumns.forEach(function(column) {
+            let value = column.render ? column.render(rowData) : rowData[column.data];
+            let td = $('<td></td>').addClass(getDashboardColumnClass(options.columnPrefix || '', column));
+            td.html(column.format ? formatDashboardCell(column.format, value) : value);
+            cells.push(td);
+        });
+
+        let row = $('<tr></tr>').append(cells);
+        if (options.rowId) {
+            row.attr('id', options.rowId(rowData));
+        }
+        bodyRows.push(row);
+    });
+
+    let thead = $('<thead></thead>').append(headRows);
+    let tbody = $('<tbody></tbody>').append(bodyRows);
+    tableHtml.append(thead, tbody);
+    if (options.footer) {
+        tableHtml.append(buildDashboardTableFooter(options, visibleColumns));
+    }
+
+    return {
+        table: tableHtml,
+        tableWell: $('<div style="overflow-x:auto;" class="as-table-well"></div>').append(tableHtml)
+    };
+}
+
+function buildDashboardTableFooter(options, visibleColumns) {
+    let cells = [];
+    if (options.selectable) {
+        cells.push('<th>Total / Avg</th>');
+    }
+
+    visibleColumns.forEach(function(column) {
+        if (!column.number) {
+            cells.push('<td></td>');
+            return;
+        }
+
+        let values = options.data.map(function(rowData) {
+            return parseFloat(rowData[column.data]);
+        }).filter(function(value) {
+            return !isNaN(value);
+        });
+
+        let result = '';
+        if (values.length) {
+            result = values.reduce(function(total, value) {
+                return total + value;
+            }, 0);
+            if (column.aggregate === 'average') {
+                result = Math.round((result / values.length) * 10) / 10;
+            }
+        }
+
+        cells.push($('<td></td>').html(formatDashboardCell(column.format, result)));
+    });
+
+    return $('<tfoot></tfoot>').append($('<tr></tr>').append(cells));
+}
+
+function applyDashboardTableFilters(table, filters, columns, filterValueField, columnPrefix) {
+    $('tbody tr', table).each(function() {
+        let row = this;
+        filters.forEach(function(filter) {
+            let filterCode = filter[filterValueField];
+            let column = columns.find(function(column) {
+                return column.filterValue == filterCode || column.data == filterCode || column.className == filterCode;
+            });
+            if (!column) {
+                return;
+            }
+
+            let cell = $(row).find("." + getDashboardColumnClass(columnPrefix || '', column)).text();
+            let value = filter.value;
+            if (column.number) {
+                cell = cell ? parseFloat(cell) : 0;
+                value = value ? parseFloat(value) : 0;
+            }
+
+            switch (filter.operation) {
+                case '=':
+                    if (cell != value) $(row).remove();
+                    break;
+                case '!=':
+                    if (cell == value) $(row).remove();
+                    break;
+                case '>':
+                    if (cell < value) $(row).remove();
+                    break;
+                case '<':
+                    if (cell > value) $(row).remove();
+                    break;
+            }
+        });
+    });
+}
+
+function buildDashboardFilterPanel(options) {
+    let rows = [];
+    options.filters = options.filters || [];
+    options.filters.forEach(function(filter) {
+        rows.push($('<tr></tr>').append(addFilterRow(filter[options.valueField], filter[options.labelField], filter.operation, filter.value)));
+    });
+
+    let tbody = $('<tbody></tbody>').append(rows);
+    let columnOptions = [];
+    options.columns.filter(function(column) {
+        return column.filterable !== false;
+    }).forEach(function(column) {
+        columnOptions.push('<option value="' + (column.filterValue || column.data) + '">' + column.title + '</option>');
+    });
+    let columnSelect = $('<select class="form-control"></select>').append(columnOptions);
+    let operationSelect = $('<select class="form-control"></select>').append('<option>=</option><option>!=</option><option>></option><option><</option>');
+    let input = $('<input type="text" class="form-control" style="min-width: 50px;">');
+    let addBtn = $('<button class="btn btn-default"></button>').text('Add Row');
+    addBtn.click(function() {
+        tbody.append($('<tr></tr>').append(addFilterRow($('option:selected', columnSelect).val(), $('option:selected', columnSelect).text(), $('option:selected', operationSelect).text(), input.val())));
+    });
+
+    let tfoot = $('<tfoot></tfoot>').append($('<tr></tr>').append(
+        $('<td></td>').html(columnSelect),
+        $('<td></td>').html(operationSelect),
+        $('<td></td>').html(input),
+        $('<td></td>').append(addBtn)
+    ));
+    let table = $('<table class="table table-bordered table-striped table-hover"></table>').append(
+        $('<thead></thead>').append('<tr><th>Column</th><th>Operation</th><th>Value</th><th></th></tr>'),
+        tbody,
+        tfoot
+    );
+    let applyBtn = $('<button class="btn btn-default">Apply filter</button>');
+    let status = $('<span></span>');
+    applyBtn.click(function() {
+        let filters = [];
+        $('tbody tr', table).each(function() {
+            filters.push({
+                [options.valueField]: $(this).find('input').val(),
+                [options.labelField]: $(this).find('td:eq(0)').text(),
+                operation: $(this).find('td:eq(1)').text(),
+                value: $(this).find('td:eq(2)').text()
+            });
+        });
+        options.onApply(filters, status);
+    });
+
+    let content = $('<div></div>').append(
+        $('<div class="as-table-well aes-dashboard-filter-table"></div>').append(table),
+        $('<div class="aes-dashboard-control-actions"></div>').append(applyBtn, status)
+    );
+    return buildDashboardControlPanel('Filters', options.filters.length ? options.filters.length + ' active' : 'No active filters', content, false);
+
+    function addFilterRow(titleCode, title, operation, value) {
+        let deleteBtn = $('<a></a>').html('<span class="fa fa-trash" title="Delete row"></span>');
+        deleteBtn.click(function() {
+            $(this).closest("tr").remove();
+        });
+        return [
+            $('<td></td>').append($('<input type="hidden">').val(titleCode), title),
+            $('<td></td>').text(operation),
+            $('<td></td>').text(value),
+            $('<td></td>').append(deleteBtn)
+        ];
+    }
+}
+
+function buildGeneratedDashboardTableSettings(tableOptionsRule, table) {
+    if (!tableOptionsRule.tableSettings) {
+        return '';
+    }
+
+    let divCol = [];
+    divCol.push($('<div class="col-md-4"></div>').append(buildGeneratedDashboardActions(tableOptionsRule, table)));
+    divCol.push($('<div class="col-md-4"></div>').append(buildDashboardFilterPanel({
+        filters: tableOptionsRule.filter || [],
+        columns: tableOptionsRule.column,
+        valueField: 'titlecode',
+        labelField: 'title',
+        onApply: function(filter, status) {
+            status.removeClass().addClass('warning').text(' saving...');
+            settings[tableOptionsRule.tableSettingStorage].filter = filter;
+            dashboardStorage.set({ settings: settings }, function() {
+                status.removeClass().addClass('warning').text(' filtering...');
+                applyDashboardTableFilters(table, filter, tableOptionsRule.column, 'titlecode', tableOptionsRule.columnPrefix);
+                status.removeClass().addClass('good').text(' done!');
+            });
+        }
+    })));
+    divCol.push($('<div class="col-md-4"></div>').append(buildGeneratedDashboardColumns(tableOptionsRule)));
+
+    return $('<div class="row aes-dashboard-controls"></div>').append(divCol);
+}
+
+function buildGeneratedDashboardActions(tableOptionsRule, table) {
+    let div = $('<div class="aes-dashboard-control-actions"></div>');
+    tableOptionsRule.options.forEach(function(value) {
+        let action = buildGeneratedDashboardAction(value, tableOptionsRule, table);
+        if (action) {
+            div.append(action);
+        }
+    });
+    return buildDashboardControlPanel('Actions', 'Select, hide, open, remove', div, true);
+}
+
+function buildGeneratedDashboardAction(value, tableOptionsRule, table) {
+    switch (value) {
+        case 'selectFirstSix':
+            return $('<button type="button" class="btn btn-default">Select first six</button>').click(function() {
+                let count = 0;
+                $('tbody tr', table).each(function() {
+                    $(this).find('input[type="checkbox"]').prop('checked', true);
+                    count++;
+                    if (count >= 6) {
+                        return false;
+                    }
+                });
+            });
+        case 'openAircraft':
+            return $('<button type="button" class="btn btn-default">Open aircraft (max 6)</button>').click(function() {
+                let urls = $('tbody tr', table).has('input:checked').map(function() {
+                    return 'https://' + server + '.airlinesim.aero/app/fleets/aircraft/' + $(this).attr('id') + '/1';
+                }).toArray();
+                for (let i = 0; i < urls.length; i++) {
+                    window.open(urls[i], '_blank');
+                    if (i == 5) {
+                        break;
+                    }
+                }
+            });
+        case 'reloadTableAircraftProfit':
+            return $('<button type="button" class="btn btn-default">Reload table</button>').click(function() {
+                displayAircraftProfitability();
+            });
+        case 'removeAircraft':
+            return $('<button type="button" class="btn btn-default aes-dashboard-confirm-action">Remove aircraft</button>').click(function() {
+                let btn = $(this);
+                let id = [];
+                let aircraftKey = [];
+                $('tbody tr', table).has('input:checked').each(function() {
+                    let localId = $(this).attr('id');
+                    id.push(localId);
+                    aircraftKey.push(server + 'aircraftFlights' + localId);
+                });
+                if (!id.length) {
+                    btn.removeClass('btn-warning').addClass('btn-default').text('Select aircraft first').delay(900).queue(function(next) {
+                        $(this).text('Remove aircraft');
+                        next();
+                    });
+                    return;
+                }
+                if (!btn.data('confirm')) {
+                    btn.data('confirm', true).removeClass('btn-default').addClass('btn-warning').text('Confirm remove ' + id.length);
+                    return;
+                }
+
+                let fleetKey = server + airline.id + 'aircraftFleet';
+                dashboardStorage.get(fleetKey, function(result) {
+                    let storedFleetData = result[fleetKey];
+                    storedFleetData.fleet = storedFleetData.fleet.filter(function(value) {
+                        return id.indexOf(String(value.aircraftId)) == -1;
+                    });
+                    dashboardStorage.set({ [fleetKey]: storedFleetData }, function() {
+                        $('tbody tr', table).has('input:checked').remove();
+                        btn.data('confirm', false).removeClass('btn-warning').addClass('btn-default').text('Remove aircraft');
+                        dashboardStorage.remove(aircraftKey, function() {});
+                    });
+                });
+            });
+        case 'applyFilter':
+            return $('<button type="button" class="btn btn-default">Apply saved filter</button>').click(function() {
+                applyDashboardTableFilters(table, settings[tableOptionsRule.tableSettingStorage].filter || [], tableOptionsRule.column, 'titlecode', tableOptionsRule.columnPrefix);
+            });
+        case 'hideSelected':
+            return $('<button type="button" class="btn btn-default">Hide selected</button>').click(function() {
+                $('tbody tr', table).has('input:checked').remove();
+            });
+        default:
+            return null;
+    }
+}
+
+function buildGeneratedDashboardColumns(tableOptionsRule) {
+    let visibleCount = tableOptionsRule.column.filter(function(col) {
+        return col.visible;
+    }).length;
+    let picker = buildDashboardColumnsPicker(tableOptionsRule.column, {
+        groupField: 'category',
+        labelField: 'title',
+        valueField: 'data',
+        visibleField: 'visible',
+        onChange: function(col, checked) {
+            if (!tableOptionsRule.hideColumn) {
+                tableOptionsRule.hideColumn = [];
+            }
+            let currentColumn = col.data;
+            let newHideColumns = tableOptionsRule.hideColumn.filter(function(value) {
+                return value != currentColumn;
+            });
+            if (!checked) {
+                newHideColumns.push(currentColumn);
+            }
+
+            tableOptionsRule.hideColumn = newHideColumns;
+            settings[tableOptionsRule.tableSettingStorage].hideColumn = tableOptionsRule.hideColumn;
+            dashboardStorage.set({ settings: settings }, function() {
+                if (tableOptionsRule.onColumnChange) {
+                    tableOptionsRule.onColumnChange();
+                }
+            });
+        }
+    });
+    return buildDashboardControlPanel('Columns', visibleCount + ' shown', picker, false);
+}
+
 //Route Management Dashbord
 function displayRouteManagement() {
     //Check ROute Managemetn seetings
@@ -479,105 +941,49 @@ function routeManagementApplyFilter() {
     });
 }
 
+function getRouteManagementDashboardColumns() {
+    let columns = settings.routeManagement.tableColumns.map(function(col) {
+        return {
+            category: col.value ? 'Schedule' : 'Analysis',
+            title: col.name,
+            data: col.value || col.class,
+            className: col.class,
+            filterValue: col.class,
+            number: col.number,
+            visible: col.show,
+            sortable: 1
+        };
+    });
+    columns.push({
+        category: 'Actions',
+        title: 'Action',
+        data: 'actionInventory',
+        className: 'aes-routeManagement-action',
+        visible: 1,
+        sortable: 0,
+        filterable: false
+    });
+    return columns;
+}
+
 function displayRouteManagementFilters() {
-    //Table head
-    let th = [];
-    th.push('<th>Column</th>');
-    th.push('<th>Operation</th>');
-    th.push('<th>Value</th>');
-    th.push('<th></th>');
-    let thead = $('<thead></thead>').append($('<tr></tr>').append(th));
-
-    //Table body
-    let tbody = $('<tbody></tbody>');
-    settings.routeManagement.filter.forEach(function(fil) {
-        let td = [];
-        td.push('<td><input type="hidden" value="' + fil.columnCode + '">' + fil.column + '</td>');
-        td.push('<td>' + fil.operation + '</td>');
-        td.push('<td>' + fil.value + '</td>');
-        td.push('<td><a class="aes-a-routeManagement-filter-delete-row" ><span class="fa fa-trash" title="Delete row"></span></a></td>');
-        tbody.append($('<tr></tr>').append(td));
-    });
-
-    //Table foot
-    //select column
-    let option1 = [];
-    settings.routeManagement.tableColumns.forEach(function(col) {
-        option1.push('<option value="' + col.class + '">' + col.name + '</option>');
-    });
-    let select1 = $('<select id="aes-select-routeManagement-filter-column" class="form-control"></select>').append(option1);
-
-
-
-    //Select value
-    let option = [];
-    option.push('<option>=</option>');
-    option.push('<option>!=</option>');
-    option.push('<option>></option>');
-    option.push('<option><</option>');
-    let select = $('<select id="aes-select-routeManagement-filter-operation" class="form-control"></select>').append(option);
-    //Add button
-    let btn = $('<button class="btn btn-default"></button>').text('Add Row');
-    btn.click(function() {
-        let td = [];
-        let column = $(this).closest("tr").find('#aes-select-routeManagement-filter-column option:selected').text();
-        let columnVal = $(this).closest("tr").find('#aes-select-routeManagement-filter-column').val();
-        let operation = $(this).closest("tr").find('#aes-select-routeManagement-filter-operation option:selected').text();
-        let value = $(this).closest("tr").find('#aes-select-routeManagement-filter-value').val()
-        td.push('<td><input type="hidden" value="' + columnVal + '">' + column + '</td>');
-        td.push('<td>' + operation + '</td>');
-        td.push('<td>' + value + '</td>');
-        td.push('<td><a class="aes-a-routeManagement-filter-delete-row" ><span class="fa fa-trash" title="Delete row"></span></a></td>');
-
-        tbody.append($('<tr></tr>').append(td));
-    });
-
-    //Footer rows
-    let tf = [];
-    tf.push($('<td></td>').html(select1));
-    tf.push($('<td></td>').html(select));
-    tf.push('<td><input id="aes-select-routeManagement-filter-value" type="text" class="form-control" style="min-width: 50px;"></td>');
-    tf.push($('<td></td>').append(btn));
-    let tfoot = $('<tfoot></tfoot>').append($('<tr></tr>').append(tf));
-    let table = $('<table class="table table-bordered table-striped table-hover" id="aes-table-routeManagement-filter"></table>').append(thead, tbody, tfoot);
-    let divTable = $('<div id="aes-div-routeManagement-filter" class="as-table-well aes-dashboard-filter-table"></div>').append(table);
-
-
-    //
-    let saveBtn = $('<button class="btn btn-default">apply filter</button>');
-    let saveSpan = $('<span></span>');
-
-    let divForAll = $('<div></div>').append(divTable, $('<div class="aes-dashboard-control-actions"></div>').append(saveBtn, saveSpan));
-    let filterCount = settings.routeManagement.filter.length;
     let div = $('<div class="col-md-4"></div>').append(
-        buildDashboardControlPanel('Filters', filterCount ? filterCount + ' active' : 'No active filters', divForAll, false)
+        buildDashboardFilterPanel({
+            filters: settings.routeManagement.filter,
+            columns: getRouteManagementDashboardColumns(),
+            valueField: 'columnCode',
+            labelField: 'column',
+            onApply: function(filter, status) {
+                status.removeClass().addClass('warning').text(' saving...');
+                settings.routeManagement.filter = filter;
+                dashboardStorage.set({ settings: settings }, function() {
+                    status.removeClass().addClass('warning').text(' filtering...');
+                    routeManagementApplyFilter();
+                    status.removeClass().addClass('good').text(' done!');
+                });
+            }
+        })
     );
-
-    //Delete row for filter row
-    table.on("click", ".aes-a-routeManagement-filter-delete-row", function() {
-        $(this).closest("tr").remove();
-    });
-
-    //Save Button
-    saveBtn.click(function() {
-        saveSpan.removeClass().addClass('warning').text(' saving...');
-        let filter = [];
-        $('#aes-table-routeManagement-filter tbody tr').each(function() {
-            filter.push({
-                columnCode: $(this).find('input').val(),
-                column: $(this).find('td:eq(0)').text(),
-                operation: $(this).find('td:eq(1)').text(),
-                value: $(this).find('td:eq(2)').text(),
-            });
-        });
-        settings.routeManagement.filter = filter;
-        dashboardStorage.set({ settings: settings }, function() {
-            saveSpan.removeClass().addClass('warning').text(' filtering...');
-            routeManagementApplyFilter()
-            saveSpan.removeClass().addClass('good').text(' done!');
-        });
-    });
-
     return div;
 }
 
@@ -585,13 +991,20 @@ function displayRouteManagementColumns(scheduleData) {
     let visibleCount = settings.routeManagement.tableColumns.filter(function(col) {
         return col.show;
     }).length;
-    let picker = buildDashboardColumnsPicker(settings.routeManagement.tableColumns, {
+    let pickerColumns = settings.routeManagement.tableColumns.map(function(col) {
+        return {
+            ...col,
+            category: col.value ? 'Schedule' : 'Analysis',
+            source: col
+        };
+    });
+    let picker = buildDashboardColumnsPicker(pickerColumns, {
         groupField: 'category',
         labelField: 'name',
         valueField: 'class',
         visibleField: 'show',
         onChange: function(col, checked) {
-            col.show = checked ? 1 : 0;
+            col.source.show = checked ? 1 : 0;
             dashboardStorage.set({ settings: settings }, function() {
                 generateRouteManagementTable(scheduleData);
             });
@@ -616,43 +1029,9 @@ function generateRouteManagementTable(scheduleData) {
     dates.reverse();
     //LatestSchedule
     let schedule = scheduleData.date[dates[0]].schedule;
-    //Generate top
-    //Table headers
-    let columns = settings.routeManagement.tableColumns;
-
-    //Generate table head
-    let thead = $('<thead></thead>');
-    let th = [];
-    //Check box
-    let checkbox = $('<input type="checkbox">');
-    checkbox.change(function() {
-        if (this.checked) {
-            $('#aes-table-routeManagement tbody tr').each(function() {
-                $(this).find("input").prop('checked', true);
-            });
-        } else {
-            $('#aes-table-routeManagement tbody tr').each(function() {
-                $(this).find("input").prop('checked', false);
-            });
-        }
-    });
-    th.push($('<th></th>').html(checkbox));
-    columns.forEach(function(col) {
-        if (col.show) {
-            let sort = $('<a></a>').html(col.name);
-            sort.click(function() {
-                routeManagementSortTable(col.class, col.number);
-            });
-            th.push($('<th style="cursor: pointer;"></th>').html(sort));
-        }
-    });
-    //Add open inventory column
-    th.push($('<th>Action</th>'));
-
-    thead.append($('<tr></tr>').append(th));
     //Generate table rows
-    let tbody = $('<tbody></tbody>');
     let uniqueOD = [];
+    let data = [];
     schedule.forEach(function(od) {
         //ODs for analysis
         uniqueOD.push(od.od);
@@ -668,7 +1047,9 @@ function generateRouteManagementTable(scheduleData) {
         let totalFreq = cargoFreq + paxFreq;
         //hub
         let hub = od.od.slice(0, 3);
-        let cellValue = {
+        let rowId = od.origin + od.destination;
+        data.push({
+            rowId: rowId,
             origin: od.origin,
             destination: od.destination,
             odName: od.od,
@@ -677,33 +1058,21 @@ function generateRouteManagementTable(scheduleData) {
             paxFreq: paxFreq,
             cargoFreq: cargoFreq,
             totalFreq: totalFreq,
-            hub: hub
-        }
-        //Table cells
-        let cell = [];
-        //Checkbox
-        cell.push('<td><input type="checkbox"></td>');
-        //Schedule
-        columns.forEach(function(col) {
-            if (col.show) {
-                if (col.value) {
-                    cell.push($('<td></td>').addClass(col.class).text(cellValue[col.value]));
-                } else {
-                    cell.push($('<td></td>').addClass(col.class));
-                }
-            }
+            hub: hub,
+            actionInventory: '<a class="btn btn-xs btn-default" href="https://' + server + '.airlinesim.aero/app/com/inventory/' + rowId + '">Inventory</a>'
         });
-        let rowId = od.origin + od.destination;
-
-        //Add inventory button
-        let invBtn = '<a class="btn btn-xs btn-default" href="https://' + server + '.airlinesim.aero/app/com/inventory/' + rowId + '">Inventory</a>'
-        cell.push($('<td></td>').html(invBtn));
-
-        let row = $('<tr id="aes-row-' + rowId + '"></tr>').append(cell);
-        tbody.append(row);
     });
-    let table = $('<table class="table table-bordered table-striped table-hover" id="aes-table-routeManagement"></table>').append(thead, tbody);
-    let divTable = $('<div id="aes-div-routeManagement" class="as-table-well"></div>').append(table);
+    let table = buildDashboardTable({
+        tableId: 'aes-table-routeManagement',
+        columns: getRouteManagementDashboardColumns(),
+        data: data,
+        selectable: true,
+        footer: false,
+        rowId: function(row) {
+            return 'aes-row-' + row.rowId;
+        }
+    });
+    let divTable = $('<div id="aes-div-routeManagement"></div>').append(table.tableWell);
     $('#aes-div-dashboard-routeManagement').append(divTable)
     //Analysis columns
     //Get unique ODs
@@ -744,72 +1113,6 @@ function generateRouteManagementTable(scheduleData) {
                 updateRouteAnalysisColumns(inAnalysis, inDates, routeIndex);
             });
         });
-    }
-}
-
-function routeManagementSortTable(column, number) {
-    let tableRows = $('#aes-table-routeManagement tbody tr');
-    let tableBody = $('#aes-table-routeManagement tbody');
-    tableBody.empty();
-    let indexes = [];
-    tableRows.each(function() {
-        if (number) {
-            let value = parseInt($(this).find("." + column).text(), 10);
-            if (value) {
-                indexes.push(value);
-            } else {
-                indexes.push(0);
-            }
-        } else {
-            indexes.push($(this).find("." + column).text());
-        }
-    });
-    indexes = [...new Set(indexes)];
-    let sorted = [...indexes];
-    if (number) {
-        sorted.sort(function(a, b) {
-            if (a > b) return -1;
-            if (a < b) return 1;
-            if (a == b) return 0;
-        });
-    } else {
-        sorted.sort();
-    }
-    let same = 1;
-    for (let i = 0; i < indexes.length; i++) {
-        if (indexes[i] !== sorted[i]) {
-            same = 0;
-        }
-    }
-    if (same) {
-        if (number) {
-            sorted.sort(function(a, b) {
-                if (a < b) return -1;
-                if (a > b) return 1;
-                if (a = b) return 0;
-            });
-        } else {
-            sorted.reverse();
-        }
-    }
-    for (let i = 0; i < sorted.length; i++) {
-        for (let j = tableRows.length - 1; j >= 0; j--) {
-            if (number) {
-                let value = parseInt($(tableRows[j]).find("." + column).text(), 10);
-                if (!value) {
-                    value = 0;
-                }
-                if (value == sorted[i]) {
-                    tableBody.append($(tableRows[j]));
-                    tableRows.splice(j, 1);
-                }
-            } else {
-                if ($(tableRows[j]).find("." + column).text() == sorted[i]) {
-                    tableBody.append($(tableRows[j]));
-                    tableRows.splice(j, 1);
-                }
-            }
-        }
     }
 }
 
@@ -1190,39 +1493,8 @@ function displayCompetitorMonitoringAirlinesTable(div) {
                 }
             }
 
-            //Check if any airlines exist
-            let rows = [];
-            let hrows = [];
+            let tableData = [];
             if (compAirlines.length) {
-                //head
-                //second head columns
-                let firstHead = {};
-                let th = [];
-                settings.competitorMonitoring.tableColumns.forEach(function(col) {
-                    if (col.visible) {
-                        //Sort
-                        let sort = $('<a></a>').html(col.text);
-                        sort.click(function() {
-                            CompetitorMonitoringSortTable(col.field, col.number);
-                        });
-                        th.push($('<th style="cursor: pointer;"></th>').html(sort));
-                        if (firstHead[col.headGroup]) {
-                            firstHead[col.headGroup]++;
-                        } else {
-                            firstHead[col.headGroup] = 1;
-                        }
-                    }
-                });
-                //first head
-                let th1 = [];
-                for (let titles in firstHead) {
-                    th1.push($('<th colspan="' + firstHead[titles] + '"></th>').text(titles));
-                }
-                hrows.push($('<tr></tr>').append(th1));
-                hrows.push($('<tr></tr>').append(th));
-
-                //Data columns
-
                 compAirlines.forEach(function myFunction(value) {
                 let data = {};
                 //Airline
@@ -1388,29 +1660,39 @@ function displayCompetitorMonitoringAirlinesTable(div) {
                     });
                 });
 
-                //Populate columns
-                let td = [];
-                settings.competitorMonitoring.tableColumns.forEach(function(col) {
-                    if (col.visible) {
-                        td.push($('<td class="aes-' + col.field + '"></td>').html(data[col.field]));
-                    }
-                });
-                rows.push($('<tr></tr>').append(td));
+                tableData.push(data);
 
             });
-        } else {
-            rows.push('<tr><td><span class="warning">No airlines marked for competitor monitoring. Open airline info page to mark airline for tracking.</span></td></tr>');
-        }
+            }
 
-        let thead = $('<thead></thead>').append(hrows);
-        let tbody = $('<tbody></tbody>').append(rows);
+            //Options
+            let divRow = $('<div class="row aes-dashboard-controls"></div>').append(displayCompetitorMonitoringAirlinesTableOptions(), displayCompetitorMonitoringAirlinesTableColumns());
+            if (!compAirlines.length) {
+                div.append(divRow, '<p><span class="warning">No airlines marked for competitor monitoring. Open airline info page to mark airline for tracking.</span></p>');
+                return;
+            }
 
-        let table = $('<table id="aes-table-competitorMonitoring" class="table table-bordered table-striped table-hover"></table>').append(thead, tbody);
-        let tableWell = $('<div style="overflow-x:auto;" class="as-table-well"></div>').append(table);
-
-        //Options
-        let divRow = $('<div class="row aes-dashboard-controls"></div>').append(displayCompetitorMonitoringAirlinesTableOptions(), displayCompetitorMonitoringAirlinesTableColumns());
-        div.append(divRow, tableWell);
+            let table = buildDashboardTable({
+                tableId: 'aes-table-competitorMonitoring',
+                columns: settings.competitorMonitoring.tableColumns.map(function(col) {
+                    return {
+                        category: col.headGroup,
+                        title: col.text,
+                        data: col.field,
+                        className: 'aes-' + col.field,
+                        visible: col.visible,
+                        sortable: 1,
+                        number: col.number
+                    };
+                }),
+                data: tableData,
+                selectable: false,
+                footer: false,
+                rowId: function(row) {
+                    return 'aes-compMon-row-' + row.airlineId;
+                }
+            });
+            div.append(divRow, table.tableWell);
 
         };
 
@@ -1664,72 +1946,6 @@ function displayCompetitorMonitoringAirlinesTableOptions() {
     });
 
     return optionsDiv;
-}
-
-function CompetitorMonitoringSortTable(column, number) {
-    let tableRows = $('#aes-table-competitorMonitoring tbody tr');
-    let tableBody = $('#aes-table-competitorMonitoring tbody');
-    tableBody.empty();
-    let indexes = [];
-    tableRows.each(function() {
-        if (number) {
-            let value = parseInt($(this).find(".aes-" + column).text(), 10);
-            if (value) {
-                indexes.push(value);
-            } else {
-                indexes.push(0);
-            }
-        } else {
-            indexes.push($(this).find(".aes-" + column).text());
-        }
-    });
-    indexes = [...new Set(indexes)];
-    let sorted = [...indexes];
-    if (number) {
-        sorted.sort(function(a, b) {
-            if (a > b) return -1;
-            if (a < b) return 1;
-            if (a == b) return 0;
-        });
-    } else {
-        sorted.sort();
-    }
-    let same = 1;
-    for (let i = 0; i < indexes.length; i++) {
-        if (indexes[i] !== sorted[i]) {
-            same = 0;
-        }
-    }
-    if (same) {
-        if (number) {
-            sorted.sort(function(a, b) {
-                if (a < b) return -1;
-                if (a > b) return 1;
-                if (a = b) return 0;
-            });
-        } else {
-            sorted.reverse();
-        }
-    }
-    for (let i = 0; i < sorted.length; i++) {
-        for (let j = tableRows.length - 1; j >= 0; j--) {
-            if (number) {
-                let value = parseInt($(tableRows[j]).find(".aes-" + column).text(), 10);
-                if (!value) {
-                    value = 0;
-                }
-                if (value == sorted[i]) {
-                    tableBody.append($(tableRows[j]));
-                    tableRows.splice(j, 1);
-                }
-            } else {
-                if ($(tableRows[j]).find(".aes-" + column).text() == sorted[i]) {
-                    tableBody.append($(tableRows[j]));
-                    tableRows.splice(j, 1);
-                }
-            }
-        }
-    }
 }
 
 function setDefaultCompetitorMonitoringSettings() {
@@ -2323,522 +2539,20 @@ function displayAircraftProfitability() {
 
 //Auto table generator
 function generateTable(tableOptionsRule) {
-    let tableHtml = $('<table class="table table-bordered table-striped table-hover"></table>');
-    let table = { cell: {}, row: {}, tableHtml: tableHtml };
-    //Table Categories
-    let tableCategory = {};
-    tableOptionsRule.column.forEach(function(value) {
-        if (value.visible) {
-            if (!tableCategory[value.category]) {
-                tableCategory[value.category] = 1;
-            } else {
-                tableCategory[value.category]++;
-            }
+    let dashboardTable = buildDashboardTable({
+        columns: tableOptionsRule.column,
+        data: tableOptionsRule.data,
+        columnPrefix: tableOptionsRule.columnPrefix,
+        selectable: !!tableOptionsRule.tableSettings,
+        footer: true,
+        rowId: function(dataValue) {
+            let idColumn = tableOptionsRule.column.find(function(column) {
+                return column.id;
+            });
+            return idColumn ? dataValue[idColumn.data] : null;
         }
     });
-    table.cell.category = [];
-    //Add checkbox
-    if (tableOptionsRule.tableSettings) {
-        table.cell.category.push('<th rowspan="2"></th>')
-    }
-    for (let category in tableCategory) {
-        table.cell.category.push('<th colspan="' + tableCategory[category] + '">' + category + '</th>');
-    }
-
-    //Table Headers
-    table.cell.header = [];
-    tableOptionsRule.column.forEach(function(value) {
-        if (value.visible) {
-            if (value.sortable) {
-                //Sort
-                let sort = $('<a></a>').text(value.title);
-                sort.click(function() {
-                    masterSortTable(value.data, value.number, table.tableHtml, tableOptionsRule.columnPrefix);
-                });
-                table.cell.header.push($('<th style="cursor: pointer;"></th>').html(sort));
-            } else {
-                table.cell.header.push('<th>' + value.title + '</th>');
-            }
-        }
-    });
-    //Head
-    table.row.head = [];
-    table.row.head.push($('<tr></tr>').append(table.cell.category));
-    table.row.head.push($('<tr></tr>').append(table.cell.header));
-    //Table Body
-    table.row.body = [];
-    tableOptionsRule.data.forEach(function(dataValue) {
-        let cell = [];
-        //Add checkbox
-        if (tableOptionsRule.tableSettings) {
-            cell.push('<td><input type="checkbox"></td>');
-        }
-        let id;
-        tableOptionsRule.column.forEach(function(colValue) {
-            if (colValue.id) {
-                id = dataValue[colValue.data]
-            }
-            if (colValue.visible) {
-                let td = $('<td></td>').addClass(tableOptionsRule.columnPrefix + colValue.data);
-                if (colValue.format) {
-                    td.html(masterCellFormat(colValue.format, dataValue[colValue.data]))
-                } else {
-                    td.html(dataValue[colValue.data])
-                }
-                cell.push(td);
-            }
-        });
-        table.row.body.push($('<tr></tr>').attr('id', id).append(cell));
-    });
-    let thead = $('<thead></thead>').append(table.row.head);
-    let tbody = $('<tbody></tbody>').append(table.row.body);
-    table.tableHtml.append(thead, tbody, masterTableFooter());
-    let tableWell = $('<div style="overflow-x:auto;" class="as-table-well"></div>').append(table.tableHtml);
-
-	    //Table Settings
-	    let settingsDiv = '';
-	    if (tableOptionsRule.tableSettings) {
-	        let divCol = [];
-	        //Options
-	        divCol.push($('<div class="col-md-4"></div>').append(masterTableOptions(table.tableHtml, tableOptionsRule.options)));
-	        divCol.push($('<div class="col-md-4"></div>').append(masterTableFilter(tableOptionsRule.filter, tableOptionsRule.column)));
-	        divCol.push($('<div class="col-md-4"></div>').append(masterTableColumns()));
-	        settingsDiv = $('<div class="row aes-dashboard-controls"></div>').append(divCol)
-	    }
-
-    let div = $('<div></div>').append(settingsDiv, tableWell);
-    return div;
-    //Table functions
-    function masterTableFooter() {
-        let cells = [];
-
-        if (tableOptionsRule.tableSettings) {
-            cells.push('<th>Total / Avg</th>');
-        }
-
-        tableOptionsRule.column.forEach(function(colValue) {
-            if (!colValue.visible) {
-                return;
-            }
-
-            if (!colValue.number) {
-                cells.push('<td></td>');
-                return;
-            }
-
-            const values = tableOptionsRule.data.map(function(dataValue) {
-                return parseFloat(dataValue[colValue.data]);
-            }).filter(function(value) {
-                return !isNaN(value);
-            });
-
-            let result = '';
-            if (values.length) {
-                result = values.reduce(function(total, value) {
-                    return total + value;
-                }, 0);
-
-                if (colValue.aggregate === 'average') {
-                    result = Math.round((result / values.length) * 10) / 10;
-                }
-            }
-
-            cells.push($('<td></td>').html(masterCellFormat(colValue.format, result)));
-        });
-
-        return $('<tfoot></tfoot>').append($('<tr></tr>').append(cells));
-    }
-
-    function masterSortTable(column, number, table, columnPrefix) {
-        let tableRows = $('tbody tr', table);
-        let tableBody = $('tbody', table);
-        tableBody.empty();
-        let indexes = [];
-        tableRows.each(function() {
-            if (number) {
-                let value = parseFloat($(this).find("." + columnPrefix + column).text());
-                if (value) {
-                    indexes.push(value);
-                } else {
-                    indexes.push(0);
-                }
-            } else {
-                indexes.push($(this).find("." + columnPrefix + column).text());
-            }
-        });
-        indexes = [...new Set(indexes)];
-        let sorted = [...indexes];
-        if (number) {
-            sorted.sort(function(a, b) {
-                if (a > b) return -1;
-                if (a < b) return 1;
-                if (a = b) return 0;
-            });
-        } else {
-            sorted.sort();
-        }
-        let same = 1;
-        for (let i = 0; i < indexes.length; i++) {
-            if (indexes[i] !== sorted[i]) {
-                same = 0;
-            }
-        }
-        if (same) {
-            if (number) {
-                sorted.sort(function(a, b) {
-                    if (a < b) return -1;
-                    if (a > b) return 1;
-                    if (a = b) return 0;
-                });
-            } else {
-                sorted.reverse();
-            }
-        }
-        for (let i = 0; i < sorted.length; i++) {
-            for (let j = tableRows.length - 1; j >= 0; j--) {
-                if (number) {
-                    let value = parseFloat($(tableRows[j]).find("." + columnPrefix + column).text());
-                    if (!value) {
-                        value = 0;
-                    }
-                    if (value == sorted[i]) {
-                        tableBody.append($(tableRows[j]));
-                        tableRows.splice(j, 1);
-                    }
-                } else {
-                    if ($(tableRows[j]).find("." + columnPrefix + column).text() == sorted[i]) {
-                        tableBody.append($(tableRows[j]));
-                        tableRows.splice(j, 1);
-                    }
-                }
-            }
-        }
-    }
-
-    function masterCellFormat(type, value) {
-        if (!value) {
-            return '';
-        }
-        switch (type) {
-            case 'money':
-                let span = $('<span></span>');
-                let text = '';
-                if (value > 0) {
-                    span.addClass('good');
-                    text = '+'
-                }
-                if (value < 0) {
-                    span.addClass('bad');
-                }
-                text = text + new Intl.NumberFormat().format(value) + ' AS$';
-                span.text(text);
-                return span;
-                break;
-            default:
-                return value;
-        }
-    }
-
-	    function masterTableOptions(table, options) {
-	        let div = $('<div class="aes-dashboard-control-actions"></div>');
-        options.forEach(function(value, index) {
-            if (index) {
-                let span = $('<span> </span>');
-                div.append(span);
-            }
-            div.append(masterTableOptionsHandle(value));
-        });
-	        return buildDashboardControlPanel('Actions', 'Select, hide, open, remove', div, true);
-
-        //Functions
-        function masterTableOptionsHandle(value) {
-            switch (value) {
-                case 'selectFirstSix':
-                    return masterTableOptionsSelectFirstSix();
-                    break;
-                case 'openAircraft':
-                    return masterTableOptionsOpenAircraft();
-                    break;
-                case 'reloadTableAircraftProfit':
-                    return masterTableOptionsReloadTableAP();
-                    break;
-                case 'removeAircraft':
-                    return masterTableOptionsRemoveAircraft();
-                    break;
-                case 'applyFilter':
-                    return masterTableOptionsApplyFilter();
-                    break;
-                case 'hideSelected':
-                    return masterTableOptionsHideSelected();
-                    break;
-                default:
-                    // code block
-            }
-            //Option Functions
-            function masterTableOptionsSelectFirstSix() {
-                let btn = $('<button type="button" class="btn btn-default">Select first six</button>');
-                btn.click(function() {
-                    let count = 0;
-                    $('tbody tr', table).each(function() {
-                        $(this).find('input[type="checkbox"]').prop('checked', true);
-                        count++;
-                        if (count >= 6) {
-                            return false; // break out of .each loop
-                        }
-                    });
-                });
-                return btn;
-            }
-
-            function masterTableOptionsOpenAircraft() {
-                let btn = $('<button type="button" class="btn btn-default">Open aircraft (max 6)</button>');
-                btn.click(function() {
-                    let urls = $('tbody tr', table).has('input:checked').map(function() {
-                        let id = $(this).attr('id');
-                        let url = 'https://' + server + '.airlinesim.aero/app/fleets/aircraft/' + id + '/1';
-                        return url;
-                    }).toArray();
-                    //Open new tabs
-                    for (let i = 0; i < urls.length; i++) {
-                        window.open(urls[i], '_blank');
-                        if (i == 5) {
-                            break;
-                        }
-                    }
-                });
-                return btn;
-            }
-
-            function masterTableOptionsReloadTableAP() {
-                let btn = $('<button type="button" class="btn btn-default">Reload table</button>');
-                btn.click(function() {
-                    displayAircraftProfitability();
-                });
-                return btn;
-            }
-
-	            function masterTableOptionsRemoveAircraft() {
-	                let btn = $('<button type="button" class="btn btn-default aes-dashboard-confirm-action">Remove aircraft</button>');
-	                btn.click(function() {
-	                    let id = [];
-	                    let aircraftKey = [];
-	                    $('tbody tr', table).has('input:checked').each(function() {
-	                        let localId = $(this).attr('id');
-	                        id.push(localId);
-	                        aircraftKey.push(server + 'aircraftFlights' + localId);
-	                    });
-	                    if (!id.length) {
-	                        btn.removeClass('btn-warning').addClass('btn-default').text('Select aircraft first').delay(900).queue(function(next) {
-	                            $(this).text('Remove aircraft');
-	                            next();
-	                        });
-	                        return;
-	                    }
-	                    if (!btn.data('confirm')) {
-	                        btn.data('confirm', true).removeClass('btn-default').addClass('btn-warning').text('Confirm remove ' + id.length);
-	                        return;
-	                    }
-	                    if (id.length) {
-	                        let fleetKey = server + airline.id + 'aircraftFleet';
-	                        dashboardStorage.get(fleetKey, function(result) {
-	                            let storedFleetData = result[fleetKey];
-                            let newFleet = storedFleetData.fleet.filter(function(value) {
-                                let keep = 1;
-                                id.forEach(function(idVal) {
-                                    if (idVal == value.aircraftId) {
-                                        keep = 0;
-                                    }
-                                });
-                                return keep;
-                            });
-	                            storedFleetData.fleet = newFleet;
-	                            dashboardStorage.set({
-	                                [fleetKey]: storedFleetData }, function() {
-	                                $('tbody tr', table).has('input:checked').remove();
-	                                btn.data('confirm', false).removeClass('btn-warning').addClass('btn-default').text('Remove aircraft');
-	                                dashboardStorage.remove(aircraftKey, function() {});
-	                            });
-	                        });
-	                    }
-	                });
-	                return btn;
-	            }
-
-            function masterTableOptionsApplyFilter() {
-                let btn = $('<button type="button" class="btn btn-default">Apply filter</button>');
-                btn.click(function() {
-                    let filter = [];
-                    table.closest(".as-panel").find('.aes-dashboard-filter-table table tbody tr').each(function() {
-                        filter.push({
-                            titlecode: $(this).find('input').val(),
-                            title: $(this).find('td:eq(0)').text(),
-                            operation: $(this).find('td:eq(1)').text(),
-                            value: $(this).find('td:eq(2)').text()
-                        })
-                    });
-                    settings[tableOptionsRule.tableSettingStorage].filter = filter;
-                    dashboardStorage.set({ settings: settings }, function() {
-                        $('tbody tr', table).each(function() {
-                            let row = this;
-                            filter.forEach(function(filter) {
-                                let cell = $(row).find("." + tableOptionsRule.columnPrefix + filter.titlecode).text();
-                                //if(cell){
-                                //Get column info if number or not
-                                let number;
-                                for (let i = 0; i < tableOptionsRule.column.length; i++) {
-                                    let column = tableOptionsRule.column[i];
-                                    if (filter.titlecode == column.data) {
-                                        number = column.number;
-                                        break;
-                                    }
-                                }
-                                let value = filter.value;
-                                if (number) {
-                                    if (cell) {
-                                        cell = parseFloat(cell);
-                                    }
-                                    if (value) {
-                                        value = parseFloat(value);
-                                    }
-                                }
-                                switch (filter.operation) {
-                                    case '=':
-                                        if (cell != value) {
-                                            $(row).remove();
-                                        }
-                                        break;
-                                    case '!=':
-                                        if (cell == value) {
-                                            $(row).remove();
-                                        }
-                                        break;
-                                    case '>':
-                                        if (cell < value) {
-                                            $(row).remove();
-                                        }
-                                        break;
-                                    case '<':
-                                        if (cell > value) {
-                                            $(row).remove();
-                                        }
-                                }
-                            });
-                        });
-                    });
-                });
-                return btn;
-            }
-
-            function masterTableOptionsHideSelected() {
-                let btn = $('<button type="button" class="btn btn-default">Hide selected</button>');
-                btn.click(function() {
-                    $('tbody tr', table).has('input:checked').remove();
-                });
-                return btn;
-            }
-        }
-    }
-
-    function masterTableFilter(filter, column) {
-        //Table head
-        let th = [];
-        th.push('<th>Column</th>');
-        th.push('<th>Operation</th>');
-        th.push('<th>Value</th>');
-        th.push('<th></th>');
-        let thead = $('<thead></thead>').append($('<tr></tr>').append(th));
-        //Table body
-        let row = [];
-        if (filter) {
-            filter.forEach(function(fil) {
-                row.push($('<tr></tr>').append(masterTableFilterAddBodyRow(fil.titlecode, fil.title, fil.operation, fil.value)));
-            });
-        }
-
-        let tbody = $('<tbody></tbody>').append(row);
-        //Table foot
-        //select column
-        let option1 = [];
-        column.forEach(function(col) {
-            option1.push('<option value="' + col.data + '">' + col.title + '</option>');
-        });
-        let select1 = $('<select class="form-control"></select>').append(option1);
-        //Select value
-        let option = [];
-        option.push('<option>=</option>');
-        option.push('<option>!=</option>');
-        option.push('<option>></option>');
-        option.push('<option><</option>');
-        let select = $('<select class="form-control"></select>').append(option);
-        //Value
-        let input = $('<input type="text" class="form-control" style="min-width: 50px;">');
-        //Add button
-        let btn = $('<button class="btn btn-default"></button>').text('Add Row');
-        btn.click(function() {
-            let column = $('option:selected', select1).text();
-            let columnVal = $('option:selected', select1).val();
-            let operation = $('option:selected', select).text();
-            let value = input.val();
-            tbody.append($('<tr></tr>').append(masterTableFilterAddBodyRow(columnVal, column, operation, value)));
-        });
-        //Footer rows
-        let tf = [];
-        tf.push($('<td></td>').html(select1));
-        tf.push($('<td></td>').html(select));
-        tf.push($('<td></td>').html(input));
-        tf.push($('<td></td>').append(btn));
-        let tfoot = $('<tfoot></tfoot>').append($('<tr></tr>').append(tf));
-	        let tableFilter = $('<table class="table table-bordered table-striped table-hover"></table>').append(thead, tbody, tfoot);
-	        let divTable = $('<div class="as-table-well aes-dashboard-filter-table"></div>').append(tableFilter);
-	        let filterCount = filter ? filter.length : 0;
-	        return buildDashboardControlPanel('Filters', filterCount ? filterCount + ' active' : 'No active filters', divTable, false);
-        //Functions
-        function masterTableFilterAddBodyRow(titleCode, title, operation, value) {
-            let td = [];
-            td.push('<td><input type="hidden" value="' + titleCode + '">' + title + '</td>');
-            td.push('<td>' + operation + '</td>');
-            td.push('<td>' + value + '</td>');
-            let deleteBtn = $('<a></a>').html('<span class="fa fa-trash" title="Delete row"></span>');
-            deleteBtn.click(function() {
-                $(this).closest("tr").remove();
-            });
-            td.push($('<td></td>').append(deleteBtn));
-            return td;
-        }
-    }
-
-	    function masterTableColumns() {
-	        let visibleCount = tableOptionsRule.column.filter(function(col) {
-	            return col.visible;
-	        }).length;
-	        let picker = buildDashboardColumnsPicker(tableOptionsRule.column, {
-	            groupField: 'category',
-	            labelField: 'title',
-	            valueField: 'data',
-	            visibleField: 'visible',
-	            onChange: function(col, checked) {
-	                if (!tableOptionsRule.hideColumn) {
-	                    tableOptionsRule.hideColumn = [];
-	                }
-	                let currentColumn = col.data;
-	                let newHideColumns = tableOptionsRule.hideColumn.filter(function(value) {
-	                    return value != currentColumn;
-	                });
-	                if (!checked) {
-	                    newHideColumns.push(currentColumn);
-	                }
-
-	                tableOptionsRule.hideColumn = newHideColumns;
-	                settings[tableOptionsRule.tableSettingStorage].hideColumn = tableOptionsRule.hideColumn;
-	                dashboardStorage.set({ settings: settings }, function() {
-	                    if (tableOptionsRule.onColumnChange) {
-	                        tableOptionsRule.onColumnChange();
-	                    }
-	                });
-	            }
-	        });
-	        return buildDashboardControlPanel('Columns', visibleCount + ' shown', picker, false);
-	    }
+    return $('<div></div>').append(buildGeneratedDashboardTableSettings(tableOptionsRule, dashboardTable.table), dashboardTable.tableWell);
 }
 //Display general helper functions
 function generalAddScheduleRow(tbody) {
