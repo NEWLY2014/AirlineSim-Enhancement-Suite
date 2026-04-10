@@ -437,6 +437,7 @@ function buildDashboardFilterPanel(options) {
     let addBtn = $('<button type="button" class="btn btn-default"></button>').text('Add');
     addBtn.click(function() {
         tbody.append($('<tr></tr>').append(addFilterRow($('option:selected', columnSelect).val(), $('option:selected', columnSelect).text(), $('option:selected', operationSelect).text(), input.val())));
+        updateSummary();
     });
 
     let tfoot = $('<tfoot></tfoot>').append($('<tr></tr>').append(
@@ -453,15 +454,8 @@ function buildDashboardFilterPanel(options) {
     let applyBtn = $('<button type="button" class="btn btn-default">Apply filter</button>');
     let status = $('<span></span>');
     applyBtn.click(function() {
-        let filters = [];
-        $('tbody tr', table).each(function() {
-            filters.push({
-                [options.valueField]: $(this).find('input').val(),
-                [options.labelField]: $(this).find('td:eq(0)').text(),
-                operation: $(this).find('td:eq(1)').text(),
-                value: $(this).find('td:eq(2)').text()
-            });
-        });
+        let filters = serializeFilters();
+        updateSummary();
         options.onApply(filters, status);
     });
 
@@ -469,12 +463,15 @@ function buildDashboardFilterPanel(options) {
         $('<div class="as-table-well aes-dashboard-filter-table"></div>').append(table),
         $('<div class="aes-dashboard-control-actions"></div>').append(applyBtn, status)
     );
-    return buildDashboardControlPanel('Filters', options.filters.length ? options.filters.length + ' active' : 'No active filters', content, false);
+    let panel = buildDashboardControlPanel('Filters', options.filters.length ? options.filters.length + ' active' : 'No active filters', content, false);
+    updateSummary();
+    return panel;
 
     function addFilterRow(titleCode, title, operation, value) {
         let deleteBtn = $('<button type="button" class="btn btn-xs btn-default">Remove</button>');
         deleteBtn.click(function() {
             $(this).closest("tr").remove();
+            updateSummary();
         });
         return [
             $('<td></td>').append($('<input type="hidden">').val(titleCode), title),
@@ -482,6 +479,23 @@ function buildDashboardFilterPanel(options) {
             $('<td></td>').text(value),
             $('<td></td>').append(deleteBtn)
         ];
+    }
+
+    function serializeFilters() {
+        return $('tbody tr', table).map(function() {
+            let cells = $(this).children('td');
+            return {
+                [options.valueField]: cells.eq(0).find('input[type="hidden"]').val(),
+                [options.labelField]: cells.eq(0).text(),
+                operation: cells.eq(1).text(),
+                value: cells.eq(2).text()
+            };
+        }).toArray();
+    }
+
+    function updateSummary() {
+        let count = $('tbody tr', table).length;
+        $('.aes-dashboard-control-summary', panel).text(count ? ' ' + count + ' active' : ' No active filters');
     }
 
     function updateOperationOptions() {
