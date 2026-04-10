@@ -53,6 +53,7 @@ function displayMain() {
             compData.tracking = 1;
             chrome.storage.local.set({
                 [compData.key]: compData }, function() {});
+            updateCompetitorMonitoringIndex(true);
 
             //Action bar
             let actionBar = $('<ul class="as-panel as-action-bar"></ul>');
@@ -85,6 +86,7 @@ function displayMain() {
             compData.tracking = 0;
             chrome.storage.local.set({
                 [compData.key]: compData }, function() {});
+            updateCompetitorMonitoringIndex(false);
             //Display
             divComp.empty();
         }
@@ -101,6 +103,33 @@ function displayMain() {
     //Add display
     let mainDiv = $('<div id="aes-panel-airline-competitive-monitoring"></div>').append('<h3>AirlineSim Enhancement Suite Airline</h3>', panel, divComp);
     $(".container-fluid:eq(2) h2").after(mainDiv);
+}
+
+function updateCompetitorMonitoringIndex(tracking) {
+    if (!ownerAirline.id || !airline.id) {
+        return;
+    }
+
+    let indexKey = AES.getCompetitorMonitoringIndexKey(server, ownerAirline.id);
+    chrome.storage.local.get({ [indexKey]: [] }, function(result) {
+        let index = Array.isArray(result[indexKey]) ? result[indexKey].map(String) : [];
+        let competitorId = String(airline.id);
+        index = index.filter(function(id, position) {
+            return index.indexOf(id) == position;
+        });
+
+        if (tracking) {
+            if (index.indexOf(competitorId) == -1) {
+                index.push(competitorId);
+            }
+        } else {
+            index = index.filter(function(id) {
+                return id != competitorId;
+            });
+        }
+
+        chrome.storage.local.set({ [indexKey]: index }, function() {});
+    });
 }
 
 function displayAutomation(actionBar) {

@@ -142,6 +142,16 @@ class AES {
     }
 
     /**
+     * Returns the storage key for the owner-scoped competitor-monitoring index.
+     * @param {string} server
+     * @param {string} ownerAirlineId
+     * @returns {string}
+     */
+    static getCompetitorMonitoringIndexKey(server, ownerAirlineId) {
+        return `${server}${ownerAirlineId}competitorMonitoringIndex`;
+    }
+
+    /**
      * Formats a currency value local standards
      * @param {integer} currency value
      * @param {string} alignment: "right" | "left"
