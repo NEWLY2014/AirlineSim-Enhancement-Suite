@@ -1,4 +1,4 @@
-# Chrome Web Store Listing Draft
+# Chrome Web Store Listing
 
 ## Name
 
@@ -41,7 +41,7 @@ https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/issues
 
 ## Privacy Policy URL
 
-https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/blob/main/PRIVACY.md
+https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/blob/next/PRIVACY.md
 
 ## Permissions Justification
 
