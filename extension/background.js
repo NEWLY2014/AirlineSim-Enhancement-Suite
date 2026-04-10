@@ -156,7 +156,7 @@ chrome.runtime.onInstalled.addListener(function() {
             conditions: [new chrome.declarativeContent.PageStateMatcher({
                 pageUrl: { hostContains: '.airlinesim.aero' },
             })],
-            actions: [new chrome.declarativeContent.ShowPageAction()]
+            actions: [new chrome.declarativeContent.ShowAction()]
     }]);
     });
 });
