@@ -1,0 +1,26 @@
+# macOS
+.DS_Store
+
+# IDE and editor state
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Local logs and scratch files
+*.log
+.Rhistory
+extension/.Rhistory
+
+# Dependencies and generated output
+node_modules/
+dist/
+build/
+coverage/
+
+# Packaged extension artifacts
+*.crx
+*.pem
+*.zip
+*.xpi
