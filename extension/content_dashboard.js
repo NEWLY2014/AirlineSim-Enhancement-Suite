@@ -80,15 +80,16 @@ function buildDashboardControlPanel(title, summary, content, expanded) {
         body.hide();
     }
 
-    let toggle = $('<button type="button" class="btn btn-default aes-dashboard-control-toggle"></button>').append(
+    let toggle = $('<a style="cursor: pointer;"></a>').append(
         $('<span></span>').text(title),
-        $('<span class="aes-dashboard-control-summary"></span>').text(summary || '')
+        $('<span class="aes-dashboard-control-summary"></span>').text(summary ? ' ' + summary : '')
     );
     toggle.click(function() {
         body.toggle();
     });
 
-    return $('<div class="aes-dashboard-control-panel"></div>').append(toggle, body);
+    let legend = $('<legend></legend>').append(toggle);
+    return $('<fieldset class="aes-dashboard-control-panel"></fieldset>').append(legend, body);
 }
 
 function buildDashboardColumnsPicker(columns, options) {
@@ -365,6 +366,9 @@ function applyDashboardTableFilters(table, filters, columns, filterValueField, c
                 case '<':
                     if (cell > value) $(row).remove();
                     break;
+                case 'contains':
+                    if (String(cell).toLowerCase().indexOf(String(value).toLowerCase()) == -1) $(row).remove();
+                    break;
             }
         });
     });
@@ -385,9 +389,13 @@ function buildDashboardFilterPanel(options) {
         columnOptions.push('<option value="' + (column.filterValue || column.data) + '">' + column.title + '</option>');
     });
     let columnSelect = $('<select class="form-control"></select>').append(columnOptions);
-    let operationSelect = $('<select class="form-control"></select>').append('<option>=</option><option>!=</option><option>></option><option><</option>');
+    let operationSelect = $('<select class="form-control"></select>').append(
+        (options.operations || ['=', '!=', '>', '<']).map(function(operation) {
+            return $('<option></option>').text(operation);
+        })
+    );
     let input = $('<input type="text" class="form-control" style="min-width: 50px;">');
-    let addBtn = $('<button class="btn btn-default"></button>').text('Add Row');
+    let addBtn = $('<button type="button" class="btn btn-default"></button>').text('Add');
     addBtn.click(function() {
         tbody.append($('<tr></tr>').append(addFilterRow($('option:selected', columnSelect).val(), $('option:selected', columnSelect).text(), $('option:selected', operationSelect).text(), input.val())));
     });
@@ -403,7 +411,7 @@ function buildDashboardFilterPanel(options) {
         tbody,
         tfoot
     );
-    let applyBtn = $('<button class="btn btn-default">Apply filter</button>');
+    let applyBtn = $('<button type="button" class="btn btn-default">Apply filter</button>');
     let status = $('<span></span>');
     applyBtn.click(function() {
         let filters = [];
@@ -425,7 +433,7 @@ function buildDashboardFilterPanel(options) {
     return buildDashboardControlPanel('Filters', options.filters.length ? options.filters.length + ' active' : 'No active filters', content, false);
 
     function addFilterRow(titleCode, title, operation, value) {
-        let deleteBtn = $('<a></a>').html('<span class="fa fa-trash" title="Delete row"></span>');
+        let deleteBtn = $('<button type="button" class="btn btn-xs btn-default">Remove</button>');
         deleteBtn.click(function() {
             $(this).closest("tr").remove();
         });
@@ -466,20 +474,20 @@ function buildGeneratedDashboardTableSettings(tableOptionsRule, table) {
 }
 
 function buildGeneratedDashboardActions(tableOptionsRule, table) {
-    let div = $('<div class="aes-dashboard-control-actions"></div>');
+    let div = $('<div class="btn-group aes-dashboard-control-actions"></div>');
     tableOptionsRule.options.forEach(function(value) {
         let action = buildGeneratedDashboardAction(value, tableOptionsRule, table);
         if (action) {
             div.append(action);
         }
     });
-    return buildDashboardControlPanel('Actions', 'Select, hide, open, remove', div, true);
+    return buildDashboardControlPanel('Actions', '', div, true);
 }
 
 function buildGeneratedDashboardAction(value, tableOptionsRule, table) {
     switch (value) {
         case 'selectFirstSix':
-            return $('<button type="button" class="btn btn-default">Select first six</button>').click(function() {
+            return $('<button type="button" class="btn btn-default">Select first 6</button>').click(function() {
                 let count = 0;
                 $('tbody tr', table).each(function() {
                     $(this).find('input[type="checkbox"]').prop('checked', true);
@@ -540,12 +548,8 @@ function buildGeneratedDashboardAction(value, tableOptionsRule, table) {
                     });
                 });
             });
-        case 'applyFilter':
-            return $('<button type="button" class="btn btn-default">Apply saved filter</button>').click(function() {
-                applyDashboardTableFilters(table, settings[tableOptionsRule.tableSettingStorage].filter || [], tableOptionsRule.column, 'titlecode', tableOptionsRule.columnPrefix);
-            });
         case 'hideSelected':
-            return $('<button type="button" class="btn btn-default">Hide selected</button>').click(function() {
+            return $('<button type="button" class="btn btn-default">Hide checked</button>').click(function() {
                 $('tbody tr', table).has('input:checked').remove();
             });
         default:
@@ -653,16 +657,17 @@ function displayRouteManagement() {
 
             legendEl.innerText = "Options"
             buttonGroupEl.classList.add("btn-group")
+            buttonGroupEl.classList.add("aes-dashboard-control-actions")
 
             fieldsetEl.append(legendEl, buttonGroupEl)
 
             let optionsDiv = $('<div class="col-md-4"></div>').append(
-                buildDashboardControlPanel('Actions', 'Select, hide, open, reload', buttonGroupEl, true)
+                buildDashboardControlPanel('Actions', '', buttonGroupEl, true)
             );
 
             // Button actions
 
-            // Select first six
+            // Select first 6
             buttonElements["selectFirstSix"].element.addEventListener("click", function() {
                 let count = 0
                 $('#aes-table-routeManagement tbody tr').each(function() {
@@ -1410,9 +1415,7 @@ function displayCompetitorMonitoring() {
 
     //Check Route Management Settings
     //
-    if (!settings.competitorMonitoring) {
-        setDefaultCompetitorMonitoringSettings();
-    }
+    ensureCompetitorMonitoringSettings();
 
     //Display airlines table
     displayCompetitorMonitoringAirlinesTable(div);
@@ -1542,7 +1545,7 @@ function displayCompetitorMonitoringAirlinesTable(div) {
                         data.fafSeatsOfferedDelta = getDelta(data.fafSeatsOffered, value.tab2[dates[1]].seatsOffered);
                         data.fafskoDelta = getDelta(data.fafsko, value.tab2[dates[1]].sko);
                         data.fafCargoOfferedDelta = getDelta(data.fafCargoOffered, value.tab2[dates[1]].cargoOffered);
-                        data.faffkoDela = getDelta(data.faffko, value.tab2[dates[1]].fko);
+                        data.faffkoDelta = getDelta(data.faffko, value.tab2[dates[1]].fko);
                     }
                 }
                 //Schedule Columns
@@ -1637,11 +1640,11 @@ function displayCompetitorMonitoringAirlinesTable(div) {
                     });
                 }
                 //Remove airline '
-                data.actionRemoveAirline = $('<button type="button" id="aes-compMon-btn-remove-' + data.airlineId + '" class="btn btn-xs btn-default aes-dashboard-confirm-action">Stop tracking</button>');
+                data.actionRemoveAirline = $('<button type="button" id="aes-compMon-btn-remove-' + data.airlineId + '" class="btn btn-xs btn-default aes-dashboard-confirm-action">Remove competitor</button>');
                 //Remove airline action
                 $('#aes-div-dashboard').on('click.aesCompetitorMonitoring', 'button#aes-compMon-btn-remove-' + data.airlineId, function() {
                     if (!$(this).data('confirm')) {
-                        $(this).data('confirm', true).removeClass('btn-default').addClass('btn-warning').text('Confirm');
+                        $(this).data('confirm', true).removeClass('btn-default').addClass('btn-warning').text('Confirm remove 1');
                         return;
                     }
                     let key = data.competitorMonitoringKey;
@@ -1665,26 +1668,28 @@ function displayCompetitorMonitoringAirlinesTable(div) {
             });
             }
 
-            //Options
-            let divRow = $('<div class="row aes-dashboard-controls"></div>').append(displayCompetitorMonitoringAirlinesTableOptions(), displayCompetitorMonitoringAirlinesTableColumns());
+            let tableColumns = settings.competitorMonitoring.tableColumns.map(function(col) {
+                return {
+                    category: col.headGroup,
+                    title: col.text,
+                    data: col.field,
+                    className: 'aes-' + col.field,
+                    visible: col.visible,
+                    sortable: 1,
+                    number: col.number,
+                    filterable: col.headGroup != 'Actions'
+                };
+            });
+
             if (!compAirlines.length) {
+                let divRow = $('<div class="row aes-dashboard-controls"></div>').append(displayCompetitorMonitoringAirlinesTableOptions(), displayCompetitorMonitoringAirlinesTableColumns());
                 div.append(divRow, '<p><span class="warning">No airlines marked for competitor monitoring. Open airline info page to mark airline for tracking.</span></p>');
                 return;
             }
 
             let table = buildDashboardTable({
                 tableId: 'aes-table-competitorMonitoring',
-                columns: settings.competitorMonitoring.tableColumns.map(function(col) {
-                    return {
-                        category: col.headGroup,
-                        title: col.text,
-                        data: col.field,
-                        className: 'aes-' + col.field,
-                        visible: col.visible,
-                        sortable: 1,
-                        number: col.number
-                    };
-                }),
+                columns: tableColumns,
                 data: tableData,
                 selectable: false,
                 footer: false,
@@ -1692,6 +1697,12 @@ function displayCompetitorMonitoringAirlinesTable(div) {
                     return 'aes-compMon-row-' + row.airlineId;
                 }
             });
+            applyDashboardTableFilters(table.table, settings.competitorMonitoring.filter || [], tableColumns, 'data');
+            let divRow = $('<div class="row aes-dashboard-controls"></div>').append(
+                displayCompetitorMonitoringAirlinesTableOptions(),
+                displayCompetitorMonitoringAirlinesTableFilters(table.table, tableColumns),
+                displayCompetitorMonitoringAirlinesTableColumns()
+            );
             div.append(divRow, table.tableWell);
 
         };
@@ -1933,12 +1944,32 @@ function displayCompetitorMonitoringAirlinesTableColumns() {
     return div;
 }
 
+function displayCompetitorMonitoringAirlinesTableFilters(table, columns) {
+    let div = $('<div class="col-md-4"></div>').append(buildDashboardFilterPanel({
+        filters: settings.competitorMonitoring.filter || [],
+        columns: columns,
+        valueField: 'data',
+        labelField: 'title',
+        operations: ['=', '!=', '>', '<', 'contains'],
+        onApply: function(filter, status) {
+            status.removeClass().addClass('warning').text(' saving...');
+            settings.competitorMonitoring.filter = filter;
+            dashboardStorage.set({ settings: settings }, function() {
+                status.removeClass().addClass('warning').text(' filtering...');
+                applyDashboardTableFilters(table, filter, columns, 'data');
+                status.removeClass().addClass('good').text(' done!');
+            });
+        }
+    }));
+    return div;
+}
+
 function displayCompetitorMonitoringAirlinesTableOptions() {
-    let actions = $('<div class="aes-dashboard-control-actions"></div>');
-    let btn = $('<button type="button" class="btn btn-default">reload table</button>');
+    let actions = $('<div class="btn-group aes-dashboard-control-actions"></div>');
+    let btn = $('<button type="button" class="btn btn-default">Reload table</button>');
     actions.append(btn);
     let optionsDiv = $('<div class="col-md-4"></div>').append(
-        buildDashboardControlPanel('Actions', 'Reload table', actions, true)
+        buildDashboardControlPanel('Actions', '', actions, true)
     );
     //Reload table
     btn.click(function() {
@@ -1948,8 +1979,8 @@ function displayCompetitorMonitoringAirlinesTableOptions() {
     return optionsDiv;
 }
 
-function setDefaultCompetitorMonitoringSettings() {
-    let columns = [
+function getDefaultCompetitorMonitoringColumns() {
+    return [
         {
             field: 'airlineId',
             text: 'ID',
@@ -2127,42 +2158,42 @@ function setDefaultCompetitorMonitoringSettings() {
     },
         {
             field: 'fafsko',
-            text: 'SKO',
+            text: 'Seat kilometer offered (SKO)',
             headGroup: 'Figures',
             visible: 0,
             number: 1
     },
         {
             field: 'fafskoDelta',
-            text: 'SKO &Delta;',
+            text: 'Seat kilometer offered (SKO) &Delta;',
             headGroup: 'Figures',
             visible: 0,
             number: 1
     },
         {
             field: 'fafCargoOffered',
-            text: 'Cargo offered',
+            text: 'Units offered',
             headGroup: 'Figures',
             visible: 1,
             number: 1
     },
         {
             field: 'fafCargoOfferedDelta',
-            text: 'Cargo offered &Delta;',
+            text: 'Units offered &Delta;',
             headGroup: 'Figures',
             visible: 1,
             number: 1
     },
         {
             field: 'faffko',
-            text: 'FKO',
+            text: 'Freight kilometer offered (FKO)',
             headGroup: 'Figures',
             visible: 0,
             number: 1
     },
         {
-            field: 'faffkoDela',
-            text: 'FKO &Delta;',
+            field: 'faffkoDelta',
+            text: 'Freight kilometer offered (FKO) &Delta;',
             headGroup: 'Figures',
             visible: 0,
             number: 1
@@ -2266,9 +2297,47 @@ function setDefaultCompetitorMonitoringSettings() {
             number: 0
     }
   ];
+}
+
+function setDefaultCompetitorMonitoringSettings() {
+    let columns = getDefaultCompetitorMonitoringColumns();
     settings.competitorMonitoring = {
-        tableColumns: columns
+        tableColumns: columns,
+        filter: []
     };
+}
+
+function ensureCompetitorMonitoringSettings() {
+    if (!settings.competitorMonitoring) {
+        setDefaultCompetitorMonitoringSettings();
+        return;
+    }
+
+    if (!Array.isArray(settings.competitorMonitoring.filter)) {
+        settings.competitorMonitoring.filter = [];
+    }
+
+    let defaultColumns = getDefaultCompetitorMonitoringColumns();
+    if (!Array.isArray(settings.competitorMonitoring.tableColumns)) {
+        settings.competitorMonitoring.tableColumns = defaultColumns;
+        return;
+    }
+
+    settings.competitorMonitoring.tableColumns.forEach(function(column) {
+        if (column.field == 'faffkoDela') {
+            column.field = 'faffkoDelta';
+            column.text = 'Freight kilometer offered (FKO) &Delta;';
+        }
+    });
+
+    defaultColumns.forEach(function(defaultColumn) {
+        let existing = settings.competitorMonitoring.tableColumns.find(function(column) {
+            return column.field == defaultColumn.field;
+        });
+        if (!existing) {
+            settings.competitorMonitoring.tableColumns.push(defaultColumn);
+        }
+    });
 }
 
 function getRatingNr(rating) {
@@ -2473,7 +2542,7 @@ function displayAircraftProfitability() {
                         data: data,
                         columnPrefix: 'aes-aircraftProfit-',
 	                    tableSettings: 1,
-	                    options: ['selectFirstSix','openAircraft', 'hideSelected', 'applyFilter', 'reloadTableAircraftProfit', 'removeAircraft'],
+	                    options: ['selectFirstSix','openAircraft', 'hideSelected', 'reloadTableAircraftProfit', 'removeAircraft'],
 	                    filter: settings.aircraftProfitability.filter,
 	                    hideColumn: settings.aircraftProfitability.hideColumn,
 	                    tableSettingStorage: 'aircraftProfitability',

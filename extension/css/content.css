@@ -24,33 +24,25 @@
     margin-bottom: 10px;
 }
 
-.aes-dashboard-control-toggle {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    width: 100%;
-    text-align: left;
+.aes-dashboard-control-panel legend a {
+    color: inherit;
+    text-decoration: none;
 }
 
 .aes-dashboard-control-summary {
-    color: #666;
+    color: inherit;
     font-size: 12px;
     font-weight: normal;
+    opacity: 0.85;
 }
 
 .aes-dashboard-control-panel-body {
     margin-top: 8px;
-    padding: 8px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    background: #f8f8f8;
 }
 
 .aes-dashboard-control-actions {
-    display: flex;
+    display: inline-flex;
     flex-wrap: wrap;
-    gap: 6px;
 }
 
 .aes-dashboard-columns {
@@ -62,8 +54,9 @@
 
 .aes-dashboard-column-group-title {
     margin-bottom: 4px;
-    color: #555;
+    color: inherit;
     font-weight: bold;
+    opacity: 1;
 }
 
 .aes-dashboard-column-grid {
@@ -84,7 +77,7 @@
 }
 
 .aes-dashboard-column-choice:hover {
-    background: #eee;
+    background: rgba(127, 127, 127, 0.16);
 }
 
 .aes-dashboard-filter-table {

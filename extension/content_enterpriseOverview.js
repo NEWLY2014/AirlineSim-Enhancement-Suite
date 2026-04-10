@@ -377,13 +377,35 @@ function getTab2Data() {
     //First table
     let data = {};
     let table = $(".tab-content table");
+    let getNumber = function(text) {
+        let number = text.trim().split('(')[0].replace(/\D/g, '');
+        return number ? parseInt(number, 10) : NaN;
+    };
+    let getNumberByLabel = function(labels, fallbackCell) {
+        let value;
+        table.find('tbody tr').each(function() {
+            let label = $(this).find('th, td').first().text().trim().toLowerCase();
+            let found = labels.some(function(match) {
+                return label.indexOf(match) != -1;
+            });
+            if (found) {
+                value = getNumber($(this).find('td:eq(1)').text());
+                return false;
+            }
+        });
+        if (value !== undefined) {
+            return value;
+        }
+        return getNumber(fallbackCell.text());
+    };
+
     data.week = parseInt(table.find('tr:eq(0) th:eq(2)').text().trim().replace(/\D/g, ''), 10);
-    data.airportsServed = parseInt(table.find('tbody:eq(0) tr:eq(0) td:eq(1)').text().trim().split('(')[0].replace(/\D/g, ''), 10);
-    data.operatedFlights = parseInt(table.find('tbody:eq(0) tr:eq(1) td:eq(1)').text().trim().split('(')[0].replace(/\D/g, ''), 10);
-    data.seatsOffered = parseInt(table.find('tbody:eq(1) tr:eq(2) td:eq(1)').text().trim().split('(')[0].replace(/\D/g, ''), 10);
-    data.sko = parseInt(table.find('tbody:eq(1) tr:eq(5) td:eq(1)').text().trim().split('(')[0].replace(/\D/g, ''), 10);
-    data.cargoOffered = parseInt(table.find('tbody:eq(2) tr:eq(2) td:eq(1)').text().split('(')[0].trim().replace(/\D/g, ''), 10);
-    data.fko = parseInt(table.find('tbody:eq(2) tr:eq(5) td:eq(1)').text().trim().split('(')[0].replace(/\D/g, ''), 10);
+    data.airportsServed = getNumberByLabel(['airports served'], table.find('tbody:eq(0) tr:eq(0) td:eq(1)'));
+    data.operatedFlights = getNumberByLabel(['operated flights'], table.find('tbody:eq(0) tr:eq(1) td:eq(1)'));
+    data.seatsOffered = getNumberByLabel(['seats offered'], table.find('tbody:eq(1) tr:eq(2) td:eq(1)'));
+    data.sko = getNumberByLabel(['seat kilometer offered', 'sko'], table.find('tbody:eq(1) tr:eq(5) td:eq(1)'));
+    data.cargoOffered = getNumberByLabel(['units offered'], table.find('tbody:eq(2) tr:eq(2) td:eq(1)'));
+    data.fko = getNumberByLabel(['freight kilometer offered', 'fko'], table.find('tbody:eq(2) tr:eq(5) td:eq(1)'));
     data.tab2data = 2;
     return data;
 }
