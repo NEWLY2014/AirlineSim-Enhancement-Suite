@@ -53,6 +53,8 @@ function saveData() {
         date: aircraftFlightData.date,
         equipment: aircraftFlightData.equipment,
         finishedFlights: aircraftFlightData.finishedFlights,
+        hubCounts: aircraftFlightData.hubCounts,
+        hubDetected: aircraftFlightData.hubDetected,
         profit: aircraftFlightData.profit,
         profitFlights: aircraftFlightData.profitFlights,
         registration: aircraftFlightData.registration,
@@ -73,11 +75,12 @@ function display() {
     let tableWell = $('<div class="as-table-well" style="max-width:950px;"></div>').append(buildTable());
     let panel = $('<div class="as-panel"></div>').append(tableWell);
     //action bar
-    let btn = $('<button class="btn btn-default"></button>').text('Extract all flight profit/loss');
-    let btn1 = $('<button class="btn btn-default"></button>').text('Extract finished flight profit/loss');
+    let buttonGroup = $('<div class="btn-group aes-dashboard-control-actions"></div>');
+    let btn = $('<button type="button" class="btn btn-default"></button>').text('Extract all flight profit/loss');
+    let btn1 = $('<button type="button" class="btn btn-default"></button>').text('Extract finished flight profit/loss');
 
-    let span = $('<span></span>');
-    let li = $('<li></li>').append(btn1, btn, span);
+    let span = $('<span class="aes-dashboard-filter-status"></span>');
+    let li = $('<li></li>').append(buttonGroup.append(btn1, btn), span);
     let actionBar = $('<ul class="as-panel as-action-bar"></ul>').append(li);
     //btn click
     btn.click(function() {
@@ -107,7 +110,7 @@ async function extractAllFlightProfit(type) {
         }
         const url = 'https://' + aircraftFlightData.server + '.airlinesim.aero/action/info/flight?id=' + value.id;
         window.open(url, '_blank');
-        await AES.sleep(100);  // Interval 100ms
+        await AES.sleep(30 + Math.floor(Math.random() * 41));
     }
 }
 
@@ -140,6 +143,7 @@ function buildTable() {
     row.push($('<tr></tr>').append('<th>Total aircraft profit/loss</th>', formatMoney(aircraftFlightData.profit)));
     row.push($('<tr></tr>').append('<th>Aircraft Id</th>', '<td>' + aircraftFlightData.aircraftId + '</td>'));
     row.push($('<tr></tr>').append('<th>Registration</th>', '<td>' + aircraftFlightData.registration + '</td>'));
+    row.push($('<tr></tr>').append('<th>Detected HUB</th>', '<td>' + (aircraftFlightData.hubDetected || '--') + '</td>'));
     row.push($('<tr></tr>').append('<th>Total flights</th>', '<td>' + aircraftFlightData.totalFlights + '</td>'));
     row.push($('<tr></tr>').append('<th>Finished flights</th>', '<td>' + aircraftFlightData.finishedFlights + '</td>'));
     row.push($('<tr></tr>').append('<th>Finished flights with profit/loss extract</th>', '<td>' + aircraftFlightData.profitFlights + '</td>'));
@@ -157,6 +161,7 @@ function getData() {
     let server = AES.getServerName();
     let flights = getFlights();
     let flightsStats = getFlightsStats(flights);
+    let hubStats = getHubStats(flights);
     return {
         server: server,
         aircraftId: aircraftId,
@@ -167,7 +172,9 @@ function getData() {
         equipment: aircraftInfo.equipment,
         flights: flights,
         finishedFlights: flightsStats.finishedFlights,
-        totalFlights: flightsStats.totalFlights
+        totalFlights: flightsStats.totalFlights,
+        hubCounts: hubStats.counts,
+        hubDetected: hubStats.hub
     }
 }
 
@@ -197,6 +204,8 @@ function getFlights() {
 
     for (const row of rows) {
         const flight = {
+            destination: null,
+            origin: null,
             status: null,
             id: null,
             row: null
@@ -213,11 +222,44 @@ function getFlights() {
 
         flight.status = row.querySelector(".flightStatusPanel")?.innerText.trim()
         flight.id = parseInt(url.match(/id=(\d+)/)[1], 10)
+        flight.origin = row.querySelector("td:nth-child(3) span:last-child")?.innerText.trim() || ''
+        flight.destination = row.querySelector("td:nth-child(5) span:last-child")?.innerText.trim() || ''
         flight.row = $(row)
         flights.push(flight)
     }
 
     return flights
+}
+
+function getHubStats(flights) {
+    let counts = {};
+    flights.forEach(function(flight) {
+        [flight.origin, flight.destination].forEach(function(airport) {
+            if (!airport) {
+                return;
+            }
+            if (!counts[airport]) {
+                counts[airport] = 0;
+            }
+            counts[airport]++;
+        });
+    });
+
+    let hub = '';
+    Object.keys(counts).sort(function(a, b) {
+        if (counts[b] == counts[a]) {
+            return a.localeCompare(b);
+        }
+        return counts[b] - counts[a];
+    }).some(function(airport) {
+        hub = airport;
+        return true;
+    });
+
+    return {
+        counts: counts,
+        hub: hub
+    };
 }
 
 function getAircraftInfo() {

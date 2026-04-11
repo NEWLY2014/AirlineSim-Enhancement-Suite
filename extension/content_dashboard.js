@@ -2481,6 +2481,65 @@ function displayAircraftProfitability() {
     },
         {
             category: 'Aircraft',
+            title: 'Delivered',
+            data: 'delivered',
+            sortable: 1,
+            visible: 1
+    },
+        {
+            category: 'Aircraft',
+            title: 'Ownership',
+            data: 'ownership',
+            sortable: 1,
+            visible: 1
+    },
+        {
+            category: 'Aircraft',
+            title: 'Y seats',
+            data: 'seatY',
+            sortable: 1,
+            visible: 1,
+            number: 1
+    },
+        {
+            category: 'Aircraft',
+            title: 'C seats',
+            data: 'seatC',
+            sortable: 1,
+            visible: 1,
+            number: 1
+    },
+        {
+            category: 'Aircraft',
+            title: 'F seats',
+            data: 'seatF',
+            sortable: 1,
+            visible: 1,
+            number: 1
+    },
+        {
+            category: 'Aircraft',
+            title: 'Seat config',
+            data: 'seatConfig',
+            sortable: 1,
+            visible: 1
+    },
+        {
+            category: 'Aircraft',
+            title: 'Schedule',
+            data: 'scheduleStateLabel',
+            sortable: 1,
+            visible: 1
+    },
+        {
+            category: 'Aircraft',
+            title: 'HUB',
+            data: 'hubEffective',
+            sortable: 1,
+            visible: 1
+    },
+        {
+            category: 'Aircraft',
             title: 'Fleet',
             data: 'fleet',
             sortable: 1,
@@ -2592,11 +2651,15 @@ function displayAircraftProfitability() {
                             aircraftFleetData.fleet[i].profit = {
                                 date: result[aircraftFlightData].date,
                                 finishedFlights: result[aircraftFlightData].finishedFlights,
+                                hubCounts: result[aircraftFlightData].hubCounts,
+                                hubDetected: result[aircraftFlightData].hubDetected,
                                 profit: result[aircraftFlightData].profit,
                                 profitFlights: result[aircraftFlightData].profitFlights,
                                 time: result[aircraftFlightData].time,
                                 totalFlights: result[aircraftFlightData].totalFlights,
                             };
+                            aircraftFleetData.fleet[i].hubDetected = result[aircraftFlightData].hubDetected || aircraftFleetData.fleet[i].hubDetected || '';
+                            aircraftFleetData.fleet[i].hubEffective = aircraftFleetData.fleet[i].hubOverride || aircraftFleetData.fleet[i].hubDetected || '';
                         }
                     }
                 }
@@ -2653,13 +2716,21 @@ function displayAircraftProfitability() {
             }
             data.push({
                 aircraftId: value.aircraftId,
+                delivered: value.delivered === undefined ? '' : (value.delivered ? 'Yes' : 'No'),
                 registration: value.registration,
                 equipment: value.equipment,
+                hubEffective: value.hubOverride || value.hubDetected || '',
                 fleet: value.fleet,
                 nickname: value.nickname,
                 note: value.note,
+                ownership: value.owned === undefined ? '' : (value.owned ? 'Owned' : 'Leased'),
                 age: value.age,
                 maintenance: value.maintenance,
+                scheduleStateLabel: value.scheduleStateLabel || '',
+                seatC: value.seatC,
+                seatConfig: value.seatConfig || '',
+                seatF: value.seatF,
+                seatY: value.seatY,
                 dateAircraft: AES.formatDateString(value.date) + ' ' + value.time,
                 totalFlights: profit.totalFlights,
                 finishedFlights: profit.finishedFlights,
