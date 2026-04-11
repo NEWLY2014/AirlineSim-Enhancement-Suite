@@ -224,16 +224,13 @@ function fltmng_getAircraftStorageFleetData() {
         aircraftFleetKey = fltmng_resolveAircraftFleetKey(result, preferredKey);
         fltmng_updateAircraftFleetStorageData(result[aircraftFleetKey]);
 
-        if (!window.AESDebug) {
-            window.AESDebug = {};
-        }
-        window.AESDebug.fleetExtract = {
+        AES.exposeDebug('fleetExtract', {
             aircraftFleetKey: aircraftFleetKey,
             aircraftCount: aircraftData.length,
             airline: airline,
             currentFleet: currentFleet,
             matchingKeys: fltmng_getMatchingAircraftFleetKeys(result)
-        };
+        });
 
         fltmng_saveData();
     });

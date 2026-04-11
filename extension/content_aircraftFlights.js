@@ -474,10 +474,7 @@ function resolveAircraftFleetMatches(callback) {
             aircraftFleetKey = matches[0].key;
         }
 
-        if (!window.AESDebug) {
-            window.AESDebug = {};
-        }
-        window.AESDebug.hubSync = {
+        AES.exposeDebug('hubSync', {
             aircraftFleetKey: aircraftFleetKey,
             aircraftId: aircraftFlightData.aircraftId,
             hubDetected: aircraftFlightData.hubDetected,
@@ -491,7 +488,7 @@ function resolveAircraftFleetMatches(callback) {
             }),
             registration: aircraftFlightData.registration,
             server: aircraftFlightData.server
-        };
+        });
 
         callback(matches);
     });

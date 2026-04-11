@@ -117,10 +117,40 @@ class AES {
             $('.as-navbar-main .dropdown > a.name').first().text().trim();
         const name = displayName ? displayName.replace(/[^A-Za-z0-9]/g, '_') : null;
         const data = name ? serverAirlinesData[name] : null;
+        let id = data?.id || null;
+        let code = data?.code || '';
+
+        $('.as-navbar-main .dropdown-menu a[href*="/app/enterprise/dashboard?select="]').each(function () {
+            const link = $(this);
+            const linkName = link.find('span').first().text().trim() || link.text().trim();
+            if (linkName !== displayName) {
+                return;
+            }
+
+            const href = link.attr('href') || '';
+            const match = href.match(/select=(\d+)/);
+            if (match) {
+                id = match[1];
+            }
+            return false;
+        });
+
+        if (name) {
+            if (typeof serverAirlinesData[name] !== 'object' || serverAirlinesData[name] === null) {
+                serverAirlinesData[name] = {};
+            }
+            if (id) {
+                serverAirlinesData[name].id = id;
+            }
+            if (code) {
+                serverAirlinesData[name].code = code;
+            }
+            localStorage.setItem(serverKey, JSON.stringify(serverAirlinesData));
+        }
 
         return {
-            id: data?.id || null,
-            code: data?.code || '',
+            id: id,
+            code: code,
             name: name,
             displayName: displayName
         };
@@ -149,6 +179,38 @@ class AES {
      */
     static getCompetitorMonitoringIndexKey(server, ownerAirlineId) {
         return `${server}${ownerAirlineId}competitorMonitoringIndex`;
+    }
+
+    /**
+     * Exposes debug data to the page context so it can be read from DevTools.
+     * @param {string} name
+     * @param {object} payload
+     */
+    static exposeDebug(name, payload) {
+        try {
+            const key = `aes_debug_${name}`;
+            const value = JSON.stringify(payload);
+
+            try {
+                localStorage.setItem(key, value);
+            } catch (error) {
+                // ignore storage write failures
+            }
+
+            const debugNodeId = `aes-debug-${name}`;
+            let debugNode = document.getElementById(debugNodeId);
+            if (!debugNode) {
+                debugNode = document.createElement('script');
+                debugNode.id = debugNodeId;
+                debugNode.type = 'application/json';
+                (document.body || document.documentElement || document.head).appendChild(debugNode);
+            }
+            debugNode.textContent = value;
+
+            document.documentElement.setAttribute(`data-aes-debug-${name}`, value);
+        } catch (error) {
+            // ignore debug write failures
+        }
     }
 
     /**

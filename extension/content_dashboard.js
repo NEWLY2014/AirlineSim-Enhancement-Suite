@@ -4,6 +4,7 @@
 var settings, airline, server, todayDate;
 var dashboardControlPanelExpanded = {};
 const dashboardStorage = globalThis.chrome?.storage?.local;
+
 $(function() {
     if (!dashboardStorage) {
         return;
@@ -2663,14 +2664,11 @@ function displayAircraftProfitability() {
         let key = resolveAircraftFleetKey(result, preferredKey);
         //get aircraft flight data
         let aircraftFleetData = result[key];
-        if (!window.AESDebug) {
-            window.AESDebug = {};
-        }
-        window.AESDebug.dashboardFleet = {
+        AES.exposeDebug('dashboardFleet', {
             aircraftFleetKey: key,
             airline: airline,
             matchingKeys: getMatchingAircraftFleetKeys(result)
-        };
+        });
         if (aircraftFleetData) {
             let keys = [];
             aircraftFleetData.fleet.forEach(function(value) {
