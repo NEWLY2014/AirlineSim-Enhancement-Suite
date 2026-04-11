@@ -94,13 +94,41 @@ function fltmng_getMaintenance(value) {
 
 function fltmng_getAircraftId(value) {
     if (value) {
+        let match = String(value).match(/\/app\/fleets\/aircraft\/(\d+)\//);
+        if (match) {
+            return parseInt(match[1], 10);
+        }
+
         value = value.split('/');
-        return parseInt(value[value.length - 2], 10);
+        let parsed = parseInt(value[value.length - 2], 10);
+        if (!isNaN(parsed)) {
+            return parsed;
+        }
     }
 }
 
 function fltmng_getAircraftIdFromRow(row) {
-    return fltmng_getAircraftId(fltmng_getAircraftPageLink(row));
+    let aircraftId = fltmng_getAircraftId(fltmng_getAircraftPageLink(row));
+    if (aircraftId) {
+        return aircraftId;
+    }
+
+    let hrefs = $(row).find('a[href*="/app/fleets/aircraft/"]').map(function() {
+        return $(this).attr('href');
+    }).get();
+    for (let i = 0; i < hrefs.length; i++) {
+        aircraftId = fltmng_getAircraftId(hrefs[i]);
+        if (aircraftId) {
+            return aircraftId;
+        }
+    }
+
+    let htmlMatch = ($(row).html() || '').match(/\/app\/fleets\/aircraft\/(\d+)\//);
+    if (htmlMatch) {
+        return parseInt(htmlMatch[1], 10);
+    }
+
+    return null;
 }
 
 function fltmng_getAircraftPageLink(row) {
