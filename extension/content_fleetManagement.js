@@ -30,7 +30,7 @@ function fltmng_getData() {
     let table = $('.as-page-fleet-management > .row > .col-md-9 > .as-panel:eq(0) table');
     currentFleet = fltmng_normalizeFleetName($('.as-page-fleet-management > .row > .col-md-9 > h2:eq(0)').text());
     $('tbody tr', table).each(function() {
-        let aircraftId = fltmng_getAircraftId($('td:eq(6) > div > div:eq(1) > a:eq(0)', this).attr('href'));
+        let aircraftId = fltmng_getAircraftIdFromRow(this);
         if (!aircraftId) {
             return;
         }
@@ -86,6 +86,15 @@ function fltmng_getAircraftId(value) {
         value = value.split('/');
         return parseInt(value[value.length - 2], 10);
     }
+}
+
+function fltmng_getAircraftIdFromRow(row) {
+    return fltmng_getAircraftId(fltmng_getAircraftPageLink(row));
+}
+
+function fltmng_getAircraftPageLink(row) {
+    return $('a[href*="/app/fleets/aircraft/"][title="Flights"]', row).attr('href') ||
+        $('a[href*="/app/fleets/aircraft/"][title="Flight Planning"]', row).attr('href');
 }
 
 function fltmng_getStorageData() {
@@ -194,29 +203,28 @@ function fltmng_displayAircraftProfit() {
     $('thead tr:eq(0)', table).append(th);
     //Body
     $('tbody tr', table).each(function() {
-        let id = fltmng_getAircraftId($('td:eq(6) > div > div:eq(1) > a:eq(0)', this).attr('href'));
-        if (!id) {
-            return;
-        }
+        let id = fltmng_getAircraftIdFromRow(this);
 
         let profit, date, time;
-        aircraftData.forEach(function(value) {
-            if (value.aircraftId == id) {
-                if (value.profit) {
-                    if (value.profit.profitFlights) {
-                        profit = value.profit.profit;
-                        date = value.profit.date;
-                        time = value.profit.time;
+        if (id) {
+            aircraftData.forEach(function(value) {
+                if (value.aircraftId == id) {
+                    if (value.profit) {
+                        if (value.profit.profitFlights) {
+                            profit = value.profit.profit;
+                            date = value.profit.date;
+                            time = value.profit.time;
+                        }
                     }
                 }
-            }
-        });
+            });
+        }
         let td = [];
         if (date) {
             td.push($('<td></td>').html(AES.formatCurrency(profit, 'right')));
             td.push($('<td></td>').html(AES.formatDateString(date) + '<br>' + time));
         } else {
-            td.push('<td></td>', '<td></td>');
+            td.push('<td class="text-center">--</td>', '<td class="text-center">--</td>');
         }
         $(this).append(td);
     });
