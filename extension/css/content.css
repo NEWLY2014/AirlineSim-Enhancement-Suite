@@ -165,11 +165,10 @@
 .aes-aircraft-flights-block {
     background: transparent;
     border: 0;
-    border-bottom: 1px solid rgba(127, 127, 127, 0.3);
     border-radius: 0;
     box-shadow: none;
     margin-bottom: 12px;
-    padding: 0 0 12px;
+    padding: 0 0 8px;
 }
 
 .aes-aircraft-flights-summary {
@@ -179,9 +178,10 @@
 
 .aes-aircraft-flights-title {
     color: inherit;
-    font-size: 18px;
+    font-size: 16px;
     font-weight: bold;
     margin-bottom: 8px;
+    opacity: 0.9;
 }
 
 .aes-aircraft-flights-table {

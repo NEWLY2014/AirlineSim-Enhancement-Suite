@@ -9,6 +9,8 @@ $(function() {
     let currentAirline = AES.getCurrentAirline();
     aircraftFlightAirline = currentAirline && currentAirline.id ? currentAirline : AES.getAirline();
     aircraftFleetKey = aircraftFlightData.server + aircraftFlightAirline.id + 'aircraftFleet';
+    persistAircraftFlightSummary();
+    syncFleetHubData(function() {});
 
     //Async start
     getStorageData();
@@ -137,7 +139,13 @@ function display() {
         toolbar,
         tableWell
     );
-    $('.as-page-aircraft .tab-pane.active:first > form:first').before(content);
+    $('.aes-aircraft-flights-block').remove();
+    let insertionTarget = $('#aircraft-flight-instances-table').closest('.as-table-well');
+    if (insertionTarget.length) {
+        insertionTarget.before(content);
+    } else {
+        $('.as-page-aircraft > .row:first > .col-md-10:first').prepend(content);
+    }
 }
 
 async function extractAllFlightProfit(type) {
@@ -230,7 +238,9 @@ function getData() {
         hubCounts: hubStats.counts,
         hubDetected: hubStats.hub,
         hubEffective: hubStats.hub,
-        hubOverride: ''
+        hubOverride: '',
+        profit: 0,
+        profitFlights: 0
     }
 }
 
