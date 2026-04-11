@@ -478,6 +478,7 @@ function resolveAircraftFleetMatches(callback) {
             aircraftFleetKey: aircraftFleetKey,
             aircraftId: aircraftFlightData.aircraftId,
             hubDetected: aircraftFlightData.hubDetected,
+            exactKeyFleetSize: result[aircraftFleetKey] && Array.isArray(result[aircraftFleetKey].fleet) ? result[aircraftFleetKey].fleet.length : 0,
             matches: matches.map(function(match) {
                 return {
                     key: match.key,

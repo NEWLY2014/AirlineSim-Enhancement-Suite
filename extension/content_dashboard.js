@@ -2667,7 +2667,9 @@ function displayAircraftProfitability() {
         AES.exposeDebug('dashboardFleet', {
             aircraftFleetKey: key,
             airline: airline,
-            matchingKeys: getMatchingAircraftFleetKeys(result)
+            matchingKeys: getMatchingAircraftFleetKeys(result),
+            fleetSize: aircraftFleetData && Array.isArray(aircraftFleetData.fleet) ? aircraftFleetData.fleet.length : 0,
+            aircraftIds: aircraftFleetData && Array.isArray(aircraftFleetData.fleet) ? aircraftFleetData.fleet.slice(0, 10).map(function(value) { return value.aircraftId; }) : []
         });
         if (aircraftFleetData) {
             let keys = [];

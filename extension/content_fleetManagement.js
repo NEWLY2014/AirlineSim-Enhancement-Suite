@@ -105,7 +105,10 @@ function fltmng_getAircraftIdFromRow(row) {
 
 function fltmng_getAircraftPageLink(row) {
     return $('a[href*="/app/fleets/aircraft/"][title="Flights"]', row).attr('href') ||
-        $('a[href*="/app/fleets/aircraft/"][title="Flight Planning"]', row).attr('href');
+        $('a[href*="/app/fleets/aircraft/"][title="Flight Planning"]', row).attr('href') ||
+        $('a[href*="/app/fleets/aircraft/"][href*="/1"]', row).attr('href') ||
+        $('a[href*="/app/fleets/aircraft/"][href*="/0"]', row).attr('href') ||
+        $('a[href*="/app/fleets/aircraft/"]', row).first().attr('href');
 }
 
 function fltmng_isDelivered(row) {
@@ -227,9 +230,11 @@ function fltmng_getAircraftStorageFleetData() {
         AES.exposeDebug('fleetExtract', {
             aircraftFleetKey: aircraftFleetKey,
             aircraftCount: aircraftData.length,
+            aircraftIds: aircraftData.map(function(value) { return value.aircraftId; }).filter(function(value) { return !!value; }).slice(0, 10),
             airline: airline,
             currentFleet: currentFleet,
-            matchingKeys: fltmng_getMatchingAircraftFleetKeys(result)
+            matchingKeys: fltmng_getMatchingAircraftFleetKeys(result),
+            validAircraftCount: aircraftData.filter(function(value) { return !!value.aircraftId; }).length
         });
 
         fltmng_saveData();
@@ -371,6 +376,21 @@ function fltmng_saveData() {
     //Remove profit
     chrome.storage.local.set({
         [aircraftFleetKey]: aircraftFleetStorageData }, function() {
+        AES.exposeDebug('fleetExtract', Object.assign({}, {
+            aircraftFleetKey: aircraftFleetKey,
+            aircraftCount: aircraftData.length,
+            aircraftIds: aircraftData.map(function(value) { return value.aircraftId; }).filter(function(value) { return !!value; }).slice(0, 10),
+            airline: airline,
+            currentFleet: currentFleet,
+            savedFleetSize: Array.isArray(aircraftFleetStorageData.fleet) ? aircraftFleetStorageData.fleet.length : 0,
+            validAircraftCount: aircraftData.filter(function(value) { return !!value.aircraftId; }).length
+        }, {
+            matchingKeys: [{
+                key: aircraftFleetKey,
+                score: fltmng_getAircraftFleetMatchScore(aircraftFleetStorageData),
+                fleetSize: Array.isArray(aircraftFleetStorageData.fleet) ? aircraftFleetStorageData.fleet.length : 0
+            }]
+        }));
         fltmng_display();
     });
 }
