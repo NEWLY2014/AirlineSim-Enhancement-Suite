@@ -84,15 +84,12 @@ function display() {
     let resetOverrideBtn = $('<button type="button" class="btn btn-default"></button>').text('Reset to default');
     let hubInput = $('<input type="text" class="form-control aes-aircraft-flights-hub-input" maxlength="4">').val(aircraftFlightData.hubOverride || '');
     let span = $('<span class="aes-dashboard-filter-status"></span>');
-    let toolbar = $('<div class="as-panel aes-aircraft-flights-toolbar"></div>').append(
+    let toolbar = $('<div class="as-panel aes-aircraft-flights-toolbar aes-aircraft-flights-summary"></div>').append(
         $('<div class="aes-aircraft-flights-toolbar-row"></div>').append(
-            $('<div class="aes-aircraft-flights-toolbar-section"></div>').append(
-                $('<label class="control-label aes-aircraft-flights-toolbar-label"></label>').text('Override HUB'),
-                $('<div class="aes-aircraft-flights-toolbar-controls"></div>').append(hubInput, saveOverrideBtn, resetOverrideBtn)
-            ),
-            $('<div class="aes-aircraft-flights-toolbar-section aes-aircraft-flights-toolbar-actions"></div>').append(
-                $('<div class="btn-group aes-dashboard-control-actions"></div>').append(btn1, btn)
-            )
+            $('<label class="control-label aes-aircraft-flights-toolbar-label"></label>').text('HUB'),
+            hubInput,
+            $('<div class="btn-group aes-dashboard-control-actions"></div>').append(saveOverrideBtn, resetOverrideBtn),
+            $('<div class="btn-group aes-dashboard-control-actions"></div>').append(btn1, btn)
         ),
         $('<div class="aes-aircraft-flights-toolbar-status"></div>').append(span)
     );

@@ -198,11 +198,13 @@ function fltmng_getStorageData() {
                     aircraftData[i].profit = {
                         date: result[aircraftFlightData].date,
                         finishedFlights: result[aircraftFlightData].finishedFlights,
+                        hubDetected: result[aircraftFlightData].hubDetected,
                         profit: result[aircraftFlightData].profit,
                         profitFlights: result[aircraftFlightData].profitFlights,
                         time: result[aircraftFlightData].time,
                         totalFlights: result[aircraftFlightData].totalFlights,
                     };
+                    aircraftData[i].hubDetected = result[aircraftFlightData].hubDetected || aircraftData[i].hubDetected || '';
                 }
             }
         }
@@ -240,8 +242,8 @@ function fltmng_updateAircraftFleetStorageData(data) {
             delivered: newvalue.delivered,
             equipment: newvalue.equipment,
             fleet: newvalue.fleet,
-            hubDetected: storedAircraft && storedAircraft.hubDetected ? storedAircraft.hubDetected : '',
-            hubEffective: storedAircraft && storedAircraft.hubEffective ? storedAircraft.hubEffective : '',
+            hubDetected: newvalue.hubDetected || (storedAircraft && storedAircraft.hubDetected ? storedAircraft.hubDetected : ''),
+            hubEffective: storedAircraft && storedAircraft.hubOverride ? storedAircraft.hubOverride : (newvalue.hubDetected || (storedAircraft && storedAircraft.hubEffective ? storedAircraft.hubEffective : '')),
             hubOverride: storedAircraft && storedAircraft.hubOverride ? storedAircraft.hubOverride : '',
             maintenance: newvalue.maintenance,
             nickname: newvalue.nickname,
@@ -320,7 +322,14 @@ function fltmng_display() {
 
 function fltmng_displayAircraftProfit() {
     let table = $('.as-page-fleet-management > .row > .col-md-9 > .as-panel:eq(0) table');
+    table.addClass('aes-fleet-table');
     //Head
+    $('thead tr:eq(0) th:eq(2)', table).html(
+        $('thead tr:eq(0) th:eq(2)', table).html().replace('Aircraft model', 'Model')
+    );
+    $('thead tr:eq(0) th:eq(2)', table).after(
+        $('<th rowspan="2" class="aes-fleet-extra-header">HUB</th>')
+    );
     $('thead tr:eq(0)', table).append(
         $('<th rowspan="2" class="aes-fleet-extra-header">Profit/Loss</th>'),
         $('<th rowspan="2" class="aes-fleet-extra-header">Extract date</th>')
@@ -344,14 +353,29 @@ function fltmng_displayAircraftProfit() {
             });
         }
         let td = [];
+        td.push($('<td class="aes-fleet-extra-cell"></td>').text(fltmng_getAircraftHubDisplay(id)));
         if (date) {
             td.push($('<td class="aes-fleet-extra-cell"></td>').html(AES.formatCurrency(profit, 'right')));
             td.push($('<td class="aes-fleet-extra-cell"></td>').html(AES.formatDateString(date) + '<br>' + time));
         } else {
             td.push('<td class="aes-fleet-extra-cell text-center">--</td>', '<td class="aes-fleet-extra-cell text-center">--</td>');
         }
-        $(this).append(td);
+        $('td:eq(2)', this).after(td);
     });
+}
+
+function fltmng_getAircraftHubDisplay(aircraftId) {
+    if (!aircraftId || !aircraftFleetStorageData || !Array.isArray(aircraftFleetStorageData.fleet)) {
+        return '--';
+    }
+
+    for (let i = 0; i < aircraftFleetStorageData.fleet.length; i++) {
+        if (aircraftFleetStorageData.fleet[i].aircraftId == aircraftId) {
+            return aircraftFleetStorageData.fleet[i].hubOverride || aircraftFleetStorageData.fleet[i].hubEffective || aircraftFleetStorageData.fleet[i].hubDetected || '--';
+        }
+    }
+
+    return '--';
 }
 
 function fltmng_displaySavedAircrafts() {
@@ -368,7 +392,7 @@ function fltmng_displayNewUpdates() {
 }
 
 function fltmng_buildFilterPanel() {
-    let equipmentSelect = fltmng_buildFilterSelect('All equipment', fltmng_getUniqueAircraftValues('equipment'));
+    let equipmentSelect = fltmng_buildFilterSelect('All models', fltmng_getUniqueAircraftValues('equipment'));
     let seatConfigSelect = fltmng_buildFilterSelect('All seat configs', fltmng_getUniqueAircraftValues('seatConfig'));
     let deliverySelect = fltmng_buildFilterSelect('All delivery states', [
         { value: 'delivered', label: 'Delivered' },
@@ -389,7 +413,7 @@ function fltmng_buildFilterPanel() {
     let status = $('<span class="text-muted"></span>');
 
     let form = $('<div class="row"></div>').append(
-        fltmng_wrapFilterControl('Equipment', equipmentSelect),
+        fltmng_wrapFilterControl('Model', equipmentSelect),
         fltmng_wrapFilterControl('Seats (Y/C/F)', seatConfigSelect),
         fltmng_wrapFilterControl('Delivery', deliverySelect),
         fltmng_wrapFilterControl('Ownership', ownershipSelect),

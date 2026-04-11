@@ -2474,7 +2474,7 @@ function displayAircraftProfitability() {
     },
         {
             category: 'Aircraft',
-            title: 'Equipment',
+            title: 'Model',
             data: 'equipment',
             sortable: 1,
             visible: 1
