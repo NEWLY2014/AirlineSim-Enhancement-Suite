@@ -2657,11 +2657,20 @@ function displayAircraftProfitability() {
         });
     }
 
-    let key = server + airline.id + 'aircraftFleet';
+    let preferredKey = server + airline.id + 'aircraftFleet';
     //Get storage fleet data
-    dashboardStorage.get(key, function(result) {
+    dashboardStorage.get(null, function(result) {
+        let key = resolveAircraftFleetKey(result, preferredKey);
         //get aircraft flight data
         let aircraftFleetData = result[key];
+        if (!window.AESDebug) {
+            window.AESDebug = {};
+        }
+        window.AESDebug.dashboardFleet = {
+            aircraftFleetKey: key,
+            airline: airline,
+            matchingKeys: getMatchingAircraftFleetKeys(result)
+        };
         if (aircraftFleetData) {
             let keys = [];
             aircraftFleetData.fleet.forEach(function(value) {
@@ -2769,6 +2778,37 @@ function displayAircraftProfitability() {
             });
         });
         return data;
+    }
+
+    function getMatchingAircraftFleetKeys(result) {
+        return Object.keys(result || {}).filter(function(key) {
+            if (key.indexOf(server) !== 0 || !key.endsWith('aircraftFleet')) {
+                return false;
+            }
+            let data = result[key];
+            return isMatchingAircraftFleetData(data);
+        });
+    }
+
+    function resolveAircraftFleetKey(result, preferredKey) {
+        let matchingKeys = getMatchingAircraftFleetKeys(result);
+        if (matchingKeys.length) {
+            return matchingKeys[0];
+        }
+        return preferredKey;
+    }
+
+    function isMatchingAircraftFleetData(data) {
+        if (!data || data.type !== 'aircraftFleet' || !data.airline) {
+            return false;
+        }
+
+        return (
+            (airline.id && data.airline.id && String(data.airline.id) === String(airline.id)) ||
+            (airline.name && data.airline.name && data.airline.name === airline.name) ||
+            (airline.displayName && data.airline.displayName && data.airline.displayName === airline.displayName) ||
+            (airline.code && data.airline.code && data.airline.code === airline.code)
+        );
     }
 }
 

@@ -219,11 +219,55 @@ function fltmng_getStorageData() {
 }
 
 function fltmng_getAircraftStorageFleetData() {
-    aircraftFleetKey = server + airline.id + 'aircraftFleet';
-    chrome.storage.local.get(aircraftFleetKey, function(result) {
+    let preferredKey = server + airline.id + 'aircraftFleet';
+    chrome.storage.local.get(null, function(result) {
+        aircraftFleetKey = fltmng_resolveAircraftFleetKey(result, preferredKey);
         fltmng_updateAircraftFleetStorageData(result[aircraftFleetKey]);
+
+        if (!window.AESDebug) {
+            window.AESDebug = {};
+        }
+        window.AESDebug.fleetExtract = {
+            aircraftFleetKey: aircraftFleetKey,
+            aircraftCount: aircraftData.length,
+            airline: airline,
+            currentFleet: currentFleet,
+            matchingKeys: fltmng_getMatchingAircraftFleetKeys(result)
+        };
+
         fltmng_saveData();
     });
+}
+
+function fltmng_getMatchingAircraftFleetKeys(result) {
+    return Object.keys(result || {}).filter(function(key) {
+        if (key.indexOf(server) !== 0 || !key.endsWith('aircraftFleet')) {
+            return false;
+        }
+        let data = result[key];
+        return fltmng_isMatchingAircraftFleetData(data);
+    });
+}
+
+function fltmng_resolveAircraftFleetKey(result, preferredKey) {
+    let matchingKeys = fltmng_getMatchingAircraftFleetKeys(result);
+    if (matchingKeys.length) {
+        return matchingKeys[0];
+    }
+    return preferredKey;
+}
+
+function fltmng_isMatchingAircraftFleetData(data) {
+    if (!data || data.type !== 'aircraftFleet' || !data.airline) {
+        return false;
+    }
+
+    return (
+        (airline.id && data.airline.id && String(data.airline.id) === String(airline.id)) ||
+        (airline.name && data.airline.name && data.airline.name === airline.name) ||
+        (airline.displayName && data.airline.displayName && data.airline.displayName === airline.displayName) ||
+        (airline.code && data.airline.code && data.airline.code === airline.code)
+    );
 }
 
 function fltmng_updateAircraftFleetStorageData(data) {
