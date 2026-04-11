@@ -140,7 +140,7 @@ function fltmng_getAircraftPageLink(row) {
 }
 
 function fltmng_isDelivered(row) {
-    return $('td:eq(4) > span:eq(0)', row).text().indexOf('Delivery:') == -1;
+    return $('td:eq(4)', row).text().indexOf('Delivery:') == -1;
 }
 
 function fltmng_getSeatValue(value) {
