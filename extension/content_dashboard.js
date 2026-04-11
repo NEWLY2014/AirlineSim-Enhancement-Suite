@@ -2526,6 +2526,28 @@ function displayAircraftProfitability() {
     },
         {
             category: 'Aircraft',
+            title: 'Total seats',
+            data: 'totalSeats',
+            sortable: 1,
+            visible: 1,
+            number: 1
+    },
+        {
+            category: 'Aircraft',
+            title: 'Pure cargo',
+            data: 'pureCargo',
+            sortable: 1,
+            visible: 1
+    },
+        {
+            category: 'Aircraft',
+            title: 'Pilots',
+            data: 'pilotAssignedLabel',
+            sortable: 1,
+            visible: 1
+    },
+        {
+            category: 'Aircraft',
             title: 'Schedule',
             data: 'scheduleStateLabel',
             sortable: 1,
@@ -2726,11 +2748,14 @@ function displayAircraftProfitability() {
                 ownership: value.owned === undefined ? '' : (value.owned ? 'Owned' : 'Leased'),
                 age: value.age,
                 maintenance: value.maintenance,
+                pilotAssignedLabel: value.pilotAssignedLabel || '',
+                pureCargo: value.pureCargo === undefined ? '' : (value.pureCargo ? 'Yes' : 'No'),
                 scheduleStateLabel: value.scheduleStateLabel || '',
                 seatC: value.seatC,
                 seatConfig: value.seatConfig || '',
                 seatF: value.seatF,
                 seatY: value.seatY,
+                totalSeats: value.totalSeats === undefined ? ((value.seatY || 0) + (value.seatC || 0) + (value.seatF || 0)) : value.totalSeats,
                 dateAircraft: AES.formatDateString(value.date) + ' ' + value.time,
                 totalFlights: profit.totalFlights,
                 finishedFlights: profit.finishedFlights,

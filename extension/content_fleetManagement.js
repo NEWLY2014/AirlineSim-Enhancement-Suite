@@ -47,6 +47,10 @@ function fltmng_getData() {
             seatC: fltmng_getSeatValue($('td:eq(5) > span:eq(1)', this).text()),
             seatF: fltmng_getSeatValue($('td:eq(5) > span:eq(2)', this).text()),
             seatConfig: fltmng_getSeatConfig(this),
+            totalSeats: fltmng_getTotalSeats(this),
+            pureCargo: fltmng_isPureCargo(this),
+            pilotAssigned: fltmng_hasPilots(this),
+            pilotAssignedLabel: fltmng_hasPilots(this) ? 'Yes' : 'No',
             scheduleState: fltmng_getScheduleState(this),
             scheduleStateLabel: fltmng_getScheduleStateLabel(this),
             date: date.date,
@@ -118,6 +122,20 @@ function fltmng_getSeatConfig(row) {
         fltmng_getSeatValue($('td:eq(5) > span:eq(1)', row).text()),
         fltmng_getSeatValue($('td:eq(5) > span:eq(2)', row).text())
     ].join('/');
+}
+
+function fltmng_getTotalSeats(row) {
+    return fltmng_getSeatValue($('td:eq(5) > span:eq(0)', row).text()) +
+        fltmng_getSeatValue($('td:eq(5) > span:eq(1)', row).text()) +
+        fltmng_getSeatValue($('td:eq(5) > span:eq(2)', row).text());
+}
+
+function fltmng_isPureCargo(row) {
+    return fltmng_getTotalSeats(row) === 0;
+}
+
+function fltmng_hasPilots(row) {
+    return $('td:eq(5) .subrow', row).text().trim().toLowerCase() == 'yes';
 }
 
 function fltmng_isOwned(row) {
@@ -229,6 +247,9 @@ function fltmng_updateAircraftFleetStorageData(data) {
             nickname: newvalue.nickname,
             note: newvalue.note,
             owned: newvalue.owned,
+            pilotAssigned: newvalue.pilotAssigned,
+            pilotAssignedLabel: newvalue.pilotAssignedLabel,
+            pureCargo: newvalue.pureCargo,
             registration: newvalue.registration,
             scheduleState: newvalue.scheduleState,
             scheduleStateLabel: newvalue.scheduleStateLabel,
@@ -236,6 +257,7 @@ function fltmng_updateAircraftFleetStorageData(data) {
             seatConfig: newvalue.seatConfig,
             seatF: newvalue.seatF,
             seatY: newvalue.seatY,
+            totalSeats: newvalue.totalSeats,
             time: newvalue.time
         }));
     });
@@ -299,8 +321,10 @@ function fltmng_display() {
 function fltmng_displayAircraftProfit() {
     let table = $('.as-page-fleet-management > .row > .col-md-9 > .as-panel:eq(0) table');
     //Head
-    let th = ['<th rowspan="2" class="aes-text-right">Profit/Loss</th>', '<th rowspan="2">Extract date</th>'];
-    $('thead tr:eq(0)', table).append(th);
+    $('thead tr:eq(0)', table).append(
+        $('<th rowspan="2" class="aes-fleet-extra-header">Profit/Loss</th>'),
+        $('<th rowspan="2" class="aes-fleet-extra-header">Extract date</th>')
+    );
     //Body
     $('tbody tr', table).each(function() {
         let id = fltmng_getAircraftIdFromRow(this);
@@ -321,10 +345,10 @@ function fltmng_displayAircraftProfit() {
         }
         let td = [];
         if (date) {
-            td.push($('<td></td>').html(AES.formatCurrency(profit, 'right')));
-            td.push($('<td></td>').html(AES.formatDateString(date) + '<br>' + time));
+            td.push($('<td class="aes-fleet-extra-cell"></td>').html(AES.formatCurrency(profit, 'right')));
+            td.push($('<td class="aes-fleet-extra-cell"></td>').html(AES.formatDateString(date) + '<br>' + time));
         } else {
-            td.push('<td class="text-center">--</td>', '<td class="text-center">--</td>');
+            td.push('<td class="aes-fleet-extra-cell text-center">--</td>', '<td class="aes-fleet-extra-cell text-center">--</td>');
         }
         $(this).append(td);
     });

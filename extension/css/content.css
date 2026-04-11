@@ -12,6 +12,10 @@
     text-align: right;
 }
 
+.aes-text-center {
+    text-align: center;
+}
+
 .aes-no-text-wrap {
     white-space: nowrap;
 }
@@ -101,6 +105,65 @@
     min-width: 68px;
     vertical-align: middle;
     white-space: nowrap;
+}
+
+.aes-aircraft-flights-toolbar {
+    margin-bottom: 10px;
+}
+
+.aes-aircraft-flights-toolbar-row {
+    align-items: end;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: space-between;
+}
+
+.aes-aircraft-flights-toolbar-section {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.aes-aircraft-flights-toolbar-actions {
+    align-items: flex-end;
+    margin-left: auto;
+}
+
+.aes-aircraft-flights-toolbar-label {
+    margin-bottom: 0;
+}
+
+.aes-aircraft-flights-toolbar-controls {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.aes-aircraft-flights-hub-input {
+    min-width: 110px;
+    max-width: 140px;
+    text-transform: uppercase;
+}
+
+.aes-aircraft-flights-toolbar-status {
+    margin-top: 8px;
+    min-height: 20px;
+}
+
+.aes-aircraft-flights-summary {
+    max-width: 980px;
+}
+
+.aes-fleet-extra-header,
+.aes-fleet-extra-cell {
+    text-align: center;
+    vertical-align: middle;
+}
+
+.as-page-fleet-management .table > tbody > tr:last-child > td.aes-fleet-extra-cell {
+    box-shadow: inset 0 -1px 0 rgba(127, 127, 127, 0.45);
 }
 
 /* Specific */
