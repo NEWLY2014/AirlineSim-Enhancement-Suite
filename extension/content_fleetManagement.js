@@ -262,6 +262,15 @@ function fltmng_getAircraftStorageFleetData() {
             airline: airline,
             currentFleet: currentFleet,
             matchingKeys: fltmng_getMatchingAircraftFleetKeys(result),
+            rowPreview: aircraftData.length ? {
+                firstRegistration: aircraftData[0].registration,
+                firstAircraftId: aircraftData[0].aircraftId,
+                firstAircraftLink: fltmng_getAircraftPageLink(aircraftData[0].row),
+                firstRowAircraftLinks: $(aircraftData[0].row).find('a[href*="/app/fleets/aircraft/"]').map(function() {
+                    return $(this).attr('href');
+                }).get(),
+                firstRowHtml: (($(aircraftData[0].row).html() || '').replace(/\s+/g, ' ').trim()).slice(0, 800)
+            } : null,
             validAircraftCount: aircraftData.filter(function(value) { return !!value.aircraftId; }).length
         });
 
@@ -410,6 +419,15 @@ function fltmng_saveData() {
             aircraftIds: aircraftData.map(function(value) { return value.aircraftId; }).filter(function(value) { return !!value; }).slice(0, 10),
             airline: airline,
             currentFleet: currentFleet,
+            rowPreview: aircraftData.length ? {
+                firstRegistration: aircraftData[0].registration,
+                firstAircraftId: aircraftData[0].aircraftId,
+                firstAircraftLink: fltmng_getAircraftPageLink(aircraftData[0].row),
+                firstRowAircraftLinks: $(aircraftData[0].row).find('a[href*="/app/fleets/aircraft/"]').map(function() {
+                    return $(this).attr('href');
+                }).get(),
+                firstRowHtml: (($(aircraftData[0].row).html() || '').replace(/\s+/g, ' ').trim()).slice(0, 800)
+            } : null,
             savedFleetSize: Array.isArray(aircraftFleetStorageData.fleet) ? aircraftFleetStorageData.fleet.length : 0,
             validAircraftCount: aircraftData.filter(function(value) { return !!value.aircraftId; }).length
         }, {
