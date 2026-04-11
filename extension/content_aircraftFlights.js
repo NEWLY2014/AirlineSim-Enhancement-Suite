@@ -4,11 +4,13 @@
 var aircraftFlightData;
 var aircraftFlightAirline;
 var aircraftFleetKey;
+var aircraftFlightNotifications;
 $(function() {
     aircraftFlightData = getData();
     let currentAirline = AES.getCurrentAirline();
     aircraftFlightAirline = currentAirline && currentAirline.id ? currentAirline : AES.getAirline();
     aircraftFleetKey = aircraftFlightData.server + aircraftFlightAirline.id + 'aircraftFleet';
+    aircraftFlightNotifications = typeof Notifications === 'function' ? new Notifications() : null;
     persistAircraftFlightSummary();
     syncFleetHubData(function() {});
 
@@ -95,7 +97,6 @@ function display() {
     let saveOverrideBtn = $('<button type="button" class="btn btn-default"></button>').text('Save HUB override');
     let resetOverrideBtn = $('<button type="button" class="btn btn-default"></button>').text('Reset to default');
     let hubInput = $('<input type="text" class="form-control aes-aircraft-flights-hub-input" maxlength="4">').val(aircraftFlightData.hubOverride || '');
-    let span = $('<span class="aes-dashboard-filter-status"></span>');
     let toolbar = $('<div class="aes-aircraft-flights-toolbar aes-aircraft-flights-summary"></div>').append(
         $('<div class="aes-aircraft-flights-toolbar-row"></div>').append(
             $('<div class="aes-aircraft-flights-toolbar-group"></div>').append(
@@ -104,8 +105,7 @@ function display() {
                 $('<div class="btn-group aes-dashboard-control-actions"></div>').append(saveOverrideBtn, resetOverrideBtn)
             ),
             $('<div class="aes-aircraft-flights-toolbar-group aes-aircraft-flights-toolbar-group-actions"></div>').append(
-                $('<div class="btn-group aes-dashboard-control-actions"></div>').append(btn1, btn),
-                span
+                $('<div class="btn-group aes-dashboard-control-actions"></div>').append(btn1, btn)
             )
         )
     );
@@ -113,26 +113,26 @@ function display() {
     btn.click(function() {
         btn.hide();
         btn1.hide();
-        span.removeClass('good bad warning').addClass('warning').text('Please reload page after all flight info pages open');
+        showAircraftFlightsNotification('Please reload page after all flight info pages open', 'warning');
         extractAllFlightProfit('all');
     });
     btn1.click(function() {
         btn.hide();
         btn1.hide();
-        span.removeClass('good bad warning').addClass('warning').text('Please reload page after all flight info pages open');
+        showAircraftFlightsNotification('Please reload page after all flight info pages open', 'warning');
         extractAllFlightProfit('finished');
     });
     saveOverrideBtn.click(function() {
         let override = hubInput.val().trim().toUpperCase();
         if (!override) {
-            span.removeClass('good warning').addClass('bad').text('Enter a HUB code first');
+            showAircraftFlightsNotification('Enter a HUB code first', 'error');
             return;
         }
-        updateHubOverride(override, span);
+        updateHubOverride(override);
     });
     resetOverrideBtn.click(function() {
         hubInput.val('');
-        resetHubOverride(span);
+        resetHubOverride();
     });
     let content = $('<div class="aes-aircraft-flights-block"></div>').append(
         $('<div class="aes-aircraft-flights-title"></div>').text('AES Aircraft Flights'),
@@ -370,10 +370,10 @@ function syncFleetHubData(callback) {
     });
 }
 
-function updateHubOverride(override, statusEl) {
+function updateHubOverride(override) {
     resolveAircraftFleetMatches(function(matches) {
         if (!matches.length) {
-            statusEl.removeClass('good warning').addClass('bad').text('Extract fleet data first');
+            showAircraftFlightsNotification('Extract fleet data first', 'error');
             return;
         }
 
@@ -388,7 +388,7 @@ function updateHubOverride(override, statusEl) {
                     aircraftFlightData.hubEffective = override;
                     persistAircraftFlightSummary(function() {
                         refreshHubSummary();
-                        statusEl.removeClass('bad warning').addClass('good').text('HUB override saved');
+                        showAircraftFlightsNotification('HUB override saved', 'success');
                     });
                 }
             });
@@ -396,10 +396,10 @@ function updateHubOverride(override, statusEl) {
     });
 }
 
-function resetHubOverride(statusEl) {
+function resetHubOverride() {
     resolveAircraftFleetMatches(function(matches) {
         if (!matches.length) {
-            statusEl.removeClass('good warning').addClass('bad').text('Extract fleet data first');
+            showAircraftFlightsNotification('Extract fleet data first', 'error');
             return;
         }
 
@@ -414,12 +414,18 @@ function resetHubOverride(statusEl) {
                     aircraftFlightData.hubEffective = aircraftFlightData.hubDetected || '';
                     persistAircraftFlightSummary(function() {
                         refreshHubSummary();
-                        statusEl.removeClass('bad warning').addClass('good').text('Reset to detected HUB');
+                        showAircraftFlightsNotification('Reset to detected HUB', 'success');
                     });
                 }
             });
         });
     });
+}
+
+function showAircraftFlightsNotification(message, type) {
+    if (aircraftFlightNotifications) {
+        aircraftFlightNotifications.add(message, { type: type });
+    }
 }
 
 function refreshHubSummary() {
