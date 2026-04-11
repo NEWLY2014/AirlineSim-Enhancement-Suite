@@ -104,10 +104,10 @@ function display() {
                 $('<div class="btn-group aes-dashboard-control-actions"></div>').append(saveOverrideBtn, resetOverrideBtn)
             ),
             $('<div class="aes-aircraft-flights-toolbar-group aes-aircraft-flights-toolbar-group-actions"></div>').append(
-                $('<div class="btn-group aes-dashboard-control-actions"></div>').append(btn1, btn)
+                $('<div class="btn-group aes-dashboard-control-actions"></div>').append(btn1, btn),
+                span
             )
-        ),
-        $('<div class="aes-aircraft-flights-toolbar-status"></div>').append(span)
+        )
     );
     //btn click
     btn.click(function() {
@@ -135,7 +135,7 @@ function display() {
         resetHubOverride(span);
     });
     let content = $('<div class="aes-aircraft-flights-block"></div>').append(
-        $('<h3 class="aes-aircraft-flights-title"></h3>').text('AES Aircraft Flights'),
+        $('<div class="aes-aircraft-flights-title"></div>').text('AES Aircraft Flights'),
         toolbar,
         tableWell
     );

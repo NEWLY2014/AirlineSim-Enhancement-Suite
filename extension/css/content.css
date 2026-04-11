@@ -114,9 +114,9 @@
     border-radius: 0;
     box-shadow: none;
     display: block;
-    margin-bottom: 10px;
+    margin-bottom: 4px;
     max-width: none;
-    padding: 0 0 10px;
+    padding: 0 0 4px;
     width: 100%;
 }
 
@@ -157,18 +157,13 @@
     text-transform: uppercase;
 }
 
-.aes-aircraft-flights-toolbar-status {
-    margin-top: 6px;
-    min-height: 20px;
-}
-
 .aes-aircraft-flights-block {
     background: transparent;
     border: 0;
     border-radius: 0;
     box-shadow: none;
     margin-bottom: 12px;
-    padding: 0 0 8px;
+    padding: 0 0 4px;
 }
 
 .aes-aircraft-flights-summary {
@@ -178,11 +173,17 @@
 
 .aes-aircraft-flights-title {
     color: inherit;
-    font-size: 14px;
-    font-weight: bold;
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
     letter-spacing: 0;
-    margin-bottom: 8px;
-    opacity: 0.85;
+    line-height: 1.2;
+    margin: 0 0 4px;
+    opacity: 0.8;
+    padding: 0;
     text-transform: none;
 }
 
@@ -212,8 +213,9 @@
     vertical-align: middle;
 }
 
-.aes-aircraft-flights-toolbar-status .aes-dashboard-filter-status {
-    margin-left: 0;
+.aes-aircraft-flights-toolbar .aes-dashboard-filter-status {
+    margin-left: 6px;
+    min-width: 0;
 }
 
 /* Specific */
