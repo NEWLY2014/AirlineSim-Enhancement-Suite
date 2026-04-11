@@ -11,8 +11,10 @@ $(function() {
 
     if (fltmng_fleetManagementPageOpen()) {
         fltmng_getData();
-        //Async start
-        fltmng_getStorageData();
+        fltmng_enrichUndeliveredAircraftIds().then(function() {
+            //Async start
+            fltmng_getStorageData();
+        });
     }
 });
 
@@ -52,6 +54,8 @@ function fltmng_getData() {
             pureCargo: fltmng_isPureCargo(this),
             pilotAssigned: fltmng_hasPilots(this),
             pilotAssignedLabel: fltmng_hasPilots(this) ? 'Yes' : 'No',
+            contractLink: fltmng_getContractLink(this),
+            contractState: fltmng_getContractState(this),
             scheduleState: fltmng_getScheduleState(this),
             scheduleStateLabel: fltmng_getScheduleStateLabel(this),
             date: date.date,
@@ -182,6 +186,22 @@ function fltmng_isOwned(row) {
     return owned == 'yes';
 }
 
+function fltmng_getContractState(row) {
+    let state = '';
+    $('.btn-group-contract .dropdown-menu li div', row).each(function() {
+        let text = $(this).text().replace(/\s+/g, ' ').trim();
+        if (text.indexOf('Contract status:') == 0) {
+            state = $('span:last', this).text().trim().toLowerCase();
+            return false;
+        }
+    });
+    return state;
+}
+
+function fltmng_getContractLink(row) {
+    return $('.btn-group-contract .dropdown-menu a[href*="/app/enterprise/contracts/"]', row).attr('href') || '';
+}
+
 function fltmng_getScheduleState(row) {
     let flightPlanningBtn = $('a[title="Flight Planning"]', row);
     if (!flightPlanningBtn.length) {
@@ -246,6 +266,61 @@ function fltmng_getStorageData() {
         }
         //Async
         fltmng_getAircraftStorageFleetData();
+    });
+}
+
+function fltmng_enrichUndeliveredAircraftIds() {
+    let pendingAircraft = aircraftData.filter(function(value) {
+        return !value.aircraftId && !value.owned && !value.delivered && !!value.contractLink;
+    });
+
+    if (!pendingAircraft.length) {
+        return Promise.resolve();
+    }
+
+    return Promise.all(pendingAircraft.map(function(aircraft) {
+        return fltmng_fetchContractAircraftData(aircraft.contractLink).then(function(contractData) {
+            if (!contractData) {
+                return;
+            }
+
+            if (contractData.contractState) {
+                aircraft.contractState = contractData.contractState;
+            }
+            if (contractData.aircraftId) {
+                aircraft.aircraftId = contractData.aircraftId;
+            }
+        }).catch(function() {
+            // Ignore contract fetch failures and keep local row data.
+        });
+    })).then(function() {});
+}
+
+function fltmng_fetchContractAircraftData(contractLink) {
+    let url = new URL(contractLink, window.location.href).toString();
+    return fetch(url, {
+        credentials: 'include'
+    }).then(function(response) {
+        if (!response.ok) {
+            throw new Error('Failed to load contract');
+        }
+        return response.text();
+    }).then(function(html) {
+        let doc = new DOMParser().parseFromString(html, 'text/html');
+        let aircraftLink = doc.querySelector('a[href*="/app/fleets/aircraft/"], a[href*="aircraft/"]');
+        let contractState = '';
+
+        doc.querySelectorAll('table.contractInfo tr').forEach(function(row) {
+            let label = (row.querySelector('th')?.textContent || '').trim().toLowerCase();
+            if (label == 'contract state') {
+                contractState = (row.querySelector('td.status')?.textContent || row.querySelector('td')?.textContent || '').trim().toLowerCase();
+            }
+        });
+
+        return {
+            aircraftId: aircraftLink ? fltmng_getAircraftId(aircraftLink.getAttribute('href')) : null,
+            contractState: contractState
+        };
     });
 }
 
