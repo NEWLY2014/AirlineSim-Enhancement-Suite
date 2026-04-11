@@ -87,8 +87,7 @@ function persistAircraftFlightSummary(callback) {
 function display() {
     displayFlightProfit();
     //Table
-    let tableWell = $('<div class="as-table-well aes-aircraft-flights-summary"></div>').append(buildTable());
-    let panel = $('<div class="as-panel"></div>').append(tableWell);
+    let tableWell = $('<div class="as-table-well aes-aircraft-flights-summary aes-aircraft-flights-table"></div>').append(buildTable());
     let btn = $('<button type="button" class="btn btn-default"></button>').text('Extract all flight profit/loss');
     let btn1 = $('<button type="button" class="btn btn-default"></button>').text('Extract finished flight profit/loss');
     let saveOverrideBtn = $('<button type="button" class="btn btn-default"></button>').text('Save HUB override');
@@ -133,12 +132,12 @@ function display() {
         hubInput.val('');
         resetHubOverride(span);
     });
-    let content = $('<div class="as-panel aes-aircraft-flights-block"></div>').append(
+    let content = $('<div class="aes-aircraft-flights-block"></div>').append(
         $('<h3></h3>').text('AES Aircraft Flights'),
         toolbar,
-        panel
+        tableWell
     );
-    $('.as-page-aircraft > .row:first > .col-md-10:first').prepend(content);
+    $('.as-page-aircraft > .row:first > .col-md-10:first > .as-panel:first').before(content);
 }
 
 async function extractAllFlightProfit(type) {

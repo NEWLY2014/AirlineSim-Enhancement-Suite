@@ -108,13 +108,14 @@
 }
 
 .aes-aircraft-flights-toolbar {
-    background: transparent;
-    border: 0;
-    box-shadow: none;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(127, 127, 127, 0.35);
+    border-radius: 6px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
     display: block;
     margin-bottom: 10px;
     max-width: none;
-    padding: 0;
+    padding: 10px 12px;
     width: 100%;
 }
 
@@ -161,12 +162,28 @@
 }
 
 .aes-aircraft-flights-block {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.015));
+    border: 1px solid rgba(127, 127, 127, 0.35);
+    border-radius: 6px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
     margin-bottom: 12px;
+    padding: 12px 14px 14px;
 }
 
 .aes-aircraft-flights-summary {
     max-width: none;
     width: 100%;
+}
+
+.aes-aircraft-flights-block > h3 {
+    margin-top: 0;
+    margin-bottom: 10px;
+}
+
+.aes-aircraft-flights-table {
+    border: 1px solid rgba(127, 127, 127, 0.35);
+    border-radius: 6px;
+    overflow: hidden;
 }
 
 .aes-fleet-table.table-bordered > thead > tr > th,

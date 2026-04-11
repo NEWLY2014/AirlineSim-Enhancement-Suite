@@ -2683,8 +2683,8 @@ function displayAircraftProfitability() {
                                 totalFlights: result[aircraftFlightData].totalFlights,
                             };
                             aircraftFleetData.fleet[i].hubOverride = aircraftFleetData.fleet[i].hubOverride || result[aircraftFlightData].hubOverride || '';
-                            aircraftFleetData.fleet[i].hubDetected = result[aircraftFlightData].hubDetected || aircraftFleetData.fleet[i].hubDetected || '';
-                            aircraftFleetData.fleet[i].hubEffective = aircraftFleetData.fleet[i].hubOverride || result[aircraftFlightData].hubEffective || aircraftFleetData.fleet[i].hubDetected || '';
+                            aircraftFleetData.fleet[i].hubDetected = result[aircraftFlightData].hubDetected || result[aircraftFlightData].hubEffective || aircraftFleetData.fleet[i].hubDetected || '';
+                            aircraftFleetData.fleet[i].hubEffective = aircraftFleetData.fleet[i].hubOverride || result[aircraftFlightData].hubEffective || result[aircraftFlightData].hubDetected || aircraftFleetData.fleet[i].hubDetected || '';
                         }
                     }
                 }
@@ -2744,7 +2744,7 @@ function displayAircraftProfitability() {
                 delivered: value.delivered === undefined ? '' : (value.delivered ? 'Yes' : 'No'),
                 registration: value.registration,
                 equipment: value.equipment,
-                hubEffective: value.hubOverride || value.hubEffective || value.hubDetected || (value.profit ? value.profit.hubDetected : '') || '',
+                hubEffective: value.hubOverride || value.hubEffective || value.hubDetected || (value.profit ? (value.profit.hubOverride || value.profit.hubEffective || value.profit.hubDetected) : '') || '',
                 fleet: value.fleet,
                 nickname: value.nickname,
                 note: value.note,

@@ -373,6 +373,27 @@ function fltmng_displayAircraftProfit() {
     });
 }
 
+function fltmng_getResolvedHub(aircraft) {
+    if (!aircraft) {
+        return '';
+    }
+
+    if (aircraft.hubOverride) {
+        return aircraft.hubOverride;
+    }
+    if (aircraft.hubEffective) {
+        return aircraft.hubEffective;
+    }
+    if (aircraft.hubDetected) {
+        return aircraft.hubDetected;
+    }
+    if (aircraft.profit) {
+        return aircraft.profit.hubOverride || aircraft.profit.hubEffective || aircraft.profit.hubDetected || '';
+    }
+
+    return '';
+}
+
 function fltmng_getAircraftHubDisplay(aircraftId) {
     if (!aircraftId) {
         return '--';
@@ -381,14 +402,18 @@ function fltmng_getAircraftHubDisplay(aircraftId) {
     if (aircraftFleetStorageData && Array.isArray(aircraftFleetStorageData.fleet)) {
         for (let i = 0; i < aircraftFleetStorageData.fleet.length; i++) {
             if (aircraftFleetStorageData.fleet[i].aircraftId == aircraftId) {
-                return aircraftFleetStorageData.fleet[i].hubOverride || aircraftFleetStorageData.fleet[i].hubEffective || aircraftFleetStorageData.fleet[i].hubDetected || '--';
+                let resolvedHub = fltmng_getResolvedHub(aircraftFleetStorageData.fleet[i]);
+                if (resolvedHub) {
+                    return resolvedHub;
+                }
+                break;
             }
         }
     }
 
     for (let i = 0; i < aircraftData.length; i++) {
         if (aircraftData[i].aircraftId == aircraftId) {
-            return aircraftData[i].hubDetected || '--';
+            return fltmng_getResolvedHub(aircraftData[i]) || '--';
         }
     }
 
@@ -410,6 +435,7 @@ function fltmng_displayNewUpdates() {
 
 function fltmng_buildFilterPanel() {
     let equipmentSelect = fltmng_buildFilterSelect('All models', fltmng_getUniqueAircraftValues('equipment'));
+    let hubSelect = fltmng_buildFilterSelect('All HUBs', fltmng_getUniqueAircraftHubValues());
     let seatConfigSelect = fltmng_buildFilterSelect('All seat configs', fltmng_getUniqueAircraftValues('seatConfig'));
     let deliverySelect = fltmng_buildFilterSelect('All delivery states', [
         { value: 'delivered', label: 'Delivered' },
@@ -431,6 +457,7 @@ function fltmng_buildFilterPanel() {
 
     let form = $('<div class="row"></div>').append(
         fltmng_wrapFilterControl('Model', equipmentSelect),
+        fltmng_wrapFilterControl('HUB', hubSelect),
         fltmng_wrapFilterControl('Seats (Y/C/F)', seatConfigSelect),
         fltmng_wrapFilterControl('Delivery', deliverySelect),
         fltmng_wrapFilterControl('Ownership', ownershipSelect),
@@ -438,11 +465,12 @@ function fltmng_buildFilterPanel() {
         $('<div class="col-md-12" style="margin-top: 8px;"></div>').append(resetBtn, ' ', status)
     );
 
-    [equipmentSelect, seatConfigSelect, deliverySelect, ownershipSelect, scheduleSelect].forEach(function(select) {
+    [equipmentSelect, hubSelect, seatConfigSelect, deliverySelect, ownershipSelect, scheduleSelect].forEach(function(select) {
         select.change(applyFilters);
     });
     resetBtn.click(function() {
         equipmentSelect.val('');
+        hubSelect.val('');
         seatConfigSelect.val('');
         deliverySelect.val('');
         ownershipSelect.val('');
@@ -461,6 +489,7 @@ function fltmng_buildFilterPanel() {
         aircraftData.forEach(function(value) {
             let visible =
                 (!equipmentSelect.val() || value.equipment == equipmentSelect.val()) &&
+                (!hubSelect.val() || fltmng_getResolvedHub(value) == hubSelect.val()) &&
                 (!seatConfigSelect.val() || value.seatConfig == seatConfigSelect.val()) &&
                 (!deliverySelect.val() || (deliverySelect.val() == 'delivered' ? value.delivered : !value.delivered)) &&
                 (!ownershipSelect.val() || (ownershipSelect.val() == 'owned' ? value.owned : !value.owned)) &&
@@ -499,6 +528,20 @@ function fltmng_buildFilterSelect(placeholder, values) {
 function fltmng_getUniqueAircraftValues(key) {
     let values = aircraftData.map(function(value) {
         return value[key];
+    }).filter(function(value) {
+        return value !== undefined && value !== null && value !== '';
+    });
+
+    values = values.filter(function(value, index) {
+        return values.indexOf(value) == index;
+    });
+    values.sort();
+    return values;
+}
+
+function fltmng_getUniqueAircraftHubValues() {
+    let values = aircraftData.map(function(value) {
+        return fltmng_getResolvedHub(value);
     }).filter(function(value) {
         return value !== undefined && value !== null && value !== '';
     });
