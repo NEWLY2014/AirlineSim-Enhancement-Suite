@@ -306,22 +306,70 @@ function fltmng_fetchContractAircraftData(contractLink) {
         }
         return response.text();
     }).then(function(html) {
-        let doc = new DOMParser().parseFromString(html, 'text/html');
-        let aircraftLink = doc.querySelector('a[href*="/app/fleets/aircraft/"], a[href*="aircraft/"]');
-        let contractState = '';
-
-        doc.querySelectorAll('table.contractInfo tr').forEach(function(row) {
-            let label = (row.querySelector('th')?.textContent || '').trim().toLowerCase();
-            if (label == 'contract state') {
-                contractState = (row.querySelector('td.status')?.textContent || row.querySelector('td')?.textContent || '').trim().toLowerCase();
-            }
-        });
-
-        return {
-            aircraftId: aircraftLink ? fltmng_getAircraftId(aircraftLink.getAttribute('href')) : null,
-            contractState: contractState
-        };
+        return fltmng_parseContractDocument(new DOMParser().parseFromString(html, 'text/html'));
+    }).then(function(contractData) {
+        if (contractData.aircraftId || contractData.contractState) {
+            return contractData;
+        }
+        return fltmng_fetchContractAircraftDataViaIframe(url);
+    }).catch(function() {
+        return fltmng_fetchContractAircraftDataViaIframe(url);
     });
+}
+
+function fltmng_fetchContractAircraftDataViaIframe(url) {
+    return new Promise(function(resolve, reject) {
+        let iframe = document.createElement('iframe');
+        let timeoutId = window.setTimeout(function() {
+            cleanup();
+            reject(new Error('Contract iframe load timeout'));
+        }, 10000);
+
+        function cleanup() {
+            window.clearTimeout(timeoutId);
+            iframe.remove();
+        }
+
+        iframe.style.display = 'none';
+        iframe.setAttribute('aria-hidden', 'true');
+        iframe.onload = function() {
+            try {
+                let doc = iframe.contentDocument || iframe.contentWindow?.document;
+                if (!doc) {
+                    throw new Error('Missing iframe document');
+                }
+                let contractData = fltmng_parseContractDocument(doc);
+                cleanup();
+                resolve(contractData);
+            } catch (error) {
+                cleanup();
+                reject(error);
+            }
+        };
+        iframe.onerror = function() {
+            cleanup();
+            reject(new Error('Contract iframe load failed'));
+        };
+        iframe.src = url;
+        (document.body || document.documentElement).appendChild(iframe);
+    });
+}
+
+function fltmng_parseContractDocument(doc) {
+    let aircraftLink = doc.querySelector('a[href*="/app/fleets/aircraft/"], a[href*="aircraft/"]');
+    let contractState = '';
+
+    doc.querySelectorAll('table.contractInfo tr').forEach(function(row) {
+        let label = (row.querySelector('th')?.textContent || '').trim().toLowerCase();
+        if (label == 'contract state') {
+            contractState = (row.querySelector('td.status')?.textContent || row.querySelector('td')?.textContent || '').trim().toLowerCase();
+        }
+    });
+
+    return {
+        aircraftId: aircraftLink ? fltmng_getAircraftId(aircraftLink.getAttribute('href')) : null,
+        contractState: contractState
+    };
 }
 
 function fltmng_getAircraftStorageFleetData() {
