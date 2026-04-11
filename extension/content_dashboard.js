@@ -342,7 +342,7 @@ function updateDashboardTableFooter(table) {
 
     let columnPrefix = table.data('aesDashboardColumnPrefix') || '';
     let rowCells = $('tfoot tr', table).children();
-    let offset = $('thead tr:last th', table).length - columns.length;
+    let offset = rowCells.length - columns.length;
 
     columns.forEach(function(column, index) {
         let footerCell = rowCells.eq(index + offset);
@@ -2741,7 +2741,7 @@ function displayAircraftProfitability() {
                 delivered: value.delivered === undefined ? '' : (value.delivered ? 'Yes' : 'No'),
                 registration: value.registration,
                 equipment: value.equipment,
-                hubEffective: value.hubOverride || value.hubDetected || '',
+                hubEffective: value.hubOverride || value.hubEffective || value.hubDetected || (value.profit ? value.profit.hubDetected : '') || '',
                 fleet: value.fleet,
                 nickname: value.nickname,
                 note: value.note,

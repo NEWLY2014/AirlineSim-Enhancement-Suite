@@ -370,13 +370,21 @@ function fltmng_displayAircraftProfit() {
 }
 
 function fltmng_getAircraftHubDisplay(aircraftId) {
-    if (!aircraftId || !aircraftFleetStorageData || !Array.isArray(aircraftFleetStorageData.fleet)) {
+    if (!aircraftId) {
         return '--';
     }
 
-    for (let i = 0; i < aircraftFleetStorageData.fleet.length; i++) {
-        if (aircraftFleetStorageData.fleet[i].aircraftId == aircraftId) {
-            return aircraftFleetStorageData.fleet[i].hubOverride || aircraftFleetStorageData.fleet[i].hubEffective || aircraftFleetStorageData.fleet[i].hubDetected || '--';
+    if (aircraftFleetStorageData && Array.isArray(aircraftFleetStorageData.fleet)) {
+        for (let i = 0; i < aircraftFleetStorageData.fleet.length; i++) {
+            if (aircraftFleetStorageData.fleet[i].aircraftId == aircraftId) {
+                return aircraftFleetStorageData.fleet[i].hubOverride || aircraftFleetStorageData.fleet[i].hubEffective || aircraftFleetStorageData.fleet[i].hubDetected || '--';
+            }
+        }
+    }
+
+    for (let i = 0; i < aircraftData.length; i++) {
+        if (aircraftData[i].aircraftId == aircraftId) {
+            return aircraftData[i].hubDetected || '--';
         }
     }
 

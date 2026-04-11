@@ -6,7 +6,7 @@ var aircraftFlightAirline;
 var aircraftFleetKey;
 $(function() {
     aircraftFlightData = getData();
-    aircraftFlightAirline = AES.getAirline();
+    aircraftFlightAirline = AES.getCurrentAirline() || AES.getAirline();
     aircraftFleetKey = aircraftFlightData.server + aircraftFlightAirline.id + 'aircraftFleet';
 
     //Async start
@@ -122,10 +122,12 @@ function display() {
         hubInput.val('');
         resetHubOverride(span);
     });
-    //Header
-    let h = $('<h3></h3>').text('AES Aircraft Flights');
-    let div = $('<div></div>').append(h, toolbar, panel);
-    $('.as-page-aircraft > h1:eq(0)').after(div);
+    let content = $('<div class="aes-aircraft-flights-block"></div>').append(
+        $('<h3></h3>').text('AES Aircraft Flights'),
+        toolbar,
+        panel
+    );
+    $('.as-page-aircraft > .row:first > .col-md-10:first').prepend(content);
 }
 
 async function extractAllFlightProfit(type) {

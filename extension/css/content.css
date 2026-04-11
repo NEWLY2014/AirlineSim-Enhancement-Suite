@@ -160,6 +160,10 @@
     min-height: 20px;
 }
 
+.aes-aircraft-flights-block {
+    margin-bottom: 12px;
+}
+
 .aes-aircraft-flights-summary {
     max-width: 980px;
 }
