@@ -6,7 +6,8 @@ var aircraftFlightAirline;
 var aircraftFleetKey;
 $(function() {
     aircraftFlightData = getData();
-    aircraftFlightAirline = AES.getCurrentAirline() || AES.getAirline();
+    let currentAirline = AES.getCurrentAirline();
+    aircraftFlightAirline = currentAirline && currentAirline.id ? currentAirline : AES.getAirline();
     aircraftFleetKey = aircraftFlightData.server + aircraftFlightAirline.id + 'aircraftFleet';
 
     //Async start
@@ -51,6 +52,12 @@ function getTotalProfit() {
 }
 
 function saveData() {
+    persistAircraftFlightSummary(function() {
+        syncFleetHubData(display);
+    });
+}
+
+function persistAircraftFlightSummary(callback) {
     let key = aircraftFlightData.server + aircraftFlightData.type + aircraftFlightData.aircraftId;
     let saveData = {
         aircraftId: aircraftFlightData.aircraftId,
@@ -59,6 +66,8 @@ function saveData() {
         finishedFlights: aircraftFlightData.finishedFlights,
         hubCounts: aircraftFlightData.hubCounts,
         hubDetected: aircraftFlightData.hubDetected,
+        hubEffective: aircraftFlightData.hubEffective || aircraftFlightData.hubDetected,
+        hubOverride: aircraftFlightData.hubOverride || '',
         profit: aircraftFlightData.profit,
         profitFlights: aircraftFlightData.profitFlights,
         registration: aircraftFlightData.registration,
@@ -69,7 +78,9 @@ function saveData() {
     }
     chrome.storage.local.set({
         [key]: saveData }, function() {
-        syncFleetHubData(display);
+        if (callback) {
+            callback();
+        }
     });
 }
 
@@ -122,7 +133,7 @@ function display() {
         hubInput.val('');
         resetHubOverride(span);
     });
-    let content = $('<div class="aes-aircraft-flights-block"></div>').append(
+    let content = $('<div class="as-panel aes-aircraft-flights-block"></div>').append(
         $('<h3></h3>').text('AES Aircraft Flights'),
         toolbar,
         panel
@@ -325,14 +336,18 @@ function syncFleetHubData(callback) {
             aircraftFlightData.hubEffective = aircraftFlightData.hubDetected || '';
         }
 
+        let finish = function() {
+            persistAircraftFlightSummary(callback);
+        };
+
         if (changed) {
             chrome.storage.local.set({ [aircraftFleetKey]: fleetData }, function() {
-                callback();
+                finish();
             });
             return;
         }
 
-        callback();
+        finish();
     });
 }
 
@@ -361,8 +376,10 @@ function updateHubOverride(override, statusEl) {
         chrome.storage.local.set({ [aircraftFleetKey]: fleetData }, function() {
             aircraftFlightData.hubOverride = override;
             aircraftFlightData.hubEffective = override;
-            refreshHubSummary();
-            statusEl.removeClass('bad warning').addClass('good').text('HUB override saved');
+            persistAircraftFlightSummary(function() {
+                refreshHubSummary();
+                statusEl.removeClass('bad warning').addClass('good').text('HUB override saved');
+            });
         });
     });
 }
@@ -392,8 +409,10 @@ function resetHubOverride(statusEl) {
         chrome.storage.local.set({ [aircraftFleetKey]: fleetData }, function() {
             aircraftFlightData.hubOverride = '';
             aircraftFlightData.hubEffective = aircraftFlightData.hubDetected || '';
-            refreshHubSummary();
-            statusEl.removeClass('bad warning').addClass('good').text('Reset to detected HUB');
+            persistAircraftFlightSummary(function() {
+                refreshHubSummary();
+                statusEl.removeClass('bad warning').addClass('good').text('Reset to detected HUB');
+            });
         });
     });
 }

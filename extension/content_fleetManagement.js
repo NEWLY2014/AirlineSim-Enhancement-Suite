@@ -199,11 +199,15 @@ function fltmng_getStorageData() {
                         date: result[aircraftFlightData].date,
                         finishedFlights: result[aircraftFlightData].finishedFlights,
                         hubDetected: result[aircraftFlightData].hubDetected,
+                        hubEffective: result[aircraftFlightData].hubEffective,
+                        hubOverride: result[aircraftFlightData].hubOverride,
                         profit: result[aircraftFlightData].profit,
                         profitFlights: result[aircraftFlightData].profitFlights,
                         time: result[aircraftFlightData].time,
                         totalFlights: result[aircraftFlightData].totalFlights,
                     };
+                    aircraftData[i].hubOverride = result[aircraftFlightData].hubOverride || aircraftData[i].hubOverride || '';
+                    aircraftData[i].hubEffective = result[aircraftFlightData].hubEffective || aircraftData[i].hubEffective || result[aircraftFlightData].hubDetected || '';
                     aircraftData[i].hubDetected = result[aircraftFlightData].hubDetected || aircraftData[i].hubDetected || '';
                 }
             }
@@ -243,8 +247,8 @@ function fltmng_updateAircraftFleetStorageData(data) {
             equipment: newvalue.equipment,
             fleet: newvalue.fleet,
             hubDetected: newvalue.hubDetected || (storedAircraft && storedAircraft.hubDetected ? storedAircraft.hubDetected : ''),
-            hubEffective: storedAircraft && storedAircraft.hubOverride ? storedAircraft.hubOverride : (newvalue.hubDetected || (storedAircraft && storedAircraft.hubEffective ? storedAircraft.hubEffective : '')),
-            hubOverride: storedAircraft && storedAircraft.hubOverride ? storedAircraft.hubOverride : '',
+            hubEffective: storedAircraft && storedAircraft.hubOverride ? storedAircraft.hubOverride : (newvalue.hubEffective || newvalue.hubDetected || (storedAircraft && storedAircraft.hubEffective ? storedAircraft.hubEffective : '')),
+            hubOverride: newvalue.hubOverride || (storedAircraft && storedAircraft.hubOverride ? storedAircraft.hubOverride : ''),
             maintenance: newvalue.maintenance,
             nickname: newvalue.nickname,
             note: newvalue.note,

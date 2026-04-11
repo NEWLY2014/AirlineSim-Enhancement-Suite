@@ -2675,13 +2675,16 @@ function displayAircraftProfitability() {
                                 finishedFlights: result[aircraftFlightData].finishedFlights,
                                 hubCounts: result[aircraftFlightData].hubCounts,
                                 hubDetected: result[aircraftFlightData].hubDetected,
+                                hubEffective: result[aircraftFlightData].hubEffective,
+                                hubOverride: result[aircraftFlightData].hubOverride,
                                 profit: result[aircraftFlightData].profit,
                                 profitFlights: result[aircraftFlightData].profitFlights,
                                 time: result[aircraftFlightData].time,
                                 totalFlights: result[aircraftFlightData].totalFlights,
                             };
+                            aircraftFleetData.fleet[i].hubOverride = aircraftFleetData.fleet[i].hubOverride || result[aircraftFlightData].hubOverride || '';
                             aircraftFleetData.fleet[i].hubDetected = result[aircraftFlightData].hubDetected || aircraftFleetData.fleet[i].hubDetected || '';
-                            aircraftFleetData.fleet[i].hubEffective = aircraftFleetData.fleet[i].hubOverride || aircraftFleetData.fleet[i].hubDetected || '';
+                            aircraftFleetData.fleet[i].hubEffective = aircraftFleetData.fleet[i].hubOverride || result[aircraftFlightData].hubEffective || aircraftFleetData.fleet[i].hubDetected || '';
                         }
                     }
                 }
