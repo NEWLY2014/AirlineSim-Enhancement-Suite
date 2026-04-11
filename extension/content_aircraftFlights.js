@@ -435,51 +435,21 @@ function refreshHubSummary() {
 }
 
 function resolveAircraftFleetMatches(callback) {
-    chrome.storage.local.get(null, function(result) {
+    chrome.storage.local.get([aircraftFleetKey], function(result) {
         let matches = [];
-
-        Object.keys(result).forEach(function(key) {
-            if (key.indexOf(aircraftFlightData.server) !== 0 || !key.endsWith('aircraftFleet')) {
-                return;
-            }
-
-            let value = result[key];
-            if (!value || !Array.isArray(value.fleet)) {
-                return;
-            }
-
-            let aircraft = value.fleet.find(function(item) {
-                return item.aircraftId == aircraftFlightData.aircraftId;
-            });
-
-            if (!aircraft) {
-                return;
-            }
-
-            matches.push({
-                key: key,
-                fleetData: value,
-                aircraft: aircraft
-            });
-        });
-
-        if (!matches.length && result[aircraftFleetKey] && Array.isArray(result[aircraftFleetKey].fleet)) {
-            let aircraft = result[aircraftFleetKey].fleet.find(function(item) {
+        let fleetData = result[aircraftFleetKey];
+        if (fleetData && Array.isArray(fleetData.fleet)) {
+            let aircraft = fleetData.fleet.find(function(item) {
                 return item.aircraftId == aircraftFlightData.aircraftId;
             }) || null;
             if (aircraft) {
                 matches.push({
                     key: aircraftFleetKey,
-                    fleetData: result[aircraftFleetKey],
+                    fleetData: fleetData,
                     aircraft: aircraft
                 });
             }
         }
-
-        if (matches.length) {
-            aircraftFleetKey = matches[0].key;
-        }
-
         callback(matches);
     });
 }

@@ -250,68 +250,12 @@ function fltmng_getStorageData() {
 }
 
 function fltmng_getAircraftStorageFleetData() {
-    let preferredKey = server + airline.id + 'aircraftFleet';
-    chrome.storage.local.get(null, function(result) {
-        aircraftFleetKey = fltmng_resolveAircraftFleetKey(result, preferredKey);
+    aircraftFleetKey = server + airline.id + 'aircraftFleet';
+    chrome.storage.local.get([aircraftFleetKey], function(result) {
         fltmng_updateAircraftFleetStorageData(result[aircraftFleetKey]);
 
         fltmng_saveData();
     });
-}
-
-function fltmng_getMatchingAircraftFleetKeys(result) {
-    return Object.keys(result || {}).map(function(key) {
-        if (key.indexOf(server) !== 0 || !key.endsWith('aircraftFleet')) {
-            return null;
-        }
-        let data = result[key];
-        let score = fltmng_getAircraftFleetMatchScore(data);
-        if (!score) {
-            return null;
-        }
-        return {
-            key: key,
-            score: score,
-            fleetSize: Array.isArray(data.fleet) ? data.fleet.length : 0
-        };
-    }).filter(Boolean).sort(function(a, b) {
-        if (b.score !== a.score) {
-            return b.score - a.score;
-        }
-        if (b.fleetSize !== a.fleetSize) {
-            return b.fleetSize - a.fleetSize;
-        }
-        return a.key.localeCompare(b.key);
-    });
-}
-
-function fltmng_resolveAircraftFleetKey(result, preferredKey) {
-    let matchingKeys = fltmng_getMatchingAircraftFleetKeys(result);
-    if (matchingKeys.length) {
-        return matchingKeys[0].key;
-    }
-    return preferredKey;
-}
-
-function fltmng_getAircraftFleetMatchScore(data) {
-    if (!data || data.type !== 'aircraftFleet' || !data.airline) {
-        return 0;
-    }
-
-    if (airline.id && data.airline.id && String(data.airline.id) === String(airline.id)) {
-        return 4;
-    }
-    if (airline.code && data.airline.code && data.airline.code === airline.code) {
-        return 3;
-    }
-    if (airline.displayName && data.airline.displayName && data.airline.displayName === airline.displayName) {
-        return 2;
-    }
-    if (airline.name && data.airline.name && data.airline.name === airline.name) {
-        return 1;
-    }
-
-    return 0;
 }
 
 function fltmng_updateAircraftFleetStorageData(data) {
@@ -360,7 +304,7 @@ function fltmng_updateAircraftFleetStorageData(data) {
         data.fleet.forEach(function(value) {
             let found = 0;
             newfleet.forEach(function(newValue) {
-                if (value.aircraftId == newValue.aircraftId) {
+                if (fltmng_isSameAircraft(value, newValue)) {
                     found = 1;
                 }
             });

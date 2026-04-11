@@ -2674,15 +2674,17 @@ function displayAircraftProfitability() {
         });
     }
 
-    let preferredKey = server + airline.id + 'aircraftFleet';
+    let aircraftFleetKey = server + airline.id + 'aircraftFleet';
     //Get storage fleet data
-    dashboardStorage.get(null, function(result) {
-        let key = resolveAircraftFleetKey(result, preferredKey);
+    dashboardStorage.get([aircraftFleetKey], function(result) {
         //get aircraft flight data
-        let aircraftFleetData = result[key];
+        let aircraftFleetData = result[aircraftFleetKey];
         if (aircraftFleetData) {
             let keys = [];
             aircraftFleetData.fleet.forEach(function(value) {
+                if (!value.aircraftId) {
+                    return;
+                }
                 keys.push(server + 'aircraftFlights' + value.aircraftId);
             });
             dashboardStorage.get(keys, function(result) {
@@ -2789,60 +2791,6 @@ function displayAircraftProfitability() {
         return data;
     }
 
-    function getMatchingAircraftFleetKeys(result) {
-        return Object.keys(result || {}).map(function(key) {
-            if (key.indexOf(server) !== 0 || !key.endsWith('aircraftFleet')) {
-                return null;
-            }
-            let data = result[key];
-            let score = getAircraftFleetMatchScore(data);
-            if (!score) {
-                return null;
-            }
-            return {
-                key: key,
-                score: score,
-                fleetSize: Array.isArray(data.fleet) ? data.fleet.length : 0
-            };
-        }).filter(Boolean).sort(function(a, b) {
-            if (b.score !== a.score) {
-                return b.score - a.score;
-            }
-            if (b.fleetSize !== a.fleetSize) {
-                return b.fleetSize - a.fleetSize;
-            }
-            return a.key.localeCompare(b.key);
-        });
-    }
-
-    function resolveAircraftFleetKey(result, preferredKey) {
-        let matchingKeys = getMatchingAircraftFleetKeys(result);
-        if (matchingKeys.length) {
-            return matchingKeys[0].key;
-        }
-        return preferredKey;
-    }
-
-    function getAircraftFleetMatchScore(data) {
-        if (!data || data.type !== 'aircraftFleet' || !data.airline) {
-            return 0;
-        }
-
-        if (airline.id && data.airline.id && String(data.airline.id) === String(airline.id)) {
-            return 4;
-        }
-        if (airline.code && data.airline.code && data.airline.code === airline.code) {
-            return 3;
-        }
-        if (airline.displayName && data.airline.displayName && data.airline.displayName === airline.displayName) {
-            return 2;
-        }
-        if (airline.name && data.airline.name && data.airline.name === airline.name) {
-            return 1;
-        }
-
-        return 0;
-    }
 }
 
 //Auto table generator
