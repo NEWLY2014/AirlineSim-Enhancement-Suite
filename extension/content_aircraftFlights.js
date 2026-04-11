@@ -474,23 +474,6 @@ function resolveAircraftFleetMatches(callback) {
             aircraftFleetKey = matches[0].key;
         }
 
-        AES.exposeDebug('hubSync', {
-            aircraftFleetKey: aircraftFleetKey,
-            aircraftId: aircraftFlightData.aircraftId,
-            hubDetected: aircraftFlightData.hubDetected,
-            exactKeyFleetSize: result[aircraftFleetKey] && Array.isArray(result[aircraftFleetKey].fleet) ? result[aircraftFleetKey].fleet.length : 0,
-            matches: matches.map(function(match) {
-                return {
-                    key: match.key,
-                    hubDetected: match.aircraft.hubDetected || '',
-                    hubEffective: match.aircraft.hubEffective || '',
-                    hubOverride: match.aircraft.hubOverride || ''
-                };
-            }),
-            registration: aircraftFlightData.registration,
-            server: aircraftFlightData.server
-        });
-
         callback(matches);
     });
 }

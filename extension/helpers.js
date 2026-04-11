@@ -182,38 +182,6 @@ class AES {
     }
 
     /**
-     * Exposes debug data to the page context so it can be read from DevTools.
-     * @param {string} name
-     * @param {object} payload
-     */
-    static exposeDebug(name, payload) {
-        try {
-            const key = `aes_debug_${name}`;
-            const value = JSON.stringify(payload);
-
-            try {
-                localStorage.setItem(key, value);
-            } catch (error) {
-                // ignore storage write failures
-            }
-
-            const debugNodeId = `aes-debug-${name}`;
-            let debugNode = document.getElementById(debugNodeId);
-            if (!debugNode) {
-                debugNode = document.createElement('script');
-                debugNode.id = debugNodeId;
-                debugNode.type = 'application/json';
-                (document.body || document.documentElement || document.head).appendChild(debugNode);
-            }
-            debugNode.textContent = value;
-
-            document.documentElement.setAttribute(`data-aes-debug-${name}`, value);
-        } catch (error) {
-            // ignore debug write failures
-        }
-    }
-
-    /**
      * Formats a currency value local standards
      * @param {integer} currency value
      * @param {string} alignment: "right" | "left"
