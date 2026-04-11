@@ -178,10 +178,12 @@
 
 .aes-aircraft-flights-title {
     color: inherit;
-    font-size: 16px;
+    font-size: 13px;
     font-weight: bold;
-    margin-bottom: 8px;
-    opacity: 0.9;
+    letter-spacing: 0;
+    margin-bottom: 6px;
+    opacity: 0.78;
+    text-transform: uppercase;
 }
 
 .aes-aircraft-flights-table {
@@ -189,11 +191,11 @@
 }
 
 .aes-aircraft-flights-table table th {
-    width: 18%;
+    width: 20%;
 }
 
 .aes-aircraft-flights-table table td {
-    width: 32%;
+    width: 30%;
 }
 
 .aes-fleet-table.table-bordered > thead > tr > th,

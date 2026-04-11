@@ -188,10 +188,6 @@ function buildTable() {
     let totalProfitCell = $(formatMoney(aircraftFlightData.profit));
     let row = [];
     row.push($('<tr></tr>').append(
-        '<th>Total aircraft profit/loss</th>',
-        $('<td colspan="3" class="aes-text-right aes-no-text-wrap"></td>').append(totalProfitCell.contents())
-    ));
-    row.push($('<tr></tr>').append(
         '<th>Aircraft Id</th>', '<td>' + aircraftFlightData.aircraftId + '</td>',
         '<th>Registration</th>', '<td>' + aircraftFlightData.registration + '</td>'
     ));
@@ -201,15 +197,16 @@ function buildTable() {
     ));
     row.push($('<tr></tr>').append(
         '<th>Override HUB</th>', $('<td id="aes-aircraft-hub-override"></td>').text(aircraftFlightData.hubOverride || '--'),
-        '<th>Total flights</th>', '<td>' + aircraftFlightData.totalFlights + '</td>'
+        '<th>Data save time</th>', '<td>' + AES.formatDateString(aircraftFlightData.date) + ' ' + aircraftFlightData.time + '</td>'
     ));
     row.push($('<tr></tr>').append(
-        '<th>Finished flights</th>', '<td>' + aircraftFlightData.finishedFlights + '</td>',
-        '<th>Finished flights with profit/loss extract</th>', '<td>' + aircraftFlightData.profitFlights + '</td>'
+        '<th>Total flights</th>', '<td>' + aircraftFlightData.totalFlights + '</td>',
+        '<th>Finished flights</th>', '<td>' + aircraftFlightData.finishedFlights + '</td>'
     ));
     row.push($('<tr></tr>').append(
-        '<th>Data save time</th>',
-        '<td colspan="3">' + AES.formatDateString(aircraftFlightData.date) + ' ' + aircraftFlightData.time + '</td>'
+        '<th>Finished flights with profit/loss extract</th>', '<td>' + aircraftFlightData.profitFlights + '</td>',
+        '<th>Total aircraft profit/loss</th>',
+        $('<td class="aes-text-right aes-no-text-wrap"></td>').append(totalProfitCell.contents())
     ));
 
     let tbody = $('<tbody></tbody>').append(row);
