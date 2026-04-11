@@ -202,15 +202,15 @@ function fltmng_getScheduleState(row) {
 function fltmng_getScheduleStateLabel(row) {
     switch (fltmng_getScheduleState(row)) {
         case 'active':
-            return 'Scheduled and operating';
+            return 'Active';
         case 'pending':
-            return 'Scheduled, not operating';
+            return 'Locked';
         case 'conflict':
-            return 'Schedule conflict';
+            return 'Conflict';
         case 'undelivered':
             return 'Undelivered';
         default:
-            return 'No schedule';
+            return 'Empty';
     }
 }
 
@@ -552,10 +552,10 @@ function fltmng_buildFilterPanel() {
         { value: 'leased', label: 'Leased' }
     ]);
     let scheduleSelect = fltmng_buildFilterSelect('All schedules', [
-        { value: 'active', label: 'Scheduled and operating' },
-        { value: 'empty', label: 'No schedule' },
-        { value: 'pending', label: 'Scheduled, not operating' },
-        { value: 'conflict', label: 'Schedule conflict' },
+        { value: 'active', label: 'Active' },
+        { value: 'empty', label: 'Empty' },
+        { value: 'pending', label: 'Locked' },
+        { value: 'conflict', label: 'Conflict' },
         { value: 'undelivered', label: 'Undelivered' }
     ]);
     let resetBtn = $('<button type="button" class="btn btn-default"></button>').text('Reset filters');

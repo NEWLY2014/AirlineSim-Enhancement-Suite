@@ -158,6 +158,21 @@ function formatDashboardCell(type, value) {
             span.text(text + new Intl.NumberFormat().format(value) + ' AS$');
             return span;
         }
+        case 'scheduleState': {
+            let span = $('<span></span>').text(value);
+            switch (value) {
+                case 'Active':
+                    span.addClass('good');
+                    break;
+                case 'Locked':
+                    span.addClass('warning');
+                    break;
+                case 'Conflict':
+                    span.addClass('bad');
+                    break;
+            }
+            return span;
+        }
         default:
             return value;
     }
@@ -2553,7 +2568,8 @@ function displayAircraftProfitability() {
             title: 'Schedule',
             data: 'scheduleStateLabel',
             sortable: 1,
-            visible: 1
+            visible: 1,
+            format: 'scheduleState'
     },
         {
             category: 'Aircraft',

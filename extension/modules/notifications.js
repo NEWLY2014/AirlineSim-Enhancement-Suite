@@ -31,6 +31,12 @@ class Notifications {
     newNotification(message, options) {
         const notification = new Notification(message, options)
         this.container.append(notification.element)
+        const duration = typeof options?.duration === "number" ? options.duration : 5000
+        if (duration > 0) {
+            window.setTimeout(() => {
+                notification.element.remove()
+            }, duration)
+        }
     }
 
     /**
