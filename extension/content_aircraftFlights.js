@@ -135,7 +135,7 @@ function display() {
         resetHubOverride(span);
     });
     let content = $('<div class="aes-aircraft-flights-block"></div>').append(
-        $('<div class="aes-aircraft-flights-title"></div>').text('AES Aircraft Flights'),
+        $('<h3 class="aes-aircraft-flights-title"></h3>').text('AES Aircraft Flights'),
         toolbar,
         tableWell
     );
@@ -189,24 +189,24 @@ function buildTable() {
     let row = [];
     row.push($('<tr></tr>').append(
         '<th>Aircraft Id</th>', '<td>' + aircraftFlightData.aircraftId + '</td>',
-        '<th>Registration</th>', '<td>' + aircraftFlightData.registration + '</td>'
+        '<th>Total flights</th>', '<td>' + aircraftFlightData.totalFlights + '</td>'
+    ));
+    row.push($('<tr></tr>').append(
+        '<th>Registration</th>', '<td>' + aircraftFlightData.registration + '</td>',
+        '<th>Finished flights</th>', '<td>' + aircraftFlightData.finishedFlights + '</td>'
     ));
     row.push($('<tr></tr>').append(
         '<th>Detected HUB</th>', $('<td id="aes-aircraft-hub-detected"></td>').text(aircraftFlightData.hubDetected || '--'),
-        '<th>Current HUB</th>', $('<td id="aes-aircraft-hub-effective"></td>').text(aircraftFlightData.hubEffective || aircraftFlightData.hubDetected || '--')
+        '<th>Total aircraft profit/loss</th>',
+        $('<td class="aes-text-right aes-no-text-wrap"></td>').append(totalProfitCell.contents())
     ));
     row.push($('<tr></tr>').append(
         '<th>Override HUB</th>', $('<td id="aes-aircraft-hub-override"></td>').text(aircraftFlightData.hubOverride || '--'),
         '<th>Data save time</th>', '<td>' + AES.formatDateString(aircraftFlightData.date) + ' ' + aircraftFlightData.time + '</td>'
     ));
     row.push($('<tr></tr>').append(
-        '<th>Total flights</th>', '<td>' + aircraftFlightData.totalFlights + '</td>',
-        '<th>Finished flights</th>', '<td>' + aircraftFlightData.finishedFlights + '</td>'
-    ));
-    row.push($('<tr></tr>').append(
-        '<th>Finished flights with profit/loss extract</th>', '<td>' + aircraftFlightData.profitFlights + '</td>',
-        '<th>Total aircraft profit/loss</th>',
-        $('<td class="aes-text-right aes-no-text-wrap"></td>').append(totalProfitCell.contents())
+        '<th>Current HUB</th>', $('<td id="aes-aircraft-hub-effective"></td>').text(aircraftFlightData.hubEffective || aircraftFlightData.hubDetected || '--'),
+        '<th></th>', '<td></td>'
     ));
 
     let tbody = $('<tbody></tbody>').append(row);
@@ -327,23 +327,23 @@ function getHubStats(flights) {
 }
 
 function syncFleetHubData(callback) {
-    resolveAircraftFleetData(function(key, fleetData, matchedAircraft) {
+    resolveAircraftFleetMatches(function(matches) {
         let changed = false;
 
-        if (matchedAircraft) {
-            if ((matchedAircraft.hubDetected || '') != (aircraftFlightData.hubDetected || '')) {
-                matchedAircraft.hubDetected = aircraftFlightData.hubDetected || '';
+        matches.forEach(function(match) {
+            if ((match.aircraft.hubDetected || '') != (aircraftFlightData.hubDetected || '')) {
+                match.aircraft.hubDetected = aircraftFlightData.hubDetected || '';
                 changed = true;
             }
-            if (!matchedAircraft.hubOverride && (matchedAircraft.hubEffective || '') != (matchedAircraft.hubDetected || '')) {
-                matchedAircraft.hubEffective = matchedAircraft.hubDetected || '';
+            if (!match.aircraft.hubOverride && (match.aircraft.hubEffective || '') != (match.aircraft.hubDetected || '')) {
+                match.aircraft.hubEffective = match.aircraft.hubDetected || '';
                 changed = true;
             }
-        }
+        });
 
-        if (matchedAircraft) {
-            aircraftFlightData.hubOverride = matchedAircraft.hubOverride || '';
-            aircraftFlightData.hubEffective = matchedAircraft.hubOverride || matchedAircraft.hubEffective || matchedAircraft.hubDetected || aircraftFlightData.hubDetected || '';
+        if (matches.length) {
+            aircraftFlightData.hubOverride = matches[0].aircraft.hubOverride || '';
+            aircraftFlightData.hubEffective = matches[0].aircraft.hubOverride || matches[0].aircraft.hubEffective || matches[0].aircraft.hubDetected || aircraftFlightData.hubDetected || '';
         } else {
             aircraftFlightData.hubOverride = '';
             aircraftFlightData.hubEffective = aircraftFlightData.hubDetected || '';
@@ -353,9 +353,15 @@ function syncFleetHubData(callback) {
             persistAircraftFlightSummary(callback);
         };
 
-        if (changed) {
-            chrome.storage.local.set({ [key]: fleetData }, function() {
-                finish();
+        if (changed && matches.length) {
+            let pending = matches.length;
+            matches.forEach(function(match) {
+                chrome.storage.local.set({ [match.key]: match.fleetData }, function() {
+                    pending--;
+                    if (!pending) {
+                        finish();
+                    }
+                });
             });
             return;
         }
@@ -365,42 +371,52 @@ function syncFleetHubData(callback) {
 }
 
 function updateHubOverride(override, statusEl) {
-    resolveAircraftFleetData(function(key, fleetData, matchedAircraft) {
-        if (!fleetData || !Array.isArray(fleetData.fleet) || !matchedAircraft) {
+    resolveAircraftFleetMatches(function(matches) {
+        if (!matches.length) {
             statusEl.removeClass('good warning').addClass('bad').text('Extract fleet data first');
             return;
         }
 
-        matchedAircraft.hubOverride = override;
-        matchedAircraft.hubEffective = override;
-
-        chrome.storage.local.set({ [key]: fleetData }, function() {
-            aircraftFlightData.hubOverride = override;
-            aircraftFlightData.hubEffective = override;
-            persistAircraftFlightSummary(function() {
-                refreshHubSummary();
-                statusEl.removeClass('bad warning').addClass('good').text('HUB override saved');
+        let pending = matches.length;
+        matches.forEach(function(match) {
+            match.aircraft.hubOverride = override;
+            match.aircraft.hubEffective = override;
+            chrome.storage.local.set({ [match.key]: match.fleetData }, function() {
+                pending--;
+                if (!pending) {
+                    aircraftFlightData.hubOverride = override;
+                    aircraftFlightData.hubEffective = override;
+                    persistAircraftFlightSummary(function() {
+                        refreshHubSummary();
+                        statusEl.removeClass('bad warning').addClass('good').text('HUB override saved');
+                    });
+                }
             });
         });
     });
 }
 
 function resetHubOverride(statusEl) {
-    resolveAircraftFleetData(function(key, fleetData, matchedAircraft) {
-        if (!fleetData || !Array.isArray(fleetData.fleet) || !matchedAircraft) {
+    resolveAircraftFleetMatches(function(matches) {
+        if (!matches.length) {
             statusEl.removeClass('good warning').addClass('bad').text('Extract fleet data first');
             return;
         }
 
-        matchedAircraft.hubOverride = '';
-        matchedAircraft.hubEffective = matchedAircraft.hubDetected || aircraftFlightData.hubDetected || '';
-
-        chrome.storage.local.set({ [key]: fleetData }, function() {
-            aircraftFlightData.hubOverride = '';
-            aircraftFlightData.hubEffective = aircraftFlightData.hubDetected || '';
-            persistAircraftFlightSummary(function() {
-                refreshHubSummary();
-                statusEl.removeClass('bad warning').addClass('good').text('Reset to detected HUB');
+        let pending = matches.length;
+        matches.forEach(function(match) {
+            match.aircraft.hubOverride = '';
+            match.aircraft.hubEffective = match.aircraft.hubDetected || aircraftFlightData.hubDetected || '';
+            chrome.storage.local.set({ [match.key]: match.fleetData }, function() {
+                pending--;
+                if (!pending) {
+                    aircraftFlightData.hubOverride = '';
+                    aircraftFlightData.hubEffective = aircraftFlightData.hubDetected || '';
+                    persistAircraftFlightSummary(function() {
+                        refreshHubSummary();
+                        statusEl.removeClass('bad warning').addClass('good').text('Reset to detected HUB');
+                    });
+                }
             });
         });
     });
@@ -412,20 +428,18 @@ function refreshHubSummary() {
     $('#aes-aircraft-hub-effective').text(aircraftFlightData.hubEffective || aircraftFlightData.hubDetected || '--');
 }
 
-function resolveAircraftFleetData(callback) {
+function resolveAircraftFleetMatches(callback) {
     chrome.storage.local.get(null, function(result) {
-        let matchedKey = null;
-        let fleetData = null;
-        let matchedAircraft = null;
+        let matches = [];
 
-        Object.keys(result).some(function(key) {
+        Object.keys(result).forEach(function(key) {
             if (key.indexOf(aircraftFlightData.server) !== 0 || !key.endsWith('aircraftFleet')) {
-                return false;
+                return;
             }
 
             let value = result[key];
             if (!value || !Array.isArray(value.fleet)) {
-                return false;
+                return;
             }
 
             let aircraft = value.fleet.find(function(item) {
@@ -433,28 +447,34 @@ function resolveAircraftFleetData(callback) {
             });
 
             if (!aircraft) {
-                return false;
+                return;
             }
 
-            matchedKey = key;
-            fleetData = value;
-            matchedAircraft = aircraft;
-            return true;
+            matches.push({
+                key: key,
+                fleetData: value,
+                aircraft: aircraft
+            });
         });
 
-        if (!matchedKey && result[aircraftFleetKey] && Array.isArray(result[aircraftFleetKey].fleet)) {
-            matchedKey = aircraftFleetKey;
-            fleetData = result[aircraftFleetKey];
-            matchedAircraft = fleetData.fleet.find(function(item) {
+        if (!matches.length && result[aircraftFleetKey] && Array.isArray(result[aircraftFleetKey].fleet)) {
+            let aircraft = result[aircraftFleetKey].fleet.find(function(item) {
                 return item.aircraftId == aircraftFlightData.aircraftId;
             }) || null;
+            if (aircraft) {
+                matches.push({
+                    key: aircraftFleetKey,
+                    fleetData: result[aircraftFleetKey],
+                    aircraft: aircraft
+                });
+            }
         }
 
-        if (matchedKey) {
-            aircraftFleetKey = matchedKey;
+        if (matches.length) {
+            aircraftFleetKey = matches[0].key;
         }
 
-        callback(matchedKey || aircraftFleetKey, fleetData, matchedAircraft);
+        callback(matches);
     });
 }
 
