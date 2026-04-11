@@ -352,15 +352,20 @@ function fltmng_displayAircraftProfit() {
                 }
             });
         }
-        let td = [];
-        td.push($('<td class="aes-fleet-extra-cell"></td>').text(fltmng_getAircraftHubDisplay(id)));
+        $('td:eq(2)', this).after(
+            $('<td class="aes-fleet-extra-cell"></td>').text(fltmng_getAircraftHubDisplay(id))
+        );
         if (date) {
-            td.push($('<td class="aes-fleet-extra-cell"></td>').html(AES.formatCurrency(profit, 'right')));
-            td.push($('<td class="aes-fleet-extra-cell"></td>').html(AES.formatDateString(date) + '<br>' + time));
+            $(this).append(
+                $('<td class="aes-fleet-extra-cell"></td>').html(AES.formatCurrency(profit, 'right')),
+                $('<td class="aes-fleet-extra-cell"></td>').html(AES.formatDateString(date) + '<br>' + time)
+            );
         } else {
-            td.push('<td class="aes-fleet-extra-cell text-center">--</td>', '<td class="aes-fleet-extra-cell text-center">--</td>');
+            $(this).append(
+                '<td class="aes-fleet-extra-cell text-center">--</td>',
+                '<td class="aes-fleet-extra-cell text-center">--</td>'
+            );
         }
-        $('td:eq(2)', this).after(td);
     });
 }
 

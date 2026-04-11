@@ -108,11 +108,14 @@
 }
 
 .aes-aircraft-flights-toolbar {
+    background: transparent;
+    border: 0;
+    box-shadow: none;
     display: inline-block;
     margin-bottom: 10px;
     max-width: 980px;
-    padding: 12px 16px;
-    width: 100%;
+    padding: 0;
+    width: auto;
 }
 
 .aes-aircraft-flights-toolbar-row {
@@ -120,6 +123,18 @@
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
+    justify-content: space-between;
+}
+
+.aes-aircraft-flights-toolbar-group {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.aes-aircraft-flights-toolbar-group-actions {
+    margin-left: auto;
 }
 
 .aes-aircraft-flights-toolbar-label {
@@ -140,12 +155,8 @@
     text-transform: uppercase;
 }
 
-.aes-aircraft-flights-toolbar .aes-dashboard-control-actions:last-of-type {
-    margin-left: auto;
-}
-
 .aes-aircraft-flights-toolbar-status {
-    margin-top: 10px;
+    margin-top: 6px;
     min-height: 20px;
 }
 
@@ -157,17 +168,8 @@
 .aes-fleet-table.table-bordered > tbody > tr > td,
 .aes-fleet-table.table-bordered > tfoot > tr > td {
     border-color: rgba(127, 127, 127, 0.45);
-}
-
-.aes-fleet-table.table-bordered > thead > tr > th:first-child,
-.aes-fleet-table.table-bordered > tbody > tr > td:first-child,
-.aes-fleet-table.table-bordered > tfoot > tr > td:first-child {
-    box-shadow: inset 1px 0 0 rgba(127, 127, 127, 0.45);
-}
-
-.aes-fleet-table.table-bordered > tbody > tr:last-child > td,
-.aes-fleet-table.table-bordered > tfoot > tr:last-child > td {
-    box-shadow: inset 0 -1px 0 rgba(127, 127, 127, 0.45);
+    border-style: solid;
+    border-width: 1px;
 }
 
 .aes-fleet-extra-header,
@@ -176,8 +178,8 @@
     vertical-align: middle;
 }
 
-.aes-fleet-table.table-bordered > tbody > tr:last-child > td.aes-fleet-extra-cell {
-    box-shadow: inset 0 -1px 0 rgba(127, 127, 127, 0.45);
+.aes-aircraft-flights-toolbar-status .aes-dashboard-filter-status {
+    margin-left: 0;
 }
 
 /* Specific */
