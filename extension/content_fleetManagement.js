@@ -356,7 +356,7 @@ function fltmng_fetchContractAircraftDataViaIframe(url) {
 }
 
 function fltmng_parseContractDocument(doc) {
-    let aircraftLink = doc.querySelector('a[href*="/app/fleets/aircraft/"], a[href*="aircraft/"]');
+    let aircraftLink = null;
     let contractState = '';
 
     doc.querySelectorAll('table.contractInfo tr').forEach(function(row) {
@@ -365,6 +365,19 @@ function fltmng_parseContractDocument(doc) {
             contractState = (row.querySelector('td.status')?.textContent || row.querySelector('td')?.textContent || '').trim().toLowerCase();
         }
     });
+
+    doc.querySelectorAll('table tr').forEach(function(row) {
+        let label = (row.querySelector('th')?.textContent || '').trim().toLowerCase();
+        if (label == 'aircraft registration') {
+            aircraftLink = row.querySelector('a[href*="/app/fleets/aircraft/"], a[href*="aircraft/"]');
+        }
+    });
+
+    if (!aircraftLink) {
+        aircraftLink = Array.from(doc.querySelectorAll('a[href*="/app/fleets/aircraft/"], a[href*="aircraft/"]')).find(function(link) {
+            return (link.textContent || '').trim().toLowerCase() == 'view aircraft';
+        }) || null;
+    }
 
     return {
         aircraftId: aircraftLink ? fltmng_getAircraftId(aircraftLink.getAttribute('href')) : null,
