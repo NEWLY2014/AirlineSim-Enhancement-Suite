@@ -9,7 +9,8 @@ $(function() {
         return;
     }
     todayDate = AES.getServerDate();
-    airline = AES.getAirline();
+    let currentAirline = AES.getCurrentAirline();
+    airline = currentAirline && currentAirline.id ? currentAirline : AES.getAirline();
     server = AES.getServerName();
     dashboardStorage.get(['settings'], function(result) {
         settings = result.settings;

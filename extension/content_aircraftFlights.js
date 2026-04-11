@@ -474,6 +474,25 @@ function resolveAircraftFleetMatches(callback) {
             aircraftFleetKey = matches[0].key;
         }
 
+        if (!window.AESDebug) {
+            window.AESDebug = {};
+        }
+        window.AESDebug.hubSync = {
+            aircraftFleetKey: aircraftFleetKey,
+            aircraftId: aircraftFlightData.aircraftId,
+            hubDetected: aircraftFlightData.hubDetected,
+            matches: matches.map(function(match) {
+                return {
+                    key: match.key,
+                    hubDetected: match.aircraft.hubDetected || '',
+                    hubEffective: match.aircraft.hubEffective || '',
+                    hubOverride: match.aircraft.hubOverride || ''
+                };
+            }),
+            registration: aircraftFlightData.registration,
+            server: aircraftFlightData.server
+        };
+
         callback(matches);
     });
 }

@@ -4,7 +4,8 @@
 var aircraftData = [];
 var server, aircraftFleetKey, aircraftFleetStorageData, airline, date, currentFleet;
 $(function() {
-    airline = AES.getAirline();
+    let currentAirline = AES.getCurrentAirline();
+    airline = currentAirline && currentAirline.id ? currentAirline : AES.getAirline();
     server = AES.getServerName();
     date = AES.getServerDate()
 
