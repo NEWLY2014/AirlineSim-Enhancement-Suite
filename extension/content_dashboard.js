@@ -2781,34 +2781,58 @@ function displayAircraftProfitability() {
     }
 
     function getMatchingAircraftFleetKeys(result) {
-        return Object.keys(result || {}).filter(function(key) {
+        return Object.keys(result || {}).map(function(key) {
             if (key.indexOf(server) !== 0 || !key.endsWith('aircraftFleet')) {
-                return false;
+                return null;
             }
             let data = result[key];
-            return isMatchingAircraftFleetData(data);
+            let score = getAircraftFleetMatchScore(data);
+            if (!score) {
+                return null;
+            }
+            return {
+                key: key,
+                score: score,
+                fleetSize: Array.isArray(data.fleet) ? data.fleet.length : 0
+            };
+        }).filter(Boolean).sort(function(a, b) {
+            if (b.score !== a.score) {
+                return b.score - a.score;
+            }
+            if (b.fleetSize !== a.fleetSize) {
+                return b.fleetSize - a.fleetSize;
+            }
+            return a.key.localeCompare(b.key);
         });
     }
 
     function resolveAircraftFleetKey(result, preferredKey) {
         let matchingKeys = getMatchingAircraftFleetKeys(result);
         if (matchingKeys.length) {
-            return matchingKeys[0];
+            return matchingKeys[0].key;
         }
         return preferredKey;
     }
 
-    function isMatchingAircraftFleetData(data) {
+    function getAircraftFleetMatchScore(data) {
         if (!data || data.type !== 'aircraftFleet' || !data.airline) {
-            return false;
+            return 0;
         }
 
-        return (
-            (airline.id && data.airline.id && String(data.airline.id) === String(airline.id)) ||
-            (airline.name && data.airline.name && data.airline.name === airline.name) ||
-            (airline.displayName && data.airline.displayName && data.airline.displayName === airline.displayName) ||
-            (airline.code && data.airline.code && data.airline.code === airline.code)
-        );
+        if (airline.id && data.airline.id && String(data.airline.id) === String(airline.id)) {
+            return 4;
+        }
+        if (airline.code && data.airline.code && data.airline.code === airline.code) {
+            return 3;
+        }
+        if (airline.displayName && data.airline.displayName && data.airline.displayName === airline.displayName) {
+            return 2;
+        }
+        if (airline.name && data.airline.name && data.airline.name === airline.name) {
+            return 1;
+        }
+
+        return 0;
     }
 }
 
