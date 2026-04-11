@@ -185,10 +185,11 @@ function displayFlightProfit() {
 }
 
 function buildTable() {
+    let totalProfitCell = $(formatMoney(aircraftFlightData.profit));
     let row = [];
     row.push($('<tr></tr>').append(
         '<th>Total aircraft profit/loss</th>',
-        $('<td colspan="3"></td>').append(formatMoney(aircraftFlightData.profit).contents())
+        $('<td colspan="3" class="aes-text-right aes-no-text-wrap"></td>').append(totalProfitCell.contents())
     ));
     row.push($('<tr></tr>').append(
         '<th>Aircraft Id</th>', '<td>' + aircraftFlightData.aircraftId + '</td>',
