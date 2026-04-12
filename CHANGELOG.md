@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.6] - 2026-04-12
+
+### Added
+
+- Added richer Fleet Management extraction for delivery status, ownership, pilot assignment, seat configuration, and schedule state.
+- Added automatic aircraft HUB detection from the Flights page, plus HUB override controls and Fleet Management HUB filtering.
+- Added new Aircraft Profitability columns for delivery status, ownership, pilot assignment, seat totals, pure cargo status, seat configuration, schedule state, and HUB.
+
+### Changed
+
+- Refined the aircraft Flights page tools so the AES controls sit more naturally inside the original page layout and use notifications for status feedback.
+- Updated Fleet Management terminology from `Equipment` to `Model`, added a HUB column, and aligned new table headers with the native fleet table styling.
+- Renamed Aircraft Profitability schedule labels to `Active`, `Locked`, `Conflict`, and `Empty`, with matching status colors.
+
+### Fixed
+
+- Fixed Fleet Management extraction on live pages where aircraft links use relative paths, restoring aircraft ID capture and downstream fleet persistence.
+- Fixed Fleet Management and Dashboard handling for undelivered aircraft so they can be stored by registration before an aircraft ID exists and still display the correct `Delivered` status.
+- Fixed HUB synchronization so data extracted on the Flights page is available in Fleet Management and Aircraft Profitability.
+- Fixed the Flights page notifications so they auto-dismiss again after a short delay.
+- Fixed Fleet and Flights table presentation issues, including undelivered aircraft profit/date alignment, header centering, and missing border artifacts.
+
 ## [0.7.5] - 2026-04-10
 
 ### Added
@@ -245,7 +267,8 @@ for pointing it out).
 
 _First release._
 
-[unreleased]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.7.5...HEAD
+[unreleased]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.7.6...HEAD
+[0.7.6]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.7.5...v0.7.6
 [0.7.5]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.7.4...v0.7.5
 [0.7.4]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.7.3...v0.7.4
 [0.7.3]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.7.2...v0.7.3
