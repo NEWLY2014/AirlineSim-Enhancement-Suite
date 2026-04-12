@@ -101,8 +101,10 @@ function display() {
         $('<div class="aes-aircraft-flights-toolbar-row"></div>').append(
             $('<div class="aes-aircraft-flights-toolbar-group"></div>').append(
                 $('<label class="control-label aes-aircraft-flights-toolbar-label"></label>').text('HUB'),
-                hubInput,
-                $('<div class="btn-group aes-dashboard-control-actions"></div>').append(saveOverrideBtn, resetOverrideBtn)
+                $('<div class="aes-aircraft-flights-toolbar-controls"></div>').append(
+                    hubInput,
+                    $('<div class="btn-group aes-dashboard-control-actions"></div>').append(saveOverrideBtn, resetOverrideBtn)
+                )
             ),
             $('<div class="aes-aircraft-flights-toolbar-group aes-aircraft-flights-toolbar-group-actions"></div>').append(
                 $('<div class="btn-group aes-dashboard-control-actions"></div>').append(btn1, btn)

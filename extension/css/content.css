@@ -149,6 +149,7 @@
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
+    white-space: nowrap;
 }
 
 .aes-aircraft-flights-hub-input {
