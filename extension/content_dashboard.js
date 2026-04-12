@@ -432,6 +432,62 @@ function applyDashboardTableFilters(table, filters, columns, filterValueField, c
     updateDashboardTableFooter(table);
 }
 
+function normalizeDashboardFilters(filters, columns, preferredValueField, preferredLabelField) {
+    if (!Array.isArray(filters)) {
+        return [];
+    }
+
+    return filters.map(function(filter) {
+        let candidates = [
+            filter ? filter[preferredValueField] : undefined,
+            filter ? filter.filterValue : undefined,
+            filter ? filter.titlecode : undefined,
+            filter ? filter.data : undefined,
+            filter ? filter.className : undefined
+        ].filter(function(value, index, array) {
+            return value !== undefined && value !== null && value !== '' && array.indexOf(value) === index;
+        });
+
+        let column = null;
+        candidates.some(function(candidate) {
+            column = columns.find(function(col) {
+                return col.filterValue == candidate || col.data == candidate || col.className == candidate;
+            });
+            return !!column;
+        });
+
+        if (!column && filter) {
+            let titleCandidates = [
+                filter[preferredLabelField],
+                filter.title,
+                filter.text,
+                filter.label
+            ].filter(function(value, index, array) {
+                return value !== undefined && value !== null && value !== '' && array.indexOf(value) === index;
+            });
+            titleCandidates.some(function(candidate) {
+                column = columns.find(function(col) {
+                    return col.title == candidate || col.text == candidate || col.name == candidate;
+                });
+                return !!column;
+            });
+        }
+
+        if (!column) {
+            return null;
+        }
+
+        return {
+            [preferredValueField]: column.filterValue || column.data || column.className,
+            [preferredLabelField]: column.title || column.text || column.name || '',
+            operation: filter.operation || '=',
+            value: filter.value === undefined || filter.value === null ? '' : filter.value
+        };
+    }).filter(function(filter) {
+        return !!filter;
+    });
+}
+
 function buildDashboardFilterPanel(options) {
     let rows = [];
     options.filters = options.filters || [];
@@ -990,6 +1046,7 @@ function setDefaultRouteManagementSettings() {
 }
 
 function routeManagementApplyFilter() {
+    settings.routeManagement.filter = normalizeDashboardFilters(settings.routeManagement.filter, getRouteManagementDashboardColumns(), 'filterValue', 'title');
     applyDashboardTableFilters($('#aes-table-routeManagement'), settings.routeManagement.filter, getRouteManagementDashboardColumns(), 'filterValue');
 }
 
@@ -1010,9 +1067,11 @@ function getRouteManagementDashboardColumns() {
 }
 
 function displayRouteManagementFilters() {
+    let normalizedFilters = normalizeDashboardFilters(settings.routeManagement.filter, getRouteManagementDashboardColumns(), 'filterValue', 'title');
+    settings.routeManagement.filter = normalizedFilters;
     let div = $('<div class="col-md-4"></div>').append(
         buildDashboardFilterPanel({
-            filters: settings.routeManagement.filter,
+            filters: normalizedFilters,
             columns: getRouteManagementDashboardColumns(),
             valueField: 'filterValue',
             labelField: 'title',
@@ -1707,6 +1766,7 @@ function displayCompetitorMonitoringAirlinesTable(div) {
                     return 'aes-compMon-row-' + row.airlineId;
                 }
             });
+            settings.competitorMonitoring.filter = normalizeDashboardFilters(settings.competitorMonitoring.filter || [], tableColumns, 'data', 'title');
             applyDashboardTableFilters(table.table, settings.competitorMonitoring.filter || [], tableColumns, 'data');
             let divRow = $('<div class="row aes-dashboard-controls"></div>').append(
                 displayCompetitorMonitoringAirlinesTableOptions(table.table, compAirlinesSchedule, div, removeCompetitorFromIndex),
@@ -1959,8 +2019,10 @@ function displayCompetitorMonitoringAirlinesTableColumns() {
 }
 
 function displayCompetitorMonitoringAirlinesTableFilters(table, columns) {
+    let normalizedFilters = normalizeDashboardFilters(settings.competitorMonitoring.filter || [], columns, 'data', 'title');
+    settings.competitorMonitoring.filter = normalizedFilters;
     let div = $('<div class="col-md-4"></div>').append(buildDashboardFilterPanel({
-        filters: settings.competitorMonitoring.filter || [],
+        filters: normalizedFilters,
         columns: columns,
         valueField: 'data',
         labelField: 'title',
@@ -2468,6 +2530,9 @@ function displayAircraftProfitability() {
     if (!settings.aircraftProfitability) {
         settings.aircraftProfitability = {};
     }
+    if (!Array.isArray(settings.aircraftProfitability.filter)) {
+        settings.aircraftProfitability.filter = [];
+    }
     if (!settings.aircraftProfitability.hideColumn) {
         settings.aircraftProfitability.hideColumn = [];
     }
@@ -2710,6 +2775,7 @@ function displayAircraftProfitability() {
                     }
                 }
                 let data = prepareAircraftProfitabilityData(aircraftFleetData);
+                settings.aircraftProfitability.filter = normalizeDashboardFilters(settings.aircraftProfitability.filter, columns, 'titlecode', 'title');
                 let tableDiv;
                 if (data.length) {
                     tableDiv = generateTable({
