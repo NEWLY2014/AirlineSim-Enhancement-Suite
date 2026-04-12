@@ -78,8 +78,10 @@ function dashboardHandle() {
 }
 
 function buildDashboardControlPanel(title, summary, content, expanded) {
-    if (dashboardControlPanelExpanded[title] !== undefined) {
-        expanded = dashboardControlPanelExpanded[title];
+    let activeDashboard = $("#aes-select-dashboard-main").val() || 'dashboard';
+    let panelStateKey = activeDashboard + ':' + title;
+    if (dashboardControlPanelExpanded[panelStateKey] !== undefined) {
+        expanded = dashboardControlPanelExpanded[panelStateKey];
     }
     let body = $('<div class="aes-dashboard-control-panel-body"></div>').append(content);
     if (!expanded) {
@@ -92,7 +94,7 @@ function buildDashboardControlPanel(title, summary, content, expanded) {
     );
     toggle.click(function() {
         body.toggle();
-        dashboardControlPanelExpanded[title] = body.is(':visible');
+        dashboardControlPanelExpanded[panelStateKey] = body.is(':visible');
     });
 
     let legend = $('<legend></legend>').append(toggle);
@@ -185,8 +187,8 @@ function sortDashboardTable(table, columnClass, number) {
     let indexes = [];
     tableRows.each(function() {
         if (number) {
-            let value = parseFloat($(this).find("." + columnClass).text());
-            indexes.push(value ? value : 0);
+            let value = parseDashboardNumber($(this).find("." + columnClass).text());
+            indexes.push(isNaN(value) ? 0 : value);
         } else {
             indexes.push($(this).find("." + columnClass).text());
         }
@@ -221,8 +223,8 @@ function sortDashboardTable(table, columnClass, number) {
     }
     for (let i = 0; i < sorted.length; i++) {
         for (let j = tableRows.length - 1; j >= 0; j--) {
-            let value = number ? parseFloat($(tableRows[j]).find("." + columnClass).text()) : $(tableRows[j]).find("." + columnClass).text();
-            if (number && !value) {
+            let value = number ? parseDashboardNumber($(tableRows[j]).find("." + columnClass).text()) : $(tableRows[j]).find("." + columnClass).text();
+            if (number && isNaN(value)) {
                 value = 0;
             }
             if (value == sorted[i]) {
@@ -645,9 +647,19 @@ function buildGeneratedDashboardAction(value, tableOptionsRule, table) {
             });
         case 'openAircraft':
             return $('<button type="button" class="btn btn-default">Open aircraft (max 6)</button>').click(function() {
-                let urls = $('tbody tr:visible', table).has('input:checked').map(function() {
-                    return 'https://' + server + '.airlinesim.aero/app/fleets/aircraft/' + $(this).attr('id') + '/1';
-                }).toArray();
+                let btn = $(this);
+                let urls = getSelectedDashboardRows(table).filter(function(rowData) {
+                    return !!rowData.aircraftId;
+                }).slice(0, 6).map(function(rowData) {
+                    return 'https://' + server + '.airlinesim.aero/app/fleets/aircraft/' + rowData.aircraftId + '/1';
+                });
+                if (!urls.length) {
+                    btn.removeClass('btn-warning').addClass('btn-default').text('No delivered aircraft selected').delay(900).queue(function(next) {
+                        $(this).text('Open aircraft (max 6)');
+                        next();
+                    });
+                    return;
+                }
                 for (let i = 0; i < urls.length; i++) {
                     window.open(urls[i], '_blank');
                     if (i == 5) {
@@ -662,14 +674,21 @@ function buildGeneratedDashboardAction(value, tableOptionsRule, table) {
         case 'removeAircraft':
             return $('<button type="button" class="btn btn-default aes-dashboard-confirm-action">Remove aircraft</button>').click(function() {
                 let btn = $(this);
-                let id = [];
-                let aircraftKey = [];
-                $('tbody tr:visible', table).has('input:checked').each(function() {
-                    let localId = $(this).attr('id');
-                    id.push(localId);
-                    aircraftKey.push(server + 'aircraftFlights' + localId);
+                let selectedRows = getSelectedDashboardRows(table);
+                let aircraftIds = selectedRows.map(function(rowData) {
+                    return rowData.aircraftId;
+                }).filter(function(id) {
+                    return !!id;
                 });
-                if (!id.length) {
+                let registrations = selectedRows.map(function(rowData) {
+                    return rowData.registration;
+                }).filter(function(registration) {
+                    return !!registration;
+                });
+                let aircraftKeys = aircraftIds.map(function(id) {
+                    return server + 'aircraftFlights' + id;
+                });
+                if (!selectedRows.length) {
                     btn.removeClass('btn-warning').addClass('btn-default').text('Select aircraft first').delay(900).queue(function(next) {
                         $(this).text('Remove aircraft');
                         next();
@@ -677,7 +696,7 @@ function buildGeneratedDashboardAction(value, tableOptionsRule, table) {
                     return;
                 }
                 if (!btn.data('confirm')) {
-                    btn.data('confirm', true).removeClass('btn-default').addClass('btn-warning').text('Confirm remove ' + id.length);
+                    btn.data('confirm', true).removeClass('btn-default').addClass('btn-warning').text('Confirm remove ' + selectedRows.length);
                     return;
                 }
 
@@ -685,13 +704,16 @@ function buildGeneratedDashboardAction(value, tableOptionsRule, table) {
                 dashboardStorage.get(fleetKey, function(result) {
                     let storedFleetData = result[fleetKey];
                     storedFleetData.fleet = storedFleetData.fleet.filter(function(value) {
-                        return id.indexOf(String(value.aircraftId)) == -1;
+                        if (value.aircraftId) {
+                            return aircraftIds.map(String).indexOf(String(value.aircraftId)) == -1;
+                        }
+                        return registrations.indexOf(value.registration) == -1;
                     });
                     dashboardStorage.set({ [fleetKey]: storedFleetData }, function() {
                         $('tbody tr:visible', table).has('input:checked').remove();
                         updateDashboardTableFooter(table);
                         btn.data('confirm', false).removeClass('btn-warning').addClass('btn-default').text('Remove aircraft');
-                        dashboardStorage.remove(aircraftKey, function() {});
+                        dashboardStorage.remove(aircraftKeys, function() {});
                     });
                 });
             });
@@ -703,6 +725,14 @@ function buildGeneratedDashboardAction(value, tableOptionsRule, table) {
         default:
             return null;
     }
+}
+
+function getSelectedDashboardRows(table) {
+    return $('tbody tr:visible', table).has('input:checked').map(function() {
+        return $(this).data('aesDashboardRowData');
+    }).toArray().filter(function(rowData) {
+        return !!rowData;
+    });
 }
 
 function buildGeneratedDashboardColumns(tableOptionsRule) {
@@ -1271,15 +1301,16 @@ function updateRouteAnalysisColumns(data, dates, routeIndex) {
             }
 
             //Route Index
-            if (routeIndex.pax) {
+            if (routeIndex.pax !== undefined && routeIndex.pax !== null) {
                 $(rowId + ' .aes-routeIndexPax').html(displayIndex(routeIndex.pax));
             }
-            if (routeIndex.cargo) {
+            if (routeIndex.cargo !== undefined && routeIndex.cargo !== null) {
                 $(rowId + ' .aes-routeIndexCargo').html(displayIndex(routeIndex.cargo));
             }
-            if (routeIndex.all) {
+            if (routeIndex.all !== undefined && routeIndex.all !== null) {
                 $(rowId + ' .aes-routeIndex').html(displayIndex(routeIndex.all));
             }
+            routeManagementApplyFilter();
         }
     }
 
@@ -1312,7 +1343,7 @@ function updateRouteAnalysisColumns(data, dates, routeIndex) {
 function displayRouteAnalysisLoadDelta(dataCurrent, dataPrevious, type) {
     let load = getRouteAnalysisLoad(dataCurrent, type);
     let preLoad = getRouteAnalysisLoad(dataPrevious, type);
-    if (load && preLoad) {
+    if (load !== undefined && load !== null && preLoad !== undefined && preLoad !== null) {
         let diff = load - preLoad;
         let span = $('<span></span>');
         if (diff > 0) {
@@ -1331,7 +1362,7 @@ function displayRouteAnalysisLoadDelta(dataCurrent, dataPrevious, type) {
 function displayRouteAnalysisIndexDelta(dataCurrent, dataPrevious, type) {
     let index = getRouteAnalysisIndex(dataCurrent, type);
     let preIndex = getRouteAnalysisIndex(dataPrevious, type);
-    if (index && preIndex) {
+    if (index !== undefined && index !== null && preIndex !== undefined && preIndex !== null) {
         let diff = index - preIndex;
         let span = $('<span></span>');
         if (diff > 0) {
@@ -1378,7 +1409,7 @@ function getRouteAnalysisLoad(data, type) {
 }
 
 function displayLoad(load) {
-    if (load) {
+    if (load !== undefined && load !== null) {
         let span = $('<span></span>');
         if (load >= 70) {
             span.addClass('good').text(load + "%");
@@ -2787,7 +2818,13 @@ function displayAircraftProfitability() {
 	                    filter: settings.aircraftProfitability.filter,
 	                    hideColumn: settings.aircraftProfitability.hideColumn,
 	                    tableSettingStorage: 'aircraftProfitability',
-	                    onColumnChange: displayAircraftProfitability
+	                    onColumnChange: displayAircraftProfitability,
+                        rowId: function(rowData) {
+                            if (rowData.aircraftId) {
+                                return 'aircraft-id-' + rowData.aircraftId;
+                            }
+                            return rowData.registration ? 'aircraft-reg-' + rowData.registration : null;
+                        }
 	                });
                 } else {
                     //Never happens or only when fleet = 0 because of updated script this output is copied bellow
@@ -2867,7 +2904,7 @@ function generateTable(tableOptionsRule) {
         columnPrefix: tableOptionsRule.columnPrefix,
         selectable: !!tableOptionsRule.tableSettings,
         footer: true,
-        rowId: function(dataValue) {
+        rowId: tableOptionsRule.rowId || function(dataValue) {
             let idColumn = tableOptionsRule.column.find(function(column) {
                 return column.id;
             });
