@@ -3,6 +3,7 @@
 //Global vars
 var settings, airline, server, todayDate;
 var dashboardControlPanelExpanded = {};
+var routeManagementFilterTimer = null;
 const dashboardStorage = globalThis.chrome?.storage?.local;
 
 $(function() {
@@ -46,14 +47,17 @@ function displayDashboard() {
     </div>
     `
     );
-    if (settings.general.defaultDashboard == 'other') {
-        settings.general.defaultDashboard = 'general';
+    let normalizedDefaultDashboard = normalizeDashboardTab(settings.general.defaultDashboard);
+    if (normalizedDefaultDashboard != settings.general.defaultDashboard) {
+        settings.general.defaultDashboard = normalizedDefaultDashboard;
+        dashboardStorage.set({ settings: settings }, function() {});
     }
-    $("#aes-select-dashboard-main").val(settings.general.defaultDashboard);
+    $("#aes-select-dashboard-main").val(normalizedDefaultDashboard);
 }
 
 function dashboardHandle() {
-    let value = $("#aes-select-dashboard-main").val();
+    let value = normalizeDashboardTab($("#aes-select-dashboard-main").val());
+    $("#aes-select-dashboard-main").val(value);
     settings.general.defaultDashboard = value;
     dashboardStorage.set({ settings: settings }, function() {});
     switch (value) {
@@ -66,15 +70,17 @@ function dashboardHandle() {
         case 'competitorMonitoring':
             displayCompetitorMonitoring();
             break;
-        case 'hr':
-            displayHr();
-            break;
         case 'aircraftProfitability':
             displayAircraftProfitability();
             break;
         default:
-            displayDefault();
+            displayGeneral();
     }
+}
+
+function normalizeDashboardTab(value) {
+    let allowed = ['general', 'routeManagement', 'competitorMonitoring', 'aircraftProfitability'];
+    return allowed.indexOf(value) != -1 ? value : 'general';
 }
 
 function buildDashboardControlPanel(title, summary, content, expanded) {
@@ -1080,6 +1086,16 @@ function routeManagementApplyFilter() {
     applyDashboardTableFilters($('#aes-table-routeManagement'), settings.routeManagement.filter, getRouteManagementDashboardColumns(), 'filterValue');
 }
 
+function scheduleRouteManagementApplyFilter() {
+    if (routeManagementFilterTimer) {
+        window.clearTimeout(routeManagementFilterTimer);
+    }
+    routeManagementFilterTimer = window.setTimeout(function() {
+        routeManagementFilterTimer = null;
+        routeManagementApplyFilter();
+    }, 60);
+}
+
 function getRouteManagementDashboardColumns() {
     let columns = settings.routeManagement.tableColumns.map(function(col) {
         return {
@@ -1310,7 +1326,7 @@ function updateRouteAnalysisColumns(data, dates, routeIndex) {
             if (routeIndex.all !== undefined && routeIndex.all !== null) {
                 $(rowId + ' .aes-routeIndex').html(displayIndex(routeIndex.all));
             }
-            routeManagementApplyFilter();
+            scheduleRouteManagementApplyFilter();
         }
     }
 
@@ -1540,7 +1556,7 @@ function displayGeneral() {
 //Display Competitor Monitoring
 function displayCompetitorMonitoring() {
     //Div
-    let div = $('<div id="aes-div-dashboard-competitorMonitoring" class="as-panel"></div>');
+    let div = $('<div id="aes-div-dashboard-competitorMonitoring" class="as-panel"></div>').append('<p class="warning">Loading competitor monitoring data...</p>');
 
     //Check Route Management Settings
     //
@@ -1578,6 +1594,7 @@ function displayCompetitorMonitoringAirlinesTable(div) {
     let compAirlines = [];
     let compAirlinesSchedule = [];
     let indexKey = AES.getCompetitorMonitoringIndexKey(server, airline.id);
+    let migrationFlagKey = server + ':' + airline.id + ':ownerIndexV1';
     $('#aes-div-dashboard').off('.aesCompetitorMonitoring');
 
     let deduplicateCompetitorAirlines = function() {
@@ -1619,6 +1636,7 @@ function displayCompetitorMonitoringAirlinesTable(div) {
         });
 
         let displayTable = function(scheduleItems) {
+            div.empty();
             for (let key in scheduleItems) {
                 if (scheduleItems[key] && scheduleItems[key].type == 'schedule' && scheduleItems[key].server == server && scheduleItems[key].airline) {
                     compAirlinesSchedule[scheduleItems[key].airline.id] = scheduleItems[key];
@@ -1868,18 +1886,26 @@ function displayCompetitorMonitoringAirlinesTable(div) {
             }
 
             saveCompetitorMonitoringIndex();
+            settings.competitorMonitoring.migrationFlags = settings.competitorMonitoring.migrationFlags || {};
+            settings.competitorMonitoring.migrationFlags[migrationFlagKey] = 1;
             if (Object.keys(migratedCompetitorData).length) {
                 dashboardStorage.set(migratedCompetitorData, function() {
                     dashboardStorage.remove(legacyKeysToRemove, function() {});
                 });
             }
-            loadSchedulesAndDisplayTable();
+            dashboardStorage.set({ settings: settings }, function() {
+                loadSchedulesAndDisplayTable();
+            });
         });
     };
 
     dashboardStorage.get([indexKey], function(result) {
         if (Array.isArray(result[indexKey])) {
             loadFromIndex(result[indexKey]);
+        } else if (settings.competitorMonitoring.migrationFlags && settings.competitorMonitoring.migrationFlags[migrationFlagKey]) {
+            dashboardStorage.set({ [indexKey]: [] }, function() {
+                loadSchedulesAndDisplayTable();
+            });
         } else {
             migrateLegacyCompetitorMonitoringData();
         }
@@ -1890,89 +1916,91 @@ function displayCompetitorMonitoringAirlineScheduleTable(mainDiv, scheduleData, 
     mainDiv.hide();
     //Build schedule rows
     let rows = [];
-    let hrow = [];
     if (data.scheduleDateUse) {
         let columns = [
             {
-                field: 'schedOrigin',
-                text: 'Origin',
-                headGroup: 'Schedule',
+                category: 'Schedule',
+                title: 'Origin',
+                data: 'schedOrigin',
+                className: 'aes-comp-sched-schedOrigin',
                 visible: 1,
+                sortable: 1,
                 number: 0,
-      },
+	      },
             {
-                field: 'schedDestination',
-                text: 'Destination',
-                headGroup: 'Schedule',
+                category: 'Schedule',
+                title: 'Destination',
+                data: 'schedDestination',
+                className: 'aes-comp-sched-schedDestination',
                 visible: 1,
+                sortable: 1,
                 number: 0,
-      },
+	      },
             {
-                field: 'schedHub',
-                text: 'Hub',
-                headGroup: 'Schedule',
+                category: 'Schedule',
+                title: 'Hub',
+                data: 'schedHub',
+                className: 'aes-comp-sched-schedHub',
                 visible: 1,
+                sortable: 1,
                 number: 0,
-      },
+	      },
             {
-                field: 'schedOd',
-                text: 'OD',
-                headGroup: 'Schedule',
+                category: 'Schedule',
+                title: 'OD',
+                data: 'schedOd',
+                className: 'aes-comp-sched-schedOd',
                 visible: 1,
+                sortable: 1,
                 number: 0,
-      },
+	      },
             {
-                field: 'schedDir',
-                text: 'Direction',
-                headGroup: 'Schedule',
+                category: 'Schedule',
+                title: 'Direction',
+                data: 'schedDir',
+                className: 'aes-comp-sched-schedDir',
                 visible: 1,
+                sortable: 1,
                 number: 0,
-      },
+	      },
             {
-                field: 'schedFltNr',
-                text: '# of flight numbers',
-                headGroup: 'Schedule',
+                category: 'Schedule',
+                title: '# of flight numbers',
+                data: 'schedFltNr',
+                className: 'aes-comp-sched-schedFltNr',
                 visible: 1,
+                sortable: 1,
                 number: 1,
-      },
+	      },
             {
-                field: 'schedPaxFreq',
-                text: 'PAX frequency',
-                headGroup: 'Schedule',
+                category: 'Schedule',
+                title: 'PAX frequency',
+                data: 'schedPaxFreq',
+                className: 'aes-comp-sched-schedPaxFreq',
                 visible: 1,
+                sortable: 1,
                 number: 1,
-      },
+	      },
             {
-                field: 'schedCargoFreq',
-                text: 'Cargo frequency',
-                headGroup: 'Schedule',
+                category: 'Schedule',
+                title: 'Cargo frequency',
+                data: 'schedCargoFreq',
+                className: 'aes-comp-sched-schedCargoFreq',
                 visible: 1,
+                sortable: 1,
                 number: 1,
-      },
+	      },
             {
-                field: 'schedTotalFreq',
-                text: 'Total Frequency',
-                headGroup: 'Schedule',
+                category: 'Schedule',
+                title: 'Total Frequency',
+                data: 'schedTotalFreq',
+                className: 'aes-comp-sched-schedTotalFreq',
                 visible: 1,
+                sortable: 1,
                 number: 1,
-      }
-    ];
-        //Table Head
-        let th = [];
-        columns.forEach(function(col) {
-            if (col.visible) {
-                //Sort
-                let sort = $('<a></a>').html(col.text);
-                sort.click(function() {
-                    SortTable(col.field, col.number, 'aes-table-competitorMonitoring-airline-schedule', 'aes-comp-sched-');
-                });
-                th.push($('<th style="cursor: pointer;"></th>').html(sort));
-            }
-        });
-        hrow.push($('<tr></tr>').append(th));
-        //Table Body
+	      }
+	    ];
         scheduleData.date[data.scheduleDateUse].schedule.forEach(function(od) {
-            let td = [];
             let fltNr = 0;
             let paxFreq = 0;
             let cargoFreq = 0;
@@ -1994,22 +2022,23 @@ function displayCompetitorMonitoringAirlineScheduleTable(mainDiv, scheduleData, 
                 schedCargoFreq: cargoFreq,
                 schedTotalFreq: totalFreq,
                 schedHub: hub
-            }
-            columns.forEach(function(cell) {
-                if (cell.visible) {
-                    td.push($('<td class="aes-comp-sched-' + cell.field + '" ></td>').html(cellValue[cell.field]));
-                }
             });
-            rows.push($('<tr></tr>').append(td));
+            rows.push(cellValue);
         });
+        var table = buildDashboardTable({
+            tableId: 'aes-table-competitorMonitoring-airline-schedule',
+            columns: columns,
+            data: rows,
+            footer: false
+        }).table;
     } else {
         rows.push('<tr><td><span class="warning">No schedule found</span></td></tr>');
     }
 
     //Build layout
-    let thead = $('<thead></thead>').append(hrow);
-    let tbody = $('<tbody></tbody>').append(rows);
-    let table = $('<table id="aes-table-competitorMonitoring-airline-schedule" class="table table-bordered table-striped table-hover"></table>').append(thead, tbody);
+    if (!table) {
+        table = $('<table id="aes-table-competitorMonitoring-airline-schedule" class="table table-bordered table-striped table-hover"></table>').append($('<tbody></tbody>').append(rows));
+    }
     let tableWell = $('<div style="overflow-x:auto;" class="as-table-well"></div>').append(table);
     let button = $('<button type="button" class="btn btn-default">Back to overview</button>');
     let panelDiv = $('<div class="as-panel"></div>').append(button, tableWell);
@@ -2485,6 +2514,9 @@ function ensureCompetitorMonitoringSettings() {
     if (!Array.isArray(settings.competitorMonitoring.filter)) {
         settings.competitorMonitoring.filter = [];
     }
+    if (!settings.competitorMonitoring.migrationFlags || typeof settings.competitorMonitoring.migrationFlags != 'object') {
+        settings.competitorMonitoring.migrationFlags = {};
+    }
 
     let defaultColumns = getDefaultCompetitorMonitoringColumns();
     if (!Array.isArray(settings.competitorMonitoring.tableColumns)) {
@@ -2567,6 +2599,11 @@ function displayAircraftProfitability() {
     if (!settings.aircraftProfitability.hideColumn) {
         settings.aircraftProfitability.hideColumn = [];
     }
+    let mainDiv = $("#aes-div-dashboard");
+    mainDiv.empty();
+    let title = $('<h3></h3>').text('Aircraft Profitability');
+    let div = $('<div class="as-panel"></div>').append('<p class="warning">Loading aircraft profitability data...</p>');
+    mainDiv.append(title, div);
     //columns
     let columns = [
         {
@@ -3000,73 +3037,6 @@ function generalAddPersonnelManagementRow(tbody) {
 function displayDefault() {
     let mainDiv = $("#aes-div-dashboard");
     mainDiv.empty();
-}
-
-//Table sort and other functions
-function SortTable(column, number, tableId, columnPrefix) {
-    let tableRows = $('#' + tableId + ' tbody tr');
-    let tableBody = $('#' + tableId + ' tbody');
-    tableBody.empty();
-    let indexes = [];
-    tableRows.each(function() {
-        if (number) {
-            let value = parseFloat($(this).find("." + columnPrefix + column).text());
-            if (value) {
-                indexes.push(value);
-            } else {
-                indexes.push(0);
-            }
-        } else {
-            indexes.push($(this).find("." + columnPrefix + column).text());
-        }
-    });
-    indexes = [...new Set(indexes)];
-    let sorted = [...indexes];
-    if (number) {
-        sorted.sort(function(a, b) {
-            if (a > b) return -1;
-            if (a < b) return 1;
-            if (a = b) return 0;
-        });
-    } else {
-        sorted.sort();
-    }
-    let same = 1;
-    for (let i = 0; i < indexes.length; i++) {
-        if (indexes[i] !== sorted[i]) {
-            same = 0;
-        }
-    }
-    if (same) {
-        if (number) {
-            sorted.sort(function(a, b) {
-                if (a < b) return -1;
-                if (a > b) return 1;
-                if (a = b) return 0;
-            });
-        } else {
-            sorted.reverse();
-        }
-    }
-    for (let i = 0; i < sorted.length; i++) {
-        for (let j = tableRows.length - 1; j >= 0; j--) {
-            if (number) {
-                let value = parseFloat($(tableRows[j]).find("." + columnPrefix + column).text());
-                if (!value) {
-                    value = 0;
-                }
-                if (value == sorted[i]) {
-                    tableBody.append($(tableRows[j]));
-                    tableRows.splice(j, 1);
-                }
-            } else {
-                if ($(tableRows[j]).find("." + columnPrefix + column).text() == sorted[i]) {
-                    tableBody.append($(tableRows[j]));
-                    tableRows.splice(j, 1);
-                }
-            }
-        }
-    }
 }
 
 //Helper
