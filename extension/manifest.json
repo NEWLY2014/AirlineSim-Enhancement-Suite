@@ -3,8 +3,8 @@
     "name": "AirlineSim Enhancement Suite",
     "short_name": "AES",
     "description": "Great quality of live improvements for AirlineSim",
-    "version": "0.7.6",
-    "version_name": "0.7.6",
+    "version": "0.7.7",
+    "version_name": "0.7.7",
     "homepage_url": "https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite",
     "action": {
         "default_icon": {

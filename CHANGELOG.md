@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.7] - 2026-04-13
+
+### Changed
+
+- Refined Dashboard loading, filtering, and schedule table behavior so each tab restores more cleanly and large datasets feel steadier while data loads.
+- Improved the Flights page HUB override controls layout so the AES tools sit more naturally within the native aircraft Flights page.
+
+### Fixed
+
+- Fixed Dashboard tab initialization, filter normalization, and competitor schedule rendering issues that could leave tabs blank or throw runtime errors until filters were reapplied.
+- Fixed Dashboard sorting, zero-value rendering, and Aircraft Profitability row actions so formatted numbers sort correctly, valid `0` values remain visible, and undelivered aircraft can still be managed safely.
+- Fixed Fleet Management filtering and native selection link integration so `all / none / invert` works with AES filters, action availability stays in sync with checkbox state, and native table refreshes no longer break AES-added columns.
+
 ## [0.7.6] - 2026-04-12
 
 ### Added
@@ -267,7 +280,8 @@ for pointing it out).
 
 _First release._
 
-[unreleased]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.7.6...HEAD
+[unreleased]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.7.7...HEAD
+[0.7.7]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.7.6...v0.7.7
 [0.7.6]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.7.5...v0.7.6
 [0.7.5]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.7.4...v0.7.5
 [0.7.4]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.7.3...v0.7.4
