@@ -539,6 +539,8 @@ function fltmng_buildFilterPanel() {
 
     function applyFilters() {
         let visibleCount = 0;
+        let selectionStateChanged = false;
+        let refreshCheckbox = null;
         aircraftData.forEach(function(value) {
             let visible =
                 (!equipmentSelect.val() || value.equipment == equipmentSelect.val()) &&
@@ -550,7 +552,12 @@ function fltmng_buildFilterPanel() {
 
             $(value.row).toggle(visible);
             if (!visible) {
-                $('input[type="checkbox"]', value.row).prop('checked', false);
+                let rowCheckbox = $('input[type="checkbox"][name="aircraftsContainer"]', value.row).get(0);
+                if (rowCheckbox && rowCheckbox.checked) {
+                    rowCheckbox.checked = false;
+                    selectionStateChanged = true;
+                    refreshCheckbox = refreshCheckbox || rowCheckbox;
+                }
             }
             if (visible) {
                 visibleCount++;
@@ -558,7 +565,21 @@ function fltmng_buildFilterPanel() {
         });
         fltmngFilterActive = !!(equipmentSelect.val() || hubSelect.val() || seatConfigSelect.val() || deliverySelect.val() || ownershipSelect.val() || scheduleSelect.val());
         status.text('Showing ' + visibleCount + ' of ' + aircraftData.length + ' aircraft' + (fltmngFilterActive ? '. Selection links apply to visible aircraft only.' : ''));
+        if (selectionStateChanged) {
+            fltmng_refreshNativeSelectionState(refreshCheckbox);
+        }
     }
+}
+
+function fltmng_refreshNativeSelectionState(checkbox) {
+    let target = checkbox || document.querySelector('.as-page-fleet-management input[type="checkbox"][name="aircraftsContainer"]');
+    if (!target) {
+        return;
+    }
+
+    target.dispatchEvent(new Event('change', {
+        bubbles: true
+    }));
 }
 
 function fltmng_bindNativeSelectionLinks() {
@@ -603,6 +624,7 @@ function fltmng_bindNativeSelectionLinks() {
             event.stopImmediatePropagation();
 
             let visibleCheckboxes = $('tbody tr:visible input[type="checkbox"][name="aircraftsContainer"]', fleetTable);
+            let refreshCheckbox = visibleCheckboxes.get(0) || document.querySelector('.as-page-fleet-management input[type="checkbox"][name="aircraftsContainer"]');
             switch (action) {
                 case 'all':
                     visibleCheckboxes.prop('checked', true);
@@ -618,6 +640,8 @@ function fltmng_bindNativeSelectionLinks() {
                 default:
                     break;
             }
+
+            fltmng_refreshNativeSelectionState(refreshCheckbox);
         }, true);
     });
 }
