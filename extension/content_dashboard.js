@@ -16,12 +16,16 @@ $(function() {
     server = AES.getServerName();
     dashboardStorage.get(['settings'], function(result) {
         settings = result.settings;
+        let filterScopeChanged = normalizeDashboardFilterScope();
 
         displayDashboard();
         dashboardHandle();
         $("#aes-select-dashboard-main").change(function() {
             dashboardHandle();
         });
+        if (filterScopeChanged) {
+            dashboardStorage.set({ settings: settings }, function() {});
+        }
     });
 });
 
@@ -81,6 +85,59 @@ function dashboardHandle() {
 function normalizeDashboardTab(value) {
     let allowed = ['general', 'routeManagement', 'competitorMonitoring', 'aircraftProfitability'];
     return allowed.indexOf(value) != -1 ? value : 'general';
+}
+
+function getDashboardFilterScopeKey() {
+    let airlineKey = '';
+    if (airline) {
+        airlineKey = airline.id || airline.code || airline.displayName || airline.name || '';
+    }
+    return server + ':' + airlineKey;
+}
+
+function normalizeDashboardFilterScope() {
+    if (!settings || !settings.general) {
+        return false;
+    }
+
+    let currentScope = getDashboardFilterScopeKey();
+    let previousScope = settings.general.dashboardFilterScopeKey;
+    let changed = false;
+
+    if (!settings.routeManagement) {
+        setDefaultRouteManagementSettings();
+        changed = true;
+    }
+    if (!settings.competitorMonitoring) {
+        setDefaultCompetitorMonitoringSettings();
+        changed = true;
+    }
+    if (!settings.aircraftProfitability) {
+        settings.aircraftProfitability = {};
+        changed = true;
+    }
+
+    if (previousScope && previousScope != currentScope) {
+        if (Array.isArray(settings.routeManagement.filter) && settings.routeManagement.filter.length) {
+            settings.routeManagement.filter = [];
+            changed = true;
+        }
+        if (Array.isArray(settings.competitorMonitoring.filter) && settings.competitorMonitoring.filter.length) {
+            settings.competitorMonitoring.filter = [];
+            changed = true;
+        }
+        if (Array.isArray(settings.aircraftProfitability.filter) && settings.aircraftProfitability.filter.length) {
+            settings.aircraftProfitability.filter = [];
+            changed = true;
+        }
+    }
+
+    if (previousScope != currentScope) {
+        settings.general.dashboardFilterScopeKey = currentScope;
+        changed = true;
+    }
+
+    return changed;
 }
 
 function buildDashboardControlPanel(title, summary, content, expanded) {
