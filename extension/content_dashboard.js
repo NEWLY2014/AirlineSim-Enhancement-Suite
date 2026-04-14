@@ -2022,7 +2022,7 @@ function displayCompetitorMonitoringAirlineScheduleTable(mainDiv, scheduleData, 
                 schedCargoFreq: cargoFreq,
                 schedTotalFreq: totalFreq,
                 schedHub: hub
-            });
+            };
             rows.push(cellValue);
         });
         var table = buildDashboardTable({
