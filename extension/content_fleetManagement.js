@@ -562,36 +562,63 @@ function fltmng_buildFilterPanel() {
 }
 
 function fltmng_bindNativeSelectionLinks() {
-    $('.as-page-fleet-management').off('click.aesFleetSelection').on('click.aesFleetSelection', 'a', function(event) {
-        let action = ($(this).text() || '').trim().toLowerCase();
-        if (!fltmngFilterActive || ['all', 'none', 'invert'].indexOf(action) == -1) {
+    let selectionLinks = document.querySelectorAll(
+        '.as-page-fleet-management a[href*="select~all"], ' +
+        '.as-page-fleet-management a[href*="select~none"], ' +
+        '.as-page-fleet-management a[href*="select~inverse"]'
+    );
+
+    selectionLinks.forEach(function(link) {
+        if (link.dataset.aesFleetSelectionBound === '1') {
             return;
         }
 
-        let fleetTable = $('.as-page-fleet-management > .row > .col-md-9 > .as-panel:eq(0) table');
-        if (!fleetTable.length || !$.contains(fleetTable.closest('.as-panel')[0], this)) {
-            return;
-        }
+        link.dataset.aesFleetSelectionBound = '1';
+        link.addEventListener('click', function(event) {
+            if (!fltmngFilterActive) {
+                return;
+            }
 
-        event.preventDefault();
-        event.stopImmediatePropagation();
+            let fleetTable = $('.as-page-fleet-management > .row > .col-md-9 > .as-panel:eq(0) table');
+            if (!fleetTable.length) {
+                return;
+            }
 
-        let visibleCheckboxes = $('tbody tr:visible input[type="checkbox"][name="aircraftsContainer"]', fleetTable);
-        switch (action) {
-            case 'all':
-                visibleCheckboxes.prop('checked', true);
-                break;
-            case 'none':
-                visibleCheckboxes.prop('checked', false);
-                break;
-            case 'invert':
-                visibleCheckboxes.each(function() {
-                    $(this).prop('checked', !$(this).prop('checked'));
-                });
-                break;
-            default:
-                break;
-        }
+            let href = String(link.getAttribute('href') || '');
+            let action = '';
+            if (href.indexOf('select~all') != -1) {
+                action = 'all';
+            } else if (href.indexOf('select~none') != -1) {
+                action = 'none';
+            } else if (href.indexOf('select~inverse') != -1) {
+                action = 'invert';
+            }
+
+            if (!action) {
+                return;
+            }
+
+            event.preventDefault();
+            event.stopPropagation();
+            event.stopImmediatePropagation();
+
+            let visibleCheckboxes = $('tbody tr:visible input[type="checkbox"][name="aircraftsContainer"]', fleetTable);
+            switch (action) {
+                case 'all':
+                    visibleCheckboxes.prop('checked', true);
+                    break;
+                case 'none':
+                    visibleCheckboxes.prop('checked', false);
+                    break;
+                case 'invert':
+                    visibleCheckboxes.each(function() {
+                        $(this).prop('checked', !$(this).prop('checked'));
+                    });
+                    break;
+                default:
+                    break;
+            }
+        }, true);
     });
 }
 
