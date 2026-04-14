@@ -4,6 +4,8 @@
 var aircraftData = [];
 var server, aircraftFleetKey, aircraftFleetStorageData, airline, date, currentFleet;
 var fltmngFilterActive = false;
+var fltmngTableObserver = null;
+var fltmngRefreshTimer = null;
 $(function() {
     let currentAirline = AES.getCurrentAirline();
     airline = currentAirline && currentAirline.id ? currentAirline : AES.getAirline();
@@ -375,10 +377,18 @@ function fltmng_display() {
     let div = $('<div></div>').append(h, panel);
     $('.as-page-fleet-management > h1:eq(0)').after(div);
     fltmng_bindNativeSelectionLinks();
+    fltmng_watchFleetTable();
 }
 
 function fltmng_displayAircraftProfit() {
     let table = $('.as-page-fleet-management > .row > .col-md-9 > .as-panel:eq(0) table');
+    if (!table.length) {
+        return;
+    }
+
+    fltmng_syncTableRows(table);
+    $('.aes-fleet-extra-header', table).remove();
+    $('.aes-fleet-extra-cell', table).remove();
     table.addClass('aes-fleet-table');
     //Head
     $('thead tr:eq(0) th:eq(2)', table).html(
@@ -424,6 +434,74 @@ function fltmng_displayAircraftProfit() {
             );
         }
     });
+}
+
+function fltmng_syncTableRows(table) {
+    $('tbody tr', table).each(function() {
+        let row = this;
+        let aircraftId = fltmng_getAircraftIdFromRow(row);
+        let registration = $('td:eq(1) > span:eq(0)', row).text().trim();
+
+        aircraftData.forEach(function(value) {
+            if (
+                (aircraftId && value.aircraftId && String(value.aircraftId) === String(aircraftId)) ||
+                (!aircraftId && registration && value.registration === registration)
+            ) {
+                value.row = row;
+            }
+        });
+    });
+}
+
+function fltmng_watchFleetTable() {
+    let panel = document.querySelector('.as-page-fleet-management > .row > .col-md-9 > .as-panel');
+    if (!panel) {
+        return;
+    }
+
+    if (fltmngTableObserver) {
+        fltmngTableObserver.disconnect();
+    }
+
+    fltmngTableObserver = new MutationObserver(function(mutations) {
+        let shouldRefresh = mutations.some(function(mutation) {
+            return Array.from(mutation.addedNodes).some(fltmng_isFleetTableNode) ||
+                Array.from(mutation.removedNodes).some(fltmng_isFleetTableNode);
+        });
+
+        if (!shouldRefresh) {
+            return;
+        }
+
+        clearTimeout(fltmngRefreshTimer);
+        fltmngRefreshTimer = setTimeout(function() {
+            fltmng_refreshFleetTableEnhancements();
+        }, 50);
+    });
+
+    fltmngTableObserver.observe(panel, {
+        childList: true,
+        subtree: true
+    });
+}
+
+function fltmng_isFleetTableNode(node) {
+    if (!node || node.nodeType !== 1) {
+        return false;
+    }
+
+    let tag = node.tagName;
+    return tag === 'TABLE' || tag === 'THEAD' || tag === 'TBODY' || tag === 'TR' || tag === 'TD' || tag === 'TH';
+}
+
+function fltmng_refreshFleetTableEnhancements() {
+    if (fltmngTableObserver) {
+        fltmngTableObserver.disconnect();
+    }
+
+    fltmng_displayAircraftProfit();
+    fltmng_bindNativeSelectionLinks();
+    fltmng_watchFleetTable();
 }
 
 function fltmng_getResolvedHub(aircraft) {
