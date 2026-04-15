@@ -18,26 +18,35 @@ Marcipanas wrote [a guide](https://docs.google.com/document/d/1hzMHb3hTBXSZNtuDK
 ## Installation
 
 Supported platforms: Chromium-based browsers (Chrome, Edge, etc.).
-This guide is based on [racsofp’s guide](https://forums.airlinesim.aero/t/manual-installation-of-the-ase-airlinesim-enhancement-suite-chrome-extension/24671).
+
+### Recommended: Install from Chrome Web Store
+
+Install AES directly from the [Chrome Web Store](https://chromewebstore.google.com/detail/airlinesim-enhancement-su/hbbgjkgglkddalmgfnhgeinmfkobgdke).
+
+1. Open the [Chrome Web Store listing](https://chromewebstore.google.com/detail/airlinesim-enhancement-su/hbbgjkgglkddalmgfnhgeinmfkobgdke).
+2. Click `Add to Chrome`.
+3. Confirm the installation in your browser.
+4. Open AirlineSim and AES will load automatically on supported pages.
+
+### Manual Installation
+
+If you want to test a local build or install AES manually, use the unpacked extension flow below. This guide is based on [racsofp’s guide](https://forums.airlinesim.aero/t/manual-installation-of-the-ase-airlinesim-enhancement-suite-chrome-extension/24671).
 
 1. Download the current version from the [releases](https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/releases) page.
-   The file you look for has the format AES-vX.X.X.zip where the _X_ is replaced with numbers. Example: AES-v0.6.8.zip
-2. Unzip it.
-3. Open your browser and go to the expansion page.
+   The file you look for has the format `AES-vX.X.X.zip`, where `X` is replaced with numbers.
+2. Unzip the archive.
+3. Open your browser's extensions page.
     - Chrome: [chrome://extensions](chrome://extensions)
     - Edge: [edge://extensions](edge://extensions)
-4. In the upper right corner is a slide bar that says _enable developer_. Enable it.
-5. In the upper left should be a button that says _Load unpacked_. Click it.
-6. Find the folder (unzipped!) from part 2 and select it.
+4. Enable `Developer mode`.
+5. Click `Load unpacked`.
+6. Select the unzipped `extension` folder.
 
-The extensions should be added, and you can enable it.
+The extension should now be added and ready to use.
 
 ## Privacy
 
 AES stores extension settings and extracted AirlineSim gameplay data locally in the browser. See [PRIVACY.md](PRIVACY.md) for details.
-
-### Please note
-Until AES is available on the Chrome web store, please apply this method to install it manually.
 
 ## History
 
