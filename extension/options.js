@@ -434,6 +434,15 @@ function clearAllData() {
 
 function showStatusMessage(message, type) {
     const statusDiv = $("#aes-status-message");
+    const statusEl = statusDiv.get(0);
+    if (!statusEl) {
+        return;
+    }
+
+    if (statusEl.aesHideTimer) {
+        window.clearTimeout(statusEl.aesHideTimer);
+        statusEl.aesHideTimer = null;
+    }
     statusDiv.removeClass(
         "status-success status-error status-warning status-info"
     );
@@ -454,12 +463,14 @@ function showStatusMessage(message, type) {
             break;
     }
 
+    statusDiv.stop && statusDiv.stop(true, true);
     statusDiv.text(message).show();
 
     // Auto-hide after 5 seconds for success/info messages
     if (type === "success" || type === "info") {
-        setTimeout(() => {
-            statusDiv.fadeOut();
+        statusEl.aesHideTimer = window.setTimeout(() => {
+            statusDiv.hide();
+            statusEl.aesHideTimer = null;
         }, 5000);
     }
 }
