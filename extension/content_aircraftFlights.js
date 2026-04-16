@@ -190,25 +190,34 @@ function buildTable() {
     let totalProfitCell = $(formatMoney(aircraftFlightData.profit));
     let row = [];
     row.push($('<tr></tr>').append(
-        '<th>Aircraft Id</th>', '<td>' + aircraftFlightData.aircraftId + '</td>',
-        '<th>Total flights</th>', '<td>' + aircraftFlightData.totalFlights + '</td>'
+        $('<th></th>').text('Aircraft Id'),
+        $('<td></td>').text(aircraftFlightData.aircraftId),
+        $('<th></th>').text('Total flights'),
+        $('<td></td>').text(aircraftFlightData.totalFlights)
     ));
     row.push($('<tr></tr>').append(
-        '<th>Registration</th>', '<td>' + aircraftFlightData.registration + '</td>',
-        '<th>Finished flights</th>', '<td>' + aircraftFlightData.finishedFlights + '</td>'
+        $('<th></th>').text('Registration'),
+        $('<td></td>').text(aircraftFlightData.registration),
+        $('<th></th>').text('Finished flights'),
+        $('<td></td>').text(aircraftFlightData.finishedFlights)
     ));
     row.push($('<tr></tr>').append(
-        '<th>Detected HUB</th>', $('<td id="aes-aircraft-hub-detected"></td>').text(aircraftFlightData.hubDetected || '--'),
-        '<th>Total aircraft profit/loss</th>',
+        $('<th></th>').text('Detected HUB'),
+        $('<td id="aes-aircraft-hub-detected"></td>').text(aircraftFlightData.hubDetected || '--'),
+        $('<th></th>').text('Total aircraft profit/loss'),
         $('<td class="aes-text-right aes-no-text-wrap"></td>').append(totalProfitCell.contents())
     ));
     row.push($('<tr></tr>').append(
-        '<th>Override HUB</th>', $('<td id="aes-aircraft-hub-override"></td>').text(aircraftFlightData.hubOverride || '--'),
-        '<th>Data save time</th>', '<td>' + AES.formatDateString(aircraftFlightData.date) + ' ' + aircraftFlightData.time + '</td>'
+        $('<th></th>').text('Override HUB'),
+        $('<td id="aes-aircraft-hub-override"></td>').text(aircraftFlightData.hubOverride || '--'),
+        $('<th></th>').text('Data save time'),
+        $('<td></td>').text(AES.formatDateString(aircraftFlightData.date) + ' ' + aircraftFlightData.time)
     ));
     row.push($('<tr></tr>').append(
-        '<th>Current HUB</th>', $('<td id="aes-aircraft-hub-effective"></td>').text(aircraftFlightData.hubEffective || aircraftFlightData.hubDetected || '--'),
-        '<th></th>', '<td></td>'
+        $('<th></th>').text('Current HUB'),
+        $('<td id="aes-aircraft-hub-effective"></td>').text(aircraftFlightData.hubEffective || aircraftFlightData.hubDetected || '--'),
+        $('<th></th>'),
+        $('<td></td>')
     ));
 
     let tbody = $('<tbody></tbody>').append(row);

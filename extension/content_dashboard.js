@@ -612,7 +612,10 @@ function buildDashboardFilterPanel(options) {
             updateSummary();
         });
         return [
-            $('<td></td>').append($('<input type="hidden">').val(titleCode), title),
+            $('<td></td>').append(
+                $('<input type="hidden">').val(titleCode),
+                document.createTextNode(title)
+            ),
             $('<td class="aes-dashboard-filter-operation"></td>').text(operation),
             $('<td></td>').text(value),
             $('<td></td>').append(deleteBtn)

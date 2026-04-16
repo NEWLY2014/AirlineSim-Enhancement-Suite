@@ -171,7 +171,9 @@ function invPricingAutoPricingHandle() {
 
 function invPricingRecStepHandle() {
     let cmp = $("#aes-select-invPricing-cmp").val();
-    $('#aes-div-recSettings').empty().append('<h3>' + cmp + ' Compartment Pricing Settings</h3>');
+    $('#aes-div-recSettings').empty().append(
+        $('<h3></h3>').text(cmp + ' Compartment Pricing Settings')
+    );
     let divRow = $('<div class="row as-panel"></div>')
     let divLeft = $('<div class="col-md-8"></div>')
     let divRight = $('<div class="col-md-4"></div>')

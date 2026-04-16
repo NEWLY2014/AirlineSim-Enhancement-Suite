@@ -930,9 +930,9 @@ function displayValidationError() {
     let p = [];
     p.push($('<p></p>').text('AES Inventory Pricing Module could not be loaded because of errors:'));
     aesmodule.errors.forEach(function(error) {
-        p.push($('<p class="bad"></p>').html('<b>' + error + '</b>'));
+        p.push($('<p class="bad"></p>').append($('<b></b>').text(error)));
     });
-    p.push($('<p class="warning"></p>').html('Refresh the page after making adjustments.'));
+    p.push($('<p class="warning"></p>').text('Refresh the page after making adjustments.'));
     let panel = $('<div class="as-panel"></div>').append(p);
     let h2 = $('<h3></h3>').text('AES Inventory Pricing Module');
     let div = $('<div></div>').append(h2, panel);

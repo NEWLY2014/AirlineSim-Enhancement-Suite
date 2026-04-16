@@ -89,7 +89,7 @@ function fltmng_getAge(value) {
 }
 
 function fltmng_getMaintenance(value) {
-    value = value.replace('%', '');
+    value = value.replace(/%/g, '');
     value = value.replace(',', '.');
     value = parseFloat(value);
     return value;
