@@ -275,7 +275,7 @@ function afp_getUniqueFlightEntries() {
     let entries = {};
 
     afp_getVisualPlan().find('.day').each(function(dayIndex) {
-        $(this).find('.blocks .block.flight').each(function() {
+        $(this).find('.blocks .block.flight.started').each(function() {
             let block = $(this);
             let code = $('.code', block).first().text().trim();
             let infoHref = $('a[title="View flight number"]', block).attr('href') || '';
