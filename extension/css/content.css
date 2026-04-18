@@ -397,6 +397,21 @@
     min-width: 112px;
 }
 
+#aes-footer-version {
+    margin-right: 8px;
+}
+
+.aes-footer-version-link {
+    color: inherit;
+    text-decoration: none;
+}
+
+.aes-footer-version-link:hover,
+.aes-footer-version-link:focus {
+    color: inherit;
+    text-decoration: underline;
+}
+
 /**
  * General UI improvements
  */

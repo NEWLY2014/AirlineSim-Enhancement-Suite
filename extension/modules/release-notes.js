@@ -180,10 +180,6 @@ function maybeShowReleaseNotes() {
         return
     }
 
-    if (document.getElementById("aes-release-notes-dialog")) {
-        return
-    }
-
     const manifest = chrome.runtime.getManifest()
     const version = manifest.version_name || manifest.version
     const notes = AES_RELEASE_NOTES[version]
@@ -197,8 +193,53 @@ function maybeShowReleaseNotes() {
             return
         }
 
-        new ReleaseNotesDialog(version, notes)
+        showReleaseNotesDialog(version, notes)
     })
 }
 
+function showReleaseNotesDialog(version, notes) {
+    if (document.getElementById("aes-release-notes-dialog")) {
+        return
+    }
+
+    new ReleaseNotesDialog(version, notes)
+}
+
+function addReleaseNotesFooterLink() {
+    const manifest = chrome.runtime.getManifest()
+    const version = manifest.version_name || manifest.version
+    const notes = AES_RELEASE_NOTES[version]
+    if (!notes) {
+        return
+    }
+
+    const footerLine = document.querySelector(".as-footer-line")
+    if (!footerLine || document.getElementById("aes-footer-version")) {
+        return
+    }
+
+    const wrapper = document.createElement("div")
+    wrapper.id = "aes-footer-version"
+    wrapper.className = "as-footer-line-element version"
+
+    const link = document.createElement("a")
+    link.href = "#"
+    link.className = "aes-footer-version-link"
+    link.textContent = "AES: v" + version
+    link.addEventListener("click", function(event) {
+        event.preventDefault()
+        showReleaseNotesDialog(version, notes)
+    })
+
+    wrapper.append(link)
+
+    const gameVersion = footerLine.querySelector("#version")
+    if (gameVersion) {
+        footerLine.insertBefore(wrapper, gameVersion)
+    } else {
+        footerLine.append(wrapper)
+    }
+}
+
+addReleaseNotesFooterLink()
 maybeShowReleaseNotes()
