@@ -188,7 +188,7 @@ function afp_renderPanel() {
     let extractBtn = $('<button type="button" class="btn btn-default"></button>').text(aircraftFlightPlanState.extracting ? 'Extracting...' : 'Extract template').prop('disabled', aircraftFlightPlanState.extracting);
     let deleteBtn = $('<button type="button" class="btn btn-default"></button>').text('Delete saved template').prop('disabled', !hasTemplate || aircraftFlightPlanState.extracting);
     let startBtn = $('<button type="button" class="btn btn-default"></button>').text(jobOnCurrentAircraft ? 'Scheduling in progress' : 'Start scheduling').prop('disabled', !canStart);
-    let clearJobBtn = $('<button type="button" class="btn btn-default"></button>').text('Stop scheduling').toggle(!!job);
+    let clearJobBtn = $('<button type="button" class="btn btn-default"></button>').text('Stop scheduling').prop('disabled', !job);
 
     extractBtn.on('click', function() {
         afp_extractTemplate();
