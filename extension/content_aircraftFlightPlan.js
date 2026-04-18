@@ -559,6 +559,93 @@ function afp_setCheckboxValue(element, checked) {
     element.prop('checked', !!checked);
 }
 
+function afp_getPlannerForm() {
+    let submitBtn = $('input[type="submit"][name="button-submit"]').first();
+    if (submitBtn.length) {
+        let form = submitBtn.closest('form');
+        if (form.length) {
+            return form;
+        }
+    }
+
+    let existingSelect = afp_getExistingSelect();
+    if (existingSelect.length) {
+        let form = existingSelect.closest('form');
+        if (form.length) {
+            return form;
+        }
+    }
+
+    return $(document.body);
+}
+
+function afp_getPlannerDayCheckbox(day) {
+    return $('input[type="checkbox"][name="days:daySelection:' + day + ':ticked"]', afp_getPlannerForm()).first();
+}
+
+function afp_getPlannerNoneLink() {
+    return $('a[href*="daySelection.none"]', afp_getPlannerForm()).first();
+}
+
+function afp_clickElement(element) {
+    if (!element || !element.length || !element[0]) {
+        return;
+    }
+
+    element[0].dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+}
+
+async function afp_clearPlannerDaySelection() {
+    let dayCheckboxes = $('input[type="checkbox"][name^="days:daySelection:"][name$=":ticked"]', afp_getPlannerForm());
+    if (!dayCheckboxes.filter(':checked').length) {
+        return;
+    }
+
+    let noneLink = afp_getPlannerNoneLink();
+    if (noneLink.length) {
+        afp_clickElement(noneLink);
+        let cleared = await afp_waitFor(function() {
+            return !$('input[type="checkbox"][name^="days:daySelection:"][name$=":ticked"]', afp_getPlannerForm()).filter(':checked').length;
+        }, 5000, 100);
+        if (cleared) {
+            return;
+        }
+    }
+
+    for (let day = 0; day < 7; day++) {
+        let checkbox = afp_getPlannerDayCheckbox(day);
+        if (checkbox.length && checkbox.prop('checked')) {
+            afp_clickElement(checkbox);
+            await afp_waitFor(function() {
+                let currentCheckbox = afp_getPlannerDayCheckbox(day);
+                return currentCheckbox.length && !currentCheckbox.prop('checked');
+            }, 3000, 80);
+        }
+    }
+}
+
+async function afp_setPlannerDaySelection(targetDays) {
+    for (let day = 0; day < 7; day++) {
+        if (!targetDays[day]) {
+            continue;
+        }
+        let checkbox = afp_getPlannerDayCheckbox(day);
+        if (!checkbox.length) {
+            throw new Error('Could not find planner day selection for day ' + day + '.');
+        }
+        if (!checkbox.prop('checked')) {
+            afp_clickElement(checkbox);
+            let checked = await afp_waitFor(function() {
+                let currentCheckbox = afp_getPlannerDayCheckbox(day);
+                return currentCheckbox.length && currentCheckbox.prop('checked');
+            }, 3000, 80);
+            if (!checked) {
+                throw new Error('Could not select target day ' + day + '.');
+            }
+        }
+    }
+}
+
 function afp_setSelectValue(element, value) {
     if (!element || !element.length || value == null) {
         return;
@@ -567,14 +654,16 @@ function afp_setSelectValue(element, value) {
 }
 
 function afp_getPlannerSourceDaySettings(entry) {
+    let plannerForm = afp_getPlannerForm();
+
     return afp_collectSegmentIndexes().map(function(segmentIndex) {
         let days = {};
         entry.selectedDays.forEach(function(sourceDay) {
             days[sourceDay] = {
-                arrivalHours: String($('select[name="segmentsContainer:segments:' + segmentIndex + ':newArrivals:' + sourceDay + ':newArrival:hours"]').val() || ''),
-                arrivalMinutes: String($('select[name="segmentsContainer:segments:' + segmentIndex + ':newArrivals:' + sourceDay + ':newArrival:minutes"]').val() || ''),
-                departureOffset: String($('select[name="segmentsContainer:segments:' + segmentIndex + ':departure-offsets:' + sourceDay + ':departureOffset"]').val() || '0'),
-                fixedArrival: !!$('input[name="segmentsContainer:segments:' + segmentIndex + ':fixedArrivalSelection:' + sourceDay + ':fixedArrival"]').prop('checked'),
+                arrivalHours: String($('select[name="segmentsContainer:segments:' + segmentIndex + ':newArrivals:' + sourceDay + ':newArrival:hours"]', plannerForm).val() || ''),
+                arrivalMinutes: String($('select[name="segmentsContainer:segments:' + segmentIndex + ':newArrivals:' + sourceDay + ':newArrival:minutes"]', plannerForm).val() || ''),
+                departureOffset: String($('select[name="segmentsContainer:segments:' + segmentIndex + ':departure-offsets:' + sourceDay + ':departureOffset"]', plannerForm).val() || '0'),
+                fixedArrival: !!$('input[name="segmentsContainer:segments:' + segmentIndex + ':fixedArrivalSelection:' + sourceDay + ':fixedArrival"]', plannerForm).prop('checked'),
             };
         });
 
@@ -585,13 +674,14 @@ function afp_getPlannerSourceDaySettings(entry) {
     });
 }
 
-function afp_applyFlightEntryToPlanner(entry, offsetDays) {
+async function afp_applyFlightEntryToPlanner(entry, offsetDays) {
     let selected = afp_getSelectedExistingFlight();
     if (!afp_selectionMatchesEntry(selected, entry)) {
         throw new Error('Planner is not loaded for the expected flight number.');
     }
 
     let sourceSegmentSettings = afp_getPlannerSourceDaySettings(entry);
+    let plannerForm = afp_getPlannerForm();
 
     let targetDays = {};
     entry.selectedDays.forEach(function(sourceDay) {
@@ -599,30 +689,24 @@ function afp_applyFlightEntryToPlanner(entry, offsetDays) {
         targetDays[dayData.targetDay] = dayData;
     });
 
-    $('input[type="checkbox"][name^="days:daySelection:"][name$=":ticked"]').each(function() {
-        let match = ($(this).attr('name') || '').match(/^days:daySelection:(\d+):ticked$/);
-        if (!match) {
-            return;
-        }
-        let targetDay = parseInt(match[1], 10);
-        afp_setCheckboxValue($(this), !!targetDays[targetDay]);
-    });
+    await afp_clearPlannerDaySelection();
+    await afp_setPlannerDaySelection(targetDays);
 
     sourceSegmentSettings.forEach(function(segment) {
         for (let day = 0; day < 7; day++) {
-            afp_setSelectValue($('select[name="segmentsContainer:segments:' + segment.index + ':departure-offsets:' + day + ':departureOffset"]'), '0');
-            afp_setCheckboxValue($('input[name="segmentsContainer:segments:' + segment.index + ':fixedArrivalSelection:' + day + ':fixedArrival"]'), false);
+            afp_setSelectValue($('select[name="segmentsContainer:segments:' + segment.index + ':departure-offsets:' + day + ':departureOffset"]', plannerForm), '0');
+            afp_setCheckboxValue($('input[name="segmentsContainer:segments:' + segment.index + ':fixedArrivalSelection:' + day + ':fixedArrival"]', plannerForm), false);
         }
 
         entry.selectedDays.forEach(function(sourceDay) {
             let targetDay = (sourceDay + offsetDays) % 7;
             let daySettings = segment.days[sourceDay];
-            afp_setSelectValue($('select[name="segmentsContainer:segments:' + segment.index + ':departure-offsets:' + targetDay + ':departureOffset"]'), daySettings.departureOffset);
-            afp_setCheckboxValue($('input[name="segmentsContainer:segments:' + segment.index + ':fixedArrivalSelection:' + targetDay + ':fixedArrival"]'), daySettings.fixedArrival);
+            afp_setSelectValue($('select[name="segmentsContainer:segments:' + segment.index + ':departure-offsets:' + targetDay + ':departureOffset"]', plannerForm), daySettings.departureOffset);
+            afp_setCheckboxValue($('input[name="segmentsContainer:segments:' + segment.index + ':fixedArrivalSelection:' + targetDay + ':fixedArrival"]', plannerForm), daySettings.fixedArrival);
 
             if (daySettings.fixedArrival) {
-                afp_setSelectValue($('select[name="segmentsContainer:segments:' + segment.index + ':newArrivals:' + targetDay + ':newArrival:hours"]'), daySettings.arrivalHours);
-                afp_setSelectValue($('select[name="segmentsContainer:segments:' + segment.index + ':newArrivals:' + targetDay + ':newArrival:minutes"]'), daySettings.arrivalMinutes);
+                afp_setSelectValue($('select[name="segmentsContainer:segments:' + segment.index + ':newArrivals:' + targetDay + ':newArrival:hours"]', plannerForm), daySettings.arrivalHours);
+                afp_setSelectValue($('select[name="segmentsContainer:segments:' + segment.index + ':newArrivals:' + targetDay + ':newArrival:minutes"]', plannerForm), daySettings.arrivalMinutes);
             }
         });
     });
@@ -742,7 +826,7 @@ async function afp_processJob() {
 
         if (job.status === 'applying') {
             afp_setRuntimeMessage('Applying ' + entry.flightCode + '...', 'warning');
-            afp_applyFlightEntryToPlanner(entry, job.offsetDays);
+            await afp_applyFlightEntryToPlanner(entry, job.offsetDays);
             aircraftFlightPlanState.job.status = 'waitForApply';
             await afp_saveJob();
             afp_renderPanel();
