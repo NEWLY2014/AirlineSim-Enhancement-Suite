@@ -1506,9 +1506,11 @@ function getRouteAnalysisLoad(data, type) {
     });
     if (cap) {
         return Math.round(bkd / cap * 100);
-    } else {
-        return 0;
     }
+    if (type == 'pax') {
+        return null;
+    }
+    return 0;
 }
 
 function displayLoad(load) {
