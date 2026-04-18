@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.8] - 2026-04-18
+
+### Added
+
+- Added release notes dialogs for new versions, including a footer version link that reopens the notes on demand.
+- Added support for grouped inventory tables so AES analysis can read `Group by flight` layouts without forcing players back to the classic table.
+- Added an opt-in Inventory Pricing setting for reference recommendations when the current route price has no finished or inflight results yet.
+
+### Changed
+
+- Refined the release notes dialog styling so it adapts cleanly to dark, classic, and light AirlineSim themes, and now shows the release date next to the AES version.
+- Updated Inventory Pricing analysis to separate executable recommendations from reference recommendations, merged `New Price` into the recommendation text, and right-aligned the load column for clearer reading.
+- Updated the installation guide to prioritize the Chrome Web Store release.
+
+### Fixed
+
+- Fixed Inventory Pricing so route analysis distinguishes between missing passenger capacity and true zero-passenger results on Route Management pages.
+- Fixed Inventory Pricing so settings toggles such as automatic price updates and automatic tab closing are no longer overwritten by stale settings snapshots from other pages.
+- Fixed grouped Inventory Pricing edge cases where invalid historical fallbacks could show `0` as the analysis price.
+- Fixed Inventory Pricing so AES reloads automatically after toggling `Group by flight`, without requiring a full page refresh.
+- Fixed the options page status message handling for the jQuery slim build that does not support `fadeOut()`.
+- Fixed several DOM construction and parsing issues highlighted by static analysis, including release note rendering and documentation example syntax.
+
 ## [0.7.7] - 2026-04-13
 
 ### Changed
@@ -280,7 +303,8 @@ for pointing it out).
 
 _First release._
 
-[unreleased]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.7.7...HEAD
+[unreleased]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.7.8...HEAD
+[0.7.8]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.7.7...v0.7.8
 [0.7.7]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.7.6...v0.7.7
 [0.7.6]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.7.5...v0.7.6
 [0.7.5]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.7.4...v0.7.5
