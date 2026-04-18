@@ -295,14 +295,14 @@ function getAnalysis(flights, prices, storedData) {
         note: function(cmp) {
             if (this.data[cmp].valid) {
                 if (this.data[cmp].useCurrentPrice) {
-                    return "Current price analysis";
+                    return "Current price";
                 } else if (this.data[cmp].analysisSourcePrice) {
-                    return "Current price has no finished or inflight results yet, using active price " + formatCurrency(this.data[cmp].analysisSourcePrice) + " AS$ for reference only";
+                    return "Ref: active " + formatCurrency(this.data[cmp].analysisSourcePrice) + " AS$";
                 } else {
-                    return "Current price has no finished or inflight results yet, using old price for reference only"
+                    return "Ref: old price";
                 }
             } else {
-                return "No data for analysis";
+                return "No data";
             }
         },
         displayLoad: function(cmp) {
@@ -548,10 +548,10 @@ function generateRecommendation(analysis, prices) {
         if (!item.valid || !item.canRecommend) {
             if (item.valid && item.analysisSourcePrice && !item.useCurrentPrice) {
                 item.recType = 'neutral';
-                item.recommendation = 'Waiting for current price results';
+                item.recommendation = 'Wait for current price';
             } else if (item.valid && !item.useCurrentPrice) {
                 item.recType = 'neutral';
-                item.recommendation = 'Current price results required';
+                item.recommendation = 'Need current price results';
             }
             continue;
         }
@@ -570,7 +570,7 @@ function generateRecommendation(analysis, prices) {
 
         if (!step) {
             item.recType = 'neutral';
-            item.recommendation = 'No matching recommendation step!';
+            item.recommendation = 'No matching step';
             continue;
         }
 
@@ -590,9 +590,9 @@ function generateRecommendation(analysis, prices) {
         // Boundary message when no actual movement is possible
         if (targetPricePoint === currentPricePoint && step.step !== 0) {
             if (targetPricePoint === config.minPrice) {
-                item.recommendation = 'Already at lowest price!';
+                item.recommendation = 'At lowest';
             } else if (targetPricePoint === config.maxPrice) {
-                item.recommendation = 'Already at highest price!';
+                item.recommendation = 'At highest';
             }
         }
 
