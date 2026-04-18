@@ -296,6 +296,8 @@ function getAnalysis(flights, prices, storedData) {
             if (this.data[cmp].valid) {
                 if (this.data[cmp].useCurrentPrice) {
                     return "Current price analysis";
+                } else if (this.data[cmp].analysisSourcePrice) {
+                    return "No current price flights, using active price " + formatCurrency(this.data[cmp].analysisSourcePrice) + " AS$";
                 } else {
                     return "No current price flights, using old price"
                 }
@@ -461,6 +463,7 @@ function getAnalysis(flights, prices, storedData) {
             analysisPrice: 0,
             analysisPricePoint: 0,
             useCurrentPrice: 0,
+            analysisSourcePrice: 0,
             currentPrice: prices[cmp].currentPrice,
             currentPricePoint: prices[cmp].currentPricePoint
         };
@@ -480,7 +483,22 @@ function getAnalysis(flights, prices, storedData) {
                 analysis.data[cmp].analysisPrice = price;
                 analysis.data[cmp].analysisPricePoint = Math.round(price / prices[cmp].defaultPrice * 100);
                 analysis.data[cmp].valid = true;
-            } else if (mostRecentData) {
+            } else {
+                const activePrice = getMostCommonFlightPrice(cmpFlights);
+                if (activePrice > 0) {
+                    flightsArray = cmpFlights.filter(function(flight) {
+                        return flight.price == activePrice;
+                    });
+                    if (flightsArray.length) {
+                        analysis.data[cmp].useCurrentPrice = 0;
+                        analysis.data[cmp].analysisPrice = activePrice;
+                        analysis.data[cmp].analysisPricePoint = Math.round(activePrice / prices[cmp].defaultPrice * 100);
+                        analysis.data[cmp].analysisSourcePrice = activePrice;
+                        analysis.data[cmp].valid = true;
+                    }
+                }
+            }
+            if (!analysis.data[cmp].valid && mostRecentData) {
                 const previousCmpData = mostRecentData.data && mostRecentData.data[cmp];
                 const hasUsablePreviousAnalysis = previousCmpData &&
                     previousCmpData.valid &&
@@ -582,6 +600,25 @@ function generateRecommendation(analysis, prices) {
     }
 
     return analysis;
+}
+
+function getMostCommonFlightPrice(flights) {
+    const priceCounts = {};
+    let selectedPrice = 0;
+    let selectedCount = 0;
+
+    flights.forEach(function(flight) {
+        if (!Number.isFinite(flight.price) || flight.price <= 0) {
+            return;
+        }
+        priceCounts[flight.price] = (priceCounts[flight.price] || 0) + 1;
+        if (priceCounts[flight.price] > selectedCount) {
+            selectedPrice = flight.price;
+            selectedCount = priceCounts[flight.price];
+        }
+    });
+
+    return selectedPrice;
 }
 
 function generateRouteIndex(analysis) {

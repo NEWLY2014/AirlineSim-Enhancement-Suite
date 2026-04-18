@@ -57,26 +57,45 @@ class ReleaseNotesDialog {
 
         const header = document.createElement("div")
         header.className = "modal-header aes-release-notes-header"
+        const hero = document.createElement("div")
+        hero.className = "aes-release-notes-hero"
+        const heroBrand = document.createElement("div")
+        heroBrand.className = "aes-release-notes-brand"
+        const logo = document.createElement("img")
+        logo.className = "aes-release-notes-logo"
+        logo.src = chrome.runtime.getURL("images/AES-logo-128.png")
+        logo.alt = "AES logo"
+        const titleWrap = document.createElement("div")
+        titleWrap.className = "aes-release-notes-title-wrap"
         const title = document.createElement("h3")
         title.className = "modal-title"
         title.textContent = notes.title
         const versionLabel = document.createElement("p")
         versionLabel.className = "aes-release-notes-version"
         versionLabel.textContent = "Version " + version
-        header.append(this.#closeButton, title, versionLabel)
+        const summary = document.createElement("p")
+        summary.className = "aes-release-notes-summary"
+        summary.textContent = notes.summary
+        const badge = document.createElement("span")
+        badge.className = "aes-release-notes-badge"
+        badge.textContent = "What's new"
+
+        titleWrap.append(badge, title, versionLabel, summary)
+        heroBrand.append(logo, titleWrap)
+        hero.append(this.#closeButton, heroBrand)
+        header.append(hero)
 
         const body = document.createElement("div")
         body.className = "modal-body aes-release-notes-body"
-
-        const intro = document.createElement("p")
-        intro.className = "aes-release-notes-summary"
-        intro.textContent = notes.summary
-        body.append(intro)
+        const sections = document.createElement("div")
+        sections.className = "aes-release-notes-sections"
 
         notes.sections.forEach(function(section) {
+            const card = document.createElement("section")
+            card.className = "aes-release-notes-card"
             const sectionTitle = document.createElement("h4")
+            sectionTitle.className = "aes-release-notes-card-title"
             sectionTitle.textContent = section.title
-            body.append(sectionTitle)
 
             const list = document.createElement("ul")
             list.className = "aes-release-notes-list"
@@ -85,14 +104,17 @@ class ReleaseNotesDialog {
                 listItem.textContent = item
                 list.append(listItem)
             })
-            body.append(list)
+
+            card.append(sectionTitle, list)
+            sections.append(card)
         })
+        body.append(sections)
 
         const footer = document.createElement("div")
         footer.className = "modal-footer aes-release-notes-footer"
 
         const changelogLink = document.createElement("a")
-        changelogLink.className = "btn btn-link"
+        changelogLink.className = "btn btn-default aes-release-notes-link"
         changelogLink.href = "https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/blob/main/CHANGELOG.md"
         changelogLink.target = "_blank"
         changelogLink.rel = "noopener noreferrer"
@@ -124,7 +146,7 @@ class ReleaseNotesDialog {
     #createConfirmButton() {
         const button = document.createElement("button")
         button.type = "button"
-        button.className = "btn btn-default"
+        button.className = "btn btn-primary aes-release-notes-confirm"
         button.textContent = "Got it"
         return button
     }
