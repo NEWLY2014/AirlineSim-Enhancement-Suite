@@ -183,8 +183,9 @@ function afp_renderPanel() {
 
     let extractBtn = $('<button type="button" class="btn btn-default"></button>').text(aircraftFlightPlanState.extracting ? 'Extracting...' : 'Extract template').prop('disabled', aircraftFlightPlanState.extracting);
     let deleteBtn = $('<button type="button" class="btn btn-default"></button>').text('Delete saved template').prop('disabled', !hasTemplate || aircraftFlightPlanState.extracting);
-    let startBtn = $('<button type="button" class="btn btn-default"></button>').text(jobOnCurrentAircraft ? 'Scheduling in progress' : 'Start scheduling').prop('disabled', !canStart);
-    let clearJobBtn = $('<button type="button" class="btn btn-default"></button>').text('Stop scheduling').prop('disabled', !job);
+    let scheduleBtn = $('<button type="button" class="btn btn-default"></button>')
+        .text(jobIsActive ? 'Stop scheduling' : 'Start scheduling')
+        .prop('disabled', jobIsActive ? false : !canStart);
     let offsetButtons = $('<div class="btn-group aes-aircraft-flight-plan-offset-group" role="group" aria-label="Offset days"></div>');
     let offsetButtonsDisabled = aircraftFlightPlanState.extracting || jobOnCurrentAircraft || jobOnOtherAircraft;
 
@@ -207,11 +208,12 @@ function afp_renderPanel() {
     deleteBtn.on('click', function() {
         afp_deleteTemplate();
     });
-    startBtn.on('click', function() {
+    scheduleBtn.on('click', function() {
+        if (aircraftFlightPlanState.job && aircraftFlightPlanState.job.status !== 'done' && aircraftFlightPlanState.job.status !== 'error') {
+            afp_clearJob(true);
+            return;
+        }
         afp_startScheduling(aircraftFlightPlanState.offsetDays || 0);
-    });
-    clearJobBtn.on('click', function() {
-        afp_clearJob(true);
     });
 
     let hint = '';
@@ -244,8 +246,7 @@ function afp_renderPanel() {
             $('<div class="aes-aircraft-flight-plan-start"></div>').append(
                 $('<label class="control-label aes-aircraft-flight-plan-label"></label>').text('Offset'),
                 offsetButtons,
-                startBtn,
-                clearJobBtn
+                scheduleBtn
             )
         ),
         job ? $('<div class="aes-aircraft-flight-plan-job"></div>').text(afp_getJobSummary()) : null,

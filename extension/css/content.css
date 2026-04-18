@@ -254,9 +254,9 @@
 }
 
 .aes-aircraft-flight-plan-offset-btn {
-    min-width: 34px;
-    padding-left: 10px;
-    padding-right: 10px;
+    min-width: 28px;
+    padding-left: 8px;
+    padding-right: 8px;
 }
 
 .aes-aircraft-flight-plan-offset-btn.active,
