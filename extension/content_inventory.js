@@ -3,6 +3,9 @@
 //Global vars
 var settings, pricingData, todayDate, analysis, server, airline;
 var aesmodule = { valid: true, error: [] };
+var inventoryObserver = null;
+var inventoryRefreshTimer = 0;
+var inventoryRenderSignature = "";
 $(function(){
     server = AES.getServerName();
     airline = AES.getAirline();
@@ -11,14 +14,59 @@ $(function(){
 
 window.addEventListener("load", async (event) => {
     settings = await getSettings()
+    watchInventoryLayout()
+    rerenderInventoryModule(true)
+})
+
+async function rerenderInventoryModule(force) {
+    const nextSignature = getInventorySignature()
+    if (!force && nextSignature === inventoryRenderSignature) {
+        return
+    }
+
+    inventoryRenderSignature = nextSignature
+    cleanupInventoryDisplay()
+    settings = await getSettings()
     aesmodule = new Validation()
 
     if (!aesmodule.valid) {
         displayValidationError()
         return
     }
-    displayInventory()
-})
+    try {
+        await displayInventory()
+    } catch (error) {
+        if (error && /Unable to read inventory data/.test(String(error.message || error))) {
+            return
+        }
+        throw error
+    }
+}
+
+function watchInventoryLayout() {
+    if (inventoryObserver) {
+        return
+    }
+
+    const target = document.querySelector(".container-fluid .row .col-md-10") || document.body
+    inventoryObserver = new MutationObserver(function() {
+        clearTimeout(inventoryRefreshTimer)
+        inventoryRefreshTimer = window.setTimeout(function() {
+            rerenderInventoryModule(false)
+        }, 150)
+    })
+    inventoryObserver.observe(target, { childList: true, subtree: true })
+}
+
+function getInventorySignature() {
+    const groupedBodies = document.querySelectorAll("#inventory-grouped-table tbody").length
+    const classicRows = document.querySelectorAll("#inventory-table tbody tr").length
+    return [groupedBodies, classicRows].join(":")
+}
+
+function cleanupInventoryDisplay() {
+    $("#aes-h3-analysis, #aes-div-analysis, #aes-h3-history, #aes-div-invPricing-historicalData, #aes-h3-validation, #aes-panel-validation").remove();
+}
 
 /**
  * Get settings from local storage
@@ -752,7 +800,7 @@ function displayAnalysis(analysis, prices) {
     let mainDiv = $(".container-fluid .row .col-md-10 div .as-panel:eq(0)");
     mainDiv.after(
         `
-    <h3>Analysis (today's snapshot)</h3>
+    <h3 id="aes-h3-analysis">Analysis (today's snapshot)</h3>
     <div id="aes-div-analysis" >
       <div class="as-panel">
         <div class="as-table-well">
@@ -942,7 +990,7 @@ function displayHistory(analysis) {
     if (dates.length) {
         //Build Div
         let mainDiv = $("#aes-div-analysis");
-        mainDiv.after('<h3>Historical Data</h3><div id="aes-div-invPricing-historicalData" class="as-panel"></div>');
+        mainDiv.after('<h3 id="aes-h3-history">Historical Data</h3><div id="aes-div-invPricing-historicalData" class="as-panel"></div>');
 
         //History Options
         let fieldset = $('<fieldset></fieldset>').html('<legend>History Options</legend>');
@@ -1188,10 +1236,9 @@ function displayValidationError() {
     aesmodule.errors.forEach(function(error) {
         p.push($('<p class="bad"></p>').append($('<b></b>').text(error)));
     });
-    p.push($('<p class="warning"></p>').text('Refresh the page after making adjustments.'));
-    let panel = $('<div class="as-panel"></div>').append(p);
-    let h2 = $('<h3></h3>').text('AES Inventory Pricing Module');
-    let div = $('<div></div>').append(h2, panel);
+    p.push($('<p class="warning"></p>').text('Adjust the inventory view and AES will reload automatically.'));
+    let panel = $('<div id="aes-panel-validation" class="as-panel"></div>').append(p);
+    let h2 = $('<h3 id="aes-h3-validation"></h3>').text('AES Inventory Pricing Module');
     $('h1:eq(0)').after(h2, panel)
 }
 
