@@ -5,18 +5,27 @@ var aircraftFlightData;
 var aircraftFlightAirline;
 var aircraftFleetKey;
 var aircraftFlightNotifications;
-$(function() {
-    aircraftFlightData = getData();
-    let currentAirline = AES.getCurrentAirline();
-    aircraftFlightAirline = currentAirline && currentAirline.id ? currentAirline : AES.getAirline();
-    aircraftFleetKey = aircraftFlightData.server + aircraftFlightAirline.id + 'aircraftFleet';
-    aircraftFlightNotifications = typeof Notifications === 'function' ? new Notifications() : null;
-    persistAircraftFlightSummary();
-    syncFleetHubData(function() {});
+const AIRCRAFT_FLIGHTS_SCRIPT_ENABLED = AES.shouldRunContentScript("content_aircraftFlights");
 
-    //Async start
-    getStorageData();
-});
+if (AIRCRAFT_FLIGHTS_SCRIPT_ENABLED) {
+    $(function() {
+        aircraftFlightData = getData();
+        let currentAirline = AES.getCurrentAirline();
+        aircraftFlightAirline = currentAirline && currentAirline.id ? currentAirline : AES.getAirline();
+        aircraftFleetKey = aircraftFlightData.server + aircraftFlightAirline.id + 'aircraftFleet';
+        aircraftFlightNotifications = typeof Notifications === 'function' ? new Notifications() : null;
+        persistAircraftFlightSummary();
+        syncFleetHubData(function() {});
+
+        //Async start
+        getStorageData();
+    });
+
+    AES.whenPageOwnershipLost(function() {
+        $('.aes-aircraft-flights-block').remove();
+        $('.aes-aircraft-flights-extra-header, .aes-aircraft-flights-extra-cell').remove();
+    });
+}
 
 function getStorageData() {
     let keys = [];
@@ -142,6 +151,7 @@ function display() {
         tableWell
     );
     $('.aes-aircraft-flights-block').remove();
+    AES.markOwnedElements(content);
     let insertionTarget = $('#aircraft-flight-instances-table').closest('.as-table-well');
     if (insertionTarget.length) {
         insertionTarget.before(content);
@@ -167,22 +177,24 @@ function displayFlightProfit() {
     //Table
     let table = $('#aircraft-flight-instances-table');
     //Head
-    let th = ['<th>Profit/Loss</th>', '<th>Extract date</th>'];
+    $('.aes-aircraft-flights-extra-header, .aes-aircraft-flights-extra-cell', table).remove();
+    let th = ['<th class="aes-aircraft-flights-extra-header">Profit/Loss</th>', '<th class="aes-aircraft-flights-extra-header">Extract date</th>'];
     $('th:eq(9)', table).after(th);
     //body
     aircraftFlightData.flights.forEach(function(value) {
         let td = [];
 
         if (value.data) {
-            td.push(formatMoney(value.data.money.CM5.Total));
-            td.push($('<td></td>').text(AES.formatDateString(value.data.date) + ' ' + value.data.time));
+            td.push($(formatMoney(value.data.money.CM5.Total)).addClass('aes-aircraft-flights-extra-cell'));
+            td.push($('<td class="aes-aircraft-flights-extra-cell"></td>').text(AES.formatDateString(value.data.date) + ' ' + value.data.time));
         } else {
-            td.push('<td class="text-center">--</td>');
-            td.push('<td class="text-center">--</td>');
+            td.push('<td class="aes-aircraft-flights-extra-cell text-center">--</td>');
+            td.push('<td class="aes-aircraft-flights-extra-cell text-center">--</td>');
         }
 
         $('td:eq(11)', value.row).after(td);
     });
+    AES.markOwnedElements($('.aes-aircraft-flights-extra-header, .aes-aircraft-flights-extra-cell', table));
     $("tfoot td", table).attr("colspan", "15")
 }
 

@@ -5,41 +5,52 @@ var settings, airline, server, todayDate;
 var dashboardControlPanelExpanded = {};
 var routeManagementFilterTimer = null;
 const dashboardStorage = globalThis.chrome?.storage?.local;
+const DASHBOARD_SCRIPT_ENABLED = AES.shouldRunContentScript("content_dashboard");
 
-$(function() {
-    if (!dashboardStorage) {
-        return;
-    }
-    todayDate = AES.getServerDate();
-    let currentAirline = AES.getCurrentAirline();
-    airline = currentAirline && currentAirline.id ? currentAirline : AES.getAirline();
-    server = AES.getServerName();
-    dashboardStorage.get(['settings'], function(result) {
-        settings = result.settings;
-        let filterScopeChanged = normalizeDashboardFilterScope();
-
-        displayDashboard();
-        dashboardHandle();
-        $("#aes-select-dashboard-main").change(function() {
-            dashboardHandle();
-        });
-        if (filterScopeChanged) {
-            AES.updateSettings(function(currentSettings) {
-                currentSettings.general.dashboardFilterScopeKey = settings.general.dashboardFilterScopeKey;
-                currentSettings.routeManagement.filter = settings.routeManagement.filter;
-                currentSettings.competitorMonitoring.filter = settings.competitorMonitoring.filter;
-                currentSettings.aircraftProfitability.filter = settings.aircraftProfitability.filter;
-            }, function(updatedSettings) {
-                settings = updatedSettings;
-            });
+if (DASHBOARD_SCRIPT_ENABLED) {
+    $(function() {
+        if (!dashboardStorage) {
+            return;
         }
+        todayDate = AES.getServerDate();
+        let currentAirline = AES.getCurrentAirline();
+        airline = currentAirline && currentAirline.id ? currentAirline : AES.getAirline();
+        server = AES.getServerName();
+        dashboardStorage.get(['settings'], function(result) {
+            settings = result.settings;
+            let filterScopeChanged = normalizeDashboardFilterScope();
+
+            displayDashboard();
+            AES.markOwnedElements($("#aes-dashboard-root"))
+            dashboardHandle();
+            $("#aes-select-dashboard-main").change(function() {
+                dashboardHandle();
+            });
+            if (filterScopeChanged) {
+                AES.updateSettings(function(currentSettings) {
+                    currentSettings.general.dashboardFilterScopeKey = settings.general.dashboardFilterScopeKey;
+                    currentSettings.routeManagement.filter = settings.routeManagement.filter;
+                    currentSettings.competitorMonitoring.filter = settings.competitorMonitoring.filter;
+                    currentSettings.aircraftProfitability.filter = settings.aircraftProfitability.filter;
+                }, function(updatedSettings) {
+                    settings = updatedSettings;
+                });
+            }
+        });
     });
-});
+
+    AES.whenPageOwnershipLost(function() {
+        clearTimeout(routeManagementFilterTimer);
+        $("#aes-dashboard-root").remove();
+    });
+}
 
 function displayDashboard() {
     let mainDiv = $("#enterprise-dashboard");
+    $("#aes-dashboard-root").remove();
     mainDiv.before(
         `
+    <div id="aes-dashboard-root">
     <h3>AirlineSim Enhancement Suite Dashboard</h3>
     <div class="as-panel">
       <div class="form-group">
@@ -55,6 +66,7 @@ function displayDashboard() {
       </div>
     </div>
     <div id="aes-div-dashboard">
+    </div>
     </div>
     `
     );

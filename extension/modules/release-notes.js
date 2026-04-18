@@ -66,6 +66,7 @@ class ReleaseNotesDialog {
         this.#container = this.#createContainer(version, notes)
         this.#backdrop = this.#createBackdrop()
         document.body.append(this.#backdrop, this.#container)
+        AES.markOwnedElements([this.#container, this.#backdrop])
         document.body.classList.add("modal-open")
         this.#bindEvents()
     }
@@ -246,6 +247,9 @@ function maybeShowReleaseNotes() {
 }
 
 function showReleaseNotesDialog(version, notes) {
+    if (!AES.isPageOwner()) {
+        return
+    }
     if (document.getElementById("aes-release-notes-dialog")) {
         return
     }
@@ -280,6 +284,7 @@ function addReleaseNotesFooterLink() {
     })
 
     wrapper.append(link)
+    AES.markOwnedElements(wrapper)
 
     const gameVersion = footerLine.querySelector("#version")
     if (gameVersion) {
@@ -289,5 +294,11 @@ function addReleaseNotesFooterLink() {
     }
 }
 
-addReleaseNotesFooterLink()
-maybeShowReleaseNotes()
+if (AES.shouldRunContentScript("module:release-notes")) {
+    addReleaseNotesFooterLink()
+    maybeShowReleaseNotes()
+    AES.whenPageOwnershipLost(function() {
+        AES.removeOwnedElements()
+        document.body.classList.remove("modal-open")
+    })
+}

@@ -361,5 +361,213 @@ class AES {
         }
     }
 
+    /**
+     * Returns the current AES extension version.
+     * @returns {string}
+     */
+    static getVersion() {
+        const manifest = chrome.runtime.getManifest();
+        return manifest.version_name || manifest.version || "0.0.0";
+    }
+
+    /**
+     * Compares AES versions, including legacy letter suffixes such as 0.7.0d.
+     * @param {string} versionA
+     * @param {string} versionB
+     * @returns {integer} 1 | 0 | -1
+     */
+    static compareVersions(versionA, versionB) {
+        function parseVersion(value) {
+            const match = String(value || "0.0.0").trim().match(/^(\d+)\.(\d+)\.(\d+)([A-Za-z]*)$/);
+            if (!match) {
+                return { major: 0, minor: 0, patch: 0, suffix: "" };
+            }
+
+            return {
+                major: parseInt(match[1], 10),
+                minor: parseInt(match[2], 10),
+                patch: parseInt(match[3], 10),
+                suffix: (match[4] || "").toLowerCase()
+            };
+        }
+
+        const a = parseVersion(versionA);
+        const b = parseVersion(versionB);
+        const numericKeys = ["major", "minor", "patch"];
+
+        for (let i = 0; i < numericKeys.length; i++) {
+            const key = numericKeys[i];
+            if (a[key] > b[key]) {
+                return 1;
+            }
+            if (a[key] < b[key]) {
+                return -1;
+            }
+        }
+
+        if (a.suffix === b.suffix) {
+            return 0;
+        }
+        if (!a.suffix) {
+            return 1;
+        }
+        if (!b.suffix) {
+            return -1;
+        }
+        return a.suffix > b.suffix ? 1 : -1;
+    }
+
+    /**
+     * Claims control of the current page for this AES version.
+     * @returns {boolean}
+     */
+    static claimPageControl() {
+        AES.#ensurePageControlMonitor();
+
+        const marker = AES.#getPageControlMarker(true);
+        const ownVersion = AES.getVersion();
+        const ownOwner = chrome.runtime.id;
+        const activeVersion = marker.getAttribute("data-version") || "";
+        const activeOwner = marker.getAttribute("data-owner") || "";
+        const versionComparison = AES.compareVersions(ownVersion, activeVersion);
+        const sameVersionTieBreak = versionComparison === 0 && (!activeOwner || ownOwner < activeOwner);
+        const shouldClaim = !activeOwner || !activeVersion || versionComparison > 0 || sameVersionTieBreak;
+
+        if (shouldClaim) {
+            marker.setAttribute("data-owner", ownOwner);
+            marker.setAttribute("data-version", ownVersion);
+        }
+
+        AES.#refreshPageOwnership();
+        return AES.isPageOwner();
+    }
+
+    /**
+     * Returns whether the current extension instance owns the page.
+     * @returns {boolean}
+     */
+    static isPageOwner() {
+        AES.#ensurePageControlMonitor();
+        return !!AES._pageOwner;
+    }
+
+    /**
+     * Convenience wrapper used by content scripts and shared modules.
+     * @param {string} scriptName
+     * @returns {boolean}
+     */
+    static shouldRunContentScript(scriptName) {
+        const allowed = AES.claimPageControl();
+        if (!allowed) {
+            console.info("[AES] Skipping initialization because a newer AES version is active on this page.", scriptName || "");
+        }
+        return allowed;
+    }
+
+    /**
+     * Registers a callback that fires when this AES instance loses page ownership.
+     * @param {function(): void} callback
+     */
+    static whenPageOwnershipLost(callback) {
+        if (typeof callback !== "function") {
+            return;
+        }
+        AES.#ensurePageControlMonitor();
+        AES._ownershipLostCallbacks.push(callback);
+    }
+
+    /**
+     * Marks elements as belonging to this AES instance.
+     * @param {HTMLElement|Array|NodeList|jQuery} elements
+     */
+    static markOwnedElements(elements) {
+        if (!elements) {
+            return;
+        }
+
+        const ownOwner = chrome.runtime.id;
+        const ownVersion = AES.getVersion();
+        const mark = function(element) {
+            if (!element || !element.setAttribute) {
+                return;
+            }
+            element.setAttribute("data-aes-owner", ownOwner);
+            element.setAttribute("data-aes-version", ownVersion);
+        };
+
+        if (typeof elements.each === "function") {
+            elements.each(function() {
+                mark(this);
+            });
+            return;
+        }
+
+        if (Array.isArray(elements) || (typeof elements.length === "number" && elements !== window && !elements.nodeType)) {
+            Array.from(elements).forEach(mark);
+            return;
+        }
+
+        mark(elements);
+    }
+
+    /**
+     * Removes DOM nodes owned by this AES instance.
+     */
+    static removeOwnedElements() {
+        const selector = `[data-aes-owner="${chrome.runtime.id}"][data-aes-version="${AES.getVersion()}"]`;
+        document.querySelectorAll(selector).forEach(function(node) {
+            node.remove();
+        });
+    }
+
+    static #getPageControlMarker(createIfMissing) {
+        let marker = document.getElementById("aes-page-control");
+        if (!marker && createIfMissing) {
+            marker = document.createElement("meta");
+            marker.id = "aes-page-control";
+            marker.setAttribute("name", "aes-page-control");
+            (document.head || document.documentElement).append(marker);
+        }
+        return marker;
+    }
+
+    static #ensurePageControlMonitor() {
+        if (AES._pageControlInitialized) {
+            return;
+        }
+
+        AES._pageControlInitialized = true;
+        AES._pageOwner = false;
+        AES._ownershipLostCallbacks = [];
+        const marker = AES.#getPageControlMarker(true);
+        AES._pageControlObserver = new MutationObserver(function() {
+            AES.#refreshPageOwnership();
+        });
+        AES._pageControlObserver.observe(marker, {
+            attributes: true,
+            attributeFilter: ["data-owner", "data-version"]
+        });
+        AES.#refreshPageOwnership();
+    }
+
+    static #refreshPageOwnership() {
+        const marker = AES.#getPageControlMarker(true);
+        const previousOwnerState = !!AES._pageOwner;
+        AES._pageOwner = marker.getAttribute("data-owner") === chrome.runtime.id &&
+            marker.getAttribute("data-version") === AES.getVersion();
+
+        if (previousOwnerState && !AES._pageOwner) {
+            AES._ownershipLostCallbacks.forEach(function(callback) {
+                try {
+                    callback();
+                } catch (error) {
+                    console.error("[AES] Ownership lost callback failed", error);
+                }
+            });
+        }
+    }
+
 
 }
+
+AES.claimPageControl();

@@ -1,13 +1,21 @@
 "use strict";
 //MAIN
 var settings;
-$(function() {
-    chrome.storage.local.get(['settings'], function(result) {
-        settings = result.settings;
-        displaySettings();
-        settingDisplayHandle('Inventory Pricing')
+const SETTINGS_SCRIPT_ENABLED = AES.shouldRunContentScript("content_settings");
+if (SETTINGS_SCRIPT_ENABLED) {
+    $(function() {
+        chrome.storage.local.get(['settings'], function(result) {
+            settings = result.settings;
+            displaySettings();
+            AES.markOwnedElements($("#aes-div-settingArea"));
+            settingDisplayHandle('Inventory Pricing')
+        });
     });
-});
+
+    AES.whenPageOwnershipLost(function() {
+        $('#aes-div-settingArea').remove();
+    });
+}
 
 //FUNCTIONS MAIN
 //Display settings

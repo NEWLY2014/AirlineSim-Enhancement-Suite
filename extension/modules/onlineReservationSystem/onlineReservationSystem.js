@@ -12,6 +12,7 @@ class OnlineReservationSystem {
         this.#addNumberToRating();
         this.#addDifferenceColumn();
         this.#setupNavigationPersistence();
+        AES.markOwnedElements(document.querySelectorAll('.ors-result .aes-text-left, .ors-result .aes-ors-difference'));
     }
 
     /**
@@ -145,6 +146,7 @@ class OnlineReservationSystem {
         if (ratingThIdx === -1) return -1;
 
         const diffTh = document.createElement('th');
+        diffTh.className = 'aes-ors-difference';
         diffTh.textContent = 'Difference';
         ths[ratingThIdx].after(diffTh);
         return ratingThIdx;
@@ -157,6 +159,7 @@ class OnlineReservationSystem {
     #insertDifferenceCell(row) {
         const ratingTd = row.querySelector('td.rating') || row.querySelector('td.aircraft');
         const diffTd = document.createElement('td');
+        diffTd.className = 'aes-ors-difference';
 
         if (row.classList.contains('totals')) {
             const img = ratingTd ? ratingTd.querySelector('img') : null;
@@ -177,4 +180,9 @@ class OnlineReservationSystem {
 
 }
 
-new OnlineReservationSystem().init();
+if (AES.shouldRunContentScript("module:online-reservation-system")) {
+    new OnlineReservationSystem().init();
+    AES.whenPageOwnershipLost(function() {
+        AES.removeOwnedElements();
+    });
+}

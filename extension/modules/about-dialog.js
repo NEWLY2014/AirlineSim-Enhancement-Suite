@@ -18,6 +18,7 @@ class AboutDialog {
         this.#container.append(this.#modalDialog)
         this.#target = this.#setTarget()
         this.#target.append(this.#container)
+        AES.markOwnedElements(this.#container)
 
         const observer = this.#mutationObserver()
         observer.observe(this.#container, {attributes: true})
@@ -102,6 +103,19 @@ class AboutDialog {
             this.#container.style = "display: block"
         }
     }
+
+    destroy() {
+        if (this.#container) {
+            this.#container.remove()
+        }
+    }
 }
 
-new AboutDialog()
+if (AES.shouldRunContentScript("module:about-dialog")) {
+    const aboutDialog = new AboutDialog()
+    AES.whenPageOwnershipLost(function() {
+        if (aboutDialog && typeof aboutDialog.destroy === "function") {
+            aboutDialog.destroy()
+        }
+    })
+}

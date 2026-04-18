@@ -2,23 +2,30 @@
 //MAIN
 //Global vars
 var settings, server, airline;
-$(function() {
-    chrome.storage.local.get(['settings'], function(result) {
-        settings = result.settings;
-        //Default settings
-        if (!settings.personnelManagement) {
-            settings.personnelManagement = {
-                value: 0,
-                type: 'absolute',
-                auto: 0
-            };
-        }
-        server = AES.getServerName();
-        airline = AES.getAirline();
+const PERSONNEL_MANAGEMENT_SCRIPT_ENABLED = AES.shouldRunContentScript("content_personnelManagement");
+if (PERSONNEL_MANAGEMENT_SCRIPT_ENABLED) {
+    $(function() {
+        chrome.storage.local.get(['settings'], function(result) {
+            settings = result.settings;
+            //Default settings
+            if (!settings.personnelManagement) {
+                settings.personnelManagement = {
+                    value: 0,
+                    type: 'absolute',
+                    auto: 0
+                };
+            }
+            server = AES.getServerName();
+            airline = AES.getAirline();
 
-        displayPersonnelManagement();
+            displayPersonnelManagement();
+        });
     });
-});
+
+    AES.whenPageOwnershipLost(function() {
+        $('#aes-personnel-management-root').remove();
+    });
+}
 
 function displayPersonnelManagement() {
     //Header rows
@@ -60,7 +67,9 @@ function displayPersonnelManagement() {
 
     //Final
     let mainDiv = $(".container-fluid:eq(2) h1");
-    mainDiv.after('<h3>AirlineSim Enhancement Suite Personnel Management</h3>', panel);
+    let root = $('<div id="aes-personnel-management-root"></div>').append('<h3>AirlineSim Enhancement Suite Personnel Management</h3>', panel);
+    AES.markOwnedElements(root);
+    mainDiv.after(root);
 
     //actions
     select.change(function() {
@@ -164,4 +173,3 @@ async function salaryUpdate(span) {
         });
     });
 }
-

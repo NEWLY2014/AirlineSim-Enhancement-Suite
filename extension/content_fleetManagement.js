@@ -6,18 +6,32 @@ var server, aircraftFleetKey, aircraftFleetStorageData, airline, date, currentFl
 var fltmngFilterActive = false;
 var fltmngTableObserver = null;
 var fltmngRefreshTimer = null;
-$(function() {
-    let currentAirline = AES.getCurrentAirline();
-    airline = currentAirline && currentAirline.id ? currentAirline : AES.getAirline();
-    server = AES.getServerName();
-    date = AES.getServerDate()
+const FLEET_MANAGEMENT_SCRIPT_ENABLED = AES.shouldRunContentScript("content_fleetManagement");
 
-    if (fltmng_fleetManagementPageOpen()) {
-        fltmng_getData();
-        //Async start
-        fltmng_getStorageData();
-    }
-});
+if (FLEET_MANAGEMENT_SCRIPT_ENABLED) {
+    $(function() {
+        let currentAirline = AES.getCurrentAirline();
+        airline = currentAirline && currentAirline.id ? currentAirline : AES.getAirline();
+        server = AES.getServerName();
+        date = AES.getServerDate()
+
+        if (fltmng_fleetManagementPageOpen()) {
+            fltmng_getData();
+            //Async start
+            fltmng_getStorageData();
+        }
+    });
+
+    AES.whenPageOwnershipLost(function() {
+        if (fltmngTableObserver) {
+            fltmngTableObserver.disconnect();
+            fltmngTableObserver = null;
+        }
+        clearTimeout(fltmngRefreshTimer);
+        $('[data-aes-owner="' + chrome.runtime.id + '"][data-aes-version="' + AES.getVersion() + '"]').remove();
+        $('.aes-fleet-extra-header, .aes-fleet-extra-cell').remove();
+    });
+}
 
 function fltmng_fleetManagementPageOpen() {
     let a = $('.as-page-fleet-management');
@@ -364,6 +378,7 @@ function fltmng_saveData() {
 }
 
 function fltmng_display() {
+    $('#aes-fleet-management-root').remove();
     fltmng_displayAircraftProfit();
 
     let p = [];
@@ -374,7 +389,8 @@ function fltmng_display() {
     let panel = $('<div class="as-panel"></div>').append(p);
     //Header
     let h = $('<h3></h3>').text('AES Fleet Management');
-    let div = $('<div></div>').append(h, panel);
+    let div = $('<div id="aes-fleet-management-root"></div>').append(h, panel);
+    AES.markOwnedElements(div);
     $('.as-page-fleet-management > h1:eq(0)').after(div);
     fltmng_bindNativeSelectionLinks();
     fltmng_watchFleetTable();
@@ -434,6 +450,7 @@ function fltmng_displayAircraftProfit() {
             );
         }
     });
+    AES.markOwnedElements($('.aes-fleet-extra-header, .aes-fleet-extra-cell', table));
 }
 
 function fltmng_syncTableRows(table) {

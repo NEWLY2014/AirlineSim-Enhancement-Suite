@@ -109,6 +109,7 @@ class FlightInfo {
         const panel = this.#createPanel();
         const heading = this.#createHeading();
         const container = this.#createContainer(heading, panel);
+        AES.markOwnedElements(container);
 
         const anchor = document.querySelector('body > .container-fluid > h1');
 
@@ -240,6 +241,10 @@ class FlightInfo {
         tfoot.appendChild(row);
         return tfoot;
     }
+
+    destroy() {
+        AES.removeOwnedElements();
+    }
 }
 
 // Initialize the FlightInfo class when the DOM is fully loaded
@@ -249,4 +254,12 @@ class FlightInfo {
 //});
 
 // Because this AS-Site not fires the DOMContentLoaded event, we need to force the run!
-new FlightInfo().init();
+if (AES.shouldRunContentScript("module:flight-info")) {
+    const flightInfo = new FlightInfo();
+    flightInfo.init();
+    AES.whenPageOwnershipLost(function() {
+        if (flightInfo && typeof flightInfo.destroy === 'function') {
+            flightInfo.destroy();
+        }
+    });
+}

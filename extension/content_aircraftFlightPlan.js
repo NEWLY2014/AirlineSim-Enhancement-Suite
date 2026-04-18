@@ -12,10 +12,18 @@ var aircraftFlightPlanState = {
     server: '',
     template: null,
 };
+const AIRCRAFT_FLIGHT_PLAN_SCRIPT_ENABLED = AES.shouldRunContentScript("content_aircraftFlightPlan");
 
-$(function() {
-    aircraftFlightPlanInit();
-});
+if (AIRCRAFT_FLIGHT_PLAN_SCRIPT_ENABLED) {
+    $(function() {
+        aircraftFlightPlanInit();
+    });
+
+    AES.whenPageOwnershipLost(function() {
+        $('#aes-aircraft-flight-plan-panel').remove();
+        aircraftFlightPlanState.processingJob = false;
+    });
+}
 
 async function aircraftFlightPlanInit() {
     if (!afp_getAssignPanel().length || !afp_getVisualPlan().length) {
@@ -255,6 +263,7 @@ function afp_renderPanel() {
     );
 
     let transferHeading = afp_getTransferHeading();
+    AES.markOwnedElements(panel);
     if (transferHeading.length) {
         transferHeading.before(panel);
     } else {

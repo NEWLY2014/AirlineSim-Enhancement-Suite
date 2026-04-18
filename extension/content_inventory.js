@@ -6,17 +6,29 @@ var aesmodule = { valid: true, error: [] };
 var inventoryObserver = null;
 var inventoryRefreshTimer = 0;
 var inventoryRenderSignature = "";
-$(function(){
-    server = AES.getServerName();
-    airline = AES.getAirline();
+const INVENTORY_SCRIPT_ENABLED = AES.shouldRunContentScript("content_inventory");
 
-});
+if (INVENTORY_SCRIPT_ENABLED) {
+    $(function(){
+        server = AES.getServerName();
+        airline = AES.getAirline();
+    });
 
-window.addEventListener("load", async (event) => {
-    settings = await getSettings()
-    watchInventoryLayout()
-    rerenderInventoryModule(true)
-})
+    window.addEventListener("load", async () => {
+        settings = await getSettings()
+        watchInventoryLayout()
+        rerenderInventoryModule(true)
+    })
+
+    AES.whenPageOwnershipLost(function() {
+        if (inventoryObserver) {
+            inventoryObserver.disconnect()
+            inventoryObserver = null
+        }
+        clearTimeout(inventoryRefreshTimer)
+        cleanupInventoryDisplay()
+    })
+}
 
 async function rerenderInventoryModule(force) {
     const nextSignature = getInventorySignature()
@@ -31,10 +43,12 @@ async function rerenderInventoryModule(force) {
 
     if (!aesmodule.valid) {
         displayValidationError()
+        AES.markOwnedElements($("#aes-h3-validation, #aes-panel-validation"))
         return
     }
     try {
         await displayInventory()
+        AES.markOwnedElements($("#aes-h3-analysis, #aes-div-analysis, #aes-h3-history, #aes-div-invPricing-historicalData"))
     } catch (error) {
         if (error && /Unable to read inventory data/.test(String(error.message || error))) {
             return

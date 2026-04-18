@@ -14,6 +14,7 @@ class AESMenu {
         this.#container.append(this.#button, this.#menu)
 
         target.after(this.#container);
+        AES.markOwnedElements(this.#container)
     }
 
     /**
@@ -163,9 +164,22 @@ class AESMenu {
         menuItem.append(menuItemContent)
         return menuItem
     }
+
+    destroy() {
+        if (this.#container) {
+            this.#container.remove()
+        }
+    }
 }
 
-new AESMenu(
-    document.querySelector("#as-navbar-main-collapse .navbar-nav > li:nth-child(5)") ||
-    document.querySelector("#as-navbar-main-collapse .navbar-nav > li:last-child")
-)
+if (AES.shouldRunContentScript("module:aes-menu")) {
+    const aesMenu = new AESMenu(
+        document.querySelector("#as-navbar-main-collapse .navbar-nav > li:nth-child(5)") ||
+        document.querySelector("#as-navbar-main-collapse .navbar-nav > li:last-child")
+    )
+    AES.whenPageOwnershipLost(function() {
+        if (aesMenu && typeof aesMenu.destroy === "function") {
+            aesMenu.destroy()
+        }
+    })
+}

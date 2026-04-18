@@ -2,37 +2,44 @@
 //MAIN
 //Global vars
 var server, airline, ownerAirline, activeTab, compData;
-$(function() {
-    server = AES.getServerName();
-    airline = AES.getAirline();
-    ownerAirline = AES.getCurrentAirline();
-    activeTab = $(".nav-tabs .active").attr('class').split(" ");
-    activeTab = activeTab[0];
-    let key = AES.getCompetitorMonitoringKey(server, ownerAirline.id, airline.id);
-    let legacyKey = AES.getCompetitorMonitoringKey(server, null, airline.id);
-    chrome.storage.local.get([key, legacyKey], function(compMonitoringData) {
-        compData = compMonitoringData[key] || compMonitoringData[legacyKey];
-        if (!compData) {
-            compData = {
-                key: key,
-                server: server,
-                ownerId: ownerAirline.id,
-                ownerAirline: ownerAirline,
-                id: airline.id,
-                type: "competitorMonitoring",
-                tab0: {},
-                tab2: {},
-                tracking: 0,
-                autoExtract: 0
+const ENTERPRISE_OVERVIEW_SCRIPT_ENABLED = AES.shouldRunContentScript("content_enterpriseOverview");
+if (ENTERPRISE_OVERVIEW_SCRIPT_ENABLED) {
+    $(function() {
+        server = AES.getServerName();
+        airline = AES.getAirline();
+        ownerAirline = AES.getCurrentAirline();
+        activeTab = $(".nav-tabs .active").attr('class').split(" ");
+        activeTab = activeTab[0];
+        let key = AES.getCompetitorMonitoringKey(server, ownerAirline.id, airline.id);
+        let legacyKey = AES.getCompetitorMonitoringKey(server, null, airline.id);
+        chrome.storage.local.get([key, legacyKey], function(compMonitoringData) {
+            compData = compMonitoringData[key] || compMonitoringData[legacyKey];
+            if (!compData) {
+                compData = {
+                    key: key,
+                    server: server,
+                    ownerId: ownerAirline.id,
+                    ownerAirline: ownerAirline,
+                    id: airline.id,
+                    type: "competitorMonitoring",
+                    tab0: {},
+                    tab2: {},
+                    tracking: 0,
+                    autoExtract: 0
+                }
+            } else {
+                compData.key = key;
+                compData.ownerId = ownerAirline.id;
+                compData.ownerAirline = ownerAirline;
             }
-        } else {
-            compData.key = key;
-            compData.ownerId = ownerAirline.id;
-            compData.ownerAirline = ownerAirline;
-        }
-        displayMain();
+            displayMain();
+        });
     });
-});
+
+    AES.whenPageOwnershipLost(function() {
+        $('#aes-panel-airline-competitive-monitoring').remove();
+    });
+}
 
 function displayMain() {
     //Clean
@@ -102,6 +109,7 @@ function displayMain() {
 
     //Add display
     let mainDiv = $('<div id="aes-panel-airline-competitive-monitoring"></div>').append('<h3>AirlineSim Enhancement Suite Airline</h3>', panel, divComp);
+    AES.markOwnedElements(mainDiv);
     $(".container-fluid:eq(2) h2").after(mainDiv);
 }
 

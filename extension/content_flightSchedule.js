@@ -1,18 +1,21 @@
 "use strict";
 //MAIN
 var settings, compData, server, airline, ownerAirline, date;
-$(function() {
-    server = AES.getServerName();
-    airline = AES.getAirline();
-    ownerAirline = AES.getCurrentAirline();
-    date = AES.getServerDate();
-    chrome.storage.local.get(['settings'], function(result) {
-        settings = result.settings;
-        let label = $('<h3></h3>').text('AES Schedule');
-        let btn = $('<button class="btn btn-default" id="aes-extractSchedule-btn"></button>').text('Extract Schedule');
-        let panel = $('<div id="aes-panel-schedule" class="as-panel"></div>').append(btn);
-        //Main DIv
-        $('.flight-schedule').prepend(label, panel);
+const FLIGHT_SCHEDULE_SCRIPT_ENABLED = AES.shouldRunContentScript("content_flightSchedule");
+if (FLIGHT_SCHEDULE_SCRIPT_ENABLED) {
+    $(function() {
+        server = AES.getServerName();
+        airline = AES.getAirline();
+        ownerAirline = AES.getCurrentAirline();
+        date = AES.getServerDate();
+        chrome.storage.local.get(['settings'], function(result) {
+            settings = result.settings;
+            let label = $('<h3 id="aes-schedule-heading"></h3>').text('AES Schedule');
+            let btn = $('<button class="btn btn-default" id="aes-extractSchedule-btn"></button>').text('Extract Schedule');
+            let panel = $('<div id="aes-panel-schedule" class="as-panel"></div>').append(btn);
+            AES.markOwnedElements([label[0], panel[0]]);
+            //Main DIv
+            $('.flight-schedule').prepend(label, panel);
 
         //Extract Schedule
         btn.click(function() {
@@ -44,8 +47,13 @@ $(function() {
             });
 
         }
+        });
     });
-});
+
+    AES.whenPageOwnershipLost(function() {
+        $('#aes-schedule-heading, #aes-panel-schedule').remove();
+    });
+}
 //FUNCTIONS
 function extractSchedule() {
     // Update UI
