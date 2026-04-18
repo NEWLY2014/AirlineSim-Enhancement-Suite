@@ -161,19 +161,6 @@ class Validation {
      * Check “Group by flight” settings
      */
     checkGroupByFlight() {
-        let valid
-        let messages = []
-        let container = $('.col-md-10 > div > .as-panel:eq(1) > div > div > div:eq(1) .layout-col-md-3')
-        let checkboxes = $('fieldset:eq(3) input', container)
-        if (checkboxes.length && checkboxes[0].checked) {
-            let message = `Please uncheck “${$('fieldset:eq(3) label', container).text()}” under “Settings” in the “Data”-panel`
-            valid = false
-            messages.push(message)
-        }
-        
-        if (valid === false) {
-            this.valid = valid
-            this.errors.push(...messages)
-        }
+        return
     }
 }

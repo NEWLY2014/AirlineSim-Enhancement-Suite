@@ -102,17 +102,77 @@ async function displayInventory() {
  * @returns {array} flights - array of flight objects
  */
 function getFlights() {
+    const groupedTableBodies = document.querySelectorAll("#inventory-grouped-table tbody")
+    if (groupedTableBodies.length) {
+        return getGroupedFlights(groupedTableBodies)
+    }
+
     const flights = []
-    // TODO: also support grouped mode (#inventory-grouped-table)
     const flightRows = document.querySelectorAll("#inventory-table tbody tr")
 
-    if (!flightRows) {
-        throw new Error("\"Group by flight\" needs to be unchecked")
+    if (!flightRows.length) {
+        throw new Error("Unable to read inventory data. The inventory page layout might have changed.")
     }
 
     for (const row of flightRows) {
         const flight = getFlight(row)
         flights.push(flight)
+    }
+
+    return flights
+}
+
+/**
+ * Get flights from grouped inventory mode
+ * @param {NodeListOf<HTMLTableSectionElement>} groupedTableBodies
+ * @returns {array} flights
+ */
+function getGroupedFlights(groupedTableBodies) {
+    const flights = []
+
+    for (const tbody of groupedTableBodies) {
+        const rows = tbody.querySelectorAll("tr")
+        if (!rows.length) {
+            continue
+        }
+
+        const sharedCells = rows[0].querySelectorAll("td")
+        if (sharedCells.length < 11) {
+            continue
+        }
+
+        const flightNumber = sharedCells[1].querySelector("a[href*=numbers]")?.innerText
+        const date = sharedCells[2].innerText
+        const status = sharedCells[10].innerText.replace(/\s+/g, "")
+
+        for (const row of rows) {
+            const cells = row.querySelectorAll("td")
+            if (cells.length < 5) {
+                continue
+            }
+
+            const groupedCells = row === rows[0] ? {
+                compCell: cells[5],
+                capCell: cells[6],
+                bkdCell: cells[7],
+                priceCell: cells[9]
+            } : {
+                compCell: cells[0],
+                capCell: cells[1],
+                bkdCell: cells[2],
+                priceCell: cells[4]
+            }
+
+            flights.push({
+                fltNr: flightNumber,
+                date: date,
+                cmp: getCompCode(groupedCells.compCell.innerText),
+                cap: AES.cleanInteger(groupedCells.capCell.innerText),
+                bkd: AES.cleanInteger(groupedCells.bkdCell.innerText),
+                price: AES.cleanInteger(groupedCells.priceCell.innerText),
+                status: status
+            })
+        }
     }
 
     return flights
@@ -421,14 +481,19 @@ function getAnalysis(flights, prices, storedData) {
                 analysis.data[cmp].analysisPricePoint = Math.round(price / prices[cmp].defaultPrice * 100);
                 analysis.data[cmp].valid = true;
             } else if (mostRecentData) {
+                const previousCmpData = mostRecentData.data && mostRecentData.data[cmp];
+                const hasUsablePreviousAnalysis = previousCmpData &&
+                    previousCmpData.valid &&
+                    Number.isFinite(previousCmpData.analysisPrice) &&
+                    previousCmpData.analysisPrice > 0;
                 // flightsArray = cmpFlights.filter(function(flight) {
                 //     return flight.price == mostRecentData.data[cmp].analysisPrice;
                 // });
                 flightsArray = cmpFlights
-                if (flightsArray.length) {
+                if (flightsArray.length && hasUsablePreviousAnalysis) {
                     analysis.data[cmp].useCurrentPrice = 0;
-                    analysis.data[cmp].analysisPrice = mostRecentData.data[cmp].analysisPrice;
-                    analysis.data[cmp].analysisPricePoint = Math.round(mostRecentData.data[cmp].analysisPrice / prices[cmp].defaultPrice * 100);
+                    analysis.data[cmp].analysisPrice = previousCmpData.analysisPrice;
+                    analysis.data[cmp].analysisPricePoint = Math.round(previousCmpData.analysisPrice / prices[cmp].defaultPrice * 100);
                     analysis.data[cmp].valid = true;
                 }
             }
