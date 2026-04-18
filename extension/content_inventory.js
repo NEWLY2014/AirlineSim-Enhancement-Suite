@@ -314,16 +314,26 @@ function getAnalysis(flights, prices, storedData) {
         },
         displayRec: function(cmp) {
             if (this.data[cmp].recommendation) {
+                let span = $('<span></span>').text(this.data[cmp].recommendation);
                 switch (this.data[cmp].recType) {
                     case 'good':
-                        return '<span class="good">' + this.data[cmp].recommendation + '</span>';
+                        span.addClass('good');
+                        break;
                     case 'bad':
-                        return '<span class="bad">' + this.data[cmp].recommendation + '</span>';
+                        span.addClass('bad');
+                        break;
                     case 'neutral':
-                        return '<span class="warning">' + this.data[cmp].recommendation + '</span>';
+                        span.addClass('warning');
+                        break;
                     default:
                         return '<span class="warning">ERROR:2501 Wrong recType set:' + this.data[cmp].recType + '</span>';
                 }
+                if (this.data[cmp].newPrice) {
+                    span.append(
+                        $('<span></span>').html(' \u2192 ' + formatCurrency(this.data[cmp].newPrice) + ' AS$ (' + displayPerc(this.data[cmp].newPricePoint, 'price') + ')')
+                    );
+                }
+                return span;
             } else {
                 return '-'
             }
@@ -347,7 +357,7 @@ function getAnalysis(flights, prices, storedData) {
 
             if (this.data[cmp].referenceNewPrice) {
                 span.append(
-                    $('<span></span>').text(' \u2192 ' + formatCurrency(this.data[cmp].referenceNewPrice) + ' AS$')
+                    $('<span></span>').html(' \u2192 ' + formatCurrency(this.data[cmp].referenceNewPrice) + ' AS$ (' + displayPerc(this.data[cmp].referenceNewPricePoint, 'price') + ')')
                 );
             }
 
@@ -763,8 +773,9 @@ function displayAnalysis(analysis, prices) {
     th.push('<th class="aes-text-right">Index</th>');
     th.push('<th class="aes-text-right">Current Price</th>');
     th.push('<th>Recommendation</th>');
-    th.push('<th>Reference</th>');
-    th.push('<th class="aes-text-right">New Price</th>');
+    if (settings.invPricing.showReferenceRecommendation) {
+        th.push('<th>Reference</th>');
+    }
     let headRow = $('<tr></tr>').append(th);
     let thead = $('<thead></thead>').append(headRow);
 
@@ -778,23 +789,24 @@ function displayAnalysis(analysis, prices) {
         td.push('<td class="aes-text-right">' + analysis.displayLoad(cmp) + '</td>');
         td.push($('<td class="aes-text-right"></td>').html(analysis.displayIndex(cmp)));
         td.push('<td class="aes-text-right">' + analysis.displayPrice(cmp, 'current') + '</td>');
-        td.push('<td>' + analysis.displayRec(cmp) + '</td>');
-        td.push($('<td></td>').append(analysis.displayReferenceRec(cmp)));
-        td.push('<td class="aes-text-right">' + analysis.displayPrice(cmp, 'new') + '</td>');
+        td.push($('<td></td>').append(analysis.displayRec(cmp)));
+        if (settings.invPricing.showReferenceRecommendation) {
+            td.push($('<td></td>').append(analysis.displayReferenceRec(cmp)));
+        }
         let row = $('<tr></tr>').append(td);
         tbody.append(row);
     }
 
     //Table footer
     let footRow = []
-    footRow.push('<tr><td colspan="10"></td></tr>');
+    footRow.push('<tr><td colspan="' + (settings.invPricing.showReferenceRecommendation ? 8 : 7) + '"></td></tr>');
     //Total PAX
     let tf = [];
     tf.push('<th>Total PAX</th>');
     tf.push('<td colspan="2"></td>');
     tf.push($('<td class="aes-text-right"></td>').html(analysis.displayTotalLoad('pax')));
     tf.push($('<td class="aes-text-right"></td>').html(analysis.displayTotalIndex('pax')));
-    tf.push('<td colspan="4"></td>');
+    tf.push('<td colspan="' + (settings.invPricing.showReferenceRecommendation ? 3 : 2) + '"></td>');
     footRow.push($('<tr></tr>').append(tf));
     //Total
     tf = [];
@@ -802,7 +814,7 @@ function displayAnalysis(analysis, prices) {
     tf.push('<td colspan="2"></td>');
     tf.push($('<td class="aes-text-right"></td>').html(analysis.displayTotalLoad('all')));
     tf.push($('<td class="aes-text-right"></td>').html(analysis.displayTotalIndex('all')));
-    tf.push('<td colspan="4"></td>');
+    tf.push('<td colspan="' + (settings.invPricing.showReferenceRecommendation ? 3 : 2) + '"></td>');
     footRow.push($('<tr></tr>').append(tf));
     let tfoot = $('<tfoot></tfoot>').append(footRow);
 
@@ -898,7 +910,7 @@ function displayAnalysis(analysis, prices) {
                 if (analysis.hasValue('newPrice')) {
                     $(invPricingAnalysisBar).append($('<li></li>').html(applyNewPriceInvPricingBtn));
                 }
-                if (analysis.hasValue('referenceNewPrice')) {
+                if (settings.invPricing.showReferenceRecommendation && analysis.hasValue('referenceNewPrice')) {
                     $(invPricingAnalysisBar).append($('<li></li>').html(applyReferencePriceInvPricingBtn));
                 }
             }
@@ -908,7 +920,7 @@ function displayAnalysis(analysis, prices) {
             if (analysis.hasValue('newPrice')) {
                 $(invPricingAnalysisBar).append($('<li></li>').html(applyNewPriceInvPricingBtn));
             }
-            if (analysis.hasValue('referenceNewPrice')) {
+            if (settings.invPricing.showReferenceRecommendation && analysis.hasValue('referenceNewPrice')) {
                 $(invPricingAnalysisBar).append($('<li></li>').html(applyReferencePriceInvPricingBtn));
             }
         }

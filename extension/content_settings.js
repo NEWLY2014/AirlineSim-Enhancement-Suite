@@ -106,6 +106,11 @@ function displayInvPricingSettings() {
           <input id="aes-input-inventory-automateCloseTab" type="checkbox">
           Automatically close inventory page if price or analysis is saved today (use when mass updating pricing/saving analysis)
         </label>
+        <br>
+        <label>
+          <input id="aes-input-inventory-showReferenceRecommendation" type="checkbox">
+          Show reference recommendation when current price has no flight results yet.
+        </label>
       </div>
       <div class="form-group">
         <label class="control-label">
@@ -143,6 +148,9 @@ function invPricingAutoPricingHandle() {
     if (settings.invPricing.autoClose) {
         $("#aes-input-inventory-automateCloseTab").prop("checked", true);
     }
+    if (settings.invPricing.showReferenceRecommendation) {
+        $("#aes-input-inventory-showReferenceRecommendation").prop("checked", true);
+    }
     //Add click event to auto price
     $("#aes-input-inventory-automateSnapshotSave").click(function() {
         let autoAnalysisSave = this.checked ? 1 : 0;
@@ -164,6 +172,14 @@ function invPricingAutoPricingHandle() {
         let autoClose = this.checked ? 1 : 0;
         AES.updateSettings(function(currentSettings) {
             currentSettings.invPricing.autoClose = autoClose;
+        }, function(updatedSettings) {
+            settings = updatedSettings;
+        });
+    });
+    $("#aes-input-inventory-showReferenceRecommendation").click(function() {
+        let showReferenceRecommendation = this.checked ? 1 : 0;
+        AES.updateSettings(function(currentSettings) {
+            currentSettings.invPricing.showReferenceRecommendation = showReferenceRecommendation;
         }, function(updatedSettings) {
             settings = updatedSettings;
         });

@@ -85,6 +85,7 @@ function setDefaultInvPricingSettings() {
         autoAnalysisSave: 1,
         autoPriceUpdate: 0,
         autoClose: 0,
+        showReferenceRecommendation: 0,
         recommendation: {},
         historyTable: {
             showNow: 1,
