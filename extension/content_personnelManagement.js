@@ -65,11 +65,19 @@ function displayPersonnelManagement() {
     //actions
     select.change(function() {
         settings.personnelManagement.type = select.val();
-        chrome.storage.local.set({ settings: settings }, function() {});
+        AES.updateSettings(function(currentSettings) {
+            currentSettings.personnelManagement.type = settings.personnelManagement.type;
+        }, function(updatedSettings) {
+            settings = updatedSettings;
+        });
     });
     input.change(function() {
         settings.personnelManagement.value = AES.cleanInteger(input.val());
-        chrome.storage.local.set({ settings: settings }, function() {});
+        AES.updateSettings(function(currentSettings) {
+            currentSettings.personnelManagement.value = settings.personnelManagement.value;
+        }, function(updatedSettings) {
+            settings = updatedSettings;
+        });
     });
 
     btn.click(function() {
@@ -98,7 +106,11 @@ function displayPersonnelManagement() {
 }
 
 async function salaryUpdate(span) {
-    chrome.storage.local.set({ settings: settings }, async function() {
+    AES.updateSettings(function(currentSettings) {
+        currentSettings.personnelManagement.auto = 1;
+        currentSettings.personnelManagement.alreadyUpdated = [];
+    }, async function(updatedSettings) {
+        settings = updatedSettings;
         let value = settings.personnelManagement.value;
         let type = settings.personnelManagement.type;
         let updatedRows = 0;
@@ -133,8 +145,10 @@ async function salaryUpdate(span) {
             }
         }
 
-        settings.personnelManagement.auto = 0;
-        chrome.storage.local.set({ settings: settings }, function() {
+        AES.updateSettings(function(currentSettings) {
+            currentSettings.personnelManagement.auto = 0;
+        }, function(finalSettings) {
+            settings = finalSettings;
             const today = AES.getServerDate();
             const key = server + airline.id + 'personnelManagement';
             const data = {
@@ -150,5 +164,4 @@ async function salaryUpdate(span) {
         });
     });
 }
-
 

@@ -2,6 +2,25 @@
 class AES {
 
     /**
+     * Safely updates extension settings using the latest stored snapshot.
+     * @param {function(object): void} mutator
+     * @param {function(object): void} callback
+     */
+    static updateSettings(mutator, callback) {
+        chrome.storage.local.get(['settings'], function(result) {
+            let currentSettings = result.settings || {};
+            if (typeof mutator === 'function') {
+                mutator(currentSettings);
+            }
+            chrome.storage.local.set({ settings: currentSettings }, function() {
+                if (typeof callback === 'function') {
+                    callback(currentSettings);
+                }
+            });
+        });
+    }
+
+    /**
      * Returns the server name
      * @returns {string} server name
      */

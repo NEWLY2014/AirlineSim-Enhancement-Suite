@@ -729,7 +729,11 @@ function displayHistory(analysis) {
             } else {
                 settings.invPricing.historyTable.showNow = 0;
             }
-            chrome.storage.local.set({ settings: settings }, function() {});
+            AES.updateSettings(function(currentSettings) {
+                currentSettings.invPricing.historyTable.showNow = settings.invPricing.historyTable.showNow;
+            }, function(updatedSettings) {
+                settings = updatedSettings;
+            });
             buildHistoryTable();
         });
         $("#aes-check-inventory-history-showOnlyPricing").change(function() {
@@ -739,11 +743,19 @@ function displayHistory(analysis) {
             } else {
                 settings.invPricing.historyTable.showOnlyPricing = 0;
             }
-            chrome.storage.local.set({ settings: settings }, function() {});
+            AES.updateSettings(function(currentSettings) {
+                currentSettings.invPricing.historyTable.showOnlyPricing = settings.invPricing.historyTable.showOnlyPricing;
+            }, function(updatedSettings) {
+                settings = updatedSettings;
+            });
         });
         $("#aes-select-inventory-history-numberPastDates").change(function() {
             settings.invPricing.historyTable.numberOfDates = $('#aes-select-inventory-history-numberPastDates').val();
-            chrome.storage.local.set({ settings: settings }, function() {});
+            AES.updateSettings(function(currentSettings) {
+                currentSettings.invPricing.historyTable.numberOfDates = settings.invPricing.historyTable.numberOfDates;
+            }, function(updatedSettings) {
+                settings = updatedSettings;
+            });
             buildHistoryTable();
         });
 

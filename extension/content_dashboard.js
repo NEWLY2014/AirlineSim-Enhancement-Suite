@@ -24,7 +24,14 @@ $(function() {
             dashboardHandle();
         });
         if (filterScopeChanged) {
-            dashboardStorage.set({ settings: settings }, function() {});
+            AES.updateSettings(function(currentSettings) {
+                currentSettings.general.dashboardFilterScopeKey = settings.general.dashboardFilterScopeKey;
+                currentSettings.routeManagement.filter = settings.routeManagement.filter;
+                currentSettings.competitorMonitoring.filter = settings.competitorMonitoring.filter;
+                currentSettings.aircraftProfitability.filter = settings.aircraftProfitability.filter;
+            }, function(updatedSettings) {
+                settings = updatedSettings;
+            });
         }
     });
 });
@@ -54,7 +61,11 @@ function displayDashboard() {
     let normalizedDefaultDashboard = normalizeDashboardTab(settings.general.defaultDashboard);
     if (normalizedDefaultDashboard != settings.general.defaultDashboard) {
         settings.general.defaultDashboard = normalizedDefaultDashboard;
-        dashboardStorage.set({ settings: settings }, function() {});
+        AES.updateSettings(function(currentSettings) {
+            currentSettings.general.defaultDashboard = normalizedDefaultDashboard;
+        }, function(updatedSettings) {
+            settings = updatedSettings;
+        });
     }
     $("#aes-select-dashboard-main").val(normalizedDefaultDashboard);
 }
@@ -63,7 +74,11 @@ function dashboardHandle() {
     let value = normalizeDashboardTab($("#aes-select-dashboard-main").val());
     $("#aes-select-dashboard-main").val(value);
     settings.general.defaultDashboard = value;
-    dashboardStorage.set({ settings: settings }, function() {});
+    AES.updateSettings(function(currentSettings) {
+        currentSettings.general.defaultDashboard = value;
+    }, function(updatedSettings) {
+        settings = updatedSettings;
+    });
     switch (value) {
         case 'general':
             displayGeneral();
@@ -675,7 +690,10 @@ function buildGeneratedDashboardTableSettings(tableOptionsRule, table) {
         onApply: function(filter, status) {
             status.removeClass('good bad warning').addClass('warning').text('Saving...');
             settings[tableOptionsRule.tableSettingStorage].filter = filter;
-            dashboardStorage.set({ settings: settings }, function() {
+            AES.updateSettings(function(currentSettings) {
+                currentSettings[tableOptionsRule.tableSettingStorage].filter = filter;
+            }, function(updatedSettings) {
+                settings = updatedSettings;
                 status.removeClass('good bad warning').addClass('warning').text('Filtering...');
                 applyDashboardTableFilters(table, filter, tableOptionsRule.column, 'titlecode', tableOptionsRule.columnPrefix);
                 status.removeClass('good bad warning').addClass('good').text('Done');
@@ -824,7 +842,10 @@ function buildGeneratedDashboardColumns(tableOptionsRule) {
 
             tableOptionsRule.hideColumn = newHideColumns;
             settings[tableOptionsRule.tableSettingStorage].hideColumn = tableOptionsRule.hideColumn;
-            dashboardStorage.set({ settings: settings }, function() {
+            AES.updateSettings(function(currentSettings) {
+                currentSettings[tableOptionsRule.tableSettingStorage].hideColumn = tableOptionsRule.hideColumn;
+            }, function(updatedSettings) {
+                settings = updatedSettings;
                 if (tableOptionsRule.onColumnChange) {
                     tableOptionsRule.onColumnChange();
                 }
@@ -1184,7 +1205,10 @@ function displayRouteManagementFilters() {
             onApply: function(filter, status) {
                 status.removeClass('good bad warning').addClass('warning').text('Saving...');
                 settings.routeManagement.filter = filter;
-                dashboardStorage.set({ settings: settings }, function() {
+                AES.updateSettings(function(currentSettings) {
+                    currentSettings.routeManagement.filter = filter;
+                }, function(updatedSettings) {
+                    settings = updatedSettings;
                     status.removeClass('good bad warning').addClass('warning').text('Filtering...');
                     routeManagementApplyFilter();
                     status.removeClass('good bad warning').addClass('good').text('Done');
@@ -1213,7 +1237,10 @@ function displayRouteManagementColumns(scheduleData) {
         visibleField: 'show',
         onChange: function(col, checked) {
             col.source.show = checked ? 1 : 0;
-            dashboardStorage.set({ settings: settings }, function() {
+            AES.updateSettings(function(currentSettings) {
+                currentSettings.routeManagement.tableColumns = settings.routeManagement.tableColumns;
+            }, function(updatedSettings) {
+                settings = updatedSettings;
                 generateRouteManagementTable(scheduleData);
             });
         }
@@ -1953,7 +1980,10 @@ function displayCompetitorMonitoringAirlinesTable(div) {
                     dashboardStorage.remove(legacyKeysToRemove, function() {});
                 });
             }
-            dashboardStorage.set({ settings: settings }, function() {
+            AES.updateSettings(function(currentSettings) {
+                currentSettings.competitorMonitoring.migrationFlags = settings.competitorMonitoring.migrationFlags;
+            }, function(updatedSettings) {
+                settings = updatedSettings;
                 loadSchedulesAndDisplayTable();
             });
         });
@@ -2127,7 +2157,10 @@ function displayCompetitorMonitoringAirlinesTableColumns() {
         visibleField: 'visible',
         onChange: function(col, checked) {
             col.visible = checked ? 1 : 0;
-            dashboardStorage.set({ settings: settings }, function() {
+            AES.updateSettings(function(currentSettings) {
+                currentSettings.competitorMonitoring.tableColumns = settings.competitorMonitoring.tableColumns;
+            }, function(updatedSettings) {
+                settings = updatedSettings;
                 displayCompetitorMonitoring();
             });
         }
@@ -2149,7 +2182,10 @@ function displayCompetitorMonitoringAirlinesTableFilters(table, columns) {
         onApply: function(filter, status) {
             status.removeClass('good bad warning').addClass('warning').text('Saving...');
             settings.competitorMonitoring.filter = filter;
-            dashboardStorage.set({ settings: settings }, function() {
+            AES.updateSettings(function(currentSettings) {
+                currentSettings.competitorMonitoring.filter = filter;
+            }, function(updatedSettings) {
+                settings = updatedSettings;
                 if (!table) {
                     status.removeClass('good bad warning').addClass('good').text('Saved');
                     return;
@@ -3050,7 +3086,10 @@ function generalUpdateScheduleAction(td3) {
         settings.schedule.autoExtract = 1;
         //get schedule link
         let link = $('#enterprise-dashboard table:eq(0) tfoot td a:eq(2)');
-        dashboardStorage.set({ settings: settings }, function() {
+        AES.updateSettings(function(currentSettings) {
+            currentSettings.schedule.autoExtract = 1;
+        }, function(updatedSettings) {
+            settings = updatedSettings;
             link[0].click();
         });
     });

@@ -64,12 +64,15 @@ function displayFlightInfoSettings() {
         input.prop('checked', true);
     }
     $(input).click(function() {
-        if (this.checked) {
-            settings.flightInfo.autoClose = 1;
-        } else {
-            settings.flightInfo.autoClose = 0;
-        }
-        chrome.storage.local.set({ settings: settings }, function() {});
+        let autoClose = this.checked ? 1 : 0;
+        AES.updateSettings(function(currentSettings) {
+            if (!currentSettings.flightInfo) {
+                currentSettings.flightInfo = {};
+            }
+            currentSettings.flightInfo.autoClose = autoClose;
+        }, function(updatedSettings) {
+            settings = updatedSettings;
+        });
     });
     let span = $('<span></span>').text('Automatically close flight information page after extracting financial information.');
     let label = $('<label></label>').append(input, span);
@@ -142,28 +145,28 @@ function invPricingAutoPricingHandle() {
     }
     //Add click event to auto price
     $("#aes-input-inventory-automateSnapshotSave").click(function() {
-        if (this.checked) {
-            settings.invPricing.autoAnalysisSave = 1;
-        } else {
-            settings.invPricing.autoAnalysisSave = 0;
-        }
-        chrome.storage.local.set({ settings: settings }, function() {});
+        let autoAnalysisSave = this.checked ? 1 : 0;
+        AES.updateSettings(function(currentSettings) {
+            currentSettings.invPricing.autoAnalysisSave = autoAnalysisSave;
+        }, function(updatedSettings) {
+            settings = updatedSettings;
+        });
     });
     $("#aes-input-automateInvPricing").click(function() {
-        if (this.checked) {
-            settings.invPricing.autoPriceUpdate = 1;
-        } else {
-            settings.invPricing.autoPriceUpdate = 0;
-        }
-        chrome.storage.local.set({ settings: settings }, function() {});
+        let autoPriceUpdate = this.checked ? 1 : 0;
+        AES.updateSettings(function(currentSettings) {
+            currentSettings.invPricing.autoPriceUpdate = autoPriceUpdate;
+        }, function(updatedSettings) {
+            settings = updatedSettings;
+        });
     });
     $("#aes-input-inventory-automateCloseTab").click(function() {
-        if (this.checked) {
-            settings.invPricing.autoClose = 1;
-        } else {
-            settings.invPricing.autoClose = 0;
-        }
-        chrome.storage.local.set({ settings: settings }, function() {});
+        let autoClose = this.checked ? 1 : 0;
+        AES.updateSettings(function(currentSettings) {
+            currentSettings.invPricing.autoClose = autoClose;
+        }, function(updatedSettings) {
+            settings = updatedSettings;
+        });
     });
 
 
@@ -280,7 +283,10 @@ function invPricingRecStepHandle() {
         //Validate Steps
         if (validInvPriSteps(newCmpSettings)) {
             settings.invPricing.recommendation[cmp] = newCmpSettings;
-            chrome.storage.local.set({ settings: settings }, function() {
+            AES.updateSettings(function(currentSettings) {
+                currentSettings.invPricing.recommendation[cmp] = newCmpSettings;
+            }, function(updatedSettings) {
+                settings = updatedSettings;
                 $("#aes-span-invPricing").removeClass().addClass("good").text('Inventory pricing settings for ' + cmp + ' saved!')
             });
         }

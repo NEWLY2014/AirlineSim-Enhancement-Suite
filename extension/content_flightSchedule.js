@@ -21,8 +21,10 @@ $(function() {
 
         //Automation
         if (settings.schedule.autoExtract) {
-            settings.schedule.autoExtract = 0;
-            chrome.storage.local.set({ settings: settings }, function() {
+            AES.updateSettings(function(currentSettings) {
+                currentSettings.schedule.autoExtract = 0;
+            }, function(updatedSettings) {
+                settings = updatedSettings;
                 btn.click();
             });
         } else {
