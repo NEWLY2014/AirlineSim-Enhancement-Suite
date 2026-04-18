@@ -296,12 +296,10 @@ function getAnalysis(flights, prices, storedData) {
             if (this.data[cmp].valid) {
                 if (this.data[cmp].useCurrentPrice) {
                     return "Current price analysis";
-                } else if (this.data[cmp].analysisSourcePrice && !this.data[cmp].canRecommend) {
-                    return "Current price has no results yet, using active price " + formatCurrency(this.data[cmp].analysisSourcePrice) + " AS$ for reference only";
                 } else if (this.data[cmp].analysisSourcePrice) {
-                    return "No current price flights, using active price " + formatCurrency(this.data[cmp].analysisSourcePrice) + " AS$";
+                    return "Current price has no finished or inflight results yet, using active price " + formatCurrency(this.data[cmp].analysisSourcePrice) + " AS$ for reference only";
                 } else {
-                    return "No current price flights, using old price"
+                    return "Current price has no finished or inflight results yet, using old price for reference only"
                 }
             } else {
                 return "No data for analysis";
@@ -495,7 +493,7 @@ function getAnalysis(flights, prices, storedData) {
                     });
                     if (flightsArray.length) {
                         analysis.data[cmp].useCurrentPrice = 0;
-                        analysis.data[cmp].canRecommend = !hasPendingCurrentPriceResults(mostRecentData, cmp, prices[cmp].currentPrice);
+                        analysis.data[cmp].canRecommend = 0;
                         analysis.data[cmp].analysisPrice = activePrice;
                         analysis.data[cmp].analysisPricePoint = Math.round(activePrice / prices[cmp].defaultPrice * 100);
                         analysis.data[cmp].analysisSourcePrice = activePrice;
@@ -551,6 +549,9 @@ function generateRecommendation(analysis, prices) {
             if (item.valid && item.analysisSourcePrice && !item.useCurrentPrice) {
                 item.recType = 'neutral';
                 item.recommendation = 'Waiting for current price results';
+            } else if (item.valid && !item.useCurrentPrice) {
+                item.recType = 'neutral';
+                item.recommendation = 'Current price results required';
             }
             continue;
         }
@@ -573,11 +574,10 @@ function generateRecommendation(analysis, prices) {
             continue;
         }
 
-        const basePricePoint = item.useCurrentPrice ? prices[cmp].currentPricePoint : item.analysisPricePoint;
         const currentPricePoint = prices[cmp].currentPricePoint;
         const targetPricePoint = Math.min(
             config.maxPrice,
-            Math.max(config.minPrice, basePricePoint + step.step)
+            Math.max(config.minPrice, currentPricePoint + step.step)
         );
 
         // Set recommendation type
@@ -585,40 +585,6 @@ function generateRecommendation(analysis, prices) {
             item.recType = 'bad';
         } else if (step.step > 0) {
             item.recType = 'good';
-        }
-
-        // If current price already matches or exceeds the action implied by the analysis price,
-        // do not stack another change on top of it.
-        if (step.step > 0 && currentPricePoint >= targetPricePoint) {
-            item.recType = 'neutral';
-            if (item.useCurrentPrice) {
-                if (targetPricePoint === config.maxPrice && currentPricePoint >= config.maxPrice) {
-                    item.recommendation = 'Already at highest price!';
-                } else {
-                    item.recommendation = 'Current price already above recommended range';
-                }
-            } else if (currentPricePoint > targetPricePoint) {
-                item.recommendation = 'Current price already above active price recommendation';
-            } else {
-                item.recommendation = 'Current price already matches active price recommendation';
-            }
-            continue;
-        }
-
-        if (step.step < 0 && currentPricePoint <= targetPricePoint) {
-            item.recType = 'neutral';
-            if (item.useCurrentPrice) {
-                if (targetPricePoint === config.minPrice && currentPricePoint <= config.minPrice) {
-                    item.recommendation = 'Already at lowest price!';
-                } else {
-                    item.recommendation = 'Current price already below recommended range';
-                }
-            } else if (currentPricePoint < targetPricePoint) {
-                item.recommendation = 'Current price already below active price recommendation';
-            } else {
-                item.recommendation = 'Current price already matches active price recommendation';
-            }
-            continue;
         }
 
         // Boundary message when no actual movement is possible
@@ -664,20 +630,6 @@ function getMostCommonFlightPrice(flights) {
     });
 
     return selectedPrice;
-}
-
-function hasPendingCurrentPriceResults(mostRecentData, cmp, currentPrice) {
-    if (!mostRecentData || !mostRecentData.pricingUpdated || !mostRecentData.data || !mostRecentData.data[cmp]) {
-        return false;
-    }
-
-    const previousCmpData = mostRecentData.data[cmp];
-    if (!Number.isFinite(previousCmpData.newPrice) || previousCmpData.newPrice <= 0) {
-        return false;
-    }
-
-    return previousCmpData.newPrice === currentPrice &&
-        previousCmpData.analysisPrice !== currentPrice;
 }
 
 function generateRouteIndex(analysis) {
