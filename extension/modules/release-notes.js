@@ -1,5 +1,33 @@
 const AES_RELEASE_NOTES_STORAGE_KEY = "aesReleaseNotesSeenVersion"
 const AES_RELEASE_NOTES = {
+    "0.7.8": {
+        title: "Release Notes",
+        releaseDate: "2026-04-18",
+        summary: "Thanks for keeping AES up to date.",
+        sections: [
+            {
+                title: "Added",
+                items: [
+                    "Release notes now open automatically after an update and can be reopened from the footer version link.",
+                    "Grouped inventory tables are now supported, and reference recommendations can be enabled explicitly for routes whose current price has no flight results yet."
+                ]
+            },
+            {
+                title: "Changed",
+                items: [
+                    "The release notes dialog now adapts to dark, classic, and light AirlineSim themes and shows the release date next to the AES version.",
+                    "Inventory Pricing now separates executable recommendations from optional reference recommendations, and recommendation prices are shown inline."
+                ]
+            },
+            {
+                title: "Fixed",
+                items: [
+                    "Inventory Pricing settings now persist reliably across pages instead of being overwritten by stale settings snapshots.",
+                    "Inventory analysis now reloads automatically after toggling Group by flight, and grouped-mode fallback analysis no longer shows invalid zero prices."
+                ]
+            }
+        ]
+    },
     "0.7.7": {
         title: "Release Notes",
         releaseDate: "2026-04-13",
