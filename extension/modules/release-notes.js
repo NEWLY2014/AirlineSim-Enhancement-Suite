@@ -2,7 +2,8 @@ const AES_RELEASE_NOTES_STORAGE_KEY = "aesReleaseNotesSeenVersion"
 const AES_RELEASE_NOTES = {
     "0.7.7": {
         title: "Release Notes",
-        summary: "Thanks for keeping AES up to date. Here are the main improvements in version 0.7.7.",
+        releaseDate: "2026-04-13",
+        summary: "Thanks for keeping AES up to date.",
         sections: [
             {
                 title: "Changed",
@@ -48,6 +49,7 @@ class ReleaseNotesDialog {
         container.setAttribute("role", "dialog")
         container.setAttribute("aria-modal", "true")
         container.style.display = "block"
+        container.classList.add("aes-release-notes-theme-" + this.#getTheme())
 
         const dialog = document.createElement("div")
         dialog.className = "modal-dialog modal-lg"
@@ -72,15 +74,18 @@ class ReleaseNotesDialog {
         title.textContent = notes.title
         const versionLabel = document.createElement("p")
         versionLabel.className = "aes-release-notes-version"
-        versionLabel.textContent = "Version " + version
-        const summary = document.createElement("p")
-        summary.className = "aes-release-notes-summary"
-        summary.textContent = notes.summary
+        versionLabel.textContent = this.#formatVersionLabel(version, notes.releaseDate)
         const badge = document.createElement("span")
         badge.className = "aes-release-notes-badge"
         badge.textContent = "What's new"
 
-        titleWrap.append(badge, title, versionLabel, summary)
+        titleWrap.append(badge, title, versionLabel)
+        if (notes.summary) {
+            const summary = document.createElement("p")
+            summary.className = "aes-release-notes-summary"
+            summary.textContent = notes.summary
+            titleWrap.append(summary)
+        }
         heroBrand.append(logo, titleWrap)
         hero.append(this.#closeButton, heroBrand)
         header.append(hero)
@@ -172,6 +177,21 @@ class ReleaseNotesDialog {
             this.#backdrop.remove()
             document.body.classList.remove("modal-open")
         })
+    }
+
+    #formatVersionLabel(version, releaseDate) {
+        if (!releaseDate) {
+            return "Version " + version
+        }
+        return "Version " + version + " - Released " + releaseDate
+    }
+
+    #getTheme() {
+        const theme = window.frontendSettings && window.frontendSettings.theme
+        if (theme === "classic" || theme === "light") {
+            return theme
+        }
+        return "dark"
     }
 }
 

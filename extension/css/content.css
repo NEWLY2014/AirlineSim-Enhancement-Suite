@@ -269,16 +269,12 @@
 }
 
 #aes-release-notes-dialog .modal-content {
-    background: #4f5256;
-    border: 1px solid rgba(127, 127, 127, 0.4);
     border-radius: 6px;
-    box-shadow: 0 20px 48px rgba(0, 0, 0, 0.35);
+    box-shadow: 0 20px 48px rgba(0, 0, 0, 0.25);
     overflow: hidden;
 }
 
 .aes-release-notes-header {
-    background: linear-gradient(135deg, rgba(78, 115, 160, 0.95), rgba(63, 74, 92, 0.98));
-    border-bottom: 1px solid rgba(127, 127, 127, 0.25);
     padding: 0;
 }
 
@@ -305,8 +301,6 @@
 }
 
 .aes-release-notes-badge {
-    background: rgba(255, 255, 255, 0.14);
-    border: 1px solid rgba(255, 255, 255, 0.22);
     border-radius: 999px;
     display: inline-block;
     font-size: 11px;
@@ -320,7 +314,7 @@
 .aes-release-notes-header .modal-title {
     margin: 0;
     padding-right: 42px;
-    font-size: 30px;
+    font-size: 28px;
     font-weight: 700;
     line-height: 1.15;
 }
@@ -328,13 +322,12 @@
 .aes-release-notes-version {
     font-size: 14px;
     margin: 8px 0 0;
-    opacity: 0.7;
+    opacity: 0.85;
 }
 
 .aes-release-notes-close {
     background: transparent;
     border: 0;
-    color: inherit;
     font-size: 28px;
     line-height: 1;
     opacity: 0.75;
@@ -344,7 +337,6 @@
 }
 
 .aes-release-notes-body {
-    background: #4f5256;
     max-height: 65vh;
     overflow-y: auto;
     padding: 20px 24px 12px;
@@ -363,8 +355,6 @@
 }
 
 .aes-release-notes-card {
-    background: #5a5d61;
-    border: 1px solid rgba(127, 127, 127, 0.24);
     border-radius: 6px;
     padding: 16px 18px;
 }
@@ -385,8 +375,6 @@
 }
 
 .aes-release-notes-footer {
-    background: #4f5256;
-    border-top: 1px solid rgba(127, 127, 127, 0.22);
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -400,6 +388,86 @@
 
 .aes-release-notes-confirm {
     min-width: 112px;
+}
+
+#aes-release-notes-dialog.aes-release-notes-theme-dark .modal-content {
+    background: #4f5256;
+    border: 1px solid rgba(127, 127, 127, 0.4);
+}
+
+#aes-release-notes-dialog.aes-release-notes-theme-dark .aes-release-notes-header {
+    background: linear-gradient(135deg, rgba(78, 115, 160, 0.95), rgba(63, 74, 92, 0.98));
+    border-bottom: 1px solid rgba(127, 127, 127, 0.25);
+}
+
+#aes-release-notes-dialog.aes-release-notes-theme-dark .aes-release-notes-badge {
+    background: rgba(255, 255, 255, 0.14);
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    color: inherit;
+}
+
+#aes-release-notes-dialog.aes-release-notes-theme-dark .aes-release-notes-close {
+    color: inherit;
+}
+
+#aes-release-notes-dialog.aes-release-notes-theme-dark .aes-release-notes-body,
+#aes-release-notes-dialog.aes-release-notes-theme-dark .aes-release-notes-footer {
+    background: #4f5256;
+}
+
+#aes-release-notes-dialog.aes-release-notes-theme-dark .aes-release-notes-footer {
+    border-top: 1px solid rgba(127, 127, 127, 0.22);
+}
+
+#aes-release-notes-dialog.aes-release-notes-theme-dark .aes-release-notes-card {
+    background: #5a5d61;
+    border: 1px solid rgba(127, 127, 127, 0.24);
+}
+
+#aes-release-notes-dialog.aes-release-notes-theme-classic .modal-content,
+#aes-release-notes-dialog.aes-release-notes-theme-light .modal-content {
+    background: #f7f5ef;
+    border: 1px solid rgba(166, 153, 130, 0.55);
+    color: #3e3a33;
+}
+
+#aes-release-notes-dialog.aes-release-notes-theme-classic .aes-release-notes-header,
+#aes-release-notes-dialog.aes-release-notes-theme-light .aes-release-notes-header {
+    background: linear-gradient(180deg, #fdfcf8, #ece5d5);
+    border-bottom: 1px solid rgba(166, 153, 130, 0.45);
+    color: #3e3a33;
+}
+
+#aes-release-notes-dialog.aes-release-notes-theme-classic .aes-release-notes-badge,
+#aes-release-notes-dialog.aes-release-notes-theme-light .aes-release-notes-badge {
+    background: #f3ede0;
+    border: 1px solid rgba(166, 153, 130, 0.45);
+    color: #5b5145;
+}
+
+#aes-release-notes-dialog.aes-release-notes-theme-classic .aes-release-notes-close,
+#aes-release-notes-dialog.aes-release-notes-theme-light .aes-release-notes-close {
+    color: #6b6256;
+}
+
+#aes-release-notes-dialog.aes-release-notes-theme-classic .aes-release-notes-body,
+#aes-release-notes-dialog.aes-release-notes-theme-classic .aes-release-notes-footer,
+#aes-release-notes-dialog.aes-release-notes-theme-light .aes-release-notes-body,
+#aes-release-notes-dialog.aes-release-notes-theme-light .aes-release-notes-footer {
+    background: #f7f5ef;
+    color: #3e3a33;
+}
+
+#aes-release-notes-dialog.aes-release-notes-theme-classic .aes-release-notes-footer,
+#aes-release-notes-dialog.aes-release-notes-theme-light .aes-release-notes-footer {
+    border-top: 1px solid rgba(166, 153, 130, 0.35);
+}
+
+#aes-release-notes-dialog.aes-release-notes-theme-classic .aes-release-notes-card,
+#aes-release-notes-dialog.aes-release-notes-theme-light .aes-release-notes-card {
+    background: #fffdf8;
+    border: 1px solid rgba(166, 153, 130, 0.28);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
 }
 
 #aes-footer-version {
