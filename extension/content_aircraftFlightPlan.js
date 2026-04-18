@@ -100,6 +100,14 @@ function afp_getAssignPanel() {
     return heading.nextAll('.as-panel').first();
 }
 
+function afp_getTransferHeading() {
+    let heading = $('h3').filter(function() {
+        return $(this).text().trim() === 'Transfer Flight Plan';
+    }).first();
+
+    return heading;
+}
+
 function afp_getVisualPlan() {
     return $('.visual-flight-plan').first();
 }
@@ -208,73 +216,82 @@ function afp_renderPanel() {
 
     let panel = $('<div id="aes-aircraft-flight-plan-panel" class="as-panel aes-aircraft-flight-plan-panel"></div>').append(
         $('<div class="aes-aircraft-flight-plan-title"></div>').text('AES Flight Plan Assistant'),
-        $('<div class="aes-aircraft-flight-plan-summary"></div>').append(
-            $('<div class="aes-aircraft-flight-plan-summary-row"></div>').append(
-                $('<strong></strong>').text('Template: '),
-                $('<span></span>').text(afp_getTemplateSummary())
+        $('<div class="aes-aircraft-flight-plan-main-row"></div>').append(
+            $('<div class="aes-aircraft-flight-plan-summary"></div>').append(
+                $('<div class="aes-aircraft-flight-plan-summary-row"></div>').append(
+                    $('<strong></strong>').text('Template: '),
+                    $('<span></span>').text(afp_getTemplateSummary())
+                ),
+                $('<div class="aes-aircraft-flight-plan-summary-row"></div>').append(
+                    $('<strong></strong>').text('Target: '),
+                    $('<span></span>').text(aircraftFlightPlanState.aircraft.registration + ' / ' + aircraftFlightPlanState.aircraft.model + (isEmpty ? ' / Empty plan' : ' / Existing assignments'))
+                )
             ),
-            $('<div class="aes-aircraft-flight-plan-summary-row"></div>').append(
-                $('<strong></strong>').text('Target: '),
-                $('<span></span>').text(aircraftFlightPlanState.aircraft.registration + ' / ' + aircraftFlightPlanState.aircraft.model + (isEmpty ? ' / Empty plan' : ' / Existing assignments'))
+            $('<div class="aes-aircraft-flight-plan-actions"></div>').append(
+                $('<div class="btn-group aes-dashboard-control-actions"></div>').append(extractBtn, deleteBtn)
             ),
-            job ? $('<div class="aes-aircraft-flight-plan-summary-row"></div>').append(
-                $('<strong></strong>').text('Job: '),
-                $('<span></span>').text(afp_getJobSummary())
-            ) : null
-        ),
-        $('<div class="aes-aircraft-flight-plan-actions"></div>').append(
-            $('<div class="btn-group aes-dashboard-control-actions"></div>').append(extractBtn, deleteBtn),
             $('<div class="aes-aircraft-flight-plan-start"></div>').append(
                 $('<label class="control-label aes-aircraft-flight-plan-label" for="aes-aircraft-flight-plan-offset"></label>').text('Offset'),
                 offsetSelect,
                 $('<div class="btn-group aes-dashboard-control-actions"></div>').append(startBtn, clearJobBtn)
             )
         ),
+        job ? $('<div class="aes-aircraft-flight-plan-job"></div>').text(afp_getJobSummary()) : null,
         $('<div id="aes-aircraft-flight-plan-hint" class="aes-aircraft-flight-plan-hint"></div>').text(hint || ''),
         $('<div id="aes-aircraft-flight-plan-runtime" class="' + (aircraftFlightPlanState.runtimeMessage ? aircraftFlightPlanState.runtimeType : '') + '"></div>').text(aircraftFlightPlanState.runtimeMessage || '')
     );
 
-    afp_getAssignPanel().before(panel);
+    let transferHeading = afp_getTransferHeading();
+    if (transferHeading.length) {
+        transferHeading.before(panel);
+    } else {
+        afp_getAssignPanel().after(panel);
+    }
 }
 
 function afp_getUniqueFlightEntries() {
-    let entries = [];
-    let seen = {};
+    let entries = {};
 
-    afp_getVisualPlan().find('.day .blocks .block.flight').each(function() {
-        let block = $(this);
-        let code = $('.code', block).first().text().trim();
-        let infoHref = $('a[title="View flight number"]', block).attr('href') || '';
-        let editHref = $('a[title="Set planner to this flight number"]', block).attr('href') || '';
-        let valueMatch = infoHref.match(/\/numbers\/(\d+)/);
-        let value = valueMatch ? valueMatch[1] : '';
-        let key = value || code || editHref;
+    afp_getVisualPlan().find('.day').each(function(dayIndex) {
+        $(this).find('.blocks .block.flight').each(function() {
+            let block = $(this);
+            let code = $('.code', block).first().text().trim();
+            let infoHref = $('a[title="View flight number"]', block).attr('href') || '';
+            let valueMatch = infoHref.match(/\/numbers\/(\d+)/);
+            let value = valueMatch ? valueMatch[1] : '';
+            let key = value || code;
 
-        if (!key || seen[key] || !editHref) {
-            return;
-        }
+            if (!key) {
+                return;
+            }
 
-        seen[key] = true;
-        entries.push({
-            editHref: editHref,
-            flightCode: code,
-            flightNumberToken: afp_extractFlightNumberToken(code),
-            flightNumberValue: value,
+            if (!entries[key]) {
+                entries[key] = {
+                    flightCode: code,
+                    flightNumberLabel: code,
+                    flightNumberToken: afp_extractFlightNumberToken(code),
+                    flightNumberValue: value,
+                    selectedDays: [],
+                };
+            }
+
+            if (entries[key].selectedDays.indexOf(dayIndex) === -1) {
+                entries[key].selectedDays.push(dayIndex);
+            }
         });
     });
 
-    return entries;
+    return Object.keys(entries).map(function(key) {
+        entries[key].selectedDays.sort(function(a, b) {
+            return a - b;
+        });
+        return entries[key];
+    });
 }
 
 function afp_extractFlightNumberToken(text) {
     let match = String(text || '').match(/(\d+)(?!.*\d)/);
     return match ? match[1] : '';
-}
-
-function afp_findLinkByHref(href) {
-    return $('a').filter(function() {
-        return ($(this).attr('href') || '') === href;
-    }).first();
 }
 
 function afp_getExistingSelect() {
@@ -299,7 +316,7 @@ function afp_getSelectedExistingFlight() {
 }
 
 function afp_waitFor(checkFn, timeoutMs, intervalMs) {
-    timeoutMs = timeoutMs || 8000;
+    timeoutMs = timeoutMs || 5000;
     intervalMs = intervalMs || 100;
 
     return new Promise(function(resolve) {
@@ -326,35 +343,6 @@ function afp_waitFor(checkFn, timeoutMs, intervalMs) {
     });
 }
 
-async function afp_loadPlannerFromBlock(entry) {
-    let link = afp_findLinkByHref(entry.editHref);
-    if (!link.length) {
-        throw new Error('Could not find planner edit link for ' + (entry.flightCode || entry.flightNumberValue));
-    }
-
-    link[0].dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
-
-    let ready = await afp_waitFor(function() {
-        let selected = afp_getSelectedExistingFlight();
-        if (!selected) {
-            return false;
-        }
-        if (entry.flightNumberValue && selected.value === entry.flightNumberValue) {
-            return true;
-        }
-        if (entry.flightNumberToken && afp_extractFlightNumberToken(selected.text) === entry.flightNumberToken) {
-            return true;
-        }
-        return false;
-    }, 8000, 120);
-
-    if (!ready) {
-        throw new Error('Timed out while loading planner for ' + (entry.flightCode || entry.flightNumberValue));
-    }
-
-    await AES.sleep(250);
-}
-
 function afp_collectSegmentIndexes() {
     let indexes = {};
     $('select[name^="segmentSettings:"][name$=":newDeparture:hours"]').each(function() {
@@ -371,60 +359,6 @@ function afp_collectSegmentIndexes() {
     });
 }
 
-function afp_readPlannerTemplate(entry) {
-    let selected = afp_getSelectedExistingFlight();
-    if (!selected) {
-        throw new Error('Planner did not expose an Existing flight number selection');
-    }
-
-    let selectedDays = [];
-    $('input[type="checkbox"][name^="days:daySelection:"][name$=":ticked"]').each(function() {
-        let match = ($(this).attr('name') || '').match(/^days:daySelection:(\d+):ticked$/);
-        if (match && $(this).prop('checked')) {
-            selectedDays.push(parseInt(match[1], 10));
-        }
-    });
-
-    if (!selectedDays.length) {
-        throw new Error('The planner for ' + (entry.flightCode || selected.text.trim()) + ' does not contain any scheduled days.');
-    }
-
-    let segments = afp_collectSegmentIndexes().map(function(segmentIndex) {
-        let days = [];
-        for (let day = 0; day < 7; day++) {
-            let departureOffset = $('select[name="segmentsContainer:segments:' + segmentIndex + ':departure-offsets:' + day + ':departureOffset"]').val();
-            let fixedArrival = $('input[name="segmentsContainer:segments:' + segmentIndex + ':fixedArrivalSelection:' + day + ':fixedArrival"]').prop('checked');
-            let arrivalHours = $('select[name="segmentsContainer:segments:' + segmentIndex + ':newArrivals:' + day + ':newArrival:hours"]').val();
-            let arrivalMinutes = $('select[name="segmentsContainer:segments:' + segmentIndex + ':newArrivals:' + day + ':newArrival:minutes"]').val();
-            days.push({
-                weekday: day,
-                departureOffset: departureOffset == null ? '0' : String(departureOffset),
-                fixedArrival: !!fixedArrival,
-                arrivalHours: arrivalHours == null ? '' : String(arrivalHours),
-                arrivalMinutes: arrivalMinutes == null ? '' : String(arrivalMinutes),
-            });
-        }
-
-        return {
-            index: segmentIndex,
-            departureHours: String($('select[name="segmentSettings:' + segmentIndex + ':newDeparture:hours"]').val() || ''),
-            departureMinutes: String($('select[name="segmentSettings:' + segmentIndex + ':newDeparture:minutes"]').val() || ''),
-            originTerminal: String($('select[name="segmentSettings:' + segmentIndex + ':originTerminal"]').val() || ''),
-            destinationTerminal: String($('select[name="segmentSettings:' + segmentIndex + ':destinationTerminal"]').val() || ''),
-            days: days,
-        };
-    });
-
-    return {
-        flightCode: entry.flightCode || selected.text.trim(),
-        flightNumberLabel: selected.text.trim(),
-        flightNumberToken: entry.flightNumberToken || afp_extractFlightNumberToken(selected.text),
-        flightNumberValue: selected.value,
-        selectedDays: selectedDays,
-        segments: segments,
-    };
-}
-
 async function afp_extractTemplate() {
     if (aircraftFlightPlanState.extracting) {
         return;
@@ -438,25 +372,19 @@ async function afp_extractTemplate() {
     }
 
     aircraftFlightPlanState.extracting = true;
-    afp_setRuntimeMessage('Extracting template 1 / ' + entries.length + '...', 'warning');
+    afp_setRuntimeMessage('Extracting template...', 'warning');
     afp_renderPanel();
 
     try {
         let template = {
             createdAt: Date.now(),
             date: AES.getServerDate().date,
-            flights: [],
+            flights: entries,
             sourceAircraftId: aircraftFlightPlanState.aircraft.id,
             sourceModel: aircraftFlightPlanState.aircraft.model,
             sourceRegistration: aircraftFlightPlanState.aircraft.registration,
             type: 'aircraftFlightPlanTemplate',
         };
-
-        for (let i = 0; i < entries.length; i++) {
-            afp_setRuntimeMessage('Extracting template ' + (i + 1) + ' / ' + entries.length + '...', 'warning');
-            await afp_loadPlannerFromBlock(entries[i]);
-            template.flights.push(afp_readPlannerTemplate(entries[i]));
-        }
 
         aircraftFlightPlanState.template = template;
         await afp_storageSet({ [afp_getTemplateKey()]: template });
@@ -545,7 +473,7 @@ function afp_selectionMatchesEntry(selected, entry) {
         return true;
     }
 
-    return selected.text.trim() === entry.flightNumberLabel;
+    return entry.flightNumberLabel ? selected.text.trim() === entry.flightNumberLabel : false;
 }
 
 function afp_activateExistingTabIfNeeded() {
@@ -616,11 +544,32 @@ function afp_setSelectValue(element, value) {
     element.val(String(value));
 }
 
+function afp_getPlannerSourceDaySettings(entry) {
+    return afp_collectSegmentIndexes().map(function(segmentIndex) {
+        let days = {};
+        entry.selectedDays.forEach(function(sourceDay) {
+            days[sourceDay] = {
+                arrivalHours: String($('select[name="segmentsContainer:segments:' + segmentIndex + ':newArrivals:' + sourceDay + ':newArrival:hours"]').val() || ''),
+                arrivalMinutes: String($('select[name="segmentsContainer:segments:' + segmentIndex + ':newArrivals:' + sourceDay + ':newArrival:minutes"]').val() || ''),
+                departureOffset: String($('select[name="segmentsContainer:segments:' + segmentIndex + ':departure-offsets:' + sourceDay + ':departureOffset"]').val() || '0'),
+                fixedArrival: !!$('input[name="segmentsContainer:segments:' + segmentIndex + ':fixedArrivalSelection:' + sourceDay + ':fixedArrival"]').prop('checked'),
+            };
+        });
+
+        return {
+            days: days,
+            index: segmentIndex,
+        };
+    });
+}
+
 function afp_applyFlightEntryToPlanner(entry, offsetDays) {
     let selected = afp_getSelectedExistingFlight();
     if (!afp_selectionMatchesEntry(selected, entry)) {
         throw new Error('Planner is not loaded for the expected flight number.');
     }
+
+    let sourceSegmentSettings = afp_getPlannerSourceDaySettings(entry);
 
     let targetDays = {};
     entry.selectedDays.forEach(function(sourceDay) {
@@ -637,17 +586,7 @@ function afp_applyFlightEntryToPlanner(entry, offsetDays) {
         afp_setCheckboxValue($(this), !!targetDays[targetDay]);
     });
 
-    let plannerSegments = afp_collectSegmentIndexes();
-    if (plannerSegments.length !== entry.segments.length) {
-        throw new Error('Segment count does not match the extracted template for ' + entry.flightCode + '.');
-    }
-
-    entry.segments.forEach(function(segment) {
-        afp_setSelectValue($('select[name="segmentSettings:' + segment.index + ':newDeparture:hours"]'), segment.departureHours);
-        afp_setSelectValue($('select[name="segmentSettings:' + segment.index + ':newDeparture:minutes"]'), segment.departureMinutes);
-        afp_setSelectValue($('select[name="segmentSettings:' + segment.index + ':originTerminal"]'), segment.originTerminal);
-        afp_setSelectValue($('select[name="segmentSettings:' + segment.index + ':destinationTerminal"]'), segment.destinationTerminal);
-
+    sourceSegmentSettings.forEach(function(segment) {
         for (let day = 0; day < 7; day++) {
             afp_setSelectValue($('select[name="segmentsContainer:segments:' + segment.index + ':departure-offsets:' + day + ':departureOffset"]'), '0');
             afp_setCheckboxValue($('input[name="segmentsContainer:segments:' + segment.index + ':fixedArrivalSelection:' + day + ':fixedArrival"]'), false);
@@ -753,7 +692,14 @@ async function afp_processJob() {
 
         if (job.status === 'selecting' || job.status === 'waitForSelection') {
             if (afp_activateExistingTabIfNeeded()) {
-                return;
+                let ready = await afp_waitFor(function() {
+                    return afp_getExistingSelect().length > 0;
+                }, 5000, 100);
+                if (!ready) {
+                    await afp_failJob('Could not open Existing Flight Number tab.');
+                    return;
+                }
+                continue;
             }
 
             let selected = afp_getSelectedExistingFlight();
