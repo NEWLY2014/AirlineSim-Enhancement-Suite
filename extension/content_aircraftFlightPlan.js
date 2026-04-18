@@ -5,6 +5,7 @@ var aircraftFlightPlanState = {
     extracting: false,
     job: null,
     notifications: null,
+    offsetDays: 0,
     processingJob: false,
     runtimeMessage: '',
     runtimeType: 'warning',
@@ -180,15 +181,25 @@ function afp_renderPanel() {
     let jobOnOtherAircraft = !!(jobIsActive && String(job.targetAircraftId) !== String(aircraftFlightPlanState.aircraft.id));
     let canStart = hasTemplate && isEmpty && !aircraftFlightPlanState.extracting && !jobOnOtherAircraft && !jobOnCurrentAircraft;
 
-    let offsetSelect = $('<select class="form-control aes-aircraft-flight-plan-offset" id="aes-aircraft-flight-plan-offset"></select>');
-    for (let i = 0; i < 7; i++) {
-        offsetSelect.append($('<option></option>').val(i).text('+' + i + ' day' + (i === 1 ? '' : 's')));
-    }
-
     let extractBtn = $('<button type="button" class="btn btn-default"></button>').text(aircraftFlightPlanState.extracting ? 'Extracting...' : 'Extract template').prop('disabled', aircraftFlightPlanState.extracting);
     let deleteBtn = $('<button type="button" class="btn btn-default"></button>').text('Delete saved template').prop('disabled', !hasTemplate || aircraftFlightPlanState.extracting);
     let startBtn = $('<button type="button" class="btn btn-default"></button>').text(jobOnCurrentAircraft ? 'Scheduling in progress' : 'Start scheduling').prop('disabled', !canStart);
     let clearJobBtn = $('<button type="button" class="btn btn-default"></button>').text('Stop scheduling').prop('disabled', !job);
+    let offsetButtons = $('<div class="btn-group aes-aircraft-flight-plan-offset-group" role="group" aria-label="Offset days"></div>');
+    let offsetButtonsDisabled = aircraftFlightPlanState.extracting || jobOnCurrentAircraft || jobOnOtherAircraft;
+
+    for (let i = 0; i < 7; i++) {
+        let offsetBtn = $('<button type="button" class="btn btn-default aes-aircraft-flight-plan-offset-btn"></button>')
+            .text(String(i))
+            .attr('data-offset-days', i)
+            .toggleClass('active', aircraftFlightPlanState.offsetDays === i)
+            .prop('disabled', offsetButtonsDisabled);
+        offsetBtn.on('click', function() {
+            aircraftFlightPlanState.offsetDays = i;
+            afp_renderPanel();
+        });
+        offsetButtons.append(offsetBtn);
+    }
 
     extractBtn.on('click', function() {
         afp_extractTemplate();
@@ -197,7 +208,7 @@ function afp_renderPanel() {
         afp_deleteTemplate();
     });
     startBtn.on('click', function() {
-        afp_startScheduling(parseInt(offsetSelect.val(), 10) || 0);
+        afp_startScheduling(aircraftFlightPlanState.offsetDays || 0);
     });
     clearJobBtn.on('click', function() {
         afp_clearJob(true);
@@ -231,9 +242,10 @@ function afp_renderPanel() {
                 $('<div class="btn-group aes-dashboard-control-actions"></div>').append(extractBtn, deleteBtn)
             ),
             $('<div class="aes-aircraft-flight-plan-start"></div>').append(
-                $('<label class="control-label aes-aircraft-flight-plan-label" for="aes-aircraft-flight-plan-offset"></label>').text('Offset'),
-                offsetSelect,
-                $('<div class="btn-group aes-dashboard-control-actions"></div>').append(startBtn, clearJobBtn)
+                $('<label class="control-label aes-aircraft-flight-plan-label"></label>').text('Offset'),
+                offsetButtons,
+                startBtn,
+                clearJobBtn
             )
         ),
         job ? $('<div class="aes-aircraft-flight-plan-job"></div>').text(afp_getJobSummary()) : null,

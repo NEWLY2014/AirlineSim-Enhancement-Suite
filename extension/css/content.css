@@ -241,15 +241,28 @@
     display: flex;
     flex: 0 0 auto;
     gap: 8px;
+    flex-wrap: wrap;
 }
 
 .aes-aircraft-flight-plan-label {
     margin-bottom: 0;
 }
 
-.aes-aircraft-flight-plan-offset {
-    min-width: 120px;
-    width: auto;
+.aes-aircraft-flight-plan-offset-group {
+    display: inline-flex;
+    flex-wrap: nowrap;
+}
+
+.aes-aircraft-flight-plan-offset-btn {
+    min-width: 34px;
+    padding-left: 10px;
+    padding-right: 10px;
+}
+
+.aes-aircraft-flight-plan-offset-btn.active,
+.aes-aircraft-flight-plan-offset-btn.active:hover,
+.aes-aircraft-flight-plan-offset-btn.active:focus {
+    box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.15);
 }
 
 .aes-aircraft-flight-plan-hint {
