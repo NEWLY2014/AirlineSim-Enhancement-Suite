@@ -542,6 +542,10 @@ function generateRecommendation(analysis, prices) {
     for (const cmp in analysis.data) {
         const item = analysis.data[cmp];
         item.recommendation = 0;
+        item.newPrice = 0;
+        item.newPricePoint = 0;
+        item.newPriceChange = 0;
+        item.recType = 'neutral';
 
         if (!item.valid || !item.canRecommend) {
             if (item.valid && item.analysisSourcePrice && !item.useCurrentPrice) {
@@ -569,27 +573,59 @@ function generateRecommendation(analysis, prices) {
             continue;
         }
 
+        const basePricePoint = item.useCurrentPrice ? prices[cmp].currentPricePoint : item.analysisPricePoint;
+        const currentPricePoint = prices[cmp].currentPricePoint;
+        const targetPricePoint = Math.min(
+            config.maxPrice,
+            Math.max(config.minPrice, basePricePoint + step.step)
+        );
+
         // Set recommendation type
         if (step.step < 0) {
             item.recType = 'bad';
         } else if (step.step > 0) {
             item.recType = 'good';
-        } else {
-            item.recType = 'neutral';
         }
 
-        // Always calculate and clamp
-        const rawPricePoint = prices[cmp].currentPricePoint + step.step;
-        const newPricePoint = Math.min(
-            config.maxPrice,
-            Math.max(config.minPrice, rawPricePoint)
-        );
+        // If current price already matches or exceeds the action implied by the analysis price,
+        // do not stack another change on top of it.
+        if (step.step > 0 && currentPricePoint >= targetPricePoint) {
+            item.recType = 'neutral';
+            if (item.useCurrentPrice) {
+                if (targetPricePoint === config.maxPrice && currentPricePoint >= config.maxPrice) {
+                    item.recommendation = 'Already at highest price!';
+                } else {
+                    item.recommendation = 'Current price already above recommended range';
+                }
+            } else if (currentPricePoint > targetPricePoint) {
+                item.recommendation = 'Current price already above active price recommendation';
+            } else {
+                item.recommendation = 'Current price already matches active price recommendation';
+            }
+            continue;
+        }
+
+        if (step.step < 0 && currentPricePoint <= targetPricePoint) {
+            item.recType = 'neutral';
+            if (item.useCurrentPrice) {
+                if (targetPricePoint === config.minPrice && currentPricePoint <= config.minPrice) {
+                    item.recommendation = 'Already at lowest price!';
+                } else {
+                    item.recommendation = 'Current price already below recommended range';
+                }
+            } else if (currentPricePoint < targetPricePoint) {
+                item.recommendation = 'Current price already below active price recommendation';
+            } else {
+                item.recommendation = 'Current price already matches active price recommendation';
+            }
+            continue;
+        }
 
         // Boundary message when no actual movement is possible
-        if (newPricePoint === prices[cmp].currentPricePoint && step.step !== 0) {
-            if (newPricePoint === config.minPrice) {
+        if (targetPricePoint === currentPricePoint && step.step !== 0) {
+            if (targetPricePoint === config.minPrice) {
                 item.recommendation = 'Already at lowest price!';
-            } else if (newPricePoint === config.maxPrice) {
+            } else if (targetPricePoint === config.maxPrice) {
                 item.recommendation = 'Already at highest price!';
             }
         }
@@ -597,13 +633,12 @@ function generateRecommendation(analysis, prices) {
         // Normal assignment
         if (!item.recommendation) {
             item.recommendation = step.name;
-            item.newPriceChange = newPricePoint - prices[cmp].currentPricePoint;
+            item.newPriceChange = targetPricePoint - currentPricePoint;
 
-            // Store corrected value if current price was out of bounds
-            if (newPricePoint !== prices[cmp].currentPricePoint || step.step !== 0) {
-                item.newPricePoint = newPricePoint;
+            if (targetPricePoint !== currentPricePoint || step.step !== 0) {
+                item.newPricePoint = targetPricePoint;
                 item.newPrice = Math.round(
-                    (newPricePoint / 100) * prices[cmp].defaultPrice
+                    (targetPricePoint / 100) * prices[cmp].defaultPrice
                 );
             }
         }
