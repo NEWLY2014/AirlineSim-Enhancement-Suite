@@ -33,6 +33,7 @@
                 "helpers.js",
                 "modules/aes-menu.js",
                 "modules/about-dialog.js",
+                "modules/release-notes.js",
                 "modules/notification.js",
                 "modules/notifications.js"
             ],
