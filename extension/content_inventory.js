@@ -296,6 +296,8 @@ function getAnalysis(flights, prices, storedData) {
             if (this.data[cmp].valid) {
                 if (this.data[cmp].useCurrentPrice) {
                     return "Current price analysis";
+                } else if (this.data[cmp].analysisSourcePrice && !this.data[cmp].canRecommend) {
+                    return "Current price has no results yet, using active price " + formatCurrency(this.data[cmp].analysisSourcePrice) + " AS$ for reference only";
                 } else if (this.data[cmp].analysisSourcePrice) {
                     return "No current price flights, using active price " + formatCurrency(this.data[cmp].analysisSourcePrice) + " AS$";
                 } else {
@@ -463,6 +465,7 @@ function getAnalysis(flights, prices, storedData) {
             analysisPrice: 0,
             analysisPricePoint: 0,
             useCurrentPrice: 0,
+            canRecommend: 0,
             analysisSourcePrice: 0,
             currentPrice: prices[cmp].currentPrice,
             currentPricePoint: prices[cmp].currentPricePoint
@@ -480,6 +483,7 @@ function getAnalysis(flights, prices, storedData) {
             });
             if (flightsArray.length) {
                 analysis.data[cmp].useCurrentPrice = 1;
+                analysis.data[cmp].canRecommend = 1;
                 analysis.data[cmp].analysisPrice = price;
                 analysis.data[cmp].analysisPricePoint = Math.round(price / prices[cmp].defaultPrice * 100);
                 analysis.data[cmp].valid = true;
@@ -491,6 +495,7 @@ function getAnalysis(flights, prices, storedData) {
                     });
                     if (flightsArray.length) {
                         analysis.data[cmp].useCurrentPrice = 0;
+                        analysis.data[cmp].canRecommend = !hasPendingCurrentPriceResults(mostRecentData, cmp, prices[cmp].currentPrice);
                         analysis.data[cmp].analysisPrice = activePrice;
                         analysis.data[cmp].analysisPricePoint = Math.round(activePrice / prices[cmp].defaultPrice * 100);
                         analysis.data[cmp].analysisSourcePrice = activePrice;
@@ -510,6 +515,7 @@ function getAnalysis(flights, prices, storedData) {
                 flightsArray = cmpFlights
                 if (flightsArray.length && hasUsablePreviousAnalysis) {
                     analysis.data[cmp].useCurrentPrice = 0;
+                    analysis.data[cmp].canRecommend = 0;
                     analysis.data[cmp].analysisPrice = previousCmpData.analysisPrice;
                     analysis.data[cmp].analysisPricePoint = Math.round(previousCmpData.analysisPrice / prices[cmp].defaultPrice * 100);
                     analysis.data[cmp].valid = true;
@@ -537,7 +543,11 @@ function generateRecommendation(analysis, prices) {
         const item = analysis.data[cmp];
         item.recommendation = 0;
 
-        if (!item.valid || !item.useCurrentPrice) {
+        if (!item.valid || !item.canRecommend) {
+            if (item.valid && item.analysisSourcePrice && !item.useCurrentPrice) {
+                item.recType = 'neutral';
+                item.recommendation = 'Waiting for current price results';
+            }
             continue;
         }
 
@@ -619,6 +629,20 @@ function getMostCommonFlightPrice(flights) {
     });
 
     return selectedPrice;
+}
+
+function hasPendingCurrentPriceResults(mostRecentData, cmp, currentPrice) {
+    if (!mostRecentData || !mostRecentData.pricingUpdated || !mostRecentData.data || !mostRecentData.data[cmp]) {
+        return false;
+    }
+
+    const previousCmpData = mostRecentData.data[cmp];
+    if (!Number.isFinite(previousCmpData.newPrice) || previousCmpData.newPrice <= 0) {
+        return false;
+    }
+
+    return previousCmpData.newPrice === currentPrice &&
+        previousCmpData.analysisPrice !== currentPrice;
 }
 
 function generateRouteIndex(analysis) {
