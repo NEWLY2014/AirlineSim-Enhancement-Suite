@@ -258,6 +258,7 @@
 }
 
 .aes-release-notes-backdrop {
+    background: rgba(0, 0, 0, 0.62);
     z-index: 1050;
 }
 
@@ -268,15 +269,15 @@
 }
 
 #aes-release-notes-dialog .modal-content {
-    background: linear-gradient(to bottom, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.01));
-    border: 1px solid rgba(127, 127, 127, 0.35);
+    background: #4f5256;
+    border: 1px solid rgba(127, 127, 127, 0.4);
     border-radius: 6px;
     box-shadow: 0 20px 48px rgba(0, 0, 0, 0.35);
     overflow: hidden;
 }
 
 .aes-release-notes-header {
-    background: linear-gradient(135deg, rgba(60, 120, 180, 0.18), rgba(127, 127, 127, 0.06));
+    background: linear-gradient(135deg, rgba(78, 115, 160, 0.95), rgba(63, 74, 92, 0.98));
     border-bottom: 1px solid rgba(127, 127, 127, 0.25);
     padding: 0;
 }
@@ -304,8 +305,8 @@
 }
 
 .aes-release-notes-badge {
-    background: rgba(90, 150, 220, 0.18);
-    border: 1px solid rgba(90, 150, 220, 0.32);
+    background: rgba(255, 255, 255, 0.14);
+    border: 1px solid rgba(255, 255, 255, 0.22);
     border-radius: 999px;
     display: inline-block;
     font-size: 11px;
@@ -333,6 +334,7 @@
 .aes-release-notes-close {
     background: transparent;
     border: 0;
+    color: inherit;
     font-size: 28px;
     line-height: 1;
     opacity: 0.75;
@@ -342,6 +344,7 @@
 }
 
 .aes-release-notes-body {
+    background: #4f5256;
     max-height: 65vh;
     overflow-y: auto;
     padding: 20px 24px 12px;
@@ -360,8 +363,8 @@
 }
 
 .aes-release-notes-card {
-    background: rgba(127, 127, 127, 0.08);
-    border: 1px solid rgba(127, 127, 127, 0.18);
+    background: #5a5d61;
+    border: 1px solid rgba(127, 127, 127, 0.24);
     border-radius: 6px;
     padding: 16px 18px;
 }
@@ -382,6 +385,8 @@
 }
 
 .aes-release-notes-footer {
+    background: #4f5256;
+    border-top: 1px solid rgba(127, 127, 127, 0.22);
     display: flex;
     align-items: center;
     justify-content: space-between;
