@@ -200,6 +200,54 @@
     width: 30%;
 }
 
+.aes-aircraft-flight-plan-panel {
+    margin-bottom: 12px;
+}
+
+.aes-aircraft-flight-plan-title {
+    color: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 6px;
+    opacity: 0.8;
+}
+
+.aes-aircraft-flight-plan-summary {
+    margin-bottom: 8px;
+}
+
+.aes-aircraft-flight-plan-summary-row + .aes-aircraft-flight-plan-summary-row {
+    margin-top: 2px;
+}
+
+.aes-aircraft-flight-plan-actions {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 12px;
+}
+
+.aes-aircraft-flight-plan-start {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.aes-aircraft-flight-plan-label {
+    margin-bottom: 0;
+}
+
+.aes-aircraft-flight-plan-offset {
+    min-width: 120px;
+    width: auto;
+}
+
+.aes-aircraft-flight-plan-hint {
+    margin-top: 8px;
+    opacity: 0.8;
+}
+
 .aes-fleet-table.table-bordered > thead > tr > th,
 .aes-fleet-table.table-bordered > tbody > tr > td,
 .aes-fleet-table.table-bordered > tfoot > tr > td {

@@ -79,6 +79,10 @@
             "matches": ["https://*.airlinesim.aero/app/fleets/aircraft/*/1*"]
         },
         {
+            "js": ["content_aircraftFlightPlan.js"],
+            "matches": ["https://*.airlinesim.aero/app/fleets/aircraft/*/0*"]
+        },
+        {
             "js": ["content_fleetManagement.js"],
             "matches": ["https://*.airlinesim.aero/app/fleets*"]
         },
