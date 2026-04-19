@@ -289,6 +289,7 @@ function afp_getUniqueFlightEntries() {
 
             if (!entries[key]) {
                 entries[key] = {
+                    daySettings: {},
                     flightCode: code,
                     flightNumberLabel: code,
                     flightNumberToken: afp_extractFlightNumberToken(code),
@@ -299,6 +300,9 @@ function afp_getUniqueFlightEntries() {
 
             if (entries[key].selectedDays.indexOf(dayIndex) === -1) {
                 entries[key].selectedDays.push(dayIndex);
+                entries[key].daySettings[dayIndex] = {
+                    arrival: afp_getVisualBlockArrivalTime(block, dayIndex),
+                };
             }
         });
     });
@@ -314,6 +318,47 @@ function afp_getUniqueFlightEntries() {
 function afp_extractFlightNumberToken(text) {
     let match = String(text || '').match(/(\d+)(?!.*\d)/);
     return match ? match[1] : '';
+}
+
+function afp_parseVisualPlanTime(text) {
+    let normalized = String(text || '').replace(/\D/g, '');
+    if (normalized.length !== 4) {
+        return {
+            hours: '',
+            minutes: '',
+            value: '',
+        };
+    }
+
+    return {
+        hours: normalized.slice(0, 2),
+        minutes: normalized.slice(2, 4),
+        value: normalized,
+    };
+}
+
+function afp_getVisualBlockArrivalTime(block, dayIndex) {
+    let currentBlockArrival = afp_parseVisualPlanTime($('.times .end', block).first().text());
+    if (!block.hasClass('started') || block.hasClass('ended')) {
+        return currentBlockArrival;
+    }
+
+    let nextDay = afp_getVisualPlan().find('.day').eq((dayIndex + 1) % 7);
+    if (!nextDay.length) {
+        return currentBlockArrival;
+    }
+
+    let code = $('.code', block).first().text().trim();
+    let nextDayEndedBlock = nextDay.find('.blocks .block.flight.ended').filter(function() {
+        return !$(this).hasClass('started') && $('.code', this).first().text().trim() === code;
+    }).first();
+
+    if (!nextDayEndedBlock.length) {
+        return currentBlockArrival;
+    }
+
+    let nextDayArrival = afp_parseVisualPlanTime($('.times .end', nextDayEndedBlock).first().text());
+    return nextDayArrival.value ? nextDayArrival : currentBlockArrival;
 }
 
 function afp_getExistingSelect() {
@@ -684,14 +729,14 @@ function afp_syncPlannerArrivalTime(plannerForm, segmentIndex, day, daySettings)
 }
 
 function afp_getPlannerSourceDaySettings(entry) {
-    let plannerForm = afp_getPlannerForm();
-
     return afp_collectSegmentIndexes().map(function(segmentIndex) {
         let days = {};
         entry.selectedDays.forEach(function(sourceDay) {
+            let daySetting = entry.daySettings && entry.daySettings[sourceDay] ? entry.daySettings[sourceDay] : {};
+            let arrival = daySetting.arrival || {};
             days[sourceDay] = {
-                arrivalHours: String($('select[name="segmentsContainer:segments:' + segmentIndex + ':newArrivals:' + sourceDay + ':newArrival:hours"]', plannerForm).val() || ''),
-                arrivalMinutes: String($('select[name="segmentsContainer:segments:' + segmentIndex + ':newArrivals:' + sourceDay + ':newArrival:minutes"]', plannerForm).val() || ''),
+                arrivalHours: String(arrival.hours || ''),
+                arrivalMinutes: String(arrival.minutes || ''),
             };
         });
 
