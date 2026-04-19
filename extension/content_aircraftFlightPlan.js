@@ -322,6 +322,9 @@ function afp_extractFlightNumberToken(text) {
 
 function afp_parseVisualPlanTime(text) {
     let normalized = String(text || '').replace(/\D/g, '');
+    if (normalized.length === 3) {
+        normalized = '0' + normalized;
+    }
     if (normalized.length !== 4) {
         return {
             hours: '',
@@ -349,8 +352,16 @@ function afp_getVisualBlockArrivalTime(block, dayIndex) {
     }
 
     let code = $('.code', block).first().text().trim();
+    let codeToken = afp_extractFlightNumberToken(code);
     let nextDayEndedBlock = nextDay.find('.blocks .block.flight.ended').filter(function() {
-        return !$(this).hasClass('started') && $('.code', this).first().text().trim() === code;
+        if ($(this).hasClass('started')) {
+            return false;
+        }
+        let nextDayCode = $('.code', this).first().text().trim();
+        if (nextDayCode === code) {
+            return true;
+        }
+        return codeToken && afp_extractFlightNumberToken(nextDayCode) === codeToken;
     }).first();
 
     if (!nextDayEndedBlock.length) {
