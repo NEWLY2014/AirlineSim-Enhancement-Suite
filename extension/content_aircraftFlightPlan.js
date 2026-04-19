@@ -650,7 +650,16 @@ function afp_setSelectValue(element, value) {
     if (!element || !element.length || value == null) {
         return;
     }
-    element.val(String(value));
+    let normalizedValue = String(value);
+    if (String(element.val() || '') === normalizedValue) {
+        return;
+    }
+
+    element.val(normalizedValue);
+    if (element[0]) {
+        element[0].dispatchEvent(new Event('input', { bubbles: true }));
+        element[0].dispatchEvent(new Event('change', { bubbles: true }));
+    }
 }
 
 function afp_getArrivalSelects(plannerForm, segmentIndex, day) {
@@ -700,7 +709,6 @@ async function afp_applyFlightEntryToPlanner(entry, offsetDays) {
     }
 
     let sourceSegmentSettings = afp_getPlannerSourceDaySettings(entry);
-    let plannerForm = afp_getPlannerForm();
 
     let targetDays = {};
     entry.selectedDays.forEach(function(sourceDay) {
@@ -710,12 +718,18 @@ async function afp_applyFlightEntryToPlanner(entry, offsetDays) {
 
     await afp_clearPlannerDaySelection();
     await afp_setPlannerDaySelection(targetDays);
+    let plannerReady = await afp_waitFor(function() {
+        return afp_getPlannerForm().length > 0;
+    }, 3000, 80);
+    if (!plannerReady) {
+        throw new Error('Planner form did not become ready after selecting target days.');
+    }
 
     sourceSegmentSettings.forEach(function(segment) {
         entry.selectedDays.forEach(function(sourceDay) {
             let targetDay = (sourceDay + offsetDays) % 7;
             let daySettings = segment.days[sourceDay];
-            afp_syncPlannerArrivalTime(plannerForm, segment.index, targetDay, daySettings);
+            afp_syncPlannerArrivalTime(afp_getPlannerForm(), segment.index, targetDay, daySettings);
         });
     });
 }
