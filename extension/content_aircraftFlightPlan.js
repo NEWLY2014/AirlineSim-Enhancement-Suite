@@ -741,6 +741,53 @@ function afp_getFixedArrivalCheckbox(plannerForm, segmentIndex, day) {
     return $('input[name="segmentsContainer:segments:' + segmentIndex + ':fixedArrivalSelection:' + day + ':fixedArrival"]', plannerForm);
 }
 
+function afp_getArrivalValueSnapshot(segmentIndex, day) {
+    let plannerForm = afp_getPlannerForm();
+    let arrivalSelects = afp_getArrivalSelects(plannerForm, segmentIndex, day);
+    return {
+        hours: String(arrivalSelects.hours.val() || ''),
+        minutes: String(arrivalSelects.minutes.val() || ''),
+    };
+}
+
+function afp_waitForPlannerMutation(timeoutMs) {
+    timeoutMs = timeoutMs || 1500;
+    return new Promise(function(resolve) {
+        let plannerForm = afp_getPlannerForm();
+        if (!plannerForm.length || !plannerForm[0] || typeof MutationObserver === 'undefined') {
+            window.setTimeout(function() {
+                resolve(false);
+            }, Math.min(timeoutMs, 250));
+            return;
+        }
+
+        let settled = false;
+        let observer = new MutationObserver(function() {
+            if (settled) {
+                return;
+            }
+            settled = true;
+            window.clearTimeout(timer);
+            observer.disconnect();
+            resolve(true);
+        });
+        let timer = window.setTimeout(function() {
+            if (settled) {
+                return;
+            }
+            settled = true;
+            observer.disconnect();
+            resolve(false);
+        }, timeoutMs);
+
+        observer.observe(plannerForm[0], {
+            attributes: true,
+            childList: true,
+            subtree: true,
+        });
+    });
+}
+
 async function afp_waitForArrivalSelectValue(segmentIndex, day, part, value) {
     let normalizedValue = String(value || '');
     return afp_waitFor(function() {
@@ -774,6 +821,7 @@ async function afp_setPlannerArrivalSelect(segmentIndex, day, part, value) {
     if (!changed) {
         return;
     }
+    await afp_waitForPlannerMutation(1500);
     let applied = await afp_waitForArrivalSelectValue(segmentIndex, day, part, value);
     if (!applied) {
         let retryPlannerForm = afp_getPlannerForm();
@@ -793,29 +841,22 @@ async function afp_syncPlannerArrivalTime(plannerForm, segmentIndex, day, daySet
         return;
     }
 
-    await afp_setPlannerArrivalSelect(segmentIndex, day, 'hours', daySettings.arrivalHours);
-    await afp_setPlannerArrivalSelect(segmentIndex, day, 'minutes', daySettings.arrivalMinutes);
-
-    let fixedArrivalCheckbox = afp_getFixedArrivalCheckbox(plannerForm, segmentIndex, day);
-    if (!fixedArrivalCheckbox.length || fixedArrivalCheckbox.prop('checked')) {
+    let targetHours = String(daySettings.arrivalHours || '');
+    let targetMinutes = String(daySettings.arrivalMinutes || '');
+    if (!targetHours || !targetMinutes) {
         return;
     }
 
-    let fixedArrivalEnabled = await afp_waitFor(function() {
-        let currentCheckbox = afp_getFixedArrivalCheckbox(afp_getPlannerForm(), segmentIndex, day);
-        return currentCheckbox.length && currentCheckbox.prop('checked');
-    }, 1200, 80);
-    if (fixedArrivalEnabled) {
+    let currentArrival = afp_getArrivalValueSnapshot(segmentIndex, day);
+    if (currentArrival.hours === targetHours && currentArrival.minutes === targetMinutes) {
         return;
     }
 
-    afp_clickElement(fixedArrivalCheckbox);
-    let fixedApplied = await afp_waitFor(function() {
-        let currentCheckbox = afp_getFixedArrivalCheckbox(afp_getPlannerForm(), segmentIndex, day);
-        return currentCheckbox.length && currentCheckbox.prop('checked');
-    }, 2000, 80);
-    if (fixedApplied) {
+    if (currentArrival.hours !== targetHours) {
         await afp_setPlannerArrivalSelect(segmentIndex, day, 'hours', daySettings.arrivalHours);
+    }
+    currentArrival = afp_getArrivalValueSnapshot(segmentIndex, day);
+    if (currentArrival.minutes !== targetMinutes) {
         await afp_setPlannerArrivalSelect(segmentIndex, day, 'minutes', daySettings.arrivalMinutes);
     }
 }
