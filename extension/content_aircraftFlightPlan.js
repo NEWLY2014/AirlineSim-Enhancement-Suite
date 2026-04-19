@@ -412,8 +412,20 @@ function afp_waitFor(checkFn, timeoutMs, intervalMs) {
 
 function afp_collectSegmentIndexes() {
     let indexes = {};
-    $('select[name^="segmentSettings:"][name$=":newDeparture:hours"]').each(function() {
-        let match = ($(this).attr('name') || '').match(/^segmentSettings:(\d+):newDeparture:hours$/);
+    let plannerForm = afp_getPlannerForm();
+
+    $('select, input', plannerForm).each(function() {
+        let name = $(this).attr('name') || '';
+        let match = name.match(/^segmentSettings:(\d+):newDeparture:hours$/);
+        if (!match) {
+            match = name.match(/^segmentsContainer:segments:(\d+):newArrivals:\d+:newArrival:(hours|minutes)$/);
+        }
+        if (!match) {
+            match = name.match(/^segmentsContainer:segments:(\d+):departure-offsets:\d+:departureOffset$/);
+        }
+        if (!match) {
+            match = name.match(/^segmentsContainer:segments:(\d+):fixedArrivalSelection:\d+:fixedArrival$/);
+        }
         if (match) {
             indexes[match[1]] = true;
         }
@@ -754,6 +766,9 @@ async function afp_applyFlightEntryToPlanner(entry, offsetDays) {
     }
 
     let sourceSegmentSettings = afp_getPlannerSourceDaySettings(entry);
+    if (!sourceSegmentSettings.length) {
+        throw new Error('Could not find planner segments for ' + (entry.flightCode || entry.flightNumberLabel) + '.');
+    }
 
     let targetDays = {};
     entry.selectedDays.forEach(function(sourceDay) {
