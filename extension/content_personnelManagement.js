@@ -80,8 +80,11 @@ function displayPersonnelManagement() {
             settings = updatedSettings;
         });
     });
-    input.change(function() {
+    input.on('input change', function() {
         settings.personnelManagement.value = AES.cleanInteger(input.val());
+    });
+    input.blur(function() {
+        input.val(settings.personnelManagement.value);
         AES.updateSettings(function(currentSettings) {
             currentSettings.personnelManagement.value = settings.personnelManagement.value;
         }, function(updatedSettings) {
@@ -90,11 +93,19 @@ function displayPersonnelManagement() {
     });
 
     btn.click(function() {
+        settings.personnelManagement.type = select.val();
+        settings.personnelManagement.value = AES.cleanInteger(input.val());
+        input.val(settings.personnelManagement.value);
         span.removeClass().addClass('warning').text(' adjusting...');
-        //Set button for auto click
-        settings.personnelManagement.auto = 1;
-        settings.personnelManagement.alreadyUpdated = [];
-        salaryUpdate(span);
+        AES.updateSettings(function(currentSettings) {
+            currentSettings.personnelManagement.type = settings.personnelManagement.type;
+            currentSettings.personnelManagement.value = settings.personnelManagement.value;
+            currentSettings.personnelManagement.auto = 1;
+            currentSettings.personnelManagement.alreadyUpdated = [];
+        }, function(updatedSettings) {
+            settings = updatedSettings;
+            salaryUpdate(span);
+        });
     });
 
     //Automation
