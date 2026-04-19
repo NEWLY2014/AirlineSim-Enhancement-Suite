@@ -683,8 +683,6 @@ function afp_getPlannerSourceDaySettings(entry) {
             days[sourceDay] = {
                 arrivalHours: String($('select[name="segmentsContainer:segments:' + segmentIndex + ':newArrivals:' + sourceDay + ':newArrival:hours"]', plannerForm).val() || ''),
                 arrivalMinutes: String($('select[name="segmentsContainer:segments:' + segmentIndex + ':newArrivals:' + sourceDay + ':newArrival:minutes"]', plannerForm).val() || ''),
-                departureOffset: String($('select[name="segmentsContainer:segments:' + segmentIndex + ':departure-offsets:' + sourceDay + ':departureOffset"]', plannerForm).val() || '0'),
-                fixedArrival: !!$('input[name="segmentsContainer:segments:' + segmentIndex + ':fixedArrivalSelection:' + sourceDay + ':fixedArrival"]', plannerForm).prop('checked'),
             };
         });
 
@@ -714,16 +712,9 @@ async function afp_applyFlightEntryToPlanner(entry, offsetDays) {
     await afp_setPlannerDaySelection(targetDays);
 
     sourceSegmentSettings.forEach(function(segment) {
-        for (let day = 0; day < 7; day++) {
-            afp_setSelectValue($('select[name="segmentsContainer:segments:' + segment.index + ':departure-offsets:' + day + ':departureOffset"]', plannerForm), '0');
-            afp_setCheckboxValue($('input[name="segmentsContainer:segments:' + segment.index + ':fixedArrivalSelection:' + day + ':fixedArrival"]', plannerForm), false);
-        }
-
         entry.selectedDays.forEach(function(sourceDay) {
             let targetDay = (sourceDay + offsetDays) % 7;
             let daySettings = segment.days[sourceDay];
-            afp_setSelectValue($('select[name="segmentsContainer:segments:' + segment.index + ':departure-offsets:' + targetDay + ':departureOffset"]', plannerForm), daySettings.departureOffset);
-            afp_setCheckboxValue($('input[name="segmentsContainer:segments:' + segment.index + ':fixedArrivalSelection:' + targetDay + ':fixedArrival"]', plannerForm), daySettings.fixedArrival);
             afp_syncPlannerArrivalTime(plannerForm, segment.index, targetDay, daySettings);
         });
     });
