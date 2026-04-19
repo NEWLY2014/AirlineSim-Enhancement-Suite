@@ -13,7 +13,7 @@ var aircraftFlightPlanState = {
     template: null,
     templateStale: false,
 };
-const AIRCRAFT_FLIGHT_PLAN_TEMPLATE_VERSION = 4;
+const AIRCRAFT_FLIGHT_PLAN_TEMPLATE_VERSION = 5;
 const AIRCRAFT_FLIGHT_PLAN_SCRIPT_ENABLED = AES.shouldRunContentScript("content_aircraftFlightPlan");
 
 if (AIRCRAFT_FLIGHT_PLAN_SCRIPT_ENABLED) {
@@ -311,6 +311,7 @@ function afp_getUniqueFlightEntries() {
             if (entries[key].selectedDays.indexOf(dayIndex) === -1) {
                 entries[key].selectedDays.push(dayIndex);
                 entries[key].daySettings[dayIndex] = {
+                    departure: afp_getVisualBlockDepartureTime(block),
                     arrival: afp_getVisualBlockArrivalTime(block, dayIndex),
                 };
             }
@@ -371,15 +372,58 @@ function afp_parseVisualPlanTime(text) {
     };
 }
 
+function afp_minutesToVisualTime(totalMinutes) {
+    totalMinutes = ((totalMinutes % 1440) + 1440) % 1440;
+    let hours = Math.floor(totalMinutes / 60);
+    let minutes = totalMinutes % 60;
+    return {
+        dayOffset: 0,
+        hours: String(hours).padStart(2, '0'),
+        minutes: String(minutes).padStart(2, '0'),
+        value: String(hours).padStart(2, '0') + String(minutes).padStart(2, '0'),
+    };
+}
+
+function afp_getVisualBlockGeometry(block) {
+    let style = String($(block).attr('style') || '');
+    let marginMatch = style.match(/margin-left:\s*([\d.]+)%/);
+    let widthMatch = style.match(/width:\s*([\d.]+)%/);
+    if (!marginMatch || !widthMatch) {
+        return null;
+    }
+
+    let startMinutes = Math.round(parseFloat(marginMatch[1]) * 14.4);
+    let durationMinutes = Math.round(parseFloat(widthMatch[1]) * 14.4);
+    return {
+        durationMinutes: durationMinutes,
+        endMinutes: (startMinutes + durationMinutes) % 1440,
+        startMinutes: startMinutes % 1440,
+    };
+}
+
+function afp_getVisualBlockDepartureTime(block) {
+    let startTime = afp_parseVisualPlanTime($('.times .start', block).first().text());
+    if (startTime.value) {
+        return startTime;
+    }
+
+    let geometry = afp_getVisualBlockGeometry(block);
+    if (geometry) {
+        return afp_minutesToVisualTime(geometry.startMinutes);
+    }
+
+    return startTime;
+}
+
 function afp_parseVisualArrivalFromBlock(block) {
     let endTime = afp_parseVisualPlanTime($('.times .end', block).first().text());
     if (endTime.value) {
         return endTime;
     }
 
-    let fullTime = afp_parseVisualPlanTime($('.times', block).first().text());
-    if (fullTime.value) {
-        return fullTime;
+    let geometry = afp_getVisualBlockGeometry(block);
+    if (geometry) {
+        return afp_minutesToVisualTime(geometry.endMinutes);
     }
 
     return endTime;
