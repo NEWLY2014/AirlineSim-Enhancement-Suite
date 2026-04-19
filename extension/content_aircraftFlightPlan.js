@@ -11,7 +11,9 @@ var aircraftFlightPlanState = {
     runtimeType: 'warning',
     server: '',
     template: null,
+    templateStale: false,
 };
+const AIRCRAFT_FLIGHT_PLAN_TEMPLATE_VERSION = 2;
 const AIRCRAFT_FLIGHT_PLAN_SCRIPT_ENABLED = AES.shouldRunContentScript("content_aircraftFlightPlan");
 
 if (AIRCRAFT_FLIGHT_PLAN_SCRIPT_ENABLED) {
@@ -37,8 +39,14 @@ async function aircraftFlightPlanInit() {
     aircraftFlightPlanState.aircraft = afp_getCurrentAircraft();
 
     let result = await afp_storageGet([afp_getTemplateKey(), afp_getJobKey()]);
-    aircraftFlightPlanState.template = result[afp_getTemplateKey()] || null;
+    aircraftFlightPlanState.template = afp_normalizeTemplate(result[afp_getTemplateKey()] || null);
     aircraftFlightPlanState.job = result[afp_getJobKey()] || null;
+    if (!aircraftFlightPlanState.template && result[afp_getTemplateKey()]) {
+        aircraftFlightPlanState.templateStale = true;
+        await afp_storageRemove([afp_getTemplateKey()]);
+    } else {
+        aircraftFlightPlanState.templateStale = false;
+    }
 
     afp_renderPanel();
     window.setTimeout(function() {
@@ -153,7 +161,7 @@ function afp_isEmptyFlightPlan() {
 function afp_getTemplateSummary() {
     let template = aircraftFlightPlanState.template;
     if (!template || !Array.isArray(template.flights) || !template.flights.length) {
-        return 'No saved template';
+        return aircraftFlightPlanState.templateStale ? 'Template needs re-extract' : 'No saved template';
     }
 
     return template.sourceRegistration + ' / ' + template.sourceModel + ' / ' + template.flights.length + ' flights';
@@ -225,7 +233,9 @@ function afp_renderPanel() {
     });
 
     let hint = '';
-    if (!hasTemplate) {
+    if (aircraftFlightPlanState.templateStale) {
+        hint = 'Saved template is outdated. Please extract a fresh template.';
+    } else if (!hasTemplate) {
         hint = 'Extract a template from a planned aircraft first.';
     } else if (!isEmpty && !jobOnCurrentAircraft) {
         hint = 'Target flight plan must be empty.';
@@ -313,6 +323,19 @@ function afp_getUniqueFlightEntries() {
         });
         return entries[key];
     });
+}
+
+function afp_normalizeTemplate(template) {
+    if (!template || template.type !== 'aircraftFlightPlanTemplate') {
+        return null;
+    }
+    if (template.schemaVersion !== AIRCRAFT_FLIGHT_PLAN_TEMPLATE_VERSION) {
+        return null;
+    }
+    if (!Array.isArray(template.flights) || !template.flights.length) {
+        return null;
+    }
+    return template;
 }
 
 function afp_extractFlightNumberToken(text) {
@@ -470,6 +493,7 @@ async function afp_extractTemplate() {
             createdAt: Date.now(),
             date: AES.getServerDate().date,
             flights: entries,
+            schemaVersion: AIRCRAFT_FLIGHT_PLAN_TEMPLATE_VERSION,
             sourceAircraftId: aircraftFlightPlanState.aircraft.id,
             sourceModel: aircraftFlightPlanState.aircraft.model,
             sourceRegistration: aircraftFlightPlanState.aircraft.registration,
@@ -477,6 +501,7 @@ async function afp_extractTemplate() {
         };
 
         aircraftFlightPlanState.template = template;
+        aircraftFlightPlanState.templateStale = false;
         await afp_storageSet({ [afp_getTemplateKey()]: template });
         afp_notify('Flight plan template extracted.', 'success');
         afp_setRuntimeMessage('Template extracted.', 'success');
