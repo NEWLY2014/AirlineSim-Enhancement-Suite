@@ -371,8 +371,22 @@ function afp_parseVisualPlanTime(text) {
     };
 }
 
+function afp_parseVisualArrivalFromBlock(block) {
+    let endTime = afp_parseVisualPlanTime($('.times .end', block).first().text());
+    if (endTime.value) {
+        return endTime;
+    }
+
+    let fullTime = afp_parseVisualPlanTime($('.times', block).first().text());
+    if (fullTime.value) {
+        return fullTime;
+    }
+
+    return endTime;
+}
+
 function afp_getVisualBlockArrivalTime(block, dayIndex) {
-    let currentBlockArrival = afp_parseVisualPlanTime($('.times .end', block).first().text());
+    let currentBlockArrival = afp_parseVisualArrivalFromBlock(block);
     if (!block.hasClass('started') || block.hasClass('ended')) {
         return currentBlockArrival;
     }
@@ -404,7 +418,7 @@ function afp_getVisualBlockArrivalTime(block, dayIndex) {
         return currentBlockArrival;
     }
 
-    let nextDayArrival = afp_parseVisualPlanTime($('.times .end', nextDayEndedBlock).first().text());
+    let nextDayArrival = afp_parseVisualArrivalFromBlock(nextDayEndedBlock);
     if (nextDayArrival.value) {
         nextDayArrival.dayOffset = 1;
         return nextDayArrival;
@@ -905,12 +919,19 @@ async function afp_syncPlannerArrivalTime(plannerForm, segmentIndex, day, daySet
         return;
     }
 
+    let arrivalChanged = false;
     if (currentArrival.hours !== targetHours) {
         await afp_setPlannerArrivalSelect(segmentIndex, day, 'hours', daySettings.arrivalHours);
+        arrivalChanged = true;
     }
     currentArrival = afp_getArrivalValueSnapshot(segmentIndex, day);
     if (currentArrival.minutes !== targetMinutes) {
         await afp_setPlannerArrivalSelect(segmentIndex, day, 'minutes', daySettings.arrivalMinutes);
+        arrivalChanged = true;
+    }
+
+    if (!arrivalChanged) {
+        return;
     }
 }
 
