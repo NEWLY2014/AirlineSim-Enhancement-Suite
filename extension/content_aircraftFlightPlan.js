@@ -705,7 +705,7 @@ async function afp_setPlannerDaySelection(targetDays) {
 
 function afp_setSelectValue(element, value) {
     if (!element || !element.length || value == null) {
-        return;
+        return false;
     }
     let normalizedValue = String(value);
     let optionValues = $('option', element).map(function() {
@@ -715,11 +715,11 @@ function afp_setSelectValue(element, value) {
         normalizedValue = String(parseInt(normalizedValue, 10));
     }
     if (optionValues.indexOf(normalizedValue) === -1) {
-        return;
+        return false;
     }
 
     if (String(element.val() || '') === normalizedValue) {
-        return;
+        return true;
     }
 
     element.val(normalizedValue);
@@ -727,6 +727,7 @@ function afp_setSelectValue(element, value) {
         element[0].dispatchEvent(new Event('input', { bubbles: true }));
         element[0].dispatchEvent(new Event('change', { bubbles: true }));
     }
+    return true;
 }
 
 function afp_getArrivalSelects(plannerForm, segmentIndex, day) {
@@ -740,18 +741,60 @@ function afp_getFixedArrivalCheckbox(plannerForm, segmentIndex, day) {
     return $('input[name="segmentsContainer:segments:' + segmentIndex + ':fixedArrivalSelection:' + day + ':fixedArrival"]', plannerForm);
 }
 
+async function afp_waitForArrivalSelectValue(segmentIndex, day, part, value) {
+    let normalizedValue = String(value || '');
+    return afp_waitFor(function() {
+        let plannerForm = afp_getPlannerForm();
+        let arrivalSelects = afp_getArrivalSelects(plannerForm, segmentIndex, day);
+        let select = part === 'hours' ? arrivalSelects.hours : arrivalSelects.minutes;
+        if (!select.length) {
+            return false;
+        }
+        let optionValues = $('option', select).map(function() {
+            return String($(this).val());
+        }).get();
+        if (optionValues.indexOf(normalizedValue) === -1 && /^\d+$/.test(normalizedValue)) {
+            normalizedValue = String(parseInt(normalizedValue, 10));
+        }
+        return String(select.val() || '') === normalizedValue;
+    }, 1200, 80);
+}
+
+async function afp_setPlannerArrivalSelect(segmentIndex, day, part, value) {
+    if (value == null || value === '') {
+        return;
+    }
+    let plannerForm = afp_getPlannerForm();
+    let arrivalSelects = afp_getArrivalSelects(plannerForm, segmentIndex, day);
+    let select = part === 'hours' ? arrivalSelects.hours : arrivalSelects.minutes;
+    if (!select.length) {
+        return;
+    }
+    let changed = afp_setSelectValue(select, value);
+    if (!changed) {
+        return;
+    }
+    let applied = await afp_waitForArrivalSelectValue(segmentIndex, day, part, value);
+    if (!applied) {
+        let retryPlannerForm = afp_getPlannerForm();
+        let retrySelects = afp_getArrivalSelects(retryPlannerForm, segmentIndex, day);
+        let retrySelect = part === 'hours' ? retrySelects.hours : retrySelects.minutes;
+        if (!retrySelect.length) {
+            return;
+        }
+        afp_setSelectValue(retrySelect, value);
+        await afp_waitForArrivalSelectValue(segmentIndex, day, part, value);
+    }
+}
+
 async function afp_syncPlannerArrivalTime(plannerForm, segmentIndex, day, daySettings) {
     let arrivalSelects = afp_getArrivalSelects(plannerForm, segmentIndex, day);
     if (!arrivalSelects.hours.length || !arrivalSelects.minutes.length) {
         return;
     }
 
-    if (String(arrivalSelects.hours.val() || '') !== String(daySettings.arrivalHours || '')) {
-        afp_setSelectValue(arrivalSelects.hours, daySettings.arrivalHours);
-    }
-    if (String(arrivalSelects.minutes.val() || '') !== String(daySettings.arrivalMinutes || '')) {
-        afp_setSelectValue(arrivalSelects.minutes, daySettings.arrivalMinutes);
-    }
+    await afp_setPlannerArrivalSelect(segmentIndex, day, 'hours', daySettings.arrivalHours);
+    await afp_setPlannerArrivalSelect(segmentIndex, day, 'minutes', daySettings.arrivalMinutes);
 
     let fixedArrivalCheckbox = afp_getFixedArrivalCheckbox(plannerForm, segmentIndex, day);
     if (!fixedArrivalCheckbox.length || fixedArrivalCheckbox.prop('checked')) {
@@ -767,10 +810,14 @@ async function afp_syncPlannerArrivalTime(plannerForm, segmentIndex, day, daySet
     }
 
     afp_clickElement(fixedArrivalCheckbox);
-    await afp_waitFor(function() {
+    let fixedApplied = await afp_waitFor(function() {
         let currentCheckbox = afp_getFixedArrivalCheckbox(afp_getPlannerForm(), segmentIndex, day);
         return currentCheckbox.length && currentCheckbox.prop('checked');
     }, 2000, 80);
+    if (fixedApplied) {
+        await afp_setPlannerArrivalSelect(segmentIndex, day, 'hours', daySettings.arrivalHours);
+        await afp_setPlannerArrivalSelect(segmentIndex, day, 'minutes', daySettings.arrivalMinutes);
+    }
 }
 
 function afp_getPlannerSourceDaySettings(entry) {
