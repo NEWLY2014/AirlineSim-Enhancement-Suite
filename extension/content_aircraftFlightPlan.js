@@ -1053,8 +1053,7 @@ async function afp_applyFlightEntryToPlanner(entry, offsetDays) {
         for (let sourceDay of entry.selectedDays) {
             let targetDay = (sourceDay + offsetDays) % 7;
             let daySettings = segment.days[sourceDay];
-            let targetArrivalDay = (targetDay + (daySettings.arrivalDayOffset || 0)) % 7;
-            await afp_syncPlannerArrivalTime(afp_getPlannerForm(), segment.index, targetArrivalDay, targetDay, daySettings);
+            await afp_syncPlannerArrivalTime(afp_getPlannerForm(), segment.index, targetDay, targetDay, daySettings);
         }
     }
 }
