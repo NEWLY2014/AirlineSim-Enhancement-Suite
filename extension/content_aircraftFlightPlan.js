@@ -13,7 +13,7 @@ var aircraftFlightPlanState = {
     template: null,
     templateStale: false,
 };
-const AIRCRAFT_FLIGHT_PLAN_TEMPLATE_VERSION = 2;
+const AIRCRAFT_FLIGHT_PLAN_TEMPLATE_VERSION = 3;
 const AIRCRAFT_FLIGHT_PLAN_SCRIPT_ENABLED = AES.shouldRunContentScript("content_aircraftFlightPlan");
 
 if (AIRCRAFT_FLIGHT_PLAN_SCRIPT_ENABLED) {
@@ -343,6 +343,12 @@ function afp_extractFlightNumberToken(text) {
     return match ? match[1] : '';
 }
 
+function afp_getVisualBlockFlightNumberId(block) {
+    let infoHref = $('a[title="View flight number"]', block).attr('href') || '';
+    let valueMatch = infoHref.match(/\/numbers\/(\d+)/);
+    return valueMatch ? valueMatch[1] : '';
+}
+
 function afp_parseVisualPlanTime(text) {
     let normalized = String(text || '').replace(/\D/g, '');
     if (normalized.length === 3) {
@@ -376,9 +382,14 @@ function afp_getVisualBlockArrivalTime(block, dayIndex) {
 
     let code = $('.code', block).first().text().trim();
     let codeToken = afp_extractFlightNumberToken(code);
+    let flightNumberId = afp_getVisualBlockFlightNumberId(block);
     let nextDayEndedBlock = nextDay.find('.blocks .block.flight.ended').filter(function() {
         if ($(this).hasClass('started')) {
             return false;
+        }
+        let nextDayFlightNumberId = afp_getVisualBlockFlightNumberId(this);
+        if (flightNumberId && nextDayFlightNumberId === flightNumberId) {
+            return true;
         }
         let nextDayCode = $('.code', this).first().text().trim();
         if (nextDayCode === code) {
