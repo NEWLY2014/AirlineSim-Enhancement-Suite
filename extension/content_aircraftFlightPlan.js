@@ -653,6 +653,27 @@ function afp_setSelectValue(element, value) {
     element.val(String(value));
 }
 
+function afp_getArrivalSelects(plannerForm, segmentIndex, day) {
+    return {
+        hours: $('select[name="segmentsContainer:segments:' + segmentIndex + ':newArrivals:' + day + ':newArrival:hours"]', plannerForm),
+        minutes: $('select[name="segmentsContainer:segments:' + segmentIndex + ':newArrivals:' + day + ':newArrival:minutes"]', plannerForm),
+    };
+}
+
+function afp_syncPlannerArrivalTime(plannerForm, segmentIndex, day, daySettings) {
+    let arrivalSelects = afp_getArrivalSelects(plannerForm, segmentIndex, day);
+    if (!arrivalSelects.hours.length || !arrivalSelects.minutes.length) {
+        return;
+    }
+
+    if (String(arrivalSelects.hours.val() || '') !== String(daySettings.arrivalHours || '')) {
+        afp_setSelectValue(arrivalSelects.hours, daySettings.arrivalHours);
+    }
+    if (String(arrivalSelects.minutes.val() || '') !== String(daySettings.arrivalMinutes || '')) {
+        afp_setSelectValue(arrivalSelects.minutes, daySettings.arrivalMinutes);
+    }
+}
+
 function afp_getPlannerSourceDaySettings(entry) {
     let plannerForm = afp_getPlannerForm();
 
@@ -703,11 +724,7 @@ async function afp_applyFlightEntryToPlanner(entry, offsetDays) {
             let daySettings = segment.days[sourceDay];
             afp_setSelectValue($('select[name="segmentsContainer:segments:' + segment.index + ':departure-offsets:' + targetDay + ':departureOffset"]', plannerForm), daySettings.departureOffset);
             afp_setCheckboxValue($('input[name="segmentsContainer:segments:' + segment.index + ':fixedArrivalSelection:' + targetDay + ':fixedArrival"]', plannerForm), daySettings.fixedArrival);
-
-            if (daySettings.fixedArrival) {
-                afp_setSelectValue($('select[name="segmentsContainer:segments:' + segment.index + ':newArrivals:' + targetDay + ':newArrival:hours"]', plannerForm), daySettings.arrivalHours);
-                afp_setSelectValue($('select[name="segmentsContainer:segments:' + segment.index + ':newArrivals:' + targetDay + ':newArrival:minutes"]', plannerForm), daySettings.arrivalMinutes);
-            }
+            afp_syncPlannerArrivalTime(plannerForm, segment.index, targetDay, daySettings);
         });
     });
 }
