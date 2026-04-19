@@ -13,7 +13,7 @@ var aircraftFlightPlanState = {
     template: null,
     templateStale: false,
 };
-const AIRCRAFT_FLIGHT_PLAN_TEMPLATE_VERSION = 3;
+const AIRCRAFT_FLIGHT_PLAN_TEMPLATE_VERSION = 4;
 const AIRCRAFT_FLIGHT_PLAN_SCRIPT_ENABLED = AES.shouldRunContentScript("content_aircraftFlightPlan");
 
 if (AIRCRAFT_FLIGHT_PLAN_SCRIPT_ENABLED) {
@@ -356,6 +356,7 @@ function afp_parseVisualPlanTime(text) {
     }
     if (normalized.length !== 4) {
         return {
+            dayOffset: 0,
             hours: '',
             minutes: '',
             value: '',
@@ -363,6 +364,7 @@ function afp_parseVisualPlanTime(text) {
     }
 
     return {
+        dayOffset: 0,
         hours: normalized.slice(0, 2),
         minutes: normalized.slice(2, 4),
         value: normalized,
@@ -403,7 +405,11 @@ function afp_getVisualBlockArrivalTime(block, dayIndex) {
     }
 
     let nextDayArrival = afp_parseVisualPlanTime($('.times .end', nextDayEndedBlock).first().text());
-    return nextDayArrival.value ? nextDayArrival : currentBlockArrival;
+    if (nextDayArrival.value) {
+        nextDayArrival.dayOffset = 1;
+        return nextDayArrival;
+    }
+    return currentBlockArrival;
 }
 
 function afp_getExistingSelect() {
@@ -915,6 +921,7 @@ function afp_getPlannerSourceDaySettings(entry) {
             let daySetting = entry.daySettings && entry.daySettings[sourceDay] ? entry.daySettings[sourceDay] : {};
             let arrival = daySetting.arrival || {};
             days[sourceDay] = {
+                arrivalDayOffset: parseInt(arrival.dayOffset || 0, 10) || 0,
                 arrivalHours: String(arrival.hours || ''),
                 arrivalMinutes: String(arrival.minutes || ''),
             };
@@ -957,7 +964,8 @@ async function afp_applyFlightEntryToPlanner(entry, offsetDays) {
         for (let sourceDay of entry.selectedDays) {
             let targetDay = (sourceDay + offsetDays) % 7;
             let daySettings = segment.days[sourceDay];
-            await afp_syncPlannerArrivalTime(afp_getPlannerForm(), segment.index, targetDay, daySettings);
+            let targetArrivalDay = (targetDay + (daySettings.arrivalDayOffset || 0)) % 7;
+            await afp_syncPlannerArrivalTime(afp_getPlannerForm(), segment.index, targetArrivalDay, daySettings);
         }
     }
 }
