@@ -946,7 +946,7 @@ async function afp_setPlannerArrivalSelect(segmentIndex, day, part, value) {
     }
 }
 
-async function afp_syncPlannerArrivalTime(plannerForm, segmentIndex, day, daySettings) {
+async function afp_syncPlannerArrivalTime(plannerForm, segmentIndex, day, fixedDay, daySettings) {
     let arrivalSelects = afp_getArrivalSelects(plannerForm, segmentIndex, day);
     if (!arrivalSelects.hours.length || !arrivalSelects.minutes.length) {
         return;
@@ -976,6 +976,30 @@ async function afp_syncPlannerArrivalTime(plannerForm, segmentIndex, day, daySet
 
     if (!arrivalChanged) {
         return;
+    }
+
+    if (fixedDay === day) {
+        return;
+    }
+
+    let arrivalDayFixedCheckbox = afp_getFixedArrivalCheckbox(afp_getPlannerForm(), segmentIndex, day);
+    if (arrivalDayFixedCheckbox.length && arrivalDayFixedCheckbox.prop('checked')) {
+        afp_clickElement(arrivalDayFixedCheckbox);
+        await afp_waitForPlannerMutation(1500);
+        await afp_waitFor(function() {
+            let currentCheckbox = afp_getFixedArrivalCheckbox(afp_getPlannerForm(), segmentIndex, day);
+            return currentCheckbox.length && !currentCheckbox.prop('checked');
+        }, 1500, 80);
+    }
+
+    let departureDayFixedCheckbox = afp_getFixedArrivalCheckbox(afp_getPlannerForm(), segmentIndex, fixedDay);
+    if (departureDayFixedCheckbox.length && !departureDayFixedCheckbox.prop('checked')) {
+        afp_clickElement(departureDayFixedCheckbox);
+        await afp_waitForPlannerMutation(1500);
+        await afp_waitFor(function() {
+            let currentCheckbox = afp_getFixedArrivalCheckbox(afp_getPlannerForm(), segmentIndex, fixedDay);
+            return currentCheckbox.length && currentCheckbox.prop('checked');
+        }, 1500, 80);
     }
 }
 
@@ -1030,7 +1054,7 @@ async function afp_applyFlightEntryToPlanner(entry, offsetDays) {
             let targetDay = (sourceDay + offsetDays) % 7;
             let daySettings = segment.days[sourceDay];
             let targetArrivalDay = (targetDay + (daySettings.arrivalDayOffset || 0)) % 7;
-            await afp_syncPlannerArrivalTime(afp_getPlannerForm(), segment.index, targetArrivalDay, daySettings);
+            await afp_syncPlannerArrivalTime(afp_getPlannerForm(), segment.index, targetArrivalDay, targetDay, daySettings);
         }
     }
 }
