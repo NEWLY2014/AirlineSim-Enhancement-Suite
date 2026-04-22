@@ -1,5 +1,31 @@
 const AES_RELEASE_NOTES_STORAGE_KEY = "aesReleaseNotesSeenVersion"
 const AES_RELEASE_NOTES = {
+    "0.8.0": {
+        title: "Release Notes",
+        releaseDate: "2026-04-22",
+        summary: "Preview build for review.",
+        sections: [
+            {
+                title: "Added",
+                items: [
+                    "Introduced the Flight Plan Assistant for aircraft Flight Plan pages to extract a template and apply a 7-plane-7-day rotation with day offsets."
+                ]
+            },
+            {
+                title: "Changed",
+                items: [
+                    "Flight Plan Assistant layout and controls were refined for faster use, including compact offset buttons and a single start/stop scheduling control."
+                ]
+            },
+            {
+                title: "Fixed",
+                items: [
+                    "Template extraction and scheduling were hardened for short and overnight visual plan blocks so flight timing is captured more reliably during automated plan setup.",
+                    "Personnel Management salary adjustments now use the current form value when applying updates, including negative values."
+                ]
+            }
+        ]
+    },
     "0.7.8": {
         title: "Release Notes",
         releaseDate: "2026-04-18",
