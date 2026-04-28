@@ -125,28 +125,38 @@ function displayPersonnelManagement() {
     });
 }
 
-async function salaryUpdate(span) {
+function salaryUpdate(span) {
     AES.updateSettings(function(currentSettings) {
         currentSettings.personnelManagement.auto = 1;
         currentSettings.personnelManagement.alreadyUpdated = [];
-    }, async function(updatedSettings) {
+    }, function(updatedSettings) {
         settings = updatedSettings;
         let value = settings.personnelManagement.value;
         let type = settings.personnelManagement.type;
         let updatedRows = 0;
+        let salaryButtons = [];
+        const staffTableInfo = getStaffSalaryTableInfo();
 
-        const rows = $('.container-fluid:eq(2) table:eq(1) tbody tr').toArray();
+        if (!staffTableInfo) {
+            finishSalaryUpdate(span, ' salary table not found.');
+            return;
+        }
+
+        const rows = staffTableInfo.table.find('tbody tr').toArray();
 
         for (const row of rows) {
             const $row = $(row);
             if ($row.find('th').length) continue; // Skip header
 
-            const salaryInput = $row.find('form input:eq(2)');
+            const salaryForm = $row.find('form input[name="action"][value="salary"]').closest('form');
+            const salaryInput = salaryForm.find('input[name="amount"]').first();
+            if (!salaryInput.length) continue;
+
             const salary = AES.cleanInteger(salaryInput.val());
 
-            let averageText = $row.find('td:eq(9)').text().replace(/\(.*?\)/g, '').trim();
+            let averageText = $row.children('td').eq(staffTableInfo.countryAverageIndex).text().replace(/\(.*?\)/g, '').trim();
             const average = AES.cleanInteger(averageText);
-            const salaryBtn = $row.find('td:eq(8) form .input-group-btn input');
+            const salaryBtn = salaryForm.find('.input-group-btn input[type="submit"], button[type="submit"]').first();
 
             let newSalary = salary;
             if (type === 'absolute') {
@@ -156,31 +166,100 @@ async function salaryUpdate(span) {
             }
 
             if (newSalary !== salary) {
-                salaryInput.val(newSalary).trigger('input');
-                salaryBtn.closest('form')[0].submit();
+                salaryInput.val(newSalary).trigger('input').trigger('change');
+                if (salaryBtn.length) {
+                    salaryButtons.push(salaryBtn);
+                }
                 updatedRows++;
-
-                // Delay to allow form submission to complete
-                await new Promise(resolve => setTimeout(resolve, 100));
             }
         }
 
-        AES.updateSettings(function(currentSettings) {
-            currentSettings.personnelManagement.auto = 0;
-        }, function(finalSettings) {
-            settings = finalSettings;
-            const today = AES.getServerDate();
-            const key = server + airline.id + 'personnelManagement';
-            const data = {
-                server: server,
-                airline: airline,
-                type: 'personnelManagement',
-                date: today.date,
-                time: today.time
-            };
-            chrome.storage.local.set({ [key]: data }, function() {
-                span.removeClass().addClass('good').text(' all salaries at set level!');
+        const salaryForms = salaryButtons
+            .map(function(salaryBtn) {
+                return salaryBtn.closest('form')[0];
+            })
+            .filter(function(form, index, forms) {
+                return form && forms.indexOf(form) === index;
             });
+
+        if (updatedRows > 0) {
+            span.removeClass().addClass('warning').text(' submitting ' + updatedRows + ' salary changes...');
+        }
+
+        finishSalaryUpdate(span, ' all salaries at set level!', function() {
+            if (salaryForms.length === 1) {
+                salaryButtons[0].trigger('click');
+            } else {
+                salaryButtons.forEach(function(salaryBtn) {
+                    salaryBtn.trigger('click');
+                });
+            }
+        });
+    });
+}
+
+function getStaffSalaryTableInfo() {
+    const tables = $('.container-fluid:eq(2) table').toArray();
+
+    for (const table of tables) {
+        const tableInfo = getTableHeaderIndexes($(table));
+        if (
+            tableInfo.salaryInputIndex !== undefined &&
+            tableInfo.countryAverageIndex !== undefined
+        ) {
+            return {
+                table: $(table),
+                salaryInputIndex: tableInfo.salaryInputIndex,
+                countryAverageIndex: tableInfo.countryAverageIndex
+            };
+        }
+    }
+
+    return null;
+}
+
+function getTableHeaderIndexes(table) {
+    const indexes = {};
+    let columnIndex = 0;
+    const firstHeaderRow = table.find('thead tr').first();
+
+    firstHeaderRow.children('th').each(function() {
+        const header = $(this);
+        const title = header.text().trim().replace(/\s+/g, ' ').toLowerCase();
+        const colspan = parseInt(header.attr('colspan') || '1', 10);
+
+        if (title === "next week's salary") {
+            indexes.salaryInputIndex = columnIndex;
+        }
+        if (title === 'country average') {
+            indexes.countryAverageIndex = columnIndex;
+        }
+
+        columnIndex += colspan;
+    });
+
+    return indexes;
+}
+
+function finishSalaryUpdate(span, message, callback) {
+    AES.updateSettings(function(currentSettings) {
+        currentSettings.personnelManagement.auto = 0;
+    }, function(finalSettings) {
+        settings = finalSettings;
+        const today = AES.getServerDate();
+        const key = server + airline.id + 'personnelManagement';
+        const data = {
+            server: server,
+            airline: airline,
+            type: 'personnelManagement',
+            date: today.date,
+            time: today.time
+        };
+        chrome.storage.local.set({ [key]: data }, function() {
+            span.removeClass().addClass('good').text(message);
+            if (typeof callback === 'function') {
+                callback();
+            }
         });
     });
 }
