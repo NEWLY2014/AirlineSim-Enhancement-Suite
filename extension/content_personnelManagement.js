@@ -187,14 +187,24 @@ function salaryUpdate(span) {
         }
 
         finishSalaryUpdate(span, ' all salaries at set level!', function() {
-            if (salaryForms.length === 1) {
-                salaryButtons[0].trigger('click');
-            } else {
-                salaryButtons.forEach(function(salaryBtn) {
-                    salaryBtn.trigger('click');
-                });
-            }
+            submitSalaryChanges(salaryButtons, salaryForms);
         });
+    });
+}
+
+function submitSalaryChanges(salaryButtons, salaryForms) {
+    if (!salaryButtons.length) {
+        return;
+    }
+
+    const buttonsToClick = salaryForms.length === 1
+        ? [salaryButtons[0]]
+        : salaryButtons;
+
+    buttonsToClick.forEach(function(salaryBtn, index) {
+        setTimeout(function() {
+            salaryBtn.trigger('click');
+        }, 75 + index * 75);
     });
 }
 
