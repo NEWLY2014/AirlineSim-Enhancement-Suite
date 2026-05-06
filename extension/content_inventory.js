@@ -31,6 +31,12 @@ if (INVENTORY_SCRIPT_ENABLED) {
 }
 
 async function rerenderInventoryModule(force) {
+    if (!isInventoryPageReady()) {
+        cleanupInventoryDisplay()
+        inventoryRenderSignature = ""
+        return
+    }
+
     const nextSignature = getInventorySignature()
     if (!force && nextSignature === inventoryRenderSignature) {
         return
@@ -76,6 +82,15 @@ function getInventorySignature() {
     const groupedBodies = document.querySelectorAll("#inventory-grouped-table tbody").length
     const classicRows = document.querySelectorAll("#inventory-table tbody tr").length
     return [groupedBodies, classicRows].join(":")
+}
+
+function isInventoryPageReady() {
+    const hasInventoryTable = document.querySelector("#inventory-table tbody tr") ||
+        document.querySelector("#inventory-grouped-table tbody")
+    const hasPricingPanel = document.querySelector(".pricing table tbody tr")
+    const hasErrorPage = document.querySelector(".exception, .stacktrace, .error-page")
+
+    return Boolean(hasInventoryTable && hasPricingPanel && !hasErrorPage)
 }
 
 function cleanupInventoryDisplay() {
