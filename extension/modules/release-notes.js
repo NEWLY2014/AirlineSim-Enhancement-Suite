@@ -2,26 +2,22 @@ const AES_RELEASE_NOTES_STORAGE_KEY = "aesReleaseNotesSeenVersion"
 const AES_RELEASE_NOTES = {
     "0.8.0": {
         title: "Release Notes",
-        releaseDate: "2026-04-22",
-        summary: "Preview build for review.",
+        releaseDate: "2026-05-06",
+        summary: "Thanks for keeping AES up to date.",
         sections: [
             {
                 title: "Added",
                 items: [
-                    "Introduced the Flight Plan Assistant for aircraft Flight Plan pages to extract a template and apply a 7-plane-7-day rotation with day offsets."
-                ]
-            },
-            {
-                title: "Changed",
-                items: [
-                    "Flight Plan Assistant layout and controls were refined for faster use, including compact offset buttons and a single start/stop scheduling control."
+                    "Introduced the Flight Plan Assistant for aircraft Flight Plan pages to extract a template and apply a 7-plane-7-day rotation with compact 1-6 day offset controls, including timing extraction for short and overnight visual plan blocks.",
+                    "Added page ownership handling so newer AES builds can take priority when multiple AES versions are enabled on the same page."
                 ]
             },
             {
                 title: "Fixed",
                 items: [
-                    "Template extraction and scheduling were hardened for short and overnight visual plan blocks so flight timing is captured more reliably during automated plan setup.",
-                    "Personnel Management salary adjustments now use the current form value when applying updates, including negative values."
+                    "Personnel Management salary adjustments now use the current form value, support negative values reliably, and submit through native page controls without getting stuck at adjusting.",
+                    "Personnel Management salary detection now remains compatible with pages modified by ASX or similar tools.",
+                    "Inventory Pricing no longer injects AES validation messages into AirlineSim error pages."
                 ]
             }
         ]
@@ -284,19 +280,42 @@ function showReleaseNotesDialog(version, notes) {
 }
 
 function addReleaseNotesFooterLink() {
+    if (!AES.isPageOwner()) {
+        return false
+    }
+
     const manifest = chrome.runtime.getManifest()
     const version = manifest.version_name || manifest.version
     const notes = AES_RELEASE_NOTES[version]
     if (!notes) {
-        return
+        return false
     }
 
-    const footerLine = document.querySelector(".as-footer-line")
-    if (!footerLine || document.getElementById("aes-footer-version")) {
-        return
+    const footer = document.querySelector("#footer, nav.as-navbar-bottom")
+    if (!footer) {
+        return false
     }
 
-    const wrapper = document.createElement("div")
+    const footerLine = footer.querySelector(".as-footer-line")
+    const gameVersion = findGameVersionElement(footer)
+    const insertionParent = gameVersion ? gameVersion.parentElement : footerLine
+    if (!insertionParent) {
+        return false
+    }
+
+    let wrapper = document.getElementById("aes-footer-version")
+    if (!wrapper) {
+        wrapper = createFooterVersionLink(version, notes, gameVersion)
+    }
+
+    AES.markOwnedElements(wrapper)
+
+    return placeFooterVersionLink(wrapper, insertionParent, gameVersion)
+}
+
+function createFooterVersionLink(version, notes, gameVersion) {
+    const wrapperTag = gameVersion && gameVersion.tagName === "DIV" ? "div" : "span"
+    const wrapper = document.createElement(wrapperTag)
     wrapper.id = "aes-footer-version"
     wrapper.className = "as-footer-line-element version"
 
@@ -310,18 +329,106 @@ function addReleaseNotesFooterLink() {
     })
 
     wrapper.append(link)
-    AES.markOwnedElements(wrapper)
+    return wrapper
+}
 
-    const gameVersion = footerLine.querySelector("#version")
-    if (gameVersion) {
-        footerLine.insertBefore(wrapper, gameVersion)
-    } else {
-        footerLine.append(wrapper)
+function findGameVersionElement(footer) {
+    const explicitVersion = footer.querySelector("#version")
+    if (explicitVersion) {
+        return explicitVersion
     }
+
+    const currentVersion = window.frontendSettings && window.frontendSettings.currentVersionNumber
+    const versionCandidates = Array.from(footer.querySelectorAll("[data-version], .version, .as-footer-line-element, span, div"))
+        .filter(function(element) {
+            return element.id !== "aes-footer-version" && !element.closest("#aes-footer-version")
+        })
+
+    const dataVersionCandidate = versionCandidates.find(function(element) {
+        const dataVersion = element.getAttribute("data-version")
+        return dataVersion && (!currentVersion || dataVersion === currentVersion)
+    })
+    if (dataVersionCandidate) {
+        return dataVersionCandidate
+    }
+
+    const ownTextCandidate = versionCandidates.find(function(element) {
+        return isGameVersionText(getOwnText(element), currentVersion)
+    })
+    if (ownTextCandidate) {
+        return ownTextCandidate
+    }
+
+    const textCandidate = versionCandidates
+        .filter(function(element) {
+            return isGameVersionText((element.textContent || "").trim(), currentVersion)
+        })
+        .sort(function(left, right) {
+            const leftLength = (left.textContent || "").trim().length
+            const rightLength = (right.textContent || "").trim().length
+            if (leftLength !== rightLength) {
+                return leftLength - rightLength
+            }
+            return left.querySelectorAll("*").length - right.querySelectorAll("*").length
+        })[0]
+
+    return textCandidate || null
+}
+
+function getOwnText(element) {
+    return Array.from(element.childNodes)
+        .filter(function(node) {
+            return node.nodeType === Node.TEXT_NODE
+        })
+        .map(function(node) {
+            return node.nodeValue
+        })
+        .join(" ")
+        .trim()
+}
+
+function isGameVersionText(text, currentVersion) {
+    if (!text) {
+        return false
+    }
+
+    const normalizedText = text.trim()
+    if (currentVersion) {
+        return normalizedText === currentVersion || normalizedText === "v" + currentVersion
+    }
+
+    return /^v?\d+\.\d+\.\d+$/.test(normalizedText)
+}
+
+function placeFooterVersionLink(wrapper, insertionParent, gameVersion) {
+    if (gameVersion) {
+        if (wrapper.nextElementSibling !== gameVersion) {
+            insertionParent.insertBefore(wrapper, gameVersion)
+        }
+        return true
+    }
+
+    if (wrapper.parentElement !== insertionParent) {
+        insertionParent.append(wrapper)
+    }
+    return true
+}
+
+function watchReleaseNotesFooterLink() {
+    if (addReleaseNotesFooterLink()) {
+        return
+    }
+
+    const observer = new MutationObserver(function() {
+        if (addReleaseNotesFooterLink()) {
+            observer.disconnect()
+        }
+    })
+    observer.observe(document.body, { childList: true, subtree: true })
 }
 
 if (AES.shouldRunContentScript("module:release-notes")) {
-    addReleaseNotesFooterLink()
+    watchReleaseNotesFooterLink()
     maybeShowReleaseNotes()
     AES.whenPageOwnershipLost(function() {
         AES.removeOwnedElements()

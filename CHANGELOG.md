@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixed the AES footer version link placement for AirlineSim's updated footer structure.
+
+## [0.8.0] - 2026-05-06
+
+### Added
+
+- Added the Flight Plan Assistant for individual aircraft Flight Plan pages, including template extraction, saved-template deletion, compact `1-6` offset-day controls, assisted 7-plane-7-day scheduling from existing flight numbers, and timing extraction for short or overnight visual plan blocks.
+- Added page ownership arbitration so newer AES versions can take priority when multiple AES builds are enabled on the same AirlineSim page.
+
+### Fixed
+
+- Fixed Personnel Management salary adjustment so negative values and immediate apply actions use the current form value reliably.
+- Fixed Personnel Management salary updates so AES updates the visible salary inputs first, then submits through the native page controls without getting stuck at `adjusting`.
+- Fixed Personnel Management salary detection so it remains compatible with pages modified by ASX or similar tools that may affect column layout.
+- Fixed Inventory Pricing so AES does not inject validation messages into AirlineSim's own error pages when an Inventory request unexpectedly returns an error view.
+
 ## [0.7.8] - 2026-04-18
 
 ### Added
@@ -303,7 +321,8 @@ for pointing it out).
 
 _First release._
 
-[unreleased]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.7.8...HEAD
+[unreleased]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.7.8...v0.8.0
 [0.7.8]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.7.7...v0.7.8
 [0.7.7]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.7.6...v0.7.7
 [0.7.6]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.7.5...v0.7.6

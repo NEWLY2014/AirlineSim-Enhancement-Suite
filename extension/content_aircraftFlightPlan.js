@@ -5,7 +5,7 @@ var aircraftFlightPlanState = {
     extracting: false,
     job: null,
     notifications: null,
-    offsetDays: 0,
+    offsetDays: 1,
     processingJob: false,
     runtimeMessage: '',
     runtimeType: 'warning',
@@ -187,6 +187,9 @@ function afp_getJobSummary() {
 
 function afp_renderPanel() {
     $('#aes-aircraft-flight-plan-panel').remove();
+    if (aircraftFlightPlanState.offsetDays < 1 || aircraftFlightPlanState.offsetDays > 6) {
+        aircraftFlightPlanState.offsetDays = 1;
+    }
 
     let template = aircraftFlightPlanState.template;
     let job = aircraftFlightPlanState.job;
@@ -205,7 +208,7 @@ function afp_renderPanel() {
     let offsetButtons = $('<div class="btn-group aes-aircraft-flight-plan-offset-group" role="group" aria-label="Offset days"></div>');
     let offsetButtonsDisabled = aircraftFlightPlanState.extracting || jobOnCurrentAircraft || jobOnOtherAircraft;
 
-    for (let i = 0; i < 7; i++) {
+    for (let i = 1; i <= 6; i++) {
         let offsetBtn = $('<button type="button" class="btn btn-default aes-aircraft-flight-plan-offset-btn"></button>')
             .text(String(i))
             .attr('data-offset-days', i)
@@ -229,7 +232,7 @@ function afp_renderPanel() {
             afp_clearJob(true);
             return;
         }
-        afp_startScheduling(aircraftFlightPlanState.offsetDays || 0);
+        afp_startScheduling(aircraftFlightPlanState.offsetDays || 1);
     });
 
     let hint = '';
