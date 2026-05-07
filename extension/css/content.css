@@ -547,10 +547,18 @@
 
 #aes-footer-version {
     margin-right: 8px;
+    vertical-align: baseline;
+}
+
+#aes-footer-version.aes-footer-version-element {
+    align-items: center;
+    display: inline-flex;
+    line-height: inherit;
 }
 
 .aes-footer-version-link {
     color: inherit;
+    line-height: inherit;
     text-decoration: none;
 }
 

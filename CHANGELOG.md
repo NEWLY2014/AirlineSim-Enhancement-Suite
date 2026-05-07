@@ -7,10 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
-
-- Fixed the AES footer version link placement for AirlineSim's updated footer structure.
-
 ## [0.8.0] - 2026-05-06
 
 ### Added
@@ -24,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed Personnel Management salary updates so AES updates the visible salary inputs first, then submits through the native page controls without getting stuck at `adjusting`.
 - Fixed Personnel Management salary detection so it remains compatible with pages modified by ASX or similar tools that may affect column layout.
 - Fixed Inventory Pricing so AES does not inject validation messages into AirlineSim's own error pages when an Inventory request unexpectedly returns an error view.
+- Fixed the AES footer version link placement for AirlineSim's updated footer structure, including alignment next to the game version and preventing AES clicks from also opening AirlineSim release notes.
 
 ## [0.7.8] - 2026-04-18
 

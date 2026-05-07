@@ -8,16 +8,18 @@ const AES_RELEASE_NOTES = {
             {
                 title: "Added",
                 items: [
-                    "Introduced the Flight Plan Assistant for aircraft Flight Plan pages to extract a template and apply a 7-plane-7-day rotation with compact 1-6 day offset controls, including timing extraction for short and overnight visual plan blocks.",
-                    "Added page ownership handling so newer AES builds can take priority when multiple AES versions are enabled on the same page."
+                    "Added the Flight Plan Assistant for individual aircraft Flight Plan pages, including template extraction, saved-template deletion, compact 1-6 offset-day controls, assisted 7-plane-7-day scheduling from existing flight numbers, and timing extraction for short or overnight visual plan blocks.",
+                    "Added page ownership arbitration so newer AES versions can take priority when multiple AES builds are enabled on the same AirlineSim page."
                 ]
             },
             {
                 title: "Fixed",
                 items: [
-                    "Personnel Management salary adjustments now use the current form value, support negative values reliably, and submit through native page controls without getting stuck at adjusting.",
-                    "Personnel Management salary detection now remains compatible with pages modified by ASX or similar tools.",
-                    "Inventory Pricing no longer injects AES validation messages into AirlineSim error pages."
+                    "Fixed Personnel Management salary adjustment so negative values and immediate apply actions use the current form value reliably.",
+                    "Fixed Personnel Management salary updates so AES updates the visible salary inputs first, then submits through the native page controls without getting stuck at adjusting.",
+                    "Fixed Personnel Management salary detection so it remains compatible with pages modified by ASX or similar tools that may affect column layout.",
+                    "Fixed Inventory Pricing so AES does not inject validation messages into AirlineSim's own error pages when an Inventory request unexpectedly returns an error view.",
+                    "Fixed the AES footer version link placement for AirlineSim's updated footer structure, including alignment next to the game version and preventing AES clicks from also opening AirlineSim release notes."
                 ]
             }
         ]
@@ -296,28 +298,26 @@ function addReleaseNotesFooterLink() {
         return false
     }
 
-    const footerLine = footer.querySelector(".as-footer-line")
-    const gameVersion = findGameVersionElement(footer)
-    const insertionParent = gameVersion ? gameVersion.parentElement : footerLine
-    if (!insertionParent) {
+    const gameVersionAnchor = findGameVersionAnchor(footer)
+    if (!gameVersionAnchor) {
         return false
     }
 
     let wrapper = document.getElementById("aes-footer-version")
     if (!wrapper) {
-        wrapper = createFooterVersionLink(version, notes, gameVersion)
+        wrapper = createFooterVersionLink(version, notes, gameVersionAnchor.wrapperTag)
     }
 
     AES.markOwnedElements(wrapper)
 
-    return placeFooterVersionLink(wrapper, insertionParent, gameVersion)
+    return placeFooterVersionLink(wrapper, gameVersionAnchor)
 }
 
-function createFooterVersionLink(version, notes, gameVersion) {
-    const wrapperTag = gameVersion && gameVersion.tagName === "DIV" ? "div" : "span"
+function createFooterVersionLink(version, notes, wrapperTag) {
+    wrapperTag = wrapperTag || "span"
     const wrapper = document.createElement(wrapperTag)
     wrapper.id = "aes-footer-version"
-    wrapper.className = "as-footer-line-element version"
+    wrapper.className = "as-footer-line-element aes-footer-version-element"
 
     const link = document.createElement("a")
     link.href = "#"
@@ -325,17 +325,24 @@ function createFooterVersionLink(version, notes, gameVersion) {
     link.textContent = "AES: v" + version
     link.addEventListener("click", function(event) {
         event.preventDefault()
+        event.stopPropagation()
+        if (event.stopImmediatePropagation) {
+            event.stopImmediatePropagation()
+        }
         showReleaseNotesDialog(version, notes)
+    })
+    wrapper.addEventListener("click", function(event) {
+        event.stopPropagation()
     })
 
     wrapper.append(link)
     return wrapper
 }
 
-function findGameVersionElement(footer) {
+function findGameVersionAnchor(footer) {
     const explicitVersion = footer.querySelector("#version")
     if (explicitVersion) {
-        return explicitVersion
+        return createElementVersionAnchor(explicitVersion)
     }
 
     const currentVersion = window.frontendSettings && window.frontendSettings.currentVersionNumber
@@ -349,30 +356,60 @@ function findGameVersionElement(footer) {
         return dataVersion && (!currentVersion || dataVersion === currentVersion)
     })
     if (dataVersionCandidate) {
-        return dataVersionCandidate
+        return createElementVersionAnchor(dataVersionCandidate)
     }
 
     const ownTextCandidate = versionCandidates.find(function(element) {
         return isGameVersionText(getOwnText(element), currentVersion)
     })
     if (ownTextCandidate) {
-        return ownTextCandidate
+        return createElementVersionAnchor(ownTextCandidate)
     }
 
-    const textCandidate = versionCandidates
-        .filter(function(element) {
-            return isGameVersionText((element.textContent || "").trim(), currentVersion)
-        })
-        .sort(function(left, right) {
-            const leftLength = (left.textContent || "").trim().length
-            const rightLength = (right.textContent || "").trim().length
-            if (leftLength !== rightLength) {
-                return leftLength - rightLength
-            }
-            return left.querySelectorAll("*").length - right.querySelectorAll("*").length
-        })[0]
+    const textNodeAnchor = findGameVersionTextNodeAnchor(footer, currentVersion)
+    return textNodeAnchor || null
+}
 
-    return textCandidate || null
+function createElementVersionAnchor(element) {
+    return {
+        parent: element.parentNode,
+        beforeNode: element,
+        wrapperTag: element.tagName === "DIV" ? "div" : "span"
+    }
+}
+
+function findGameVersionTextNodeAnchor(footer, currentVersion) {
+    const walker = document.createTreeWalker(footer, NodeFilter.SHOW_TEXT, {
+        acceptNode: function(node) {
+            if (!node.nodeValue || !node.nodeValue.trim()) {
+                return NodeFilter.FILTER_REJECT
+            }
+            if (node.parentElement && node.parentElement.closest("#aes-footer-version")) {
+                return NodeFilter.FILTER_REJECT
+            }
+            return getGameVersionTokenIndex(node.nodeValue, currentVersion) >= 0
+                ? NodeFilter.FILTER_ACCEPT
+                : NodeFilter.FILTER_REJECT
+        }
+    })
+
+    const textNode = walker.nextNode()
+    if (!textNode) {
+        return null
+    }
+
+    const tokenIndex = getGameVersionTokenIndex(textNode.nodeValue, currentVersion)
+    const versionTextNode = tokenIndex > 0 ? textNode.splitText(tokenIndex) : textNode
+    const versionContainer = findClosestGameVersionContainer(versionTextNode.parentElement, currentVersion)
+    if (versionContainer) {
+        return createElementVersionAnchor(versionContainer)
+    }
+
+    return {
+        parent: versionTextNode.parentNode,
+        beforeNode: versionTextNode,
+        wrapperTag: "span"
+    }
 }
 
 function getOwnText(element) {
@@ -385,6 +422,23 @@ function getOwnText(element) {
         })
         .join(" ")
         .trim()
+}
+
+function findClosestGameVersionContainer(element, currentVersion) {
+    while (element && !element.matches("#footer, nav.as-navbar-bottom")) {
+        const dataVersion = element.getAttribute("data-version")
+        if (dataVersion && (!currentVersion || dataVersion === currentVersion)) {
+            return element
+        }
+        if (element.id === "version" || element.classList.contains("version")) {
+            return element
+        }
+        if (isGameVersionText(getOwnText(element), currentVersion)) {
+            return element
+        }
+        element = element.parentElement
+    }
+    return null
 }
 
 function isGameVersionText(text, currentVersion) {
@@ -400,16 +454,27 @@ function isGameVersionText(text, currentVersion) {
     return /^v?\d+\.\d+\.\d+$/.test(normalizedText)
 }
 
-function placeFooterVersionLink(wrapper, insertionParent, gameVersion) {
-    if (gameVersion) {
-        if (wrapper.nextElementSibling !== gameVersion) {
-            insertionParent.insertBefore(wrapper, gameVersion)
-        }
-        return true
+function getGameVersionTokenIndex(text, currentVersion) {
+    if (!text) {
+        return -1
     }
 
-    if (wrapper.parentElement !== insertionParent) {
-        insertionParent.append(wrapper)
+    if (currentVersion) {
+        const versionWithPrefix = "v" + currentVersion
+        const prefixedIndex = text.indexOf(versionWithPrefix)
+        if (prefixedIndex >= 0) {
+            return prefixedIndex
+        }
+        return text.indexOf(currentVersion)
+    }
+
+    const match = text.match(/v?\d+\.\d+\.\d+/)
+    return match ? match.index : -1
+}
+
+function placeFooterVersionLink(wrapper, gameVersionAnchor) {
+    if (wrapper.parentNode !== gameVersionAnchor.parent || wrapper.nextSibling !== gameVersionAnchor.beforeNode) {
+        gameVersionAnchor.parent.insertBefore(wrapper, gameVersionAnchor.beforeNode)
     }
     return true
 }
