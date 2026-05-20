@@ -35,6 +35,9 @@ function getStorageData() {
     }
     chrome.storage.local.get(keys, function(result) {
         for (let flightInfo in result) {
+            if (!result[flightInfo]) {
+                continue;
+            }
             for (let i = 0; i < aircraftFlightData.flights.length; i++) {
                 if (aircraftFlightData.flights[i].id == result[flightInfo].flightId) {
                     aircraftFlightData.flights[i].data = result[flightInfo];
@@ -52,8 +55,9 @@ function getTotalProfit() {
     let profitFlights = 0;
     aircraftFlightData.flights.forEach(function(value) {
         if (value.status == 'finished' || value.status == 'inflight') {
-            if (value.data) {
-                profit += value.data.money.CM5.Total;
+            let flightProfit = value.data && value.data.money && value.data.money.CM5 ? value.data.money.CM5.Total : null;
+            if (flightProfit !== undefined && flightProfit !== null) {
+                profit += flightProfit;
                 profitFlights++;
             }
         }

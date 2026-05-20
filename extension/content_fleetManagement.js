@@ -242,6 +242,9 @@ function fltmng_getStorageData() {
     });
     chrome.storage.local.get(keys, function(result) {
         for (let aircraftFlightData in result) {
+            if (!result[aircraftFlightData]) {
+                continue;
+            }
             for (let i = 0; i < aircraftData.length; i++) {
                 if (aircraftData[i].aircraftId == result[aircraftFlightData].aircraftId) {
                     aircraftData[i].profit = {

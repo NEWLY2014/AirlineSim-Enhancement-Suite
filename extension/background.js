@@ -10,7 +10,8 @@ function setDefaultSettings() {
     let aesSettings = {
         invPricing: setDefaultInvPricingSettings(),
         general: setDefaultGeneralSettings(),
-        schedule: setDefaultScheduleSettings()
+        schedule: setDefaultScheduleSettings(),
+        personnelManagement: setDefaultPersonnelManagementSettings()
     };
     chrome.storage.local.get(['settings'], function(result) {
         let settings = mergeDefaultSettings(result.settings || {}, aesSettings);
@@ -68,6 +69,17 @@ function setDefaultScheduleSettings() {
     };
     //Cmp settings
     return schedule;
+}
+
+function setDefaultPersonnelManagementSettings() {
+    let personnelManagement = {
+        value: 0,
+        type: 'absolute',
+        auto: 0,
+        alreadyUpdated: []
+    };
+
+    return personnelManagement;
 }
 
 function setDefaultGeneralSettings() {

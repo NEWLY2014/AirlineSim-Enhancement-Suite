@@ -17,7 +17,8 @@ if (DASHBOARD_SCRIPT_ENABLED) {
         airline = currentAirline && currentAirline.id ? currentAirline : AES.getAirline();
         server = AES.getServerName();
         dashboardStorage.get(['settings'], function(result) {
-            settings = result.settings;
+            settings = result.settings || {};
+            let settingsInitialized = ensureDashboardSettings();
             let filterScopeChanged = normalizeDashboardFilterScope();
 
             displayDashboard();
@@ -26,8 +27,12 @@ if (DASHBOARD_SCRIPT_ENABLED) {
             $("#aes-select-dashboard-main").change(function() {
                 dashboardHandle();
             });
-            if (filterScopeChanged) {
+            if (settingsInitialized || filterScopeChanged) {
                 AES.updateSettings(function(currentSettings) {
+                    currentSettings.general = settings.general;
+                    currentSettings.routeManagement = currentSettings.routeManagement || {};
+                    currentSettings.competitorMonitoring = currentSettings.competitorMonitoring || {};
+                    currentSettings.aircraftProfitability = currentSettings.aircraftProfitability || {};
                     currentSettings.general.dashboardFilterScopeKey = settings.general.dashboardFilterScopeKey;
                     currentSettings.routeManagement.filter = settings.routeManagement.filter;
                     currentSettings.competitorMonitoring.filter = settings.competitorMonitoring.filter;
@@ -112,6 +117,19 @@ function dashboardHandle() {
 function normalizeDashboardTab(value) {
     let allowed = ['general', 'routeManagement', 'competitorMonitoring', 'aircraftProfitability'];
     return allowed.indexOf(value) != -1 ? value : 'general';
+}
+
+function ensureDashboardSettings() {
+    let changed = false;
+    if (!settings.general || typeof settings.general !== 'object') {
+        settings.general = {};
+        changed = true;
+    }
+    if (!settings.general.defaultDashboard) {
+        settings.general.defaultDashboard = 'general';
+        changed = true;
+    }
+    return changed;
 }
 
 function getDashboardFilterScopeKey() {
@@ -1266,6 +1284,10 @@ function displayRouteManagementColumns(scheduleData) {
 function generateRouteManagementTable(scheduleData) {
     //Remove table
     $('#aes-div-routeManagement').remove();
+    if (!scheduleData || !scheduleData.date) {
+        renderRouteManagementMessage('No valid schedule data in memory. Extract schedule data again from the General dashboard.');
+        return;
+    }
     //Dates
     let dates = [];
     for (let date in scheduleData.date) {
@@ -1274,12 +1296,19 @@ function generateRouteManagementTable(scheduleData) {
         }
     }
     dates.reverse();
+    if (!dates.length || !scheduleData.date[dates[0]] || !Array.isArray(scheduleData.date[dates[0]].schedule)) {
+        renderRouteManagementMessage('No valid schedule data in memory. Extract schedule data again from the General dashboard.');
+        return;
+    }
     //LatestSchedule
     let schedule = scheduleData.date[dates[0]].schedule;
     //Generate table rows
     let uniqueOD = [];
     let data = [];
     schedule.forEach(function(od) {
+        if (!od || !od.od || !od.origin || !od.destination || !od.flightNumber) {
+            return;
+        }
         //ODs for analysis
         uniqueOD.push(od.od);
         //Get values flight numbers and total frequency
@@ -1345,11 +1374,13 @@ function generateRouteManagementTable(scheduleData) {
                 let routeIndex = {};
                 let routeIndexPax, routeIndexCargo;
                 if (outAnalysis && inAnalysis) {
-                    if (outDates.analysis && inDates.analysis) {
+                    let outAnalysisRecord = outDates.analysis && outAnalysis.date ? outAnalysis.date[outDates.analysis] : null;
+                    let inAnalysisRecord = inDates.analysis && inAnalysis.date ? inAnalysis.date[inDates.analysis] : null;
+                    if (outAnalysisRecord && outAnalysisRecord.data && inAnalysisRecord && inAnalysisRecord.data) {
                         let indexType = ['all', 'pax', 'cargo'];
                         indexType.forEach(function(type) {
-                            let outIndex = getRouteAnalysisIndex(outAnalysis.date[outDates.analysis].data, type);
-                            let inIndex = getRouteAnalysisIndex(inAnalysis.date[inDates.analysis].data, type);
+                            let outIndex = getRouteAnalysisIndex(outAnalysisRecord.data, type);
+                            let inIndex = getRouteAnalysisIndex(inAnalysisRecord.data, type);
                             if (outIndex && inIndex) {
                                 routeIndex[type] = Math.round((outIndex + inIndex) / 2);
                             }
@@ -1364,12 +1395,18 @@ function generateRouteManagementTable(scheduleData) {
     }
 }
 
+function renderRouteManagementMessage(message) {
+    $('#aes-div-routeManagement').remove();
+    let divTable = $('<div id="aes-div-routeManagement"></div>').append($('<p class="warning"></p>').text(message));
+    $('#aes-div-dashboard-routeManagement').append(divTable);
+}
+
 function updateRouteAnalysisColumns(data, dates, routeIndex) {
 
-    if (data) {
+    if (data && dates && data.date) {
         let rowId = '#aes-row-' + data.origin + data.destination;
 
-        if (dates.analysis) {
+        if (dates.analysis && data.date[dates.analysis] && data.date[dates.analysis].data) {
             //Analysis date
             $(rowId + ' .aes-analysisDate').text(AES.formatDateString(dates.analysis));
 
@@ -1396,7 +1433,7 @@ function updateRouteAnalysisColumns(data, dates, routeIndex) {
             //PAX Index
             $(rowId + ' .aes-index').html(displayIndex(getRouteAnalysisIndex(data.date[dates.analysis].data, 'all')));
 
-            if (dates.analysisOneBefore) {
+            if (dates.analysisOneBefore && data.date[dates.analysisOneBefore] && data.date[dates.analysisOneBefore].data) {
                 //Previous analysis date
                 $(rowId + ' .aes-analysisPreDate').text(AES.formatDateString(dates.analysisOneBefore));
 
@@ -1494,6 +1531,9 @@ function displayRouteAnalysisIndexDelta(dataCurrent, dataPrevious, type) {
 }
 
 function getRouteAnalysisLoad(data, type) {
+    if (!data) {
+        return;
+    }
     let cmp = [];
     switch (type) {
         case 'all':
@@ -1511,7 +1551,7 @@ function getRouteAnalysisLoad(data, type) {
     let cap, bkd;
     cap = bkd = 0;
     cmp.forEach(function(comp) {
-        if (data[comp].valid) {
+        if (data[comp] && data[comp].valid) {
             cap += data[comp].totalCap;
             bkd += data[comp].totalBkd;
         }
@@ -1542,6 +1582,9 @@ function displayLoad(load) {
 }
 
 function getRouteAnalysisIndex(data, type) {
+    if (!data) {
+        return;
+    }
     let cmp = [];
     let index = 0;
     switch (type) {
@@ -1562,7 +1605,7 @@ function getRouteAnalysisIndex(data, type) {
         //Multi index
         let count = 0;
         cmp.forEach(function(comp) {
-            if (data[comp].valid) {
+            if (data[comp] && data[comp].valid) {
                 index += data[comp].index;
                 count++;
             }
@@ -1580,6 +1623,9 @@ function getRouteAnalysisImportantDates(dates) {
         pricing: 0,
         analysisOneBefore: 0,
         pricingOneBefore: 0
+    }
+    if (!dates) {
+        return latest;
     }
     let analysisDates = [];
     let pricingDates = []
@@ -1701,6 +1747,9 @@ function displayCompetitorMonitoringAirlinesTable(div) {
     let deduplicateCompetitorAirlines = function() {
         let seen = {};
         compAirlines = compAirlines.filter(function(compAirline) {
+            if (!compAirline || !compAirline.id) {
+                return false;
+            }
             let id = String(compAirline.id);
             if (seen[id]) {
                 return false;
@@ -1730,6 +1779,17 @@ function displayCompetitorMonitoringAirlinesTable(div) {
         });
     };
 
+    let renderCompetitorMonitoringError = function(message, error) {
+        if (error) {
+            console.error('[AES] Unable to render competitor monitoring dashboard.', error);
+        }
+        div.empty().append($('<p class="warning"></p>').text(message));
+    };
+
+    let getStoredDateRecord = function(data, date) {
+        return data && date && data[date] ? data[date] : null;
+    };
+
     let loadSchedulesAndDisplayTable = function() {
         deduplicateCompetitorAirlines();
         let scheduleKeys = compAirlines.map(function(compAirline) {
@@ -1737,69 +1797,80 @@ function displayCompetitorMonitoringAirlinesTable(div) {
         });
 
         let displayTable = function(scheduleItems) {
-            div.empty();
-            for (let key in scheduleItems) {
-                if (scheduleItems[key] && scheduleItems[key].type == 'schedule' && scheduleItems[key].server == server && scheduleItems[key].airline) {
-                    compAirlinesSchedule[scheduleItems[key].airline.id] = scheduleItems[key];
+            try {
+                div.empty();
+                for (let key in scheduleItems) {
+                    if (scheduleItems[key] && scheduleItems[key].type == 'schedule' && scheduleItems[key].server == server && scheduleItems[key].airline) {
+                        compAirlinesSchedule[scheduleItems[key].airline.id] = scheduleItems[key];
+                    }
                 }
-            }
 
-            let tableData = [];
-            if (compAirlines.length) {
-                compAirlines.forEach(function myFunction(value) {
+                let tableData = [];
+                if (compAirlines.length) {
+                    compAirlines.forEach(function myFunction(value) {
+                if (!value || !value.id) {
+                    return;
+                }
                 let data = {};
                 //Airline
                 data.airlineId = value.id;
                 data.competitorMonitoringKey = value.key;
                 //All Tab0 Columns
                 let dates = getLatestDateKeys(value.tab0, 2);
-                if (dates.length) {
-                    data.airlineId = value.tab0[dates[0]].id;
-                    data.airlineCode = value.tab0[dates[0]].code;
-                    data.airlineName = value.tab0[dates[0]].displayName;
+                let overviewCurrent = getStoredDateRecord(value.tab0, dates[0]);
+                let overviewPrevious = getStoredDateRecord(value.tab0, dates[1]);
+                if (overviewCurrent) {
+                    data.airlineId = overviewCurrent.id || data.airlineId;
+                    data.airlineCode = overviewCurrent.code;
+                    data.airlineName = overviewCurrent.displayName;
                     data.overviewDate = AES.formatDateString(dates[0]);
-                    data.overviewRating = value.tab0[dates[0]].rating;
-                    data.overviewTotalPax = value.tab0[dates[0]].pax;
-                    data.overviewTotalCargo = value.tab0[dates[0]].cargo;
-                    data.overviewStations = value.tab0[dates[0]].stations;
-                    data.overviewFleet = value.tab0[dates[0]].fleet;
-                    data.overviewStaff = value.tab0[dates[0]].employees;
+                    data.overviewRating = overviewCurrent.rating;
+                    data.overviewTotalPax = overviewCurrent.pax;
+                    data.overviewTotalCargo = overviewCurrent.cargo;
+                    data.overviewStations = overviewCurrent.stations;
+                    data.overviewFleet = overviewCurrent.fleet;
+                    data.overviewStaff = overviewCurrent.employees;
                     //If previous date exists
-                    if (dates[1]) {
+                    if (overviewPrevious) {
                         data.overviewPreDate = AES.formatDateString(dates[1]);
-                        data.overviewRatingDelta = getDelta(getRatingNr(data.overviewRating), getRatingNr(value.tab0[dates[1]].rating));
-                        data.overviewTotalPaxDelta = getDelta(data.overviewTotalPax, value.tab0[dates[1]].pax);
-                        data.overviewTotalCargoDelta = getDelta(data.overviewTotalCargo, value.tab0[dates[1]].cargo);
-                        data.overviewStationsDelta = getDelta(data.overviewStations, value.tab0[dates[1]].stations);
-                        data.overviewFleetDelta = getDelta(data.overviewFleet, value.tab0[dates[1]].fleet);
-                        data.overviewStaffDelta = getDelta(data.overviewStaff, value.tab0[dates[1]].employees);
+                        data.overviewRatingDelta = getDelta(getRatingNr(data.overviewRating), getRatingNr(overviewPrevious.rating));
+                        data.overviewTotalPaxDelta = getDelta(data.overviewTotalPax, overviewPrevious.pax);
+                        data.overviewTotalCargoDelta = getDelta(data.overviewTotalCargo, overviewPrevious.cargo);
+                        data.overviewStationsDelta = getDelta(data.overviewStations, overviewPrevious.stations);
+                        data.overviewFleetDelta = getDelta(data.overviewFleet, overviewPrevious.fleet);
+                        data.overviewStaffDelta = getDelta(data.overviewStaff, overviewPrevious.employees);
                     }
                 }
                 //All Tab2 Columns
                 dates = getLatestDateKeys(value.tab2, 2);
-                if (dates.length) {
-                    data.fafWeek = AES.formatDateStringWeek(value.tab2[dates[0]].week);
-                    data.fafAirportsServed = value.tab2[dates[0]].airportsServed;
-                    data.fafOperatedFlights = value.tab2[dates[0]].operatedFlights;
-                    data.fafSeatsOffered = value.tab2[dates[0]].seatsOffered;
-                    data.fafsko = value.tab2[dates[0]].sko;
-                    data.fafCargoOffered = value.tab2[dates[0]].cargoOffered;
-                    data.faffko = value.tab2[dates[0]].fko;
+                let factsCurrent = getStoredDateRecord(value.tab2, dates[0]);
+                let factsPrevious = getStoredDateRecord(value.tab2, dates[1]);
+                if (factsCurrent) {
+                    data.fafWeek = AES.formatDateStringWeek(factsCurrent.week);
+                    data.fafAirportsServed = factsCurrent.airportsServed;
+                    data.fafOperatedFlights = factsCurrent.operatedFlights;
+                    data.fafSeatsOffered = factsCurrent.seatsOffered;
+                    data.fafsko = factsCurrent.sko;
+                    data.fafCargoOffered = factsCurrent.cargoOffered;
+                    data.faffko = factsCurrent.fko;
                     //If previous date exists
-                    if (dates[1]) {
-                        data.fafWeekPre = AES.formatDateStringWeek(value.tab2[dates[1]].week);
-                        data.fafAirportsServedDelta = getDelta(data.fafAirportsServed, value.tab2[dates[1]].airportsServed);
-                        data.fafOperatedFlightsDelta = getDelta(data.fafOperatedFlights, value.tab2[dates[1]].operatedFlights);
-                        data.fafSeatsOfferedDelta = getDelta(data.fafSeatsOffered, value.tab2[dates[1]].seatsOffered);
-                        data.fafskoDelta = getDelta(data.fafsko, value.tab2[dates[1]].sko);
-                        data.fafCargoOfferedDelta = getDelta(data.fafCargoOffered, value.tab2[dates[1]].cargoOffered);
-                        data.faffkoDelta = getDelta(data.faffko, value.tab2[dates[1]].fko);
+                    if (factsPrevious) {
+                        data.fafWeekPre = AES.formatDateStringWeek(factsPrevious.week);
+                        data.fafAirportsServedDelta = getDelta(data.fafAirportsServed, factsPrevious.airportsServed);
+                        data.fafOperatedFlightsDelta = getDelta(data.fafOperatedFlights, factsPrevious.operatedFlights);
+                        data.fafSeatsOfferedDelta = getDelta(data.fafSeatsOffered, factsPrevious.seatsOffered);
+                        data.fafskoDelta = getDelta(data.fafsko, factsPrevious.sko);
+                        data.fafCargoOfferedDelta = getDelta(data.fafCargoOffered, factsPrevious.cargoOffered);
+                        data.faffkoDelta = getDelta(data.faffko, factsPrevious.fko);
                     }
                 }
                 //Schedule Columns
-                if (compAirlinesSchedule[data.airlineId]) {
-                    dates = getLatestDateKeys(compAirlinesSchedule[data.airlineId].date, 2);
-                    if (dates.length) {
+                let scheduleData = compAirlinesSchedule[data.airlineId];
+                if (scheduleData && scheduleData.date) {
+                    dates = getLatestDateKeys(scheduleData.date, 2);
+                    let scheduleCurrent = getStoredDateRecord(scheduleData.date, dates[0]);
+                    let schedulePrevious = getStoredDateRecord(scheduleData.date, dates[1]);
+                    if (scheduleCurrent && Array.isArray(scheduleCurrent.schedule)) {
                         let hubs = {};
                         //For display
                         data.scheduleDate = AES.formatDateString(dates[0]);
@@ -1808,7 +1879,10 @@ function displayCompetitorMonitoringAirlinesTable(div) {
                         data.scheduleCargoFreq = 0;
                         data.schedulePAXFreq = 0;
                         data.scheduleFltNr = 0;
-                        compAirlinesSchedule[data.airlineId].date[dates[0]].schedule.forEach(function(schedule) {
+                        scheduleCurrent.schedule.forEach(function(schedule) {
+                            if (!schedule || !schedule.od || !schedule.flightNumber) {
+                                return;
+                            }
                             //Hubs
                             let hub = schedule.od.slice(0, 3);
                             if (hubs[hub]) {
@@ -1844,12 +1918,15 @@ function displayCompetitorMonitoringAirlinesTable(div) {
                         });
 
                         //Previous schedule data
-                        if (dates[1]) {
+                        if (schedulePrevious && Array.isArray(schedulePrevious.schedule)) {
                             data.scheduleDatePre = AES.formatDateString(dates[1]);
                             data.scheduleCargoFreqPre = 0;
                             data.schedulePAXFreqPre = 0;
                             data.scheduleFltNrPre = 0;
-                            compAirlinesSchedule[data.airlineId].date[dates[1]].schedule.forEach(function(schedule) {
+                            schedulePrevious.schedule.forEach(function(schedule) {
+                                if (!schedule || !schedule.od || !schedule.flightNumber) {
+                                    return;
+                                }
                                 //Hubs
                                 let hub = schedule.od.slice(0, 3);
                                 if (hubs[hub]) {
@@ -1925,6 +2002,9 @@ function displayCompetitorMonitoringAirlinesTable(div) {
             );
             div.append(divRow, table.tableWell);
 
+            } catch (error) {
+                renderCompetitorMonitoringError('Unable to load competitor monitoring data. Refresh the data from competitor airline pages.', error);
+            }
         };
 
         if (scheduleKeys.length) {
@@ -1966,7 +2046,7 @@ function displayCompetitorMonitoringAirlinesTable(div) {
 
             //Get data
             for (let key in items) {
-                if (items[key].type && items[key].type == 'competitorMonitoring' && items[key].server == server) {
+                if (items[key] && items[key].type && items[key].type == 'competitorMonitoring' && items[key].server == server) {
                     let compData = items[key];
                     if (!compData.ownerId && compData.id && airline.id) {
                         const newKey = AES.getCompetitorMonitoringKey(server, airline.id, compData.id);
@@ -2918,11 +2998,14 @@ function displayAircraftProfitability() {
     }
 
     let aircraftFleetKey = server + airline.id + 'aircraftFleet';
-    //Get storage fleet data
-    dashboardStorage.get([aircraftFleetKey], function(result) {
-        //get aircraft flight data
-        let aircraftFleetData = result[aircraftFleetKey];
-        if (aircraftFleetData) {
+
+    getDashboardAircraftFleetData(aircraftFleetKey, function(aircraftFleetData) {
+        try {
+            if (!isValidDashboardAircraftFleetData(aircraftFleetData)) {
+                renderAircraftProfitabilityMessage('No aircraft data in memory. Open fleet management to extract aircraft data.');
+                return;
+            }
+
             let keys = [];
             aircraftFleetData.fleet.forEach(function(value) {
                 if (!value.aircraftId) {
@@ -2931,73 +3014,146 @@ function displayAircraftProfitability() {
                 keys.push(server + 'aircraftFlights' + value.aircraftId);
             });
             dashboardStorage.get(keys, function(result) {
-                for (let aircraftFlightData in result) {
-                    for (let i = 0; i < aircraftFleetData.fleet.length; i++) {
-                        if (aircraftFleetData.fleet[i].aircraftId == result[aircraftFlightData].aircraftId) {
-                            aircraftFleetData.fleet[i].profit = {
-                                date: result[aircraftFlightData].date,
-                                finishedFlights: result[aircraftFlightData].finishedFlights,
-                                hubCounts: result[aircraftFlightData].hubCounts,
-                                hubDetected: result[aircraftFlightData].hubDetected,
-                                hubEffective: result[aircraftFlightData].hubEffective,
-                                hubOverride: result[aircraftFlightData].hubOverride,
-                                profit: result[aircraftFlightData].profit,
-                                profitFlights: result[aircraftFlightData].profitFlights,
-                                time: result[aircraftFlightData].time,
-                                totalFlights: result[aircraftFlightData].totalFlights,
-                            };
-                            aircraftFleetData.fleet[i].hubOverride = aircraftFleetData.fleet[i].hubOverride || result[aircraftFlightData].hubOverride || '';
-                            aircraftFleetData.fleet[i].hubDetected = result[aircraftFlightData].hubDetected || result[aircraftFlightData].hubEffective || aircraftFleetData.fleet[i].hubDetected || '';
-                            aircraftFleetData.fleet[i].hubEffective = aircraftFleetData.fleet[i].hubOverride || result[aircraftFlightData].hubEffective || result[aircraftFlightData].hubDetected || aircraftFleetData.fleet[i].hubDetected || '';
+                try {
+                    for (let aircraftFlightData in result) {
+                        for (let i = 0; i < aircraftFleetData.fleet.length; i++) {
+                            if (aircraftFleetData.fleet[i].aircraftId == result[aircraftFlightData].aircraftId) {
+                                aircraftFleetData.fleet[i].profit = {
+                                    date: result[aircraftFlightData].date,
+                                    finishedFlights: result[aircraftFlightData].finishedFlights,
+                                    hubCounts: result[aircraftFlightData].hubCounts,
+                                    hubDetected: result[aircraftFlightData].hubDetected,
+                                    hubEffective: result[aircraftFlightData].hubEffective,
+                                    hubOverride: result[aircraftFlightData].hubOverride,
+                                    profit: result[aircraftFlightData].profit,
+                                    profitFlights: result[aircraftFlightData].profitFlights,
+                                    time: result[aircraftFlightData].time,
+                                    totalFlights: result[aircraftFlightData].totalFlights,
+                                };
+                                aircraftFleetData.fleet[i].hubOverride = aircraftFleetData.fleet[i].hubOverride || result[aircraftFlightData].hubOverride || '';
+                                aircraftFleetData.fleet[i].hubDetected = result[aircraftFlightData].hubDetected || result[aircraftFlightData].hubEffective || aircraftFleetData.fleet[i].hubDetected || '';
+                                aircraftFleetData.fleet[i].hubEffective = aircraftFleetData.fleet[i].hubOverride || result[aircraftFlightData].hubEffective || result[aircraftFlightData].hubDetected || aircraftFleetData.fleet[i].hubDetected || '';
+                            }
                         }
                     }
-                }
-                let data = prepareAircraftProfitabilityData(aircraftFleetData);
-                settings.aircraftProfitability.filter = normalizeDashboardFilters(settings.aircraftProfitability.filter, columns, 'titlecode', 'title');
-                let tableDiv;
-                if (data.length) {
-                    tableDiv = generateTable({
-                        column: columns,
-                        data: data,
-                        columnPrefix: 'aes-aircraftProfit-',
-	                    tableSettings: 1,
-	                    options: ['selectFirstSix', 'hideSelected', 'openAircraft', 'reloadTableAircraftProfit', 'removeAircraft'],
-	                    filter: settings.aircraftProfitability.filter,
-	                    hideColumn: settings.aircraftProfitability.hideColumn,
-	                    tableSettingStorage: 'aircraftProfitability',
-	                    onColumnChange: displayAircraftProfitability,
-                        rowId: function(rowData) {
-                            if (rowData.aircraftId) {
-                                return 'aircraft-id-' + rowData.aircraftId;
-                            }
-                            return rowData.registration ? 'aircraft-reg-' + rowData.registration : null;
-                        }
-	                });
-                } else {
-                    //Never happens or only when fleet = 0 because of updated script this output is copied bellow
-                    tableDiv = $('<p class="warning"></p>').text('No aircraft data in memory. Open fleet management to extract aircraft data.')
-                }
-                //Div
-                let div = $('<div class="as-panel"></div>').append(tableDiv);
-                let mainDiv = $("#aes-div-dashboard");
-                //Build layout
-                mainDiv.empty();
-                let title = $('<h3></h3>').text('Aircraft Profitability');
-                mainDiv.append(title, div);
 
+                    let data = prepareAircraftProfitabilityData(aircraftFleetData);
+                    settings.aircraftProfitability.filter = normalizeDashboardFilters(settings.aircraftProfitability.filter, columns, 'titlecode', 'title');
+                    let tableDiv;
+                    if (data.length) {
+                        tableDiv = generateTable({
+                            column: columns,
+                            data: data,
+                            columnPrefix: 'aes-aircraftProfit-',
+                            tableSettings: 1,
+                            options: ['selectFirstSix', 'hideSelected', 'openAircraft', 'reloadTableAircraftProfit', 'removeAircraft'],
+                            filter: settings.aircraftProfitability.filter,
+                            hideColumn: settings.aircraftProfitability.hideColumn,
+                            tableSettingStorage: 'aircraftProfitability',
+                            onColumnChange: displayAircraftProfitability,
+                            rowId: function(rowData) {
+                                if (rowData.aircraftId) {
+                                    return 'aircraft-id-' + rowData.aircraftId;
+                                }
+                                return rowData.registration ? 'aircraft-reg-' + rowData.registration : null;
+                            }
+                        });
+                    } else {
+                        tableDiv = $('<p class="warning"></p>').text('No aircraft data in memory. Open fleet management to extract aircraft data.')
+                    }
+                    renderAircraftProfitabilityPanel(tableDiv);
+                } catch (error) {
+                    console.error('[AES] Unable to render aircraft profitability dashboard.', error);
+                    renderAircraftProfitabilityMessage('Unable to load aircraft profitability data. Extract aircraft data again from Fleet Management.');
+                }
             });
-        } else {
-            //No data
-            //Div
-            let tableDiv = $('<p class="warning"></p>').text('No aircraft data in memory. Open fleet management to extract aircraft data.')
-            let div = $('<div class="as-panel"></div>').append(tableDiv);
-            let mainDiv = $("#aes-div-dashboard");
-            //Build layout
-            mainDiv.empty();
-            let title = $('<h3></h3>').text('Aircraft Profitability');
-            mainDiv.append(title, div);
+        } catch (error) {
+            console.error('[AES] Unable to render aircraft profitability dashboard.', error);
+            renderAircraftProfitabilityMessage('Unable to load aircraft profitability data. Extract aircraft data again from Fleet Management.');
         }
     });
+
+    function renderAircraftProfitabilityMessage(message) {
+        renderAircraftProfitabilityPanel($('<p class="warning"></p>').text(message));
+    }
+
+    function renderAircraftProfitabilityPanel(tableDiv) {
+        let div = $('<div class="as-panel"></div>').append(tableDiv);
+        let mainDiv = $("#aes-div-dashboard");
+        mainDiv.empty();
+        let title = $('<h3></h3>').text('Aircraft Profitability');
+        mainDiv.append(title, div);
+    }
+
+    function getDashboardAircraftFleetData(primaryKey, callback) {
+        dashboardStorage.get([primaryKey], function(result) {
+            if (isValidDashboardAircraftFleetData(result[primaryKey])) {
+                callback(result[primaryKey]);
+                return;
+            }
+
+            dashboardStorage.get(null, function(allData) {
+                callback(findDashboardAircraftFleetFallback(allData, primaryKey));
+            });
+        });
+    }
+
+    function isValidDashboardAircraftFleetData(value) {
+        return value && Array.isArray(value.fleet);
+    }
+
+    function findDashboardAircraftFleetFallback(allData, primaryKey) {
+        let candidates = [];
+        Object.keys(allData || {}).forEach(function(key) {
+            let value = allData[key];
+            if (key === primaryKey || !key.endsWith('aircraftFleet') || !isValidDashboardAircraftFleetData(value)) {
+                return;
+            }
+            if (value.server && value.server !== server) {
+                return;
+            }
+
+            candidates.push({
+                key: key,
+                value: value,
+                score: getDashboardAircraftFleetMatchScore(value)
+            });
+        });
+
+        candidates = candidates
+            .filter(function(candidate) {
+                return candidate.score > 0;
+            })
+            .sort(function(left, right) {
+                if (right.score !== left.score) {
+                    return right.score - left.score;
+                }
+                return right.value.fleet.length - left.value.fleet.length;
+            });
+
+        return candidates.length ? candidates[0].value : null;
+    }
+
+    function getDashboardAircraftFleetMatchScore(value) {
+        let score = 0;
+        let valueAirline = value.airline || {};
+        if (airline.id && valueAirline.id == airline.id) {
+            score += 8;
+        }
+        if (airline.code && valueAirline.code && valueAirline.code == airline.code) {
+            score += 4;
+        }
+        if (airline.displayName && valueAirline.displayName && valueAirline.displayName == airline.displayName) {
+            score += 2;
+        }
+        if (airline.name && valueAirline.name && valueAirline.name == airline.name) {
+            score += 2;
+        }
+        if (!value.airline && value.server === server && Array.isArray(value.fleet) && value.fleet.length) {
+            score += 1;
+        }
+        return score;
+    }
 
     function prepareAircraftProfitabilityData(storage) {
         let data = [];

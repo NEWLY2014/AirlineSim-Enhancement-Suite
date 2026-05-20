@@ -6,19 +6,16 @@ const PERSONNEL_MANAGEMENT_SCRIPT_ENABLED = AES.shouldRunContentScript("content_
 if (PERSONNEL_MANAGEMENT_SCRIPT_ENABLED) {
     $(function() {
         chrome.storage.local.get(['settings'], function(result) {
-            settings = result.settings;
-            //Default settings
-            if (!settings.personnelManagement) {
-                settings.personnelManagement = {
-                    value: 0,
-                    type: 'absolute',
-                    auto: 0
-                };
-            }
             server = AES.getServerName();
             airline = AES.getAirline();
-
-            displayPersonnelManagement();
+            settings = result.settings || {};
+            ensurePersonnelManagementSettings(settings);
+            AES.updateSettings(function(currentSettings) {
+                ensurePersonnelManagementSettings(currentSettings);
+            }, function(updatedSettings) {
+                settings = updatedSettings;
+                displayPersonnelManagement();
+            });
         });
     });
 
@@ -75,7 +72,7 @@ function displayPersonnelManagement() {
     select.change(function() {
         settings.personnelManagement.type = select.val();
         AES.updateSettings(function(currentSettings) {
-            currentSettings.personnelManagement.type = settings.personnelManagement.type;
+            ensurePersonnelManagementSettings(currentSettings).type = settings.personnelManagement.type;
         }, function(updatedSettings) {
             settings = updatedSettings;
         });
@@ -86,7 +83,7 @@ function displayPersonnelManagement() {
     input.blur(function() {
         input.val(settings.personnelManagement.value);
         AES.updateSettings(function(currentSettings) {
-            currentSettings.personnelManagement.value = settings.personnelManagement.value;
+            ensurePersonnelManagementSettings(currentSettings).value = settings.personnelManagement.value;
         }, function(updatedSettings) {
             settings = updatedSettings;
         });
@@ -98,10 +95,11 @@ function displayPersonnelManagement() {
         input.val(settings.personnelManagement.value);
         span.removeClass().addClass('warning').text(' adjusting...');
         AES.updateSettings(function(currentSettings) {
-            currentSettings.personnelManagement.type = settings.personnelManagement.type;
-            currentSettings.personnelManagement.value = settings.personnelManagement.value;
-            currentSettings.personnelManagement.auto = 1;
-            currentSettings.personnelManagement.alreadyUpdated = [];
+            let personnelSettings = ensurePersonnelManagementSettings(currentSettings);
+            personnelSettings.type = settings.personnelManagement.type;
+            personnelSettings.value = settings.personnelManagement.value;
+            personnelSettings.auto = 1;
+            personnelSettings.alreadyUpdated = [];
         }, function(updatedSettings) {
             settings = updatedSettings;
             salaryUpdate(span);
@@ -127,8 +125,9 @@ function displayPersonnelManagement() {
 
 function salaryUpdate(span) {
     AES.updateSettings(function(currentSettings) {
-        currentSettings.personnelManagement.auto = 1;
-        currentSettings.personnelManagement.alreadyUpdated = [];
+        let personnelSettings = ensurePersonnelManagementSettings(currentSettings);
+        personnelSettings.auto = 1;
+        personnelSettings.alreadyUpdated = [];
     }, function(updatedSettings) {
         settings = updatedSettings;
         let value = settings.personnelManagement.value;
@@ -253,7 +252,7 @@ function getTableHeaderIndexes(table) {
 
 function finishSalaryUpdate(span, message, callback) {
     AES.updateSettings(function(currentSettings) {
-        currentSettings.personnelManagement.auto = 0;
+        ensurePersonnelManagementSettings(currentSettings).auto = 0;
     }, function(finalSettings) {
         settings = finalSettings;
         const today = AES.getServerDate();
@@ -272,4 +271,37 @@ function finishSalaryUpdate(span, message, callback) {
             }
         });
     });
+}
+
+function getDefaultPersonnelManagementSettings() {
+    return {
+        value: 0,
+        type: 'absolute',
+        auto: 0,
+        alreadyUpdated: []
+    };
+}
+
+function ensurePersonnelManagementSettings(targetSettings) {
+    if (!targetSettings || typeof targetSettings !== 'object') {
+        return getDefaultPersonnelManagementSettings();
+    }
+
+    if (
+        !targetSettings.personnelManagement ||
+        typeof targetSettings.personnelManagement !== 'object' ||
+        Array.isArray(targetSettings.personnelManagement)
+    ) {
+        targetSettings.personnelManagement = getDefaultPersonnelManagementSettings();
+        return targetSettings.personnelManagement;
+    }
+
+    const defaults = getDefaultPersonnelManagementSettings();
+    Object.keys(defaults).forEach(function(key) {
+        if (targetSettings.personnelManagement[key] === undefined) {
+            targetSettings.personnelManagement[key] = defaults[key];
+        }
+    });
+
+    return targetSettings.personnelManagement;
 }
