@@ -7,9 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-05-20
+
 ### Fixed
 
-- Fixed Aircraft Profitability on the Dashboard so invalid or mismatched fleet storage no longer leaves the tab stuck on loading.
+- Fixed Aircraft Profitability on the Dashboard so invalid or mismatched fleet storage no longer leaves the tab stuck on loading. [#32](https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/issues/32)
 - Hardened Dashboard initialization, Route Management, and Competitor Monitoring against incomplete stored data so tabs fail gracefully instead of staying in a loading state.
 - Hardened Flights and Fleet Management storage merging so malformed saved flight records no longer interrupt aircraft profit and HUB summaries.
 - Fixed Personnel Management salary adjustment for older settings data that did not include salary preferences, which could leave the control stuck on `adjusting`.
@@ -325,7 +327,8 @@ for pointing it out).
 
 _First release._
 
-[unreleased]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.0...HEAD
+[unreleased]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.1...HEAD
+[0.8.1]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.7.8...v0.8.0
 [0.7.8]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.7.7...v0.7.8
 [0.7.7]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.7.6...v0.7.7

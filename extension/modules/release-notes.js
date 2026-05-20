@@ -1,5 +1,21 @@
 const AES_RELEASE_NOTES_STORAGE_KEY = "aesReleaseNotesSeenVersion"
 const AES_RELEASE_NOTES = {
+    "0.8.1": {
+        title: "Release Notes",
+        releaseDate: "2026-05-20",
+        summary: "Thanks for keeping AES up to date.",
+        sections: [
+            {
+                title: "Fixed",
+                items: [
+                    "Fixed Aircraft Profitability on the Dashboard so invalid or mismatched fleet storage no longer leaves the tab stuck on loading. Issue #32.",
+                    "Hardened Dashboard initialization, Route Management, and Competitor Monitoring against incomplete stored data so tabs fail gracefully instead of staying in a loading state.",
+                    "Hardened Flights and Fleet Management storage merging so malformed saved flight records no longer interrupt aircraft profit and HUB summaries.",
+                    "Fixed Personnel Management salary adjustment for older settings data that did not include salary preferences, which could leave the control stuck on adjusting."
+                ]
+            }
+        ]
+    },
     "0.8.0": {
         title: "Release Notes",
         releaseDate: "2026-05-18",
