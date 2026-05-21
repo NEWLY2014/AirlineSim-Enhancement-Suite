@@ -34,6 +34,7 @@ if (DASHBOARD_SCRIPT_ENABLED) {
                     currentSettings.competitorMonitoring = currentSettings.competitorMonitoring || {};
                     currentSettings.aircraftProfitability = currentSettings.aircraftProfitability || {};
                     currentSettings.general.dashboardFilterScopeKey = settings.general.dashboardFilterScopeKey;
+                    currentSettings.routeManagement.tableColumns = settings.routeManagement.tableColumns;
                     currentSettings.routeManagement.filter = settings.routeManagement.filter;
                     currentSettings.competitorMonitoring.filter = settings.competitorMonitoring.filter;
                     currentSettings.aircraftProfitability.filter = settings.aircraftProfitability.filter;
@@ -149,8 +150,7 @@ function normalizeDashboardFilterScope() {
     let previousScope = settings.general.dashboardFilterScopeKey;
     let changed = false;
 
-    if (!settings.routeManagement) {
-        setDefaultRouteManagementSettings();
+    if (ensureRouteManagementSettings()) {
         changed = true;
     }
     if (!settings.competitorMonitoring) {
@@ -885,11 +885,14 @@ function buildGeneratedDashboardColumns(tableOptionsRule) {
     return buildDashboardControlPanel('Columns', visibleCount + ' shown', picker, false);
 }
 
-//Route Management Dashbord
+//Route Management Dashboard
 function displayRouteManagement() {
-    //Check ROute Managemetn seetings
-    if (!settings.routeManagement) {
-        setDefaultRouteManagementSettings();
+    if (ensureRouteManagementSettings()) {
+        AES.updateSettings(function(currentSettings) {
+            currentSettings.routeManagement = settings.routeManagement;
+        }, function(updatedSettings) {
+            settings = updatedSettings;
+        });
     }
 
     let mainDiv = $("#aes-div-dashboard");
@@ -906,103 +909,11 @@ function displayRouteManagement() {
             // Table
             generateRouteManagementTable(scheduleData);
 
-            // Option buttons
-            let fieldsetEl = document.createElement("fieldset")
-            let legendEl = document.createElement("legend")
-            let buttonGroupEl = document.createElement("div")
-
-            let buttonElements = {
-                "selectFirstSix": {
-                    "label": "Select first 6"
-                },
-                "hideChecked": {
-                    "label": "Hide checked"
-                },
-                "openInventory": {
-                    "label": "Open inventory (max 6)"
-                },
-                "reloadTable": {
-                    "label": "Reload table"
-                }
-            }
-
-            for (let key in buttonElements) {
-                let buttonObj = buttonElements[key]
-                let buttonEl = document.createElement("button")
-                let buttonClassNames = buttonObj?.classNames
-                let buttonType = buttonObj?.type
-                let buttonDefaultClassNames = "btn btn-default"
-                buttonEl.innerText = buttonObj.label
-
-                if (buttonType) {
-                    buttonEl.setAttribute("type", buttonType)
-                } else {
-                    buttonEl.setAttribute("type", "button")
-                }
-
-                if (buttonClassNames) {
-                    buttonEl.className = buttonClassNames
-                } else {
-                    buttonEl.className = buttonDefaultClassNames
-                }
-
-                buttonObj.element = buttonEl
-                buttonGroupEl.append(buttonEl)
-            }
-
-            legendEl.innerText = "Options"
-            buttonGroupEl.classList.add("btn-group")
-            buttonGroupEl.classList.add("aes-dashboard-control-actions")
-
-            fieldsetEl.append(legendEl, buttonGroupEl)
-
-            let optionsDiv = $('<div class="col-md-4"></div>').append(
-                buildDashboardControlPanel('Actions', '', buttonGroupEl, true)
+            let divRow = $('<div class="row aes-dashboard-controls"></div>').append(
+                buildRouteManagementActions(),
+                displayRouteManagementFilters(),
+                displayRouteManagementColumns(scheduleData)
             );
-
-            // Button actions
-
-            // Select first 6
-            buttonElements["selectFirstSix"].element.addEventListener("click", function() {
-                let count = 0
-                $('#aes-table-routeManagement tbody tr:visible').each(function() {
-                    $(this).find("input").prop('checked', true);
-                    count++;
-                    if (count > 5) {
-                        return false;
-                    }
-                })
-            });
-
-            // Remove checked
-            buttonElements["hideChecked"].element.addEventListener("click", function() {
-                $('#aes-table-routeManagement tbody tr:visible').has('input:checked').remove();
-            });
-
-            // Open Inventory
-            buttonElements["openInventory"].element.addEventListener("click", function() {
-                //Get checked columns
-                let pages = $('#aes-table-routeManagement tbody tr:visible').has('input:checked').map(function() {
-                    let orgdest = $(this).attr('id');
-                    orgdest = orgdest.split("-");
-                    orgdest = orgdest[2];
-                    //let orgdest = $(this).find("td:eq(1)").text() + $(this).find("td:eq(2)").text();
-                    let url = 'https://' + server + '.airlinesim.aero/app/com/inventory/' + orgdest;
-                    return url;
-                }).toArray();
-
-                //Open new tabs
-                for (let i = 0; i < pages.length; i++) {
-                    if (i >= 6) break;
-                    window.open(pages[i], '_blank');
-                }
-            });
-
-            // Reload table reloadTable
-            buttonElements["reloadTable"].element.addEventListener("click", function() {
-                generateRouteManagementTable(scheduleData);
-            });
-            let divRow = $('<div class="row aes-dashboard-controls"></div>').append(optionsDiv, displayRouteManagementFilters(), displayRouteManagementColumns(scheduleData))
             div.prepend(divRow);
 
         } else {
@@ -1012,7 +923,7 @@ function displayRouteManagement() {
     });
 }
 
-function setDefaultRouteManagementSettings() {
+function getDefaultRouteManagementSettings() {
     let columns = [
         {
             name: 'Origin',
@@ -1186,10 +1097,133 @@ function setDefaultRouteManagementSettings() {
             show: 1
     }
   ];
-    settings.routeManagement = {
+    return {
         tableColumns: columns,
         filter: []
     };
+}
+
+function setDefaultRouteManagementSettings() {
+    settings.routeManagement = getDefaultRouteManagementSettings();
+}
+
+function ensureRouteManagementSettings() {
+    if (!settings.routeManagement || typeof settings.routeManagement !== 'object') {
+        setDefaultRouteManagementSettings();
+        return true;
+    }
+
+    let changed = false;
+    const previousSettings = settings.routeManagement;
+
+    if (!Array.isArray(previousSettings.filter)) {
+        previousSettings.filter = [];
+        changed = true;
+    }
+
+    const previousColumns = Array.isArray(previousSettings.tableColumns)
+        ? previousSettings.tableColumns.filter(function(column) {
+            return column && column.class && column.name;
+        })
+        : [];
+
+    if (previousColumns.length !== (previousSettings.tableColumns || []).length) {
+        changed = true;
+    }
+
+    const defaultSettings = getDefaultRouteManagementSettings();
+    const defaultColumns = defaultSettings.tableColumns;
+
+    if (!previousColumns.length) {
+        settings.routeManagement.tableColumns = defaultColumns;
+        changed = true;
+        return changed;
+    }
+
+    const existingColumnsByClass = {};
+    previousColumns.forEach(function(column) {
+        existingColumnsByClass[column.class] = column;
+    });
+
+    defaultColumns.forEach(function(defaultColumn) {
+        const existingColumn = existingColumnsByClass[defaultColumn.class];
+        if (!existingColumn) {
+            previousColumns.push(defaultColumn);
+            changed = true;
+            return;
+        }
+
+        ['name', 'number', 'value'].forEach(function(field) {
+            if (existingColumn[field] === undefined && defaultColumn[field] !== undefined) {
+                existingColumn[field] = defaultColumn[field];
+                changed = true;
+            }
+        });
+        if (existingColumn.show === undefined) {
+            existingColumn.show = defaultColumn.show;
+            changed = true;
+        }
+    });
+
+    settings.routeManagement.tableColumns = previousColumns;
+    return changed;
+}
+
+function buildRouteManagementActions() {
+    const actionDefinitions = [
+        {
+            key: 'selectFirstSix',
+            label: 'Select first 6',
+            handler: selectFirstRouteManagementRows
+        },
+        {
+            key: 'hideChecked',
+            label: 'Hide checked',
+            handler: hideSelectedRouteManagementRows
+        },
+        {
+            key: 'openInventory',
+            label: 'Open inventory (max 6)',
+            handler: openSelectedRouteManagementInventories
+        },
+        {
+            key: 'reloadTable',
+            label: 'Reload table',
+            handler: displayRouteManagement
+        }
+    ];
+
+    let actions = $('<div class="btn-group aes-dashboard-control-actions"></div>');
+    actionDefinitions.forEach(function(action) {
+        actions.append(
+            $('<button type="button" class="btn btn-default"></button>')
+                .text(action.label)
+                .click(action.handler)
+        );
+    });
+
+    return $('<div class="col-md-4"></div>').append(
+        buildDashboardControlPanel('Actions', '', actions, true)
+    );
+}
+
+function selectFirstRouteManagementRows() {
+    $('tbody tr:visible', '#aes-table-routeManagement').slice(0, 6).each(function() {
+        $(this).find('input[type="checkbox"]').prop('checked', true);
+    });
+}
+
+function hideSelectedRouteManagementRows() {
+    $('#aes-table-routeManagement tbody tr:visible').has('input:checked').remove();
+}
+
+function openSelectedRouteManagementInventories() {
+    getSelectedDashboardRows($('#aes-table-routeManagement')).slice(0, 6).forEach(function(rowData) {
+        if (!rowData || !rowData.rowId) {
+            return;
+        }
+        window.open('https://' + server + '.airlinesim.aero/app/com/inventory/' + rowData.rowId, '_blank');
+    });
 }
 
 function routeManagementApplyFilter() {
@@ -1282,6 +1316,15 @@ function displayRouteManagementColumns(scheduleData) {
 }
 
 function generateRouteManagementTable(scheduleData) {
+    try {
+        renderRouteManagementTable(scheduleData);
+    } catch (error) {
+        console.error('[AES] Unable to render route management dashboard.', error);
+        renderRouteManagementMessage('Unable to load route management data. Extract schedule data again from the General dashboard.');
+    }
+}
+
+function renderRouteManagementTable(scheduleData) {
     //Remove table
     $('#aes-div-routeManagement').remove();
     if (!scheduleData || !scheduleData.date) {
@@ -1295,7 +1338,9 @@ function generateRouteManagementTable(scheduleData) {
             dates.push(date);
         }
     }
-    dates.reverse();
+    dates.sort(function(a, b) {
+        return b - a;
+    });
     if (!dates.length || !scheduleData.date[dates[0]] || !Array.isArray(scheduleData.date[dates[0]].schedule)) {
         renderRouteManagementMessage('No valid schedule data in memory. Extract schedule data again from the General dashboard.');
         return;
@@ -1316,9 +1361,9 @@ function generateRouteManagementTable(scheduleData) {
         let paxFreq = 0;
         let cargoFreq = 0;
         for (let flight in od.flightNumber) {
-            cargoFreq += od.flightNumber[flight].cargoFreq,
-                paxFreq += od.flightNumber[flight].paxFreq,
-                fltNr++;
+            cargoFreq += Number(od.flightNumber[flight].cargoFreq) || 0;
+            paxFreq += Number(od.flightNumber[flight].paxFreq) || 0;
+            fltNr++;
         }
         let totalFreq = cargoFreq + paxFreq;
         //hub
@@ -1361,35 +1406,33 @@ function generateRouteManagementTable(scheduleData) {
         let keyInbound = server + airline.id + dest + origin + 'routeAnalysis';
         dashboardStorage.get([keyOutbound], function(outboundData) {
             dashboardStorage.get([keyInbound], function(inboundData) {
-                let outAnalysis = outboundData[keyOutbound];
-                let inAnalysis = inboundData[keyInbound];
-                let outDates, inDates;
-                if (outAnalysis) {
-                    outDates = getRouteAnalysisImportantDates(outAnalysis.date);
-                }
-                if (inAnalysis) {
-                    inDates = getRouteAnalysisImportantDates(inAnalysis.date);
-                }
-                //Route index
-                let routeIndex = {};
-                let routeIndexPax, routeIndexCargo;
-                if (outAnalysis && inAnalysis) {
-                    let outAnalysisRecord = outDates.analysis && outAnalysis.date ? outAnalysis.date[outDates.analysis] : null;
-                    let inAnalysisRecord = inDates.analysis && inAnalysis.date ? inAnalysis.date[inDates.analysis] : null;
-                    if (outAnalysisRecord && outAnalysisRecord.data && inAnalysisRecord && inAnalysisRecord.data) {
-                        let indexType = ['all', 'pax', 'cargo'];
-                        indexType.forEach(function(type) {
-                            let outIndex = getRouteAnalysisIndex(outAnalysisRecord.data, type);
-                            let inIndex = getRouteAnalysisIndex(inAnalysisRecord.data, type);
-                            if (outIndex && inIndex) {
-                                routeIndex[type] = Math.round((outIndex + inIndex) / 2);
-                            }
-                        });
+                try {
+                    let outAnalysis = outboundData[keyOutbound];
+                    let inAnalysis = inboundData[keyInbound];
+                    let outDates = outAnalysis ? getRouteAnalysisImportantDates(outAnalysis.date) : null;
+                    let inDates = inAnalysis ? getRouteAnalysisImportantDates(inAnalysis.date) : null;
+                    //Route index
+                    let routeIndex = {};
+                    if (outAnalysis && inAnalysis && outDates && inDates) {
+                        let outAnalysisRecord = outDates.analysis && outAnalysis.date ? outAnalysis.date[outDates.analysis] : null;
+                        let inAnalysisRecord = inDates.analysis && inAnalysis.date ? inAnalysis.date[inDates.analysis] : null;
+                        if (outAnalysisRecord && outAnalysisRecord.data && inAnalysisRecord && inAnalysisRecord.data) {
+                            let indexType = ['all', 'pax', 'cargo'];
+                            indexType.forEach(function(type) {
+                                let outIndex = getRouteAnalysisIndex(outAnalysisRecord.data, type);
+                                let inIndex = getRouteAnalysisIndex(inAnalysisRecord.data, type);
+                                if (outIndex && inIndex) {
+                                    routeIndex[type] = Math.round((outIndex + inIndex) / 2);
+                                }
+                            });
+                        }
                     }
+                    //For Outbound
+                    updateRouteAnalysisColumns(outAnalysis, outDates, routeIndex);
+                    updateRouteAnalysisColumns(inAnalysis, inDates, routeIndex);
+                } catch (error) {
+                    console.error('[AES] Unable to render route analysis columns.', error);
                 }
-                //For Outbound
-                updateRouteAnalysisColumns(outAnalysis, outDates, routeIndex);
-                updateRouteAnalysisColumns(inAnalysis, inDates, routeIndex);
             });
         });
     }
@@ -1466,30 +1509,6 @@ function updateRouteAnalysisColumns(data, dates, routeIndex) {
         }
     }
 
-    return;
-    let analysisDate = dates.analysis;
-    let pricingDate = dates.pricing;
-    let paxLoad;
-    let paxLoadDelta;
-    let cargoLoad;
-    let cargoLoadDelta;
-    let totalLoad;
-    let totalLoadDelta;
-
-    let outDates = getInvPricingAnalaysisPricingDate(dataOut.date);
-    if (outDates.analysis) {
-        $('#aes-row-invPricing-' + origin + dest + '-analysis', tbody).text(AES.formatDateString(outDates.analysis));
-        let outIndex = dataOut.date[outDates.analysis].routeIndex;
-        let td = $('#aes-row-invPricing-' + origin + dest + '-OWindex', tbody);
-        td.html(displayIndex(outIndex));
-        if (outDates.analysisOneBefore) {
-            let outIndexChange = dataOut.date[outDates.analysis].routeIndex - dataOut.date[outDates.analysisOneBefore].routeIndex
-            td.append(displayIndexChange(outIndexChange));
-        }
-    }
-    if (outDates.pricing) {
-        $('#aes-row-invPricing-' + origin + dest + '-pricing', tbody).text(AES.formatDateString(outDates.pricing));
-    }
 }
 
 function displayRouteAnalysisLoadDelta(dataCurrent, dataPrevious, type) {

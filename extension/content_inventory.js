@@ -136,7 +136,7 @@ async function displayInventory() {
 
     //Automation
     //Check if valid analysis exists
-    if (analysis.hasValue('valid')) {
+    if (analysis.hasValue('valid') || analysis.hasValue('newPrice')) {
         //CHeck if updated todayDate
         if (pricingData.date[todayDate]) {
             //Today update exists
@@ -656,6 +656,7 @@ function getAnalysis(flights, prices, storedData) {
 function generateRecommendation(analysis, prices) {
     for (const cmp in analysis.data) {
         const item = analysis.data[cmp];
+        const config = settings.invPricing.recommendation[cmp];
         item.recommendation = 0;
         item.newPrice = 0;
         item.newPricePoint = 0;
@@ -665,6 +666,10 @@ function generateRecommendation(analysis, prices) {
         item.referenceRecType = 'neutral';
         item.referenceNewPrice = 0;
         item.referenceNewPricePoint = 0;
+
+        if (generateBoundaryRecommendation(item, config, prices[cmp])) {
+            continue;
+        }
 
         if (!item.valid || !item.canRecommend) {
             if (item.valid && item.analysisSourcePrice && !item.useCurrentPrice) {
@@ -677,7 +682,6 @@ function generateRecommendation(analysis, prices) {
             continue;
         }
 
-        const config = settings.invPricing.recommendation[cmp];
         const load = Math.round(analysis.getLoad(cmp) * 100);
 
         // Find matching step
@@ -734,11 +738,36 @@ function generateRecommendation(analysis, prices) {
     return analysis;
 }
 
+function generateBoundaryRecommendation(item, config, price) {
+    const currentPricePoint = price.currentPricePoint;
+    let targetPricePoint = 0;
+
+    if (currentPricePoint < config.minPrice) {
+        item.recType = 'good';
+        item.recommendation = 'Raise to minimum';
+        targetPricePoint = config.minPrice;
+    } else if (currentPricePoint > config.maxPrice) {
+        item.recType = 'bad';
+        item.recommendation = 'Drop to maximum';
+        targetPricePoint = config.maxPrice;
+    } else {
+        return false;
+    }
+
+    item.newPricePoint = targetPricePoint;
+    item.newPriceChange = targetPricePoint - currentPricePoint;
+    item.newPrice = Math.round(
+        (targetPricePoint / 100) * price.defaultPrice
+    );
+
+    return true;
+}
+
 function generateReferenceRecommendation(analysis, prices) {
     for (const cmp in analysis.data) {
         const item = analysis.data[cmp];
 
-        if (!item.valid || item.useCurrentPrice) {
+        if (!item.valid || item.useCurrentPrice || item.newPrice) {
             continue;
         }
 
@@ -898,7 +927,7 @@ function displayAnalysis(analysis, prices) {
     $("#aes-table-analysis").append(thead, tbody, tfoot);
 
     //Display pricing and data save buttons
-    if (analysis.hasValue('valid')) {
+    if (analysis.hasValue('valid') || analysis.hasValue('newPrice')) {
         let invPricingAnalysisBar = $('<ul class="as-action-bar as-panel"></ul>');
         let invPricingAnalysisBarSpan = $('<span class="warning"></span>');
         invPricingAnalysisBar.append($('<li></li>').html(invPricingAnalysisBarSpan));

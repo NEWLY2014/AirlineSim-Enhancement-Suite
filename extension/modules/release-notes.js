@@ -1,5 +1,24 @@
 const AES_RELEASE_NOTES_STORAGE_KEY = "aesReleaseNotesSeenVersion"
 const AES_RELEASE_NOTES = {
+    "0.8.2": {
+        title: "Release Notes",
+        releaseDate: "2026-05-20",
+        summary: "Thanks for keeping AES up to date.",
+        sections: [
+            {
+                title: "Changed",
+                items: [
+                    "Inventory Pricing now treats recommendation boundaries as hard limits, so prices below the minimum or above the maximum are adjusted even when current-price flight results are not available yet."
+                ]
+            },
+            {
+                title: "Fixed",
+                items: [
+                    "Fixed Route Management Dashboard reload so it re-reads stored schedule data and fails with a visible message instead of leaving the table area blank when stored data is incomplete."
+                ]
+            }
+        ]
+    },
     "0.8.1": {
         title: "Release Notes",
         releaseDate: "2026-05-20",

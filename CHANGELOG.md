@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixed Route Management Dashboard loading for upgraded users whose saved Dashboard settings were missing column definitions, which could show `Unable to load route management data` even after schedule extraction.
+
+## [0.8.2] - 2026-05-20
+
+### Changed
+
+- Inventory Pricing now treats recommendation boundaries as hard limits, so prices below the minimum or above the maximum are adjusted even when current-price flight results are not available yet.
+
+### Fixed
+
+- Fixed Route Management Dashboard reload so it re-reads stored schedule data and fails with a visible message instead of leaving the table area blank when stored data is incomplete.
+
 ## [0.8.1] - 2026-05-20
 
 ### Fixed
@@ -327,7 +341,8 @@ for pointing it out).
 
 _First release._
 
-[unreleased]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.1...HEAD
+[unreleased]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.2...HEAD
+[0.8.2]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.7.8...v0.8.0
 [0.7.8]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.7.7...v0.7.8
