@@ -2,7 +2,7 @@ const AES_RELEASE_NOTES_STORAGE_KEY = "aesReleaseNotesSeenVersion"
 const AES_RELEASE_NOTES = {
     "0.8.3": {
         title: "Release Notes",
-        releaseDate: "TBD",
+        releaseDate: "2026-05-21",
         summary: "Thanks for keeping AES up to date.",
         sections: [
             {
