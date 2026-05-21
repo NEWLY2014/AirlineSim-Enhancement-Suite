@@ -1270,6 +1270,7 @@ function displayRouteManagementFilters() {
                 status.removeClass('good bad warning').addClass('warning').text('Saving...');
                 settings.routeManagement.filter = filter;
                 AES.updateSettings(function(currentSettings) {
+                    currentSettings.routeManagement = currentSettings.routeManagement || getDefaultRouteManagementSettings();
                     currentSettings.routeManagement.filter = filter;
                 }, function(updatedSettings) {
                     settings = updatedSettings;
@@ -1302,6 +1303,7 @@ function displayRouteManagementColumns(scheduleData) {
         onChange: function(col, checked) {
             col.source.show = checked ? 1 : 0;
             AES.updateSettings(function(currentSettings) {
+                currentSettings.routeManagement = currentSettings.routeManagement || getDefaultRouteManagementSettings();
                 currentSettings.routeManagement.tableColumns = settings.routeManagement.tableColumns;
             }, function(updatedSettings) {
                 settings = updatedSettings;
@@ -1724,8 +1726,7 @@ function displayCompetitorMonitoring() {
     //Div
     let div = $('<div id="aes-div-dashboard-competitorMonitoring" class="as-panel"></div>').append('<p class="warning">Loading competitor monitoring data...</p>');
 
-    //Check Route Management Settings
-    //
+    //Check Competitor Monitoring Settings
     ensureCompetitorMonitoringSettings();
 
     //Display airlines table

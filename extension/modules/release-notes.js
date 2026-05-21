@@ -1,5 +1,19 @@
 const AES_RELEASE_NOTES_STORAGE_KEY = "aesReleaseNotesSeenVersion"
 const AES_RELEASE_NOTES = {
+    "0.8.3": {
+        title: "Release Notes",
+        releaseDate: "TBD",
+        summary: "Thanks for keeping AES up to date.",
+        sections: [
+            {
+                title: "Fixed",
+                items: [
+                    "Fixed Route Management Dashboard loading for upgraded users whose saved Dashboard settings were missing column definitions, which could show Unable to load route management data even after schedule extraction.",
+                    "Hardened Route Management settings migration, reload, column saving, filter saving, and route analysis rendering so incomplete stored data no longer breaks the main table."
+                ]
+            }
+        ]
+    },
     "0.8.2": {
         title: "Release Notes",
         releaseDate: "2026-05-20",
