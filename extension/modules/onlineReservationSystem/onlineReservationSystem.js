@@ -180,9 +180,10 @@ class OnlineReservationSystem {
 
 }
 
-if (AES.shouldRunContentScript("module:online-reservation-system")) {
-    new OnlineReservationSystem().init();
+AES.runContentScript("module:online-reservation-system", function() {
+    const initResult = new OnlineReservationSystem().init();
     AES.whenPageOwnershipLost(function() {
         AES.removeOwnedElements();
     });
-}
+    return initResult;
+}, { ready: false });

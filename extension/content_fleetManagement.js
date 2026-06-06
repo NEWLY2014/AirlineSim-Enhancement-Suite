@@ -6,22 +6,20 @@ var server, aircraftFleetKey, aircraftFleetStorageData, airline, date, currentFl
 var fltmngFilterActive = false;
 var fltmngTableObserver = null;
 var fltmngRefreshTimer = null;
-const FLEET_MANAGEMENT_SCRIPT_ENABLED = AES.shouldRunContentScript("content_fleetManagement");
+const FLEET_MANAGEMENT_SCRIPT_ENABLED = AES.runContentScript("content_fleetManagement", function() {
+    let currentAirline = AES.getCurrentAirline();
+    airline = currentAirline && currentAirline.id ? currentAirline : AES.getAirline();
+    server = AES.getServerName();
+    date = AES.getServerDate()
+
+    if (fltmng_fleetManagementPageOpen()) {
+        fltmng_getData();
+        //Async start
+        fltmng_getStorageData();
+    }
+});
 
 if (FLEET_MANAGEMENT_SCRIPT_ENABLED) {
-    $(function() {
-        let currentAirline = AES.getCurrentAirline();
-        airline = currentAirline && currentAirline.id ? currentAirline : AES.getAirline();
-        server = AES.getServerName();
-        date = AES.getServerDate()
-
-        if (fltmng_fleetManagementPageOpen()) {
-            fltmng_getData();
-            //Async start
-            fltmng_getStorageData();
-        }
-    });
-
     AES.whenPageOwnershipLost(function() {
         if (fltmngTableObserver) {
             fltmngTableObserver.disconnect();
@@ -241,6 +239,7 @@ function fltmng_getStorageData() {
         keys.push(key);
     });
     chrome.storage.local.get(keys, function(result) {
+        AES.tryRun("content_fleetManagement", function() {
         for (let aircraftFlightData in result) {
             if (!result[aircraftFlightData]) {
                 continue;
@@ -266,6 +265,7 @@ function fltmng_getStorageData() {
         }
         //Async
         fltmng_getAircraftStorageFleetData();
+        });
     });
 }
 
@@ -273,9 +273,11 @@ function fltmng_getStorageData() {
 function fltmng_getAircraftStorageFleetData() {
     aircraftFleetKey = server + airline.id + 'aircraftFleet';
     chrome.storage.local.get([aircraftFleetKey], function(result) {
+        AES.tryRun("content_fleetManagement", function() {
         fltmng_updateAircraftFleetStorageData(result[aircraftFleetKey]);
 
         fltmng_saveData();
+        });
     });
 }
 
@@ -394,7 +396,11 @@ function fltmng_display() {
     let h = $('<h3></h3>').text('AES Fleet Management');
     let div = $('<div id="aes-fleet-management-root"></div>').append(h, panel);
     AES.markOwnedElements(div);
-    $('.as-page-fleet-management > h1:eq(0)').after(div);
+    let insertionTarget = $('.as-page-fleet-management > h1:eq(0)');
+    if (!insertionTarget.length) {
+        throw new Error("Fleet management insertion target .as-page-fleet-management > h1 was not found");
+    }
+    insertionTarget.after(div);
     fltmng_bindNativeSelectionLinks();
     fltmng_watchFleetTable();
 }

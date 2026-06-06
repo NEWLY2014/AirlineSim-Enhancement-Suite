@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added in-page AES error notifications for content scripts that fail while inserting or updating AirlineSim pages, so affected modules now report visible errors instead of failing silently.
+
+### Changed
+
+- Improved Dashboard table selection actions so hiding checked rows and reading selected rows avoid scanning every visible row on large tables.
+
+### Fixed
+
+- Fixed server date detection to avoid the CSS `:has()` selector, improving compatibility with browsers that do not support it consistently.
+- Fixed Aircraft Flights initialization so malformed non-flight rows no longer prevent the AES Aircraft Flights panel from rendering.
+
 ## [0.8.3] - 2026-05-21
 
 ### Fixed

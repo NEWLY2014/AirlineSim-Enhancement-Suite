@@ -5,22 +5,20 @@ var aircraftFlightData;
 var aircraftFlightAirline;
 var aircraftFleetKey;
 var aircraftFlightNotifications;
-const AIRCRAFT_FLIGHTS_SCRIPT_ENABLED = AES.shouldRunContentScript("content_aircraftFlights");
+const AIRCRAFT_FLIGHTS_SCRIPT_ENABLED = AES.runContentScript("content_aircraftFlights", function() {
+    aircraftFlightData = getData();
+    let currentAirline = AES.getCurrentAirline();
+    aircraftFlightAirline = currentAirline && currentAirline.id ? currentAirline : AES.getAirline();
+    aircraftFleetKey = aircraftFlightData.server + aircraftFlightAirline.id + 'aircraftFleet';
+    aircraftFlightNotifications = typeof Notifications === 'function' ? new Notifications() : null;
+    persistAircraftFlightSummary();
+    syncFleetHubData(function() {});
+
+    //Async start
+    getStorageData();
+});
 
 if (AIRCRAFT_FLIGHTS_SCRIPT_ENABLED) {
-    $(function() {
-        aircraftFlightData = getData();
-        let currentAirline = AES.getCurrentAirline();
-        aircraftFlightAirline = currentAirline && currentAirline.id ? currentAirline : AES.getAirline();
-        aircraftFleetKey = aircraftFlightData.server + aircraftFlightAirline.id + 'aircraftFleet';
-        aircraftFlightNotifications = typeof Notifications === 'function' ? new Notifications() : null;
-        persistAircraftFlightSummary();
-        syncFleetHubData(function() {});
-
-        //Async start
-        getStorageData();
-    });
-
     AES.whenPageOwnershipLost(function() {
         $('.aes-aircraft-flights-block').remove();
         $('.aes-aircraft-flights-extra-header, .aes-aircraft-flights-extra-cell').remove();
@@ -34,6 +32,7 @@ function getStorageData() {
         keys.push(key);
     }
     chrome.storage.local.get(keys, function(result) {
+        AES.tryRun("content_aircraftFlights", function() {
         for (let flightInfo in result) {
             if (!result[flightInfo]) {
                 continue;
@@ -47,6 +46,7 @@ function getStorageData() {
 
         //Async
         getTotalProfit();
+        });
     });
 }
 
@@ -159,9 +159,14 @@ function display() {
     let insertionTarget = $('#aircraft-flight-instances-table').closest('.as-table-well');
     if (insertionTarget.length) {
         insertionTarget.before(content);
-    } else {
-        $('.as-page-aircraft > .row:first > .col-md-10:first').prepend(content);
+        return;
     }
+
+    let fallbackTarget = $('.as-page-aircraft > .row:first > .col-md-10:first');
+    if (!fallbackTarget.length) {
+        throw new Error("Aircraft flights insertion target was not found");
+    }
+    fallbackTarget.prepend(content);
 }
 
 async function extractAllFlightProfit(type) {
@@ -290,6 +295,9 @@ function getFlightsStats(flights) {
  */
 function getFlights() {
     const table = document.querySelector("#aircraft-flight-instances-table")
+    if (!table) {
+        throw new Error("Aircraft flights table #aircraft-flight-instances-table was not found")
+    }
     const rows = table.querySelectorAll("tbody tr")
     const flights = []
 
@@ -307,7 +315,6 @@ function getFlights() {
         }
         const url = row.querySelector(`[href*="action/info/flight"]`)?.href
         if (!url) {
-            throw new Error("getFlights(): no valid value for `url`")
             continue
         }
 

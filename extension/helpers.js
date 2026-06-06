@@ -289,7 +289,12 @@ class AES {
      * @returns {object} datetime - { date: "20240607", time: "16:24 UTC" }
      */
     static getServerDate() {
-        const source = document.querySelector(".as-navbar-bottom span:has(.fa-clock-o)").innerText.trim()
+        const clockIcon = document.querySelector(".as-navbar-bottom .fa-clock-o")
+        const sourceElement = clockIcon ? clockIcon.closest("span") : null
+        if (!sourceElement) {
+            throw new Error("Unable to read server date from the page footer")
+        }
+        const source = sourceElement.innerText.trim()
         const sourceAsNumbers = source.toString().replace(/\D/g, "")
 
         // The source always consists of 12 numbers
@@ -465,6 +470,87 @@ class AES {
     }
 
     /**
+     * Safely starts a content script and reports initialization/runtime errors in-page.
+     * @param {string} scriptName
+     * @param {function(): void|Promise<void>} initializer
+     * @param {object} options
+     * @returns {boolean}
+     */
+    static runContentScript(scriptName, initializer, options) {
+        const allowed = AES.shouldRunContentScript(scriptName);
+        if (!allowed) {
+            return false;
+        }
+
+        AES.#installContentScriptErrorReporter(scriptName);
+
+        const run = function() {
+            AES.tryRun(scriptName, initializer);
+        };
+
+        if (options && options.ready === false) {
+            run();
+        } else if (typeof $ === "function") {
+            $(run);
+        } else if (document.readyState === "loading") {
+            document.addEventListener("DOMContentLoaded", run, { once: true });
+        } else {
+            run();
+        }
+
+        return true;
+    }
+
+    /**
+     * Runs a callback and reports synchronous or Promise errors.
+     * @param {string} scriptName
+     * @param {function(): void|Promise<void>} callback
+     */
+    static tryRun(scriptName, callback) {
+        try {
+            const result = typeof callback === "function" ? callback() : null;
+            if (result && typeof result.catch === "function") {
+                result.catch(function(error) {
+                    AES.reportContentScriptError(scriptName, error);
+                });
+            }
+            return result;
+        } catch (error) {
+            AES.reportContentScriptError(scriptName, error);
+            return null;
+        }
+    }
+
+    /**
+     * Reports a content script error to the console and the page UI.
+     * @param {string} scriptName
+     * @param {Error|any} error
+     */
+    static reportContentScriptError(scriptName, error) {
+        const errorMessage = error && error.message ? error.message : String(error || "Unknown error");
+        const message = `AES ${scriptName || "content script"} error: ${errorMessage}`;
+        console.error(`[AES] ${scriptName || "content script"} failed`, error);
+
+        const key = `${scriptName || ""}:${errorMessage}`;
+        AES._reportedErrors = AES._reportedErrors || {};
+        if (AES._reportedErrors[key]) {
+            return;
+        }
+        AES._reportedErrors[key] = true;
+
+        try {
+            if (typeof Notifications === "function") {
+                new Notifications().add(message, { type: "error", duration: 12000 });
+                return;
+            }
+        } catch (notificationError) {
+            console.error("[AES] Notification error reporting failed", notificationError);
+        }
+
+        AES.#showFallbackError(message);
+    }
+
+    /**
      * Registers a callback that fires when this AES instance loses page ownership.
      * @param {function(): void} callback
      */
@@ -548,6 +634,45 @@ class AES {
             attributeFilter: ["data-owner", "data-version"]
         });
         AES.#refreshPageOwnership();
+    }
+
+    static #installContentScriptErrorReporter(scriptName) {
+        if (AES._contentScriptErrorReporterInstalled) {
+            return;
+        }
+        AES._contentScriptErrorReporterInstalled = true;
+
+        window.addEventListener("error", function(event) {
+            if (event && event.error) {
+                AES.reportContentScriptError("runtime", event.error);
+            }
+        });
+        window.addEventListener("unhandledrejection", function(event) {
+            AES.reportContentScriptError("runtime", event.reason || "Unhandled promise rejection");
+        });
+    }
+
+    static #showFallbackError(message) {
+        const container = document.querySelector(".feedbackPanel") || document.createElement("ul");
+        if (!container.classList.contains("feedbackPanel")) {
+            container.className = "feedbackPanel";
+        }
+
+        const item = document.createElement("li");
+        item.className = "feedbackPanelERROR";
+        const content = document.createElement("span");
+        content.innerText = ` ${message}`;
+        item.append(content);
+        container.append(item);
+
+        if (!container.parentNode) {
+            const target = document.querySelector("nav.as-navbar-main + .container-fluid") || document.body || document.documentElement;
+            target.prepend(container);
+        }
+
+        window.setTimeout(function() {
+            item.remove();
+        }, 12000);
     }
 
     static #refreshPageOwnership() {

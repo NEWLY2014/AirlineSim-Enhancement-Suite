@@ -111,11 +111,11 @@ class AboutDialog {
     }
 }
 
-if (AES.shouldRunContentScript("module:about-dialog")) {
+AES.runContentScript("module:about-dialog", function() {
     const aboutDialog = new AboutDialog()
     AES.whenPageOwnershipLost(function() {
         if (aboutDialog && typeof aboutDialog.destroy === "function") {
             aboutDialog.destroy()
         }
     })
-}
+}, { ready: false });

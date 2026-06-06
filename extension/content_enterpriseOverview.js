@@ -2,17 +2,16 @@
 //MAIN
 //Global vars
 var server, airline, ownerAirline, activeTab, compData;
-const ENTERPRISE_OVERVIEW_SCRIPT_ENABLED = AES.shouldRunContentScript("content_enterpriseOverview");
-if (ENTERPRISE_OVERVIEW_SCRIPT_ENABLED) {
-    $(function() {
-        server = AES.getServerName();
-        airline = AES.getAirline();
-        ownerAirline = AES.getCurrentAirline();
-        activeTab = $(".nav-tabs .active").attr('class').split(" ");
-        activeTab = activeTab[0];
-        let key = AES.getCompetitorMonitoringKey(server, ownerAirline.id, airline.id);
-        let legacyKey = AES.getCompetitorMonitoringKey(server, null, airline.id);
-        chrome.storage.local.get([key, legacyKey], function(compMonitoringData) {
+const ENTERPRISE_OVERVIEW_SCRIPT_ENABLED = AES.runContentScript("content_enterpriseOverview", function() {
+    server = AES.getServerName();
+    airline = AES.getAirline();
+    ownerAirline = AES.getCurrentAirline();
+    activeTab = $(".nav-tabs .active").attr('class').split(" ");
+    activeTab = activeTab[0];
+    let key = AES.getCompetitorMonitoringKey(server, ownerAirline.id, airline.id);
+    let legacyKey = AES.getCompetitorMonitoringKey(server, null, airline.id);
+    chrome.storage.local.get([key, legacyKey], function(compMonitoringData) {
+        AES.tryRun("content_enterpriseOverview", function() {
             compData = compMonitoringData[key] || compMonitoringData[legacyKey];
             if (!compData) {
                 compData = {
@@ -35,7 +34,9 @@ if (ENTERPRISE_OVERVIEW_SCRIPT_ENABLED) {
             displayMain();
         });
     });
+});
 
+if (ENTERPRISE_OVERVIEW_SCRIPT_ENABLED) {
     AES.whenPageOwnershipLost(function() {
         $('#aes-panel-airline-competitive-monitoring').remove();
     });
@@ -110,7 +111,11 @@ function displayMain() {
     //Add display
     let mainDiv = $('<div id="aes-panel-airline-competitive-monitoring"></div>').append('<h3>AirlineSim Enhancement Suite Airline</h3>', panel, divComp);
     AES.markOwnedElements(mainDiv);
-    $(".container-fluid:eq(2) h2").after(mainDiv);
+    let insertionTarget = $(".container-fluid:eq(2) h2");
+    if (!insertionTarget.length) {
+        throw new Error("Enterprise overview insertion target .container-fluid:eq(2) h2 was not found");
+    }
+    insertionTarget.after(mainDiv);
 }
 
 function updateCompetitorMonitoringIndex(tracking) {

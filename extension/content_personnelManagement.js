@@ -2,10 +2,9 @@
 //MAIN
 //Global vars
 var settings, server, airline;
-const PERSONNEL_MANAGEMENT_SCRIPT_ENABLED = AES.shouldRunContentScript("content_personnelManagement");
-if (PERSONNEL_MANAGEMENT_SCRIPT_ENABLED) {
-    $(function() {
-        chrome.storage.local.get(['settings'], function(result) {
+const PERSONNEL_MANAGEMENT_SCRIPT_ENABLED = AES.runContentScript("content_personnelManagement", function() {
+    chrome.storage.local.get(['settings'], function(result) {
+        AES.tryRun("content_personnelManagement", function() {
             server = AES.getServerName();
             airline = AES.getAirline();
             settings = result.settings || {};
@@ -18,7 +17,9 @@ if (PERSONNEL_MANAGEMENT_SCRIPT_ENABLED) {
             });
         });
     });
+});
 
+if (PERSONNEL_MANAGEMENT_SCRIPT_ENABLED) {
     AES.whenPageOwnershipLost(function() {
         $('#aes-personnel-management-root').remove();
     });
@@ -66,6 +67,9 @@ function displayPersonnelManagement() {
     let mainDiv = $(".container-fluid:eq(2) h1");
     let root = $('<div id="aes-personnel-management-root"></div>').append('<h3>AirlineSim Enhancement Suite Personnel Management</h3>', panel);
     AES.markOwnedElements(root);
+    if (!mainDiv.length) {
+        throw new Error("Personnel management insertion target .container-fluid:eq(2) h1 was not found");
+    }
     mainDiv.after(root);
 
     //actions

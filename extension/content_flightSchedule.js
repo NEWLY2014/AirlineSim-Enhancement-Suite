@@ -1,20 +1,22 @@
 "use strict";
 //MAIN
 var settings, compData, server, airline, ownerAirline, date;
-const FLIGHT_SCHEDULE_SCRIPT_ENABLED = AES.shouldRunContentScript("content_flightSchedule");
-if (FLIGHT_SCHEDULE_SCRIPT_ENABLED) {
-    $(function() {
-        server = AES.getServerName();
-        airline = AES.getAirline();
-        ownerAirline = AES.getCurrentAirline();
-        date = AES.getServerDate();
-        chrome.storage.local.get(['settings'], function(result) {
+const FLIGHT_SCHEDULE_SCRIPT_ENABLED = AES.runContentScript("content_flightSchedule", function() {
+    server = AES.getServerName();
+    airline = AES.getAirline();
+    ownerAirline = AES.getCurrentAirline();
+    date = AES.getServerDate();
+    chrome.storage.local.get(['settings'], function(result) {
+        AES.tryRun("content_flightSchedule", function() {
             settings = result.settings;
             let label = $('<h3 id="aes-schedule-heading"></h3>').text('AES Schedule');
             let btn = $('<button class="btn btn-default" id="aes-extractSchedule-btn"></button>').text('Extract Schedule');
             let panel = $('<div id="aes-panel-schedule" class="as-panel"></div>').append(btn);
             AES.markOwnedElements([label[0], panel[0]]);
             //Main DIv
+            if (!$('.flight-schedule').length) {
+                throw new Error("Flight schedule insertion target .flight-schedule was not found");
+            }
             $('.flight-schedule').prepend(label, panel);
 
         //Extract Schedule
@@ -49,7 +51,9 @@ if (FLIGHT_SCHEDULE_SCRIPT_ENABLED) {
         }
         });
     });
+});
 
+if (FLIGHT_SCHEDULE_SCRIPT_ENABLED) {
     AES.whenPageOwnershipLost(function() {
         $('#aes-schedule-heading, #aes-panel-schedule').remove();
     });

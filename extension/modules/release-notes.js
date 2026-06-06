@@ -541,11 +541,11 @@ function watchReleaseNotesFooterLink() {
     observer.observe(document.body, { childList: true, subtree: true })
 }
 
-if (AES.shouldRunContentScript("module:release-notes")) {
+AES.runContentScript("module:release-notes", function() {
     watchReleaseNotesFooterLink()
     maybeShowReleaseNotes()
     AES.whenPageOwnershipLost(function() {
         AES.removeOwnedElements()
         document.body.classList.remove("modal-open")
     })
-}
+}, { ready: false });

@@ -5,18 +5,16 @@ var settings, airline, server, todayDate;
 var dashboardControlPanelExpanded = {};
 var routeManagementFilterTimer = null;
 const dashboardStorage = globalThis.chrome?.storage?.local;
-const DASHBOARD_SCRIPT_ENABLED = AES.shouldRunContentScript("content_dashboard");
-
-if (DASHBOARD_SCRIPT_ENABLED) {
-    $(function() {
-        if (!dashboardStorage) {
-            return;
-        }
-        todayDate = AES.getServerDate();
-        let currentAirline = AES.getCurrentAirline();
-        airline = currentAirline && currentAirline.id ? currentAirline : AES.getAirline();
-        server = AES.getServerName();
-        dashboardStorage.get(['settings'], function(result) {
+const DASHBOARD_SCRIPT_ENABLED = AES.runContentScript("content_dashboard", function() {
+    if (!dashboardStorage) {
+        throw new Error("chrome.storage.local is unavailable");
+    }
+    todayDate = AES.getServerDate();
+    let currentAirline = AES.getCurrentAirline();
+    airline = currentAirline && currentAirline.id ? currentAirline : AES.getAirline();
+    server = AES.getServerName();
+    dashboardStorage.get(['settings'], function(result) {
+        AES.tryRun("content_dashboard", function() {
             settings = result.settings || {};
             let settingsInitialized = ensureDashboardSettings();
             let filterScopeChanged = normalizeDashboardFilterScope();
@@ -44,7 +42,9 @@ if (DASHBOARD_SCRIPT_ENABLED) {
             }
         });
     });
+});
 
+if (DASHBOARD_SCRIPT_ENABLED) {
     AES.whenPageOwnershipLost(function() {
         clearTimeout(routeManagementFilterTimer);
         $("#aes-dashboard-root").remove();
@@ -53,6 +53,9 @@ if (DASHBOARD_SCRIPT_ENABLED) {
 
 function displayDashboard() {
     let mainDiv = $("#enterprise-dashboard");
+    if (!mainDiv.length) {
+        throw new Error("Dashboard insertion target #enterprise-dashboard was not found");
+    }
     $("#aes-dashboard-root").remove();
     mainDiv.before(
         `
@@ -824,7 +827,7 @@ function buildGeneratedDashboardAction(value, tableOptionsRule, table) {
                         return registrations.indexOf(value.registration) == -1;
                     });
                     dashboardStorage.set({ [fleetKey]: storedFleetData }, function() {
-                        $('tbody tr:visible', table).has('input:checked').remove();
+                        removeCheckedDashboardRows(table);
                         updateDashboardTableFooter(table);
                         btn.data('confirm', false).removeClass('btn-warning').addClass('btn-default').text('Remove aircraft');
                         dashboardStorage.remove(aircraftKeys, function() {});
@@ -833,7 +836,7 @@ function buildGeneratedDashboardAction(value, tableOptionsRule, table) {
             });
         case 'hideSelected':
             return $('<button type="button" class="btn btn-default">Hide checked</button>').click(function() {
-                $('tbody tr:visible', table).has('input:checked').remove();
+                removeCheckedDashboardRows(table);
                 updateDashboardTableFooter(table);
             });
         default:
@@ -842,11 +845,18 @@ function buildGeneratedDashboardAction(value, tableOptionsRule, table) {
 }
 
 function getSelectedDashboardRows(table) {
-    return $('tbody tr:visible', table).has('input:checked').map(function() {
+    return $('tbody input[type="checkbox"]:checked', table).closest('tr:visible').map(function() {
         return $(this).data('aesDashboardRowData');
     }).toArray().filter(function(rowData) {
         return !!rowData;
     });
+}
+
+function removeCheckedDashboardRows(table) {
+    $('tbody input[type="checkbox"]:checked', table)
+        .closest('tr')
+        .filter(':visible')
+        .remove();
 }
 
 function buildGeneratedDashboardColumns(tableOptionsRule) {
@@ -1214,7 +1224,7 @@ function selectFirstRouteManagementRows() {
 }
 
 function hideSelectedRouteManagementRows() {
-    $('#aes-table-routeManagement tbody tr:visible').has('input:checked').remove();
+    removeCheckedDashboardRows($('#aes-table-routeManagement'));
 }
 
 function openSelectedRouteManagementInventories() {
@@ -2398,7 +2408,7 @@ function displayCompetitorMonitoringAirlinesTableOptions(table, compAirlinesSche
 }
 
 function getSelectedCompetitorRows(table) {
-    return $('tbody tr:visible', table).has('input:checked').map(function() {
+    return $('tbody input[type="checkbox"]:checked', table).closest('tr:visible').map(function() {
         return $(this).data('aesDashboardRowData');
     }).toArray().filter(function(rowData) {
         return !!rowData;

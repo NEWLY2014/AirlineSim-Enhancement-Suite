@@ -6,20 +6,22 @@ var aesmodule = { valid: true, error: [] };
 var inventoryObserver = null;
 var inventoryRefreshTimer = 0;
 var inventoryRenderSignature = "";
-const INVENTORY_SCRIPT_ENABLED = AES.shouldRunContentScript("content_inventory");
-
-if (INVENTORY_SCRIPT_ENABLED) {
+const INVENTORY_SCRIPT_ENABLED = AES.runContentScript("content_inventory", function() {
     $(function(){
         server = AES.getServerName();
         airline = AES.getAirline();
     });
 
-    window.addEventListener("load", async () => {
+    window.addEventListener("load", function() {
+        AES.tryRun("content_inventory", async function() {
         settings = await getSettings()
         watchInventoryLayout()
-        rerenderInventoryModule(true)
+        await rerenderInventoryModule(true)
+        })
     })
+}, { ready: false });
 
+if (INVENTORY_SCRIPT_ENABLED) {
     AES.whenPageOwnershipLost(function() {
         if (inventoryObserver) {
             inventoryObserver.disconnect()
@@ -72,7 +74,9 @@ function watchInventoryLayout() {
     inventoryObserver = new MutationObserver(function() {
         clearTimeout(inventoryRefreshTimer)
         inventoryRefreshTimer = window.setTimeout(function() {
-            rerenderInventoryModule(false)
+            AES.tryRun("content_inventory", function() {
+                return rerenderInventoryModule(false)
+            })
         }, 150)
     })
     inventoryObserver.observe(target, { childList: true, subtree: true })

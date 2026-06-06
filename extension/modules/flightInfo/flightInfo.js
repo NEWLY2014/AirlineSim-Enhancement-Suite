@@ -254,12 +254,13 @@ class FlightInfo {
 //});
 
 // Because this AS-Site not fires the DOMContentLoaded event, we need to force the run!
-if (AES.shouldRunContentScript("module:flight-info")) {
+AES.runContentScript("module:flight-info", function() {
     const flightInfo = new FlightInfo();
-    flightInfo.init();
+    const initResult = flightInfo.init();
     AES.whenPageOwnershipLost(function() {
         if (flightInfo && typeof flightInfo.destroy === 'function') {
             flightInfo.destroy();
         }
     });
-}
+    return initResult;
+}, { ready: false });

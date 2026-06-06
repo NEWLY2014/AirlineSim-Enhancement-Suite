@@ -14,13 +14,11 @@ var aircraftFlightPlanState = {
     templateStale: false,
 };
 const AIRCRAFT_FLIGHT_PLAN_TEMPLATE_VERSION = 5;
-const AIRCRAFT_FLIGHT_PLAN_SCRIPT_ENABLED = AES.shouldRunContentScript("content_aircraftFlightPlan");
+const AIRCRAFT_FLIGHT_PLAN_SCRIPT_ENABLED = AES.runContentScript("content_aircraftFlightPlan", function() {
+    return aircraftFlightPlanInit();
+});
 
 if (AIRCRAFT_FLIGHT_PLAN_SCRIPT_ENABLED) {
-    $(function() {
-        aircraftFlightPlanInit();
-    });
-
     AES.whenPageOwnershipLost(function() {
         $('#aes-aircraft-flight-plan-panel').remove();
         aircraftFlightPlanState.processingJob = false;
@@ -280,7 +278,11 @@ function afp_renderPanel() {
     if (transferHeading.length) {
         transferHeading.before(panel);
     } else {
-        afp_getAssignPanel().after(panel);
+        let assignPanel = afp_getAssignPanel();
+        if (!assignPanel.length) {
+            throw new Error("Flight Plan Assistant insertion target was not found");
+        }
+        assignPanel.after(panel);
     }
 }
 

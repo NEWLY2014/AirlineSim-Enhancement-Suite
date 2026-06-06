@@ -172,14 +172,18 @@ class AESMenu {
     }
 }
 
-if (AES.shouldRunContentScript("module:aes-menu")) {
+AES.runContentScript("module:aes-menu", function() {
+    const target = document.querySelector("#as-navbar-main-collapse .navbar-nav > li:nth-child(5)") ||
+        document.querySelector("#as-navbar-main-collapse .navbar-nav > li:last-child");
+    if (!target) {
+        throw new Error("AES menu insertion target was not found");
+    }
     const aesMenu = new AESMenu(
-        document.querySelector("#as-navbar-main-collapse .navbar-nav > li:nth-child(5)") ||
-        document.querySelector("#as-navbar-main-collapse .navbar-nav > li:last-child")
+        target
     )
     AES.whenPageOwnershipLost(function() {
         if (aesMenu && typeof aesMenu.destroy === "function") {
             aesMenu.destroy()
         }
     })
-}
+}, { ready: false });

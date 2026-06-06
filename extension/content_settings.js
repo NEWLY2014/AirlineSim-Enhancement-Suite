@@ -1,17 +1,18 @@
 "use strict";
 //MAIN
 var settings;
-const SETTINGS_SCRIPT_ENABLED = AES.shouldRunContentScript("content_settings");
-if (SETTINGS_SCRIPT_ENABLED) {
-    $(function() {
-        chrome.storage.local.get(['settings'], function(result) {
-            settings = result.settings;
+const SETTINGS_SCRIPT_ENABLED = AES.runContentScript("content_settings", function() {
+    chrome.storage.local.get(['settings'], function(result) {
+        AES.tryRun("content_settings", function() {
+            settings = result.settings || {};
             displaySettings();
             AES.markOwnedElements($("#aes-div-settingArea"));
             settingDisplayHandle('Inventory Pricing')
         });
     });
+});
 
+if (SETTINGS_SCRIPT_ENABLED) {
     AES.whenPageOwnershipLost(function() {
         $('#aes-div-settingArea').remove();
     });
@@ -60,6 +61,9 @@ function displaySettings() {
     let rowDiv = $('<div class="row"></div>').append(divmd2, divmd10);
     let h = $('<h2>AirlineSim Enhancement Suite Settings</h2>');
     let mainDiv = $(".container-fluid:eq(2)");
+    if (!mainDiv.length) {
+        throw new Error("Settings insertion target .container-fluid:eq(2) was not found");
+    }
     mainDiv.prepend(h, rowDiv);
 }
 //FLight Info
