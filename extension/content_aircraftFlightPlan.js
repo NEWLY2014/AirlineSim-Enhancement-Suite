@@ -36,9 +36,10 @@ async function aircraftFlightPlanInit() {
     aircraftFlightPlanState.notifications = typeof Notifications === 'function' ? new Notifications() : null;
     aircraftFlightPlanState.aircraft = afp_getCurrentAircraft();
 
-    let result = await afp_storageGet([afp_getTemplateKey(), afp_getJobKey()]);
+    let result = await afp_storageGet([afp_getTemplateKey(), afp_getJobKey(), afp_getOffsetDaysKey()]);
     aircraftFlightPlanState.template = afp_normalizeTemplate(result[afp_getTemplateKey()] || null);
     aircraftFlightPlanState.job = result[afp_getJobKey()] || null;
+    aircraftFlightPlanState.offsetDays = afp_normalizeOffsetDays(result[afp_getOffsetDaysKey()] || (aircraftFlightPlanState.job && aircraftFlightPlanState.job.offsetDays));
     if (!aircraftFlightPlanState.template && result[afp_getTemplateKey()]) {
         aircraftFlightPlanState.templateStale = true;
         await afp_storageRemove([afp_getTemplateKey()]);
@@ -58,6 +59,10 @@ function afp_getTemplateKey() {
 
 function afp_getJobKey() {
     return aircraftFlightPlanState.server + aircraftFlightPlanState.airline.id + 'flightPlanSchedulingJob';
+}
+
+function afp_getOffsetDaysKey() {
+    return aircraftFlightPlanState.server + aircraftFlightPlanState.airline.id + 'flightPlanAssistantOffsetDays';
 }
 
 function afp_storageGet(keys) {
@@ -82,6 +87,19 @@ function afp_storageRemove(keys) {
             resolve();
         });
     });
+}
+
+function afp_normalizeOffsetDays(value) {
+    let offsetDays = parseInt(value, 10);
+    if (offsetDays < 1 || offsetDays > 6 || isNaN(offsetDays)) {
+        return 1;
+    }
+    return offsetDays;
+}
+
+async function afp_saveOffsetDays(offsetDays) {
+    aircraftFlightPlanState.offsetDays = afp_normalizeOffsetDays(offsetDays);
+    await afp_storageSet({ [afp_getOffsetDaysKey()]: aircraftFlightPlanState.offsetDays });
 }
 
 function afp_notify(message, type) {
@@ -213,8 +231,9 @@ function afp_renderPanel() {
             .toggleClass('active', aircraftFlightPlanState.offsetDays === i)
             .prop('disabled', offsetButtonsDisabled);
         offsetBtn.on('click', function() {
-            aircraftFlightPlanState.offsetDays = i;
-            afp_renderPanel();
+            afp_saveOffsetDays(i).then(function() {
+                afp_renderPanel();
+            });
         });
         offsetButtons.append(offsetBtn);
     }
@@ -603,6 +622,9 @@ async function afp_deleteTemplate() {
 }
 
 async function afp_startScheduling(offsetDays) {
+    offsetDays = afp_normalizeOffsetDays(offsetDays);
+    await afp_saveOffsetDays(offsetDays);
+
     if (!aircraftFlightPlanState.template || !aircraftFlightPlanState.template.flights || !aircraftFlightPlanState.template.flights.length) {
         afp_notify('Extract a template first.', 'error');
         afp_setRuntimeMessage('Extract a template first.', 'error');

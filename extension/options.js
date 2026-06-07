@@ -12,6 +12,9 @@ $(function () {
 
         // Display data statistics
         displayDataStatistics();
+
+        // Display available log files
+        displayLogFiles();
     });
 });
 //Functions
@@ -44,6 +47,22 @@ function initializeBackupRestore() {
     // Restore button click handler
     $("#aes-restore-btn").click(function () {
         restoreData();
+    });
+
+    // Download selected log file
+    $("#aes-download-log-btn").click(function () {
+        downloadSelectedLog();
+    });
+
+    // Clear log data
+    $("#aes-clear-logs-btn").click(function () {
+        if (
+            confirm(
+                "Are you sure you want to clear all AES logs? This action cannot be undone."
+            )
+        ) {
+            clearLogData();
+        }
     });
 
     // Clear old data button
@@ -114,6 +133,12 @@ function displayDataStatistics() {
                 <span class="badge badge-info">${stats.flightInfo}</span>
             </div>
             <div class="col-md-4">
+                <strong>Logs:</strong><br>
+                <span class="badge badge-secondary">${stats.logs}</span>
+            </div>
+        </div>
+        <div class="row mt-2">
+            <div class="col-md-4">
                 <strong>Estimated Size:</strong><br>
                 <span class="badge badge-dark">${formatBytes(
                     stats.estimatedSize
@@ -133,6 +158,7 @@ function analyzeStorageData(data) {
         flightInfo: 0,
         competitorMonitoring: 0,
         aircraftData: 0,
+        logs: 0,
         other: 0,
         estimatedSize: 0,
     };
@@ -145,6 +171,8 @@ function analyzeStorageData(data) {
 
         if (key === "settings") {
             stats.settings++;
+        } else if (isLogStorageItem(key, item)) {
+            stats.logs++;
         } else if (item && item.type) {
             switch (item.type) {
                 case "schedule":
@@ -222,6 +250,11 @@ function createBackup() {
                             backupData[key] = item;
                         }
                         break;
+                    case "logs":
+                        if (isLogStorageItem(key, item)) {
+                            backupData[key] = item;
+                        }
+                        break;
                 }
             }
         }
@@ -251,7 +284,11 @@ function downloadBackup(backup, type) {
     const filename = `aes-backup-${type}-${
         new Date().toISOString().split("T")[0]
     }.json`;
-    const dataStr = JSON.stringify(backup, null, 2);
+    downloadJsonFile(filename, backup);
+}
+
+function downloadJsonFile(filename, data) {
+    const dataStr = JSON.stringify(data, null, 2);
     const dataBlob = new Blob([dataStr], { type: "application/json" });
 
     const link = document.createElement("a");
@@ -353,6 +390,16 @@ function clearOldData() {
             // Skip settings
             if (key === "settings") continue;
 
+            if (isLogStorageItem(key, item)) {
+                const itemDate = parseStorageDateKey(
+                    item.date || key.replace(/^aesLog_/, "")
+                );
+                if (itemDate && itemDate.getTime() < cutoffDate) {
+                    keysToRemove.push(key);
+                }
+                continue;
+            }
+
             // Check if item has date information
             if (item && item.date) {
                 // For items with date objects (like schedule data)
@@ -414,6 +461,115 @@ function parseStorageDateKey(dateKey) {
 
     const parsedDate = new Date(value);
     return isNaN(parsedDate.getTime()) ? null : parsedDate;
+}
+
+function displayLogFiles() {
+    const select = $("#aes-log-file-select");
+    const logs = getLogStorageItems(allStorageData);
+
+    select.empty();
+    if (!logs.length) {
+        select.append($("<option></option>").val("").text("No logs found"));
+        $("#aes-download-log-btn, #aes-clear-logs-btn").prop("disabled", true);
+        return;
+    }
+
+    logs.forEach(function (logItem) {
+        const label = `${formatLogDateLabel(logItem.date)} (${logItem.entryCount} entries, ${formatBytes(logItem.size)})`;
+        select.append($("<option></option>").val(logItem.key).text(label));
+    });
+    $("#aes-download-log-btn, #aes-clear-logs-btn").prop("disabled", false);
+}
+
+function downloadSelectedLog() {
+    const key = $("#aes-log-file-select").val();
+    if (!key || !allStorageData[key]) {
+        showStatusMessage("Please select a log file first.", "error");
+        return;
+    }
+
+    const logData = allStorageData[key];
+    const logDate = logData.date || key.replace(/^aesLog_/, "");
+    const backup = {
+        metadata: {
+            version: chrome.runtime.getManifest().version_name,
+            created: new Date().toISOString(),
+            type: "log",
+            date: logDate,
+            itemCount: 1,
+        },
+        data: {
+            [key]: logData,
+        },
+    };
+
+    downloadJsonFile(`aes-log-${formatLogDateForFilename(logDate)}.json`, backup);
+    showStatusMessage("Log downloaded successfully.", "success");
+}
+
+function clearLogData() {
+    const keys = getLogStorageItems(allStorageData).map(function (logItem) {
+        return logItem.key;
+    });
+
+    if (!keys.length) {
+        showStatusMessage("No logs found to clear.", "info");
+        return;
+    }
+
+    chrome.storage.local.remove(keys, function () {
+        if (chrome.runtime.lastError) {
+            showStatusMessage(
+                "Error clearing logs: " + chrome.runtime.lastError.message,
+                "error"
+            );
+            return;
+        }
+
+        keys.forEach(function (key) {
+            delete allStorageData[key];
+        });
+        displayDataStatistics();
+        displayLogFiles();
+        showStatusMessage(`Cleared ${keys.length} log files.`, "success");
+    });
+}
+
+function getLogStorageItems(data) {
+    const logs = [];
+    for (let key in data) {
+        const item = data[key];
+        if (!isLogStorageItem(key, item)) {
+            continue;
+        }
+
+        logs.push({
+            key: key,
+            date: item.date || key.replace(/^aesLog_/, ""),
+            entryCount: Array.isArray(item.entries) ? item.entries.length : 0,
+            size: JSON.stringify(item).length,
+        });
+    }
+
+    return logs.sort(function (a, b) {
+        return String(b.date).localeCompare(String(a.date));
+    });
+}
+
+function isLogStorageItem(key, item) {
+    return /^aesLog_\d{8}$/.test(key) || (item && item.type === "log");
+}
+
+function formatLogDateLabel(date) {
+    const value = String(date || "");
+    if (/^\d{8}$/.test(value)) {
+        return `${value.substring(0, 4)}-${value.substring(4, 6)}-${value.substring(6, 8)}`;
+    }
+    return value || "Unknown date";
+}
+
+function formatLogDateForFilename(date) {
+    return formatLogDateLabel(date).replace(/[^0-9-]/g, "");
 }
 
 function clearAllData() {

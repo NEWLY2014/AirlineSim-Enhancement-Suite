@@ -7,9 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.4] - 2026-06-07
+
 ### Added
 
 - Added in-page AES error notifications for content scripts that fail while inserting or updating AirlineSim pages, so affected modules now report visible errors instead of failing silently.
+- Added daily AES diagnostic logs and Options-page log file management for downloading or clearing per-day logs.
 
 ### Changed
 
@@ -17,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed Flight Plan Assistant so the selected offset day remains selected after automated scheduling completes.
 - Fixed server date detection to avoid the CSS `:has()` selector, improving compatibility with browsers that do not support it consistently.
 - Fixed Aircraft Flights initialization so malformed non-flight rows no longer prevent the AES Aircraft Flights panel from rendering.
 
@@ -357,7 +361,8 @@ for pointing it out).
 
 _First release._
 
-[unreleased]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.3...HEAD
+[unreleased]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.4...HEAD
+[0.8.4]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.3...v0.8.4
 [0.8.3]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.2...v0.8.3
 [0.8.2]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.0...v0.8.1

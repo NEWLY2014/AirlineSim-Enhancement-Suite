@@ -537,6 +537,9 @@ class AES {
             return;
         }
         AES._reportedErrors[key] = true;
+        AES.writeLog("error", scriptName || "content script", errorMessage, {
+            stack: error && error.stack ? String(error.stack) : "",
+        });
 
         try {
             if (typeof Notifications === "function") {
@@ -548,6 +551,63 @@ class AES {
         }
 
         AES.#showFallbackError(message);
+    }
+
+    /**
+     * Writes a lightweight AES log entry into a daily chrome.storage item.
+     * @param {string} level
+     * @param {string} source
+     * @param {string} message
+     * @param {object} details
+     */
+    static writeLog(level, source, message, details) {
+        if (!globalThis.chrome || !chrome.storage || !chrome.storage.local) {
+            return;
+        }
+
+        const now = new Date();
+        const dateKey = AES.#formatLogDate(now);
+        const storageKey = `aesLog_${dateKey}`;
+        const entry = {
+            time: now.toISOString(),
+            level: level || "info",
+            source: source || "",
+            message: String(message || ""),
+            url: window.location.href,
+            version: AES.getVersion(),
+        };
+
+        if (details && typeof details === "object") {
+            entry.details = details;
+        }
+
+        chrome.storage.local.get([storageKey], function(result) {
+            if (chrome.runtime.lastError) {
+                console.error("[AES] Unable to read log storage", chrome.runtime.lastError);
+                return;
+            }
+
+            const logData = result[storageKey] && typeof result[storageKey] === "object"
+                ? result[storageKey]
+                : {
+                    type: "log",
+                    date: dateKey,
+                    entries: [],
+                };
+            const entries = Array.isArray(logData.entries) ? logData.entries : [];
+
+            entries.push(entry);
+            logData.type = "log";
+            logData.date = dateKey;
+            logData.updateTime = now.toISOString();
+            logData.entries = entries.slice(-300);
+
+            chrome.storage.local.set({ [storageKey]: logData }, function() {
+                if (chrome.runtime.lastError) {
+                    console.error("[AES] Unable to write log storage", chrome.runtime.lastError);
+                }
+            });
+        });
     }
 
     /**
@@ -673,6 +733,13 @@ class AES {
         window.setTimeout(function() {
             item.remove();
         }, 12000);
+    }
+
+    static #formatLogDate(date) {
+        const year = String(date.getFullYear());
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const day = String(date.getDate()).padStart(2, "0");
+        return `${year}${month}${day}`;
     }
 
     static #refreshPageOwnership() {

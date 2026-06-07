@@ -1,5 +1,33 @@
 const AES_RELEASE_NOTES_STORAGE_KEY = "aesReleaseNotesSeenVersion"
 const AES_RELEASE_NOTES = {
+    "0.8.4": {
+        title: "Release Notes",
+        releaseDate: "2026-06-07",
+        summary: "Thanks for keeping AES up to date.",
+        sections: [
+            {
+                title: "Added",
+                items: [
+                    "Added in-page AES error notifications for content scripts that fail while inserting or updating AirlineSim pages, so affected modules now report visible errors instead of failing silently.",
+                    "Added daily AES diagnostic logs and Options-page log file management for downloading or clearing per-day logs."
+                ]
+            },
+            {
+                title: "Changed",
+                items: [
+                    "Improved Dashboard table selection actions so hiding checked rows and reading selected rows avoid scanning every visible row on large tables."
+                ]
+            },
+            {
+                title: "Fixed",
+                items: [
+                    "Fixed Flight Plan Assistant so the selected offset day remains selected after automated scheduling completes.",
+                    "Fixed server date detection to avoid the CSS :has() selector, improving compatibility with browsers that do not support it consistently.",
+                    "Fixed Aircraft Flights initialization so malformed non-flight rows no longer prevent the AES Aircraft Flights panel from rendering."
+                ]
+            }
+        ]
+    },
     "0.8.3": {
         title: "Release Notes",
         releaseDate: "2026-05-21",
