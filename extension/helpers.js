@@ -291,36 +291,50 @@ class AES {
     static getServerDate() {
         const clockIcon = document.querySelector(".as-navbar-bottom .fa-clock-o")
         const sourceElement = clockIcon ? clockIcon.closest("span") : null
-        if (!sourceElement) {
-            throw new Error("Unable to read server date from the page footer")
-        }
-        const source = sourceElement.innerText.trim()
+        const source = sourceElement ? sourceElement.innerText.trim() : ""
         const sourceAsNumbers = source.toString().replace(/\D/g, "")
 
         // The source always consists of 12 numbers
         const expectedLength = 12
-        if (sourceAsNumbers.length != expectedLength) {
-            throw new Error(`Unexpected length for source (${sourceAsNumbers.length}). There might’ve been a UI update. Check AES.getServerDate()`)
+        if (sourceAsNumbers.length === expectedLength) {
+            // Splits the date component from the data,
+            // then splits that into an array for the year, month, and day
+            let dateArray = source.split(" ")[0].split(/\D+/)
+            if (dateArray[0].length === 2) {
+                dateArray.reverse()
+            }
+            let date = dateArray[0]+dateArray[1]+dateArray[2]
+
+            // Strip the date component from the data
+            // leaving only the time
+            let time = source.replace(/.{10}\s/, "")
+
+            return {
+                date: date,
+                time: time
+            }
         }
 
-        // Splits the date component from the data,
-        // then splits that into an array for the year, month, and day
-        let dateArray = source.split(" ")[0].split(/\D+/)
-        if (dateArray[0].length === 2) {
-            dateArray.reverse()
+        const settingsTime = globalThis.frontendSettings &&
+            globalThis.frontendSettings.server &&
+            globalThis.frontendSettings.server.time;
+        if (settingsTime) {
+            const parsedTime = new Date(settingsTime);
+            if (!isNaN(parsedTime.getTime())) {
+                const year = String(parsedTime.getUTCFullYear());
+                const month = String(parsedTime.getUTCMonth() + 1).padStart(2, "0");
+                const day = String(parsedTime.getUTCDate()).padStart(2, "0");
+                const hours = String(parsedTime.getUTCHours()).padStart(2, "0");
+                const minutes = String(parsedTime.getUTCMinutes()).padStart(2, "0");
+
+                return {
+                    date: `${year}${month}${day}`,
+                    time: `${hours}:${minutes} UTC`
+                }
+            }
         }
-        let date = dateArray[0]+dateArray[1]+dateArray[2]
 
-        // Strip the date component from the data
-        // leaving only the time
-        let time = source.replace(/.{10}\s/, "")
-
-        const datetime = {
-            date: date,
-            time: time
-        }
-
-        return datetime
+        throw new Error(`Unexpected length for source (${sourceAsNumbers.length}). There might’ve been a UI update. Check AES.getServerDate()`)
     }
 
     /**
