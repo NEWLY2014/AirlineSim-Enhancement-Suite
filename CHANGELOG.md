@@ -21,7 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Fixed Flight Plan Assistant so the selected offset day remains selected after automated scheduling completes.
-- Fixed server date detection to avoid the CSS `:has()` selector, improving compatibility with browsers that do not support it consistently.
+- Fixed server date detection to avoid fragile footer selectors and improve compatibility with updated AirlineSim footer layouts.
 - Fixed server date detection when AirlineSim renders an empty footer first by falling back to `frontendSettings.server.time`.
 - Fixed Aircraft Flights initialization so malformed non-flight rows no longer prevent the AES Aircraft Flights panel from rendering.
 

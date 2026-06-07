@@ -289,52 +289,139 @@ class AES {
      * @returns {object} datetime - { date: "20240607", time: "16:24 UTC" }
      */
     static getServerDate() {
-        const clockIcon = document.querySelector(".as-navbar-bottom .fa-clock-o")
-        const sourceElement = clockIcon ? clockIcon.closest("span") : null
-        const source = sourceElement ? sourceElement.innerText.trim() : ""
-        const sourceAsNumbers = source.toString().replace(/\D/g, "")
-
-        // The source always consists of 12 numbers
-        const expectedLength = 12
-        if (sourceAsNumbers.length === expectedLength) {
-            // Splits the date component from the data,
-            // then splits that into an array for the year, month, and day
-            let dateArray = source.split(" ")[0].split(/\D+/)
-            if (dateArray[0].length === 2) {
-                dateArray.reverse()
-            }
-            let date = dateArray[0]+dateArray[1]+dateArray[2]
-
-            // Strip the date component from the data
-            // leaving only the time
-            let time = source.replace(/.{10}\s/, "")
-
-            return {
-                date: date,
-                time: time
+        const sources = AES.#getServerDateSources()
+        for (let i = 0; i < sources.length; i++) {
+            const parsed = AES.#parseServerDateSource(sources[i])
+            if (parsed) {
+                return parsed
             }
         }
 
-        const settingsTime = globalThis.frontendSettings &&
-            globalThis.frontendSettings.server &&
-            globalThis.frontendSettings.server.time;
-        if (settingsTime) {
-            const parsedTime = new Date(settingsTime);
-            if (!isNaN(parsedTime.getTime())) {
-                const year = String(parsedTime.getUTCFullYear());
-                const month = String(parsedTime.getUTCMonth() + 1).padStart(2, "0");
-                const day = String(parsedTime.getUTCDate()).padStart(2, "0");
-                const hours = String(parsedTime.getUTCHours()).padStart(2, "0");
-                const minutes = String(parsedTime.getUTCMinutes()).padStart(2, "0");
+        const settingsDate = AES.#getServerDateFromFrontendSettings()
+        if (settingsDate) {
+            return settingsDate
+        }
 
-                return {
-                    date: `${year}${month}${day}`,
-                    time: `${hours}:${minutes} UTC`
+        throw new Error("Unable to read server date from the page footer. Check AES.getServerDate()")
+    }
+
+    static #getServerDateSources() {
+        const sources = []
+        const addSource = function(value) {
+            const source = String(value || "").trim()
+            if (source && sources.indexOf(source) === -1) {
+                sources.push(source)
+            }
+        }
+
+        const footer = document.querySelector(".as-navbar-bottom")
+        const clockIcon = footer ? footer.querySelector(".fa-clock-o") : null
+        const clockCandidates = [
+            clockIcon,
+            clockIcon && clockIcon.parentElement,
+            clockIcon && clockIcon.closest("span"),
+            clockIcon && clockIcon.closest("li"),
+            clockIcon && clockIcon.closest("div"),
+            footer,
+        ]
+
+        clockCandidates.forEach(function(element) {
+            if (!element) {
+                return
+            }
+            addSource(element.innerText || element.textContent)
+            addSource(element.getAttribute && element.getAttribute("title"))
+            addSource(element.getAttribute && element.getAttribute("aria-label"))
+        })
+
+        if (footer) {
+            Array.from(footer.childNodes || []).forEach(function(node) {
+                addSource(node.innerText || node.textContent)
+            })
+        }
+
+        return sources
+    }
+
+    static #parseServerDateSource(source) {
+        source = String(source || "").replace(/\s+/g, " ").trim()
+        if (!source) {
+            return null
+        }
+
+        const patterns = [
+            /(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})[\sT]+(\d{1,2}):(\d{2})\s*([A-Z]{2,4})?/i,
+            /(\d{1,2})[.\-/](\d{1,2})[.\-/](\d{2,4})[\sT]+(\d{1,2}):(\d{2})\s*([A-Z]{2,4})?/i,
+        ]
+
+        for (let i = 0; i < patterns.length; i++) {
+            const match = source.match(patterns[i])
+            if (!match) {
+                continue
+            }
+
+            let year
+            let month
+            let day
+            if (i === 0) {
+                year = parseInt(match[1], 10)
+                month = parseInt(match[2], 10)
+                day = parseInt(match[3], 10)
+            } else {
+                day = parseInt(match[1], 10)
+                month = parseInt(match[2], 10)
+                year = parseInt(match[3], 10)
+                if (year < 100) {
+                    year += 2000
                 }
             }
+
+            const hours = parseInt(match[4], 10)
+            const minutes = parseInt(match[5], 10)
+            const timezone = (match[6] || "UTC").toUpperCase()
+            const date = new Date(Date.UTC(year, month - 1, day, hours, minutes))
+            if (
+                date.getUTCFullYear() !== year ||
+                date.getUTCMonth() !== month - 1 ||
+                date.getUTCDate() !== day ||
+                date.getUTCHours() !== hours ||
+                date.getUTCMinutes() !== minutes
+            ) {
+                continue
+            }
+
+            return {
+                date: `${String(year).padStart(4, "0")}${String(month).padStart(2, "0")}${String(day).padStart(2, "0")}`,
+                time: `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")} ${timezone}`
+            }
         }
 
-        throw new Error(`Unexpected length for source (${sourceAsNumbers.length}). There might’ve been a UI update. Check AES.getServerDate()`)
+        return null
+    }
+
+    static #getServerDateFromFrontendSettings() {
+        const settingsTime = globalThis.frontendSettings &&
+            globalThis.frontendSettings.server &&
+            globalThis.frontendSettings.server.time
+        if (!settingsTime) {
+            return null
+        }
+
+        const parsedTime = new Date(settingsTime)
+        if (isNaN(parsedTime.getTime())) {
+            return null
+        }
+
+        const year = String(parsedTime.getUTCFullYear())
+        const month = String(parsedTime.getUTCMonth() + 1).padStart(2, "0")
+        const day = String(parsedTime.getUTCDate()).padStart(2, "0")
+        const hours = String(parsedTime.getUTCHours()).padStart(2, "0")
+        const minutes = String(parsedTime.getUTCMinutes()).padStart(2, "0")
+
+        return {
+            date: `${year}${month}${day}`,
+            time: `${hours}:${minutes} UTC`
+        }
     }
 
     /**
