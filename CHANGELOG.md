@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added an Aircraft Flights sequence check that reports invalid aircraft rotations, ignores cancelled flights, and highlights rows involved in sequence issues.
+
 ## [0.8.4] - 2026-06-07
 
 ### Added

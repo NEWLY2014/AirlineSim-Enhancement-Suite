@@ -135,6 +135,10 @@
     gap: 8px;
 }
 
+.aes-aircraft-flights-toolbar-group:first-child {
+    flex-wrap: nowrap;
+}
+
 .aes-aircraft-flights-toolbar-group-actions {
     margin-left: auto;
 }
@@ -147,15 +151,20 @@
 .aes-aircraft-flights-toolbar-controls {
     align-items: center;
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     gap: 8px;
     white-space: nowrap;
 }
 
+.aes-aircraft-flights-toolbar-controls .aes-dashboard-control-actions {
+    flex-wrap: nowrap;
+}
+
 .aes-aircraft-flights-hub-input {
-    min-width: 110px;
-    max-width: 140px;
+    min-width: 72px;
+    max-width: 80px;
     text-transform: uppercase;
+    width: 76px;
 }
 
 .aes-aircraft-flights-block {
@@ -198,6 +207,23 @@
 
 .aes-aircraft-flights-table table td {
     width: 30%;
+}
+
+.aes-aircraft-flights-sequence {
+    margin-top: 6px;
+}
+
+.aes-aircraft-flights-sequence-list {
+    margin: 0;
+    padding-left: 18px;
+}
+
+#aircraft-flight-instances-table tr.aes-aircraft-flights-sequence-issue-row > td {
+    background-color: rgba(217, 83, 79, 0.16);
+}
+
+#aircraft-flight-instances-table tr.aes-aircraft-flights-sequence-issue-row > td:first-child {
+    box-shadow: inset 3px 0 0 #d9534f;
 }
 
 .aes-aircraft-flight-plan-panel {

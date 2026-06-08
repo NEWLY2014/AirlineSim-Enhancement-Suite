@@ -22,6 +22,7 @@ if (AIRCRAFT_FLIGHTS_SCRIPT_ENABLED) {
     AES.whenPageOwnershipLost(function() {
         $('.aes-aircraft-flights-block').remove();
         $('.aes-aircraft-flights-extra-header, .aes-aircraft-flights-extra-cell').remove();
+        clearFlightSequenceHighlights();
     });
 }
 
@@ -105,11 +106,12 @@ function display() {
     displayFlightProfit();
     //Table
     let tableWell = $('<div class="as-table-well aes-aircraft-flights-summary aes-aircraft-flights-table"></div>').append(buildTable());
+    let sequencePanel = buildSequenceValidationPanel();
     let btn = $('<button type="button" class="btn btn-default"></button>').text('Extract all flight profit/loss');
     let btn1 = $('<button type="button" class="btn btn-default"></button>').text('Extract finished flight profit/loss');
     let saveOverrideBtn = $('<button type="button" class="btn btn-default"></button>').text('Save HUB override');
     let resetOverrideBtn = $('<button type="button" class="btn btn-default"></button>').text('Reset to default');
-    let hubInput = $('<input type="text" class="form-control aes-aircraft-flights-hub-input" maxlength="4">').val(aircraftFlightData.hubOverride || '');
+    let hubInput = $('<input type="text" class="form-control aes-aircraft-flights-hub-input" maxlength="3">').val((aircraftFlightData.hubOverride || '').slice(0, 3));
     let toolbar = $('<div class="aes-aircraft-flights-toolbar aes-aircraft-flights-summary"></div>').append(
         $('<div class="aes-aircraft-flights-toolbar-row"></div>').append(
             $('<div class="aes-aircraft-flights-toolbar-group"></div>').append(
@@ -138,12 +140,15 @@ function display() {
         extractAllFlightProfit('finished');
     });
     saveOverrideBtn.click(function() {
-        let override = hubInput.val().trim().toUpperCase();
+        let override = hubInput.val().trim().toUpperCase().slice(0, 3);
         if (!override) {
             showAircraftFlightsNotification('Enter a HUB code first', 'error');
             return;
         }
         updateHubOverride(override);
+    });
+    hubInput.on('input', function() {
+        hubInput.val(hubInput.val().trim().toUpperCase().slice(0, 3));
     });
     resetOverrideBtn.click(function() {
         hubInput.val('');
@@ -152,7 +157,8 @@ function display() {
     let content = $('<div class="aes-aircraft-flights-block"></div>').append(
         $('<div class="aes-aircraft-flights-title"></div>').text('AES Aircraft Flights'),
         toolbar,
-        tableWell
+        tableWell,
+        sequencePanel
     );
     $('.aes-aircraft-flights-block').remove();
     AES.markOwnedElements(content);
@@ -245,13 +251,146 @@ function buildTable() {
     return $('<table class="table table-bordered table-striped table-hover"></table>').append(tbody);
 }
 
+function buildSequenceValidationPanel() {
+    const validation = validateFlightSequence(aircraftFlightData.flights);
+    highlightSequenceIssueFlights(validation.issues);
+    const statusClass = validation.issueCount ? 'bad' : (validation.checkedCount ? 'good' : 'warning');
+    const statusText = validation.issueCount
+        ? validation.issueCount + ' issue' + (validation.issueCount === 1 ? '' : 's') + ' found'
+        : (validation.checkedCount ? 'Valid sequence' : 'No timed flights to check');
+
+    let rows = [];
+    rows.push($('<tr></tr>').append(
+        $('<th></th>').text('Sequence check'),
+        $('<td></td>').append($('<span></span>').addClass(statusClass).text(statusText)),
+        $('<th></th>').text('Checked flights'),
+        $('<td></td>').text(validation.checkedCount)
+    ));
+
+    if (validation.issues.length) {
+        rows.push($('<tr></tr>').append(
+            $('<th></th>').text('Issues'),
+            $('<td colspan="3"></td>').append(buildSequenceIssueList(validation.issues))
+        ));
+    }
+
+    return $('<div class="as-table-well aes-aircraft-flights-summary aes-aircraft-flights-sequence"></div>').append(
+        $('<table class="table table-bordered table-striped table-hover"></table>').append($('<tbody></tbody>').append(rows))
+    );
+}
+
+function buildSequenceIssueList(issues) {
+    const list = $('<ol class="aes-aircraft-flights-sequence-list"></ol>');
+    const maxVisibleIssues = 10;
+    issues.slice(0, maxVisibleIssues).forEach(function(issue) {
+        list.append($('<li></li>').text(issue.message));
+    });
+    if (issues.length > maxVisibleIssues) {
+        list.append($('<li></li>').text((issues.length - maxVisibleIssues) + ' more issue(s) not shown.'));
+    }
+    return list;
+}
+
+function validateFlightSequence(flights) {
+    const issues = [];
+    const checkedFlights = flights.filter(function(flight) {
+        return !isCancelledFlight(flight);
+    });
+
+    checkedFlights.forEach(function(flight) {
+        if (!flight.origin) {
+            issues.push(createFlightSequenceIssue(flight, null, 'Missing departure airport.'));
+        }
+        if (!flight.destination) {
+            issues.push(createFlightSequenceIssue(flight, null, 'Missing arrival airport.'));
+        }
+        if (flight.departureTime === null) {
+            issues.push(createFlightSequenceIssue(flight, null, 'Missing or unreadable departure time.'));
+        }
+        if (flight.arrivalTime === null) {
+            issues.push(createFlightSequenceIssue(flight, null, 'Missing or unreadable arrival time.'));
+        }
+        if (flight.departureTime !== null && flight.arrivalTime !== null && flight.departureTime >= flight.arrivalTime) {
+            issues.push(createFlightSequenceIssue(flight, null, 'Arrival time is not after departure time.'));
+        }
+    });
+
+    const sortedFlights = checkedFlights.slice().filter(function(flight) {
+        return flight.departureTime !== null && flight.arrivalTime !== null;
+    }).sort(function(a, b) {
+        return a.departureTime - b.departureTime;
+    });
+
+    for (let i = 1; i < sortedFlights.length; i++) {
+        const previousFlight = sortedFlights[i - 1];
+        const currentFlight = sortedFlights[i];
+
+        if (previousFlight.destination && currentFlight.origin && previousFlight.destination !== currentFlight.origin) {
+            issues.push(createFlightSequenceIssue(previousFlight, currentFlight, 'Next departure airport ' + currentFlight.origin + ' does not match previous arrival airport ' + previousFlight.destination + '.'));
+        }
+
+        if (currentFlight.departureTime <= previousFlight.arrivalTime) {
+            issues.push(createFlightSequenceIssue(previousFlight, currentFlight, 'Next flight does not depart after the previous flight arrives.'));
+        }
+    }
+
+    return {
+        checkedCount: checkedFlights.length,
+        issueCount: issues.length,
+        issues: issues,
+    };
+}
+
+function createFlightSequenceIssue(previousFlight, currentFlight, message) {
+    let label = getFlightSequenceLabel(previousFlight);
+    let issueFlights = [];
+    if (previousFlight) {
+        issueFlights.push(previousFlight);
+    }
+    if (currentFlight) {
+        label += ' -> ' + getFlightSequenceLabel(currentFlight);
+        issueFlights.push(currentFlight);
+    }
+    return {
+        flights: issueFlights,
+        message: label + ': ' + message
+    };
+}
+
+function isCancelledFlight(flight) {
+    const status = String(flight && flight.status ? flight.status : '').trim().toLowerCase();
+    return status === 'cancelled' || status === 'canceled';
+}
+
+function clearFlightSequenceHighlights() {
+    $('.aes-aircraft-flights-sequence-issue-row').removeClass('aes-aircraft-flights-sequence-issue-row');
+}
+
+function highlightSequenceIssueFlights(issues) {
+    clearFlightSequenceHighlights();
+    issues.forEach(function(issue) {
+        (issue.flights || []).forEach(function(flight) {
+            if (flight.row && flight.row.length) {
+                flight.row.addClass('aes-aircraft-flights-sequence-issue-row');
+            }
+        });
+    });
+}
+
+function getFlightSequenceLabel(flight) {
+    if (!flight) {
+        return 'Unknown flight';
+    }
+    return (flight.flightNumber || ('Flight ' + flight.id)) + ' (' + (flight.departureText || '?') + ' ' + (flight.origin || '?') + ' -> ' + (flight.arrivalText || '?') + ' ' + (flight.destination || '?') + ')';
+}
+
 function getData() {
     //Aircraft ID
     let aircraftId = getAircraftId();
     let aircraftInfo = getAircraftInfo();
     let date = AES.getServerDate()
     let server = AES.getServerName();
-    let flights = getFlights();
+    let flights = getFlights(date.date);
     let flightsStats = getFlightsStats(flights);
     let hubStats = getHubStats(flights);
     return {
@@ -291,9 +430,10 @@ function getFlightsStats(flights) {
 
 /**
  * Get the data from “flights” table
+ * @param {string} serverDate
  * @returns {array} flights
  */
-function getFlights() {
+function getFlights(serverDate) {
     const table = document.querySelector("#aircraft-flight-instances-table")
     if (!table) {
         throw new Error("Aircraft flights table #aircraft-flight-instances-table was not found")
@@ -303,7 +443,12 @@ function getFlights() {
 
     for (const row of rows) {
         const flight = {
+            arrivalTime: null,
+            arrivalText: '',
+            departureTime: null,
+            departureText: '',
             destination: null,
+            flightNumber: '',
             origin: null,
             status: null,
             id: null,
@@ -320,13 +465,74 @@ function getFlights() {
 
         flight.status = row.querySelector(".flightStatusPanel")?.innerText.trim()
         flight.id = parseInt(url.match(/id=(\d+)/)[1], 10)
+        flight.flightNumber = flightNumber
         flight.origin = row.querySelector("td:nth-child(3) span:last-child")?.innerText.trim() || ''
         flight.destination = row.querySelector("td:nth-child(5) span:last-child")?.innerText.trim() || ''
+        flight.departureText = getFlightTimeText(row, 4)
+        flight.arrivalText = getFlightTimeText(row, 6)
+        flight.departureTime = parseAircraftFlightUtcTime(flight.departureText, serverDate)
+        flight.arrivalTime = parseAircraftFlightUtcTime(flight.arrivalText, serverDate)
         flight.row = $(row)
         flights.push(flight)
     }
 
     return flights
+}
+
+function getFlightTimeText(row, cellIndex) {
+    const cell = row.querySelector("td:nth-child(" + cellIndex + ")")
+    const span = cell ? cell.querySelector("span") : null
+    if (!span) {
+        return ''
+    }
+
+    const title = span.getAttribute("title") || ''
+    const titleUtc = title.split('/').map(function(value) {
+        return value.trim()
+    }).find(function(value) {
+        return /\bUTC\b/i.test(value)
+    })
+    return titleUtc || span.innerText.trim()
+}
+
+function parseAircraftFlightUtcTime(value, serverDate) {
+    const match = String(value || '').match(/(\d{1,2})\.(\d{1,2})\.\s+(\d{1,2}):(\d{2})\s+UTC/i)
+    if (!match || !serverDate) {
+        return null
+    }
+
+    const serverYear = parseInt(String(serverDate).substring(0, 4), 10)
+    const serverMonth = parseInt(String(serverDate).substring(4, 6), 10)
+    const serverDay = parseInt(String(serverDate).substring(6, 8), 10)
+    let year = serverYear
+    const day = parseInt(match[1], 10)
+    const month = parseInt(match[2], 10)
+    const hours = parseInt(match[3], 10)
+    const minutes = parseInt(match[4], 10)
+    let parsed = Date.UTC(year, month - 1, day, hours, minutes)
+    const serverTime = Date.UTC(serverYear, serverMonth - 1, serverDay, 12, 0)
+    const halfYear = 183 * 24 * 60 * 60 * 1000
+
+    if (parsed - serverTime > halfYear) {
+        year--
+        parsed = Date.UTC(year, month - 1, day, hours, minutes)
+    } else if (serverTime - parsed > halfYear) {
+        year++
+        parsed = Date.UTC(year, month - 1, day, hours, minutes)
+    }
+
+    const date = new Date(parsed)
+    if (
+        date.getUTCFullYear() !== year ||
+        date.getUTCMonth() !== month - 1 ||
+        date.getUTCDate() !== day ||
+        date.getUTCHours() !== hours ||
+        date.getUTCMinutes() !== minutes
+    ) {
+        return null
+    }
+
+    return parsed
 }
 
 function getHubStats(flights) {
