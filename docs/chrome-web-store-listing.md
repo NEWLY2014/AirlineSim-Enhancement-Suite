@@ -84,9 +84,10 @@ Recommended Chrome Web Store privacy answers:
 - Inventory pricing history comparison
 - Options page backup and restore
 
-## Release Notes for 0.7.5
+## Release Notes for 0.8.5
 
-- Refactored Dashboard tables and controls across Route Management, Competitor Monitoring, and Aircraft Profitability.
-- Added per-airline Competitor Monitoring filters and moved competitor actions into the toolbar.
-- Improved filtering, column toggles, aircraft profitability averages, and Dashboard runtime resilience.
-- Fixed Manifest V3 compliance issues and bundled extension page styles locally.
+- Added an Aircraft Flights sequence check that reports invalid aircraft rotations and highlights affected rows.
+- Improved Personnel Management salary controls, progress handling, notifications, and last-update status.
+- Fixed salary updates for more complex staff table layouts and stopped failed automatic updates from retrying indefinitely.
+- Fixed content scripts so AES waits for asynchronously rendered AirlineSim page targets before inserting controls.
+- Updated AES notifications to fade out before removal.

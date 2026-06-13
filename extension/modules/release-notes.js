@@ -1,5 +1,33 @@
 const AES_RELEASE_NOTES_STORAGE_KEY = "aesReleaseNotesSeenVersion"
 const AES_RELEASE_NOTES = {
+    "0.8.5": {
+        title: "Release Notes",
+        releaseDate: "2026-06-13",
+        summary: "Thanks for keeping AES up to date.",
+        sections: [
+            {
+                title: "Added",
+                items: [
+                    "Added an Aircraft Flights sequence check that reports invalid aircraft rotations, ignores cancelled flights, and highlights rows involved in sequence issues."
+                ]
+            },
+            {
+                title: "Changed",
+                items: [
+                    "Improved Personnel Management controls with clearer salary inputs, native AES notifications, disabled apply actions while updates are running, and visible last-update status.",
+                    "AES notifications now fade out before being removed."
+                ]
+            },
+            {
+                title: "Fixed",
+                items: [
+                    "Fixed content scripts that could initialize before their target page elements existed on asynchronously rendered AirlineSim pages.",
+                    "Fixed Personnel Management salary updates so AES can find salary tables across multi-row header layouts, fall back to the native salary form column when needed, and stop automatic retries after failures.",
+                    "Fixed Aircraft Flights HUB override handling so entered airport codes are normalized to three characters."
+                ]
+            }
+        ]
+    },
     "0.8.4": {
         title: "Release Notes",
         releaseDate: "2026-06-07",

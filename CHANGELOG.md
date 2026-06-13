@@ -7,9 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.5] - 2026-06-13
+
 ### Added
 
 - Added an Aircraft Flights sequence check that reports invalid aircraft rotations, ignores cancelled flights, and highlights rows involved in sequence issues.
+
+### Changed
+
+- Improved Personnel Management controls with clearer salary inputs, native AES notifications, disabled apply actions while updates are running, and visible last-update status.
+- Updated AES notifications to fade out before removal.
+
+### Fixed
+
+- Fixed content scripts that could initialize before their target page elements existed on asynchronously rendered AirlineSim pages.
+- Fixed Personnel Management salary updates so AES can find salary tables across multi-row header layouts, fall back to the native salary form column when needed, and stop automatic retries after failures.
+- Fixed Aircraft Flights HUB override handling so entered airport codes are normalized to three characters.
 
 ## [0.8.4] - 2026-06-07
 
@@ -366,7 +379,8 @@ for pointing it out).
 
 _First release._
 
-[unreleased]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.4...HEAD
+[unreleased]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.5...HEAD
+[0.8.5]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.4...v0.8.5
 [0.8.4]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.3...v0.8.4
 [0.8.3]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.2...v0.8.3
 [0.8.2]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.1...v0.8.2
