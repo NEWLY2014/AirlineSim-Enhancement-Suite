@@ -20,6 +20,48 @@
     white-space: nowrap;
 }
 
+.aes-personnel-management-panel {
+    margin-bottom: 0;
+}
+
+.aes-personnel-management-controls {
+    align-items: flex-end;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+}
+
+.aes-personnel-management-control {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    margin-bottom: 0;
+}
+
+.aes-personnel-management-control .control-label {
+    margin-bottom: 0;
+}
+
+.aes-personnel-management-value {
+    min-width: 72px;
+    width: 92px;
+}
+
+.aes-personnel-management-type {
+    min-width: 76px;
+    width: 86px;
+}
+
+.aes-personnel-management-action {
+    margin-bottom: 0;
+}
+
+.aes-personnel-management-last-update {
+    display: block;
+    margin-top: 8px;
+    opacity: 0.72;
+}
+
 .aes-dashboard-controls {
     margin-bottom: 12px;
 }
