@@ -458,6 +458,131 @@ class AES {
         return new Promise(resolve => setTimeout(resolve, ms));
     }
 
+    /**
+     * Runs a callback once a DOM target exists, including targets added by
+     * AirlineSim's asynchronous page rendering.
+     * @param {string|string[]|function(): HTMLElement|NodeList|Array|jQuery|boolean} target
+     * @param {function(HTMLElement|NodeList|Array|jQuery|boolean): void|Promise<void>} callback
+     * @param {object} options
+     * @returns {{disconnect: function(): void}}
+     */
+    static waitForElement(target, callback, options) {
+        options = options || {};
+        const scriptName = options.scriptName || "content script";
+        const debounce = typeof options.debounce === "number" ? options.debounce : 100;
+        const timeout = typeof options.timeout === "number" ? options.timeout : 15000;
+        const root = options.root || document.documentElement || document.body;
+        let observer = null;
+        let refreshTimer = 0;
+        let timeoutTimer = 0;
+        let finished = false;
+
+        const cleanup = function() {
+            finished = true;
+            if (observer) {
+                observer.disconnect();
+                observer = null;
+            }
+            window.clearTimeout(refreshTimer);
+            window.clearTimeout(timeoutTimer);
+        };
+
+        const tryStart = function() {
+            if (finished) {
+                return true;
+            }
+
+            let foundTarget;
+            try {
+                foundTarget = AES.#resolveWaitTarget(target);
+            } catch (error) {
+                cleanup();
+                AES.reportContentScriptError(scriptName, error);
+                return true;
+            }
+
+            if (!AES.#isWaitTargetFound(foundTarget)) {
+                return false;
+            }
+
+            cleanup();
+            AES.tryRun(scriptName, function() {
+                return callback(foundTarget);
+            });
+            return true;
+        };
+
+        if (!tryStart()) {
+            if (typeof MutationObserver === "function" && root) {
+                observer = new MutationObserver(function() {
+                    window.clearTimeout(refreshTimer);
+                    refreshTimer = window.setTimeout(tryStart, debounce);
+                });
+                observer.observe(root, { childList: true, subtree: true });
+            } else {
+                const retry = function() {
+                    if (tryStart()) {
+                        return;
+                    }
+                    refreshTimer = window.setTimeout(retry, debounce);
+                };
+                refreshTimer = window.setTimeout(retry, debounce);
+            }
+
+            if (timeout > 0) {
+                timeoutTimer = window.setTimeout(function() {
+                    if (finished) {
+                        return;
+                    }
+
+                    cleanup();
+                    if (typeof options.onTimeout === "function") {
+                        AES.tryRun(scriptName, options.onTimeout);
+                    } else if (options.errorMessage) {
+                        AES.reportContentScriptError(scriptName, new Error(options.errorMessage));
+                    }
+                }, timeout);
+            }
+        }
+
+        AES.whenPageOwnershipLost(cleanup);
+        return { disconnect: cleanup };
+    }
+
+    static #resolveWaitTarget(target) {
+        if (typeof target === "function") {
+            return target();
+        }
+
+        const selectors = Array.isArray(target) ? target : [target];
+        for (let i = 0; i < selectors.length; i++) {
+            const selector = selectors[i];
+            if (!selector) {
+                continue;
+            }
+
+            const element = document.querySelector(selector);
+            if (element) {
+                return element;
+            }
+        }
+
+        return null;
+    }
+
+    static #isWaitTargetFound(target) {
+        if (!target) {
+            return false;
+        }
+        if (typeof target === "boolean") {
+            return target;
+        }
+        if (typeof target.length === "number" && target !== window && !target.nodeType && typeof target !== "string") {
+            return target.length > 0;
+        }
+        return true;
+    }
+
     // Open pages with delay
     static async openPagesWithDelay(pages) {
         for (let i = 0; i < pages.length; i++) {

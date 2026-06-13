@@ -7,17 +7,27 @@ var fltmngFilterActive = false;
 var fltmngTableObserver = null;
 var fltmngRefreshTimer = null;
 const FLEET_MANAGEMENT_SCRIPT_ENABLED = AES.runContentScript("content_fleetManagement", function() {
+    AES.waitForElement(fltmng_getFleetManagementReadyTarget, initializeFleetManagement, {
+        scriptName: "content_fleetManagement",
+        onTimeout: function() {
+            if (fltmng_fleetManagementPageOpen()) {
+                throw new Error("Fleet management insertion target .as-page-fleet-management > h1 was not found");
+            }
+        }
+    });
+});
+
+function initializeFleetManagement() {
+    aircraftData = [];
     let currentAirline = AES.getCurrentAirline();
     airline = currentAirline && currentAirline.id ? currentAirline : AES.getAirline();
     server = AES.getServerName();
     date = AES.getServerDate()
 
-    if (fltmng_fleetManagementPageOpen()) {
-        fltmng_getData();
-        //Async start
-        fltmng_getStorageData();
-    }
-});
+    fltmng_getData();
+    //Async start
+    fltmng_getStorageData();
+}
 
 if (FLEET_MANAGEMENT_SCRIPT_ENABLED) {
     AES.whenPageOwnershipLost(function() {
@@ -38,6 +48,11 @@ function fltmng_fleetManagementPageOpen() {
     } else {
         return false;
     }
+}
+
+function fltmng_getFleetManagementReadyTarget() {
+    return $('.as-page-fleet-management > h1:eq(0)').length &&
+        $('.as-page-fleet-management > .row > .col-md-9 > .as-panel:eq(0) table').length;
 }
 
 function fltmng_getData() {

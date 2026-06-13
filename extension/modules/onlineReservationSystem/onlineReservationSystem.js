@@ -181,9 +181,12 @@ class OnlineReservationSystem {
 }
 
 AES.runContentScript("module:online-reservation-system", function() {
-    const initResult = new OnlineReservationSystem().init();
+    AES.waitForElement(".ors-result .as-panel .as-table-well > table.table", function() {
+        return new OnlineReservationSystem().init();
+    }, {
+        scriptName: "module:online-reservation-system"
+    });
     AES.whenPageOwnershipLost(function() {
         AES.removeOwnedElements();
     });
-    return initResult;
 }, { ready: false });

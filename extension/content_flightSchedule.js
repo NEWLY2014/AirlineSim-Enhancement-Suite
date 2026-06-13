@@ -7,48 +7,13 @@ const FLIGHT_SCHEDULE_SCRIPT_ENABLED = AES.runContentScript("content_flightSched
     ownerAirline = AES.getCurrentAirline();
     date = AES.getServerDate();
     chrome.storage.local.get(['settings'], function(result) {
-        AES.tryRun("content_flightSchedule", function() {
-            settings = result.settings;
-            let label = $('<h3 id="aes-schedule-heading"></h3>').text('AES Schedule');
-            let btn = $('<button class="btn btn-default" id="aes-extractSchedule-btn"></button>').text('Extract Schedule');
-            let panel = $('<div id="aes-panel-schedule" class="as-panel"></div>').append(btn);
-            AES.markOwnedElements([label[0], panel[0]]);
-            //Main DIv
-            if (!$('.flight-schedule').length) {
-                throw new Error("Flight schedule insertion target .flight-schedule was not found");
-            }
-            $('.flight-schedule').prepend(label, panel);
-
-        //Extract Schedule
-        btn.click(function() {
-            extractSchedule();
-        });
-
-        //Automation
-        if (settings.schedule.autoExtract) {
-            AES.updateSettings(function(currentSettings) {
-                currentSettings.schedule.autoExtract = 0;
-            }, function(updatedSettings) {
-                settings = updatedSettings;
-                btn.click();
-            });
-        } else {
-            //Check if automation via competitor monitoring
-            let key = AES.getCompetitorMonitoringKey(server, ownerAirline.id, airline.id);
-            let legacyKey = AES.getCompetitorMonitoringKey(server, null, airline.id);
-            chrome.storage.local.get([key, legacyKey], function(compMonitoringData) {
-                compData = compMonitoringData[key] || compMonitoringData[legacyKey];
-                if (compData) {
-                    if (compData.autoExtract) {
-                        compData.key = key;
-                        compData.ownerId = ownerAirline.id;
-                        compData.ownerAirline = ownerAirline;
-                        btn.click();
-                    }
-                }
-            });
-
-        }
+        AES.waitForElement(function() {
+            return $('.flight-schedule');
+        }, function() {
+            initializeFlightSchedule(result);
+        }, {
+            scriptName: "content_flightSchedule",
+            errorMessage: "Flight schedule insertion target .flight-schedule was not found"
         });
     });
 });
@@ -59,6 +24,51 @@ if (FLIGHT_SCHEDULE_SCRIPT_ENABLED) {
     });
 }
 //FUNCTIONS
+function initializeFlightSchedule(result) {
+    settings = result.settings || {};
+    let label = $('<h3 id="aes-schedule-heading"></h3>').text('AES Schedule');
+    let btn = $('<button class="btn btn-default" id="aes-extractSchedule-btn"></button>').text('Extract Schedule');
+    let panel = $('<div id="aes-panel-schedule" class="as-panel"></div>').append(btn);
+    AES.markOwnedElements([label[0], panel[0]]);
+    //Main DIv
+    if (!$('.flight-schedule').length) {
+        throw new Error("Flight schedule insertion target .flight-schedule was not found");
+    }
+    $('.flight-schedule').prepend(label, panel);
+
+    //Extract Schedule
+    btn.click(function() {
+        extractSchedule();
+    });
+
+    //Automation
+    if (settings.schedule && settings.schedule.autoExtract) {
+        AES.updateSettings(function(currentSettings) {
+            currentSettings.schedule = currentSettings.schedule || {};
+            currentSettings.schedule.autoExtract = 0;
+        }, function(updatedSettings) {
+            settings = updatedSettings;
+            btn.click();
+        });
+    } else {
+        //Check if automation via competitor monitoring
+        let key = AES.getCompetitorMonitoringKey(server, ownerAirline.id, airline.id);
+        let legacyKey = AES.getCompetitorMonitoringKey(server, null, airline.id);
+        chrome.storage.local.get([key, legacyKey], function(compMonitoringData) {
+            compData = compMonitoringData[key] || compMonitoringData[legacyKey];
+            if (compData) {
+                if (compData.autoExtract) {
+                    compData.key = key;
+                    compData.ownerId = ownerAirline.id;
+                    compData.ownerAirline = ownerAirline;
+                    btn.click();
+                }
+            }
+        });
+
+    }
+}
+
 function extractSchedule() {
     // Update UI
     let span = $('<span class="warning"></span>').text('Extracting...');

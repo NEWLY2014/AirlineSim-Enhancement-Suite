@@ -3,11 +3,16 @@
 var settings;
 const SETTINGS_SCRIPT_ENABLED = AES.runContentScript("content_settings", function() {
     chrome.storage.local.get(['settings'], function(result) {
-        AES.tryRun("content_settings", function() {
+        AES.waitForElement(function() {
+            return $(".container-fluid:eq(2)");
+        }, function() {
             settings = result.settings || {};
             displaySettings();
             AES.markOwnedElements($("#aes-div-settingArea"));
             settingDisplayHandle('Inventory Pricing')
+        }, {
+            scriptName: "content_settings",
+            errorMessage: "Settings insertion target .container-fluid:eq(2) was not found"
         });
     });
 });

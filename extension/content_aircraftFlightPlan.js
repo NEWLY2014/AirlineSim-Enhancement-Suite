@@ -15,7 +15,11 @@ var aircraftFlightPlanState = {
 };
 const AIRCRAFT_FLIGHT_PLAN_TEMPLATE_VERSION = 5;
 const AIRCRAFT_FLIGHT_PLAN_SCRIPT_ENABLED = AES.runContentScript("content_aircraftFlightPlan", function() {
-    return aircraftFlightPlanInit();
+    AES.waitForElement(aircraftFlightPlanReadyTarget, function() {
+        return aircraftFlightPlanInit();
+    }, {
+        scriptName: "content_aircraftFlightPlan"
+    });
 });
 
 if (AIRCRAFT_FLIGHT_PLAN_SCRIPT_ENABLED) {
@@ -51,6 +55,10 @@ async function aircraftFlightPlanInit() {
     window.setTimeout(function() {
         afp_resumePendingJob();
     }, 300);
+}
+
+function aircraftFlightPlanReadyTarget() {
+    return afp_getAssignPanel().length && afp_getVisualPlan().length;
 }
 
 function afp_getTemplateKey() {

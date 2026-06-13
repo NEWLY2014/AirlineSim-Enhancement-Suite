@@ -3,10 +3,19 @@
 //Global vars
 var server, airline, ownerAirline, activeTab, compData;
 const ENTERPRISE_OVERVIEW_SCRIPT_ENABLED = AES.runContentScript("content_enterpriseOverview", function() {
+    AES.waitForElement(function() {
+        return $(".nav-tabs .active").length && $(".container-fluid:eq(2) h2").length;
+    }, initializeEnterpriseOverview, {
+        scriptName: "content_enterpriseOverview",
+        errorMessage: "Enterprise overview insertion target .container-fluid:eq(2) h2 was not found"
+    });
+});
+
+function initializeEnterpriseOverview() {
     server = AES.getServerName();
     airline = AES.getAirline();
     ownerAirline = AES.getCurrentAirline();
-    activeTab = $(".nav-tabs .active").attr('class').split(" ");
+    activeTab = ($(".nav-tabs .active").attr('class') || '').split(" ");
     activeTab = activeTab[0];
     let key = AES.getCompetitorMonitoringKey(server, ownerAirline.id, airline.id);
     let legacyKey = AES.getCompetitorMonitoringKey(server, null, airline.id);
@@ -34,7 +43,7 @@ const ENTERPRISE_OVERVIEW_SCRIPT_ENABLED = AES.runContentScript("content_enterpr
             displayMain();
         });
     });
-});
+}
 
 if (ENTERPRISE_OVERVIEW_SCRIPT_ENABLED) {
     AES.whenPageOwnershipLost(function() {

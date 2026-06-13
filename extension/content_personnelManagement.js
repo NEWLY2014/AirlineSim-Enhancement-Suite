@@ -13,7 +13,12 @@ const PERSONNEL_MANAGEMENT_SCRIPT_ENABLED = AES.runContentScript("content_person
                 ensurePersonnelManagementSettings(currentSettings);
             }, function(updatedSettings) {
                 settings = updatedSettings;
-                displayPersonnelManagement();
+                AES.waitForElement(getPersonnelManagementHeading, function() {
+                    displayPersonnelManagement();
+                }, {
+                    scriptName: "content_personnelManagement",
+                    errorMessage: "Personnel management insertion target h1 was not found"
+                });
             });
         });
     });

@@ -6,6 +6,13 @@ var aircraftFlightAirline;
 var aircraftFleetKey;
 var aircraftFlightNotifications;
 const AIRCRAFT_FLIGHTS_SCRIPT_ENABLED = AES.runContentScript("content_aircraftFlights", function() {
+    AES.waitForElement(aircraftFlightsReadyTarget, initializeAircraftFlights, {
+        scriptName: "content_aircraftFlights",
+        errorMessage: "Aircraft flights insertion target was not found"
+    });
+});
+
+function initializeAircraftFlights() {
     aircraftFlightData = getData();
     let currentAirline = AES.getCurrentAirline();
     aircraftFlightAirline = currentAirline && currentAirline.id ? currentAirline : AES.getAirline();
@@ -16,7 +23,11 @@ const AIRCRAFT_FLIGHTS_SCRIPT_ENABLED = AES.runContentScript("content_aircraftFl
 
     //Async start
     getStorageData();
-});
+}
+
+function aircraftFlightsReadyTarget() {
+    return $('#aircraft-flight-instances-table').length && $('h1 span').length;
+}
 
 if (AIRCRAFT_FLIGHTS_SCRIPT_ENABLED) {
     AES.whenPageOwnershipLost(function() {

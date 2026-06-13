@@ -9,6 +9,22 @@ const DASHBOARD_SCRIPT_ENABLED = AES.runContentScript("content_dashboard", funct
     if (!dashboardStorage) {
         throw new Error("chrome.storage.local is unavailable");
     }
+    AES.waitForElement("#enterprise-dashboard", function() {
+        initializeDashboard();
+    }, {
+        scriptName: "content_dashboard",
+        errorMessage: "Dashboard insertion target #enterprise-dashboard was not found"
+    });
+});
+
+if (DASHBOARD_SCRIPT_ENABLED) {
+    AES.whenPageOwnershipLost(function() {
+        clearTimeout(routeManagementFilterTimer);
+        $("#aes-dashboard-root").remove();
+    });
+}
+
+function initializeDashboard() {
     todayDate = AES.getServerDate();
     let currentAirline = AES.getCurrentAirline();
     airline = currentAirline && currentAirline.id ? currentAirline : AES.getAirline();
@@ -41,13 +57,6 @@ const DASHBOARD_SCRIPT_ENABLED = AES.runContentScript("content_dashboard", funct
                 });
             }
         });
-    });
-});
-
-if (DASHBOARD_SCRIPT_ENABLED) {
-    AES.whenPageOwnershipLost(function() {
-        clearTimeout(routeManagementFilterTimer);
-        $("#aes-dashboard-root").remove();
     });
 }
 

@@ -12,13 +12,24 @@ const INVENTORY_SCRIPT_ENABLED = AES.runContentScript("content_inventory", funct
         airline = AES.getAirline();
     });
 
-    window.addEventListener("load", function() {
+    let inventoryStarted = false;
+    const startInventory = function() {
+        if (inventoryStarted) {
+            return;
+        }
+        inventoryStarted = true;
         AES.tryRun("content_inventory", async function() {
-        settings = await getSettings()
-        watchInventoryLayout()
-        await rerenderInventoryModule(true)
+            settings = await getSettings()
+            watchInventoryLayout()
+            await rerenderInventoryModule(true)
         })
-    })
+    };
+
+    if (document.readyState === "complete") {
+        startInventory();
+    } else {
+        window.addEventListener("load", startInventory, { once: true })
+    }
 }, { ready: false });
 
 if (INVENTORY_SCRIPT_ENABLED) {

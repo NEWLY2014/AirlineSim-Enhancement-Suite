@@ -23,6 +23,7 @@ class AESMenu {
      */
     #createContainer() {
         const container = document.createElement("li")
+        container.id = "aes-menu"
         container.className = "dropdown"
         return container
     }
@@ -173,15 +174,43 @@ class AESMenu {
 }
 
 AES.runContentScript("module:aes-menu", function() {
-    const target = document.querySelector("#as-navbar-main-collapse .navbar-nav > li:nth-child(5)") ||
-        document.querySelector("#as-navbar-main-collapse .navbar-nav > li:last-child");
-    if (!target) {
-        throw new Error("AES menu insertion target was not found");
+    let aesMenu = null
+    let refreshTimer = 0
+    const observer = new MutationObserver(function() {
+        window.clearTimeout(refreshTimer)
+        refreshTimer = window.setTimeout(ensureAESMenu, 100)
+    })
+
+    function getInsertionTarget() {
+        return document.querySelector("#as-navbar-main-collapse .navbar-nav > li:nth-child(5)") ||
+            document.querySelector("#as-navbar-main-collapse .navbar-nav > li:last-child") ||
+            document.querySelector(".as-navbar-main .navbar-nav > li:nth-child(5)") ||
+            document.querySelector(".as-navbar-main .navbar-nav > li:last-child")
     }
-    const aesMenu = new AESMenu(
-        target
-    )
+
+    function ensureAESMenu() {
+        if (document.getElementById("aes-menu")) {
+            return true
+        }
+
+        const target = getInsertionTarget()
+        if (!target) {
+            return false
+        }
+
+        if (aesMenu && typeof aesMenu.destroy === "function") {
+            aesMenu.destroy()
+        }
+        aesMenu = new AESMenu(target)
+        return true
+    }
+
+    ensureAESMenu()
+    observer.observe(document.documentElement, { childList: true, subtree: true })
+
     AES.whenPageOwnershipLost(function() {
+        observer.disconnect()
+        window.clearTimeout(refreshTimer)
         if (aesMenu && typeof aesMenu.destroy === "function") {
             aesMenu.destroy()
         }
