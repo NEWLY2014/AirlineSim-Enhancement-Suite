@@ -179,10 +179,10 @@ function salaryUpdate(options) {
             })
             .filter(function(form, index, forms) {
                 return form && forms.indexOf(form) === index;
-            });
+        });
 
         finishSalaryUpdate(updatedRows
-            ? 'Salary has been adjusted.'
+            ? null
             : 'All salaries are already at the target level.', options, function() {
             submitSalaryChanges(salaryButtons, salaryForms);
         });
@@ -434,7 +434,9 @@ function finishSalaryUpdate(message, options, callback) {
         chrome.storage.local.set({ [key]: data }, function() {
             updatePersonnelLastUpdate(data);
             setPersonnelManagementBusy(options.actionButton, false);
-            showPersonnelNotification(message, 'success');
+            if (message) {
+                showPersonnelNotification(message, 'success');
+            }
             if (typeof callback === 'function') {
                 callback();
             }

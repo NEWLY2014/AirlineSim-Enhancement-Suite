@@ -20,6 +20,25 @@
     white-space: nowrap;
 }
 
+.feedbackPanel > li.aes-notification-exit {
+    animation: aes-notification-fade-out 250ms ease forwards;
+    pointer-events: none;
+}
+
+@keyframes aes-notification-fade-out {
+    from {
+        max-height: 80px;
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    to {
+        max-height: 0;
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+}
+
 .aes-personnel-management-panel {
     margin-bottom: 0;
 }

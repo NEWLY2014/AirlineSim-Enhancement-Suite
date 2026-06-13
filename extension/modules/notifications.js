@@ -34,9 +34,31 @@ class Notifications {
         const duration = typeof options?.duration === "number" ? options.duration : 5000
         if (duration > 0) {
             window.setTimeout(() => {
-                notification.element.remove()
+                this.#dismiss(notification.element, options)
             }, duration)
         }
+    }
+
+    /**
+     * Fades a notification out before removing it from the page.
+     * @param {HTMLElement} element
+     * @param {object} options
+     */
+    #dismiss(element, options) {
+        if (!element || !element.parentNode) {
+            return
+        }
+
+        const fadeDuration = typeof options?.fadeDuration === "number" ? options.fadeDuration : 250
+        if (fadeDuration <= 0) {
+            element.remove()
+            return
+        }
+
+        element.classList.add("aes-notification-exit")
+        window.setTimeout(() => {
+            element.remove()
+        }, fadeDuration)
     }
 
     /**
