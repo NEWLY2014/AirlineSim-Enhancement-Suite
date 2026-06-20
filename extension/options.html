@@ -6,23 +6,152 @@
         <script src="js/vendor/jquery-3.7.1.slim.min.js"></script>
         <title>AirlineSim Enhancement Suite Import/Export</title>
         <style>
-            .backup-restore-section {
-                background-color: #f8f9fa;
-                border: 1px solid #dee2e6;
+            :root {
+                --aes-bg: #eef2f5;
+                --aes-border: #d7e0e7;
+                --aes-border-strong: #c4d0da;
+                --aes-ink: #24323d;
+                --aes-muted: #60717f;
+                --aes-panel: #ffffff;
+                --aes-panel-soft: #f7f9fb;
+                --aes-primary: #2f6f9f;
+                --aes-primary-dark: #255b82;
+                --aes-success: #2f7d62;
+                --aes-danger: #b74f4f;
+                --aes-warning: #a96f24;
+            }
+            body.aes-options-page {
+                background: var(--aes-bg);
+                color: var(--aes-ink);
+            }
+            .aes-options-shell {
+                max-width: 1120px;
+                padding-bottom: 2rem;
+            }
+            .aes-options-header {
+                align-items: center;
+                border-bottom: 1px solid var(--aes-border-strong);
+                display: flex;
+                justify-content: space-between;
+                margin-bottom: 1.25rem;
+                padding: 1.25rem 0 1rem;
+            }
+            .aes-options-title-group {
+                align-items: center;
+                display: flex;
+                gap: 0.85rem;
+            }
+            .aes-options-header-icon {
+                align-items: center;
+                background: #ffffff;
+                border: 1px solid var(--aes-border);
                 border-radius: 0.375rem;
-                padding: 1.5rem;
-                margin-bottom: 2rem;
+                display: inline-flex;
+                flex: 0 0 42px;
+                height: 42px;
+                justify-content: center;
+                width: 42px;
+            }
+            .aes-options-logo {
+                display: block;
+                height: 30px;
+                width: 30px;
+            }
+            .aes-options-kicker {
+                color: var(--aes-muted);
+                font-size: 0.75rem;
+                font-weight: 700;
+                letter-spacing: 0;
+                margin: 0 0 0.15rem;
+                text-transform: uppercase;
+            }
+            .aes-options-header h1 {
+                font-size: 1.65rem;
+                font-weight: 700;
+                line-height: 1.2;
+                margin: 0;
+            }
+            .backup-restore-section {
+                background-color: var(--aes-panel);
+                border: 1px solid var(--aes-border);
+                border-radius: 0.375rem;
+                box-shadow: 0 1px 2px rgba(28, 45, 58, 0.06);
+                margin-bottom: 1rem;
+                overflow: hidden;
+            }
+            .aes-section-header {
+                background: var(--aes-panel-soft);
+                border-bottom: 1px solid var(--aes-border);
+                padding: 1rem 1.25rem;
+            }
+            .aes-section-header h2 {
+                font-size: 1.15rem;
+                font-weight: 700;
+                line-height: 1.25;
+                margin: 0;
+            }
+            .aes-section-header p {
+                color: var(--aes-muted);
+                margin: 0.25rem 0 0;
+            }
+            .aes-section-body {
+                padding: 1.25rem;
+            }
+            .aes-action-group {
+                border-left: 3px solid var(--aes-border);
+                margin-bottom: 1rem;
+                padding-left: 1rem;
+            }
+            .aes-action-title {
+                font-size: 1rem;
+                font-weight: 700;
+                margin: 0 0 0.8rem;
             }
             .data-stats {
-                background-color: #e9ecef;
+                background-color: var(--aes-panel-soft);
+                border: 1px solid var(--aes-border);
                 border-radius: 0.375rem;
                 padding: 1rem;
                 margin-bottom: 1rem;
             }
+            .data-stats h6 {
+                color: var(--aes-muted);
+                font-weight: 700;
+                margin-bottom: 0.75rem;
+                text-transform: uppercase;
+            }
+            .aes-stat-grid {
+                display: grid;
+                gap: 0.65rem;
+                grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+            }
+            .aes-stat {
+                background: #ffffff;
+                border: 1px solid var(--aes-border);
+                border-radius: 0.375rem;
+                padding: 0.65rem 0.75rem;
+            }
+            .aes-stat-label {
+                color: var(--aes-muted);
+                display: block;
+                font-size: 0.76rem;
+                font-weight: 700;
+                margin-bottom: 0.25rem;
+                text-transform: uppercase;
+            }
+            .aes-stat-value {
+                color: var(--aes-ink);
+                display: block;
+                font-size: 1.1rem;
+                font-weight: 700;
+            }
             .file-input-wrapper {
+                align-items: center;
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.5rem;
                 position: relative;
                 overflow: hidden;
-                display: inline-block;
             }
             .file-input-wrapper input[type="file"] {
                 position: absolute;
@@ -35,45 +164,108 @@
                 display: none;
             }
             .status-success {
-                background-color: #d4edda;
-                border: 1px solid #c3e6cb;
-                color: #155724;
+                background-color: #e7f4ee;
+                border: 1px solid #b9dece;
+                color: #1f684f;
             }
             .status-error {
-                background-color: #f8d7da;
-                border: 1px solid #f5c6cb;
-                color: #721c24;
+                background-color: #f8e8e8;
+                border: 1px solid #e5bcbc;
+                color: #8f3636;
             }
             .status-warning {
-                background-color: #fff3cd;
-                border: 1px solid #ffeaa7;
-                color: #856404;
+                background-color: #fff4de;
+                border: 1px solid #efd4a5;
+                color: #81551a;
+            }
+            .status-info {
+                background-color: #e7f0f7;
+                border: 1px solid #bad0e1;
+                color: #285979;
             }
             .log-file-actions {
                 display: flex;
                 gap: 0.5rem;
                 flex-wrap: wrap;
             }
+            .form-control,
+            .btn {
+                border-radius: 0.25rem;
+            }
+            .btn {
+                font-weight: 600;
+            }
+            .btn-primary {
+                background-color: var(--aes-primary);
+                border-color: var(--aes-primary-dark);
+            }
+            .btn-primary:hover,
+            .btn-primary:focus {
+                background-color: var(--aes-primary-dark);
+                border-color: var(--aes-primary-dark);
+            }
+            .btn-success {
+                background-color: var(--aes-success);
+                border-color: #276a53;
+            }
+            .btn-danger {
+                background-color: var(--aes-danger);
+                border-color: #9c4242;
+            }
+            .btn-warning {
+                background-color: var(--aes-warning);
+                border-color: #8f5e1f;
+                color: #ffffff;
+            }
+            hr {
+                border-top-color: var(--aes-border);
+            }
+            @media (max-width: 767px) {
+                .aes-options-header {
+                    align-items: flex-start;
+                }
+                .aes-options-header h1 {
+                    font-size: 1.35rem;
+                }
+                .aes-section-body {
+                    padding: 1rem;
+                }
+            }
         </style>
     </head>
-    <body>
-        <div class="container pt-3" id="display">
-            <h1>
-                <i class="fas fa-file-import"></i> AirlineSim Enhancement Suite
-                Import/Export
-            </h1>
+    <body class="aes-options-page">
+        <div class="container aes-options-shell" id="display">
+            <header class="aes-options-header">
+                <div class="aes-options-title-group">
+                    <span class="aes-options-header-icon">
+                        <img
+                            class="aes-options-logo"
+                            src="images/AES-logo-48.png"
+                            alt=""
+                        />
+                    </span>
+                    <div>
+                        <p class="aes-options-kicker">
+                            AirlineSim Enhancement Suite
+                        </p>
+                        <h1>Import/Export</h1>
+                    </div>
+                </div>
+            </header>
 
             <!-- Backup and Restore Section -->
             <div class="backup-restore-section">
-                <h2><i class="fas fa-shield-alt"></i> Backup & Restore</h2>
-                <p class="text-muted">
-                    Backup your AES data to a file or restore from a previous
-                    backup.
-                </p>
+                <div class="aes-section-header">
+                    <h2>Backup & Restore</h2>
+                    <p>Export AES data or restore a previous backup.</p>
+                </div>
 
-                <div class="row">
-                    <div class="col-md-6">
-                        <h4><i class="fas fa-download"></i> Backup Data</h4>
+                <div class="aes-section-body">
+                    <div class="row">
+                    <div class="col-md-6 aes-action-group">
+                        <h3 class="aes-action-title">
+                            Backup Data
+                        </h3>
                         <div class="data-stats" id="aes-data-stats">
                             <h6>Current Data Summary:</h6>
                             <div id="aes-stats-content">Loading...</div>
@@ -96,12 +288,14 @@
                             </select>
                         </div>
                         <button class="btn btn-primary" id="aes-backup-btn">
-                            <i class="fas fa-download"></i> Create Backup
+                            Create Backup
                         </button>
                     </div>
 
-                    <div class="col-md-6">
-                        <h4><i class="fas fa-upload"></i> Restore Data</h4>
+                    <div class="col-md-6 aes-action-group">
+                        <h3 class="aes-action-title">
+                            Restore Data
+                        </h3>
                         <div class="form-group">
                             <label for="aes-restore-file"
                                 >Select Backup File:</label
@@ -119,8 +313,7 @@
                                     class="btn btn-outline-secondary"
                                     id="aes-choose-file-btn"
                                 >
-                                    <i class="fas fa-file-upload"></i> Choose
-                                    File
+                                    Choose File
                                 </button>
                                 <span
                                     id="aes-selected-file-name"
@@ -147,7 +340,7 @@
                             id="aes-restore-btn"
                             disabled
                         >
-                            <i class="fas fa-upload"></i> Restore Data
+                            Restore Data
                         </button>
                     </div>
                 </div>
@@ -155,8 +348,10 @@
                 <hr />
 
                 <div class="row">
-                    <div class="col-md-12">
-                        <h4><i class="fas fa-file-alt"></i> Log Files</h4>
+                    <div class="col-md-12 aes-action-group">
+                        <h3 class="aes-action-title">
+                            Log Files
+                        </h3>
                         <p class="text-muted">
                             AES stores diagnostic logs as one local file per
                             day. These logs help diagnose page insertion and
@@ -177,46 +372,49 @@
                                 id="aes-download-log-btn"
                                 disabled
                             >
-                                <i class="fas fa-download"></i> Download Log
+                                Download Log
                             </button>
                             <button
                                 class="btn btn-outline-danger"
                                 id="aes-clear-logs-btn"
                                 disabled
                             >
-                                <i class="fas fa-trash-alt"></i> Clear Logs
+                                Clear Logs
                             </button>
                         </div>
                     </div>
                 </div>
 
                 <div class="status-message" id="aes-status-message"></div>
+                </div>
             </div>
 
             <!-- Data Cleanup Section -->
             <div class="backup-restore-section">
-                <h2><i class="fas fa-trash-alt"></i> Data Cleanup</h2>
-                <p class="text-muted">Remove data to free up storage space.</p>
+                <div class="aes-section-header">
+                    <h2>Data Cleanup</h2>
+                    <p>Remove stored data to free up space.</p>
+                </div>
 
+                <div class="aes-section-body">
                 <div class="row">
-                    <div class="col-md-6">
+                    <div class="col-md-6 aes-action-group">
                         <button
                             class="btn btn-warning btn-block mb-2"
                             id="aes-clear-old-data-btn"
                         >
-                            <i class="fas fa-calendar-times"></i> Clear Old Data
-                            (>30 days)
+                            Clear Old Data (>30 days)
                         </button>
                     </div>
-                    <div class="col-md-6">
+                    <div class="col-md-6 aes-action-group">
                         <button
                             class="btn btn-danger btn-block"
                             id="aes-clear-all-data-btn"
                         >
-                            <i class="fas fa-exclamation-triangle"></i> Clear
-                            All Data
+                            Clear All Data
                         </button>
                     </div>
+                </div>
                 </div>
             </div>
         </div>

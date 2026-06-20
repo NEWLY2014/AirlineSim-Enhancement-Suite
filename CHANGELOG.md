@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.6] - 2026-06-20
+
+### Changed
+
+- Refreshed the Import/Export page with a consistent AES panel style, improved data summary cards, unified status messages, and responsive layout.
+
+### Fixed
+
+- Fixed Aircraft Flights download controls so the flight data buttons stay visible, show progress, and can be used again after a download run finishes.
+- Improved bulk flight data downloads by opening flight information tabs through the extension background worker and reporting blocked or failed tab opens instead of failing silently.
+
 ## [0.8.5] - 2026-06-13
 
 ### Added
@@ -379,7 +390,8 @@ for pointing it out).
 
 _First release._
 
-[unreleased]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.5...HEAD
+[unreleased]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.6...HEAD
+[0.8.6]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.5...v0.8.6
 [0.8.5]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.4...v0.8.5
 [0.8.4]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.3...v0.8.4
 [0.8.3]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.2...v0.8.3

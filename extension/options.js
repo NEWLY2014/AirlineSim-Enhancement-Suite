@@ -105,48 +105,27 @@ function displayDataStatistics() {
     }
 
     const statsHtml = `
-        <div class="row">
-            <div class="col-md-3">
-                <strong>Total Items:</strong><br>
-                <span class="badge badge-primary">${stats.totalItems}</span>
-            </div>
-            <div class="col-md-3">
-                <strong>Settings:</strong><br>
-                <span class="badge badge-info">${stats.settings}</span>
-            </div>
-            <div class="col-md-3">
-                <strong>Schedule Data:</strong><br>
-                <span class="badge badge-success">${stats.schedule}</span>
-            </div>
-            <div class="col-md-3">
-                <strong>Other Data:</strong><br>
-                <span class="badge badge-secondary">${stats.other}</span>
-            </div>
-        </div>
-        <div class="row mt-2">
-            <div class="col-md-4">
-                <strong>Pricing Data:</strong><br>
-                <span class="badge badge-warning">${stats.pricing}</span>
-            </div>
-            <div class="col-md-4">
-                <strong>Flight Info:</strong><br>
-                <span class="badge badge-info">${stats.flightInfo}</span>
-            </div>
-            <div class="col-md-4">
-                <strong>Logs:</strong><br>
-                <span class="badge badge-secondary">${stats.logs}</span>
-            </div>
-        </div>
-        <div class="row mt-2">
-            <div class="col-md-4">
-                <strong>Estimated Size:</strong><br>
-                <span class="badge badge-dark">${formatBytes(
-                    stats.estimatedSize
-                )}</span>
-            </div>
+        <div class="aes-stat-grid">
+            ${buildStatItem("Total Items", stats.totalItems)}
+            ${buildStatItem("Settings", stats.settings)}
+            ${buildStatItem("Schedule Data", stats.schedule)}
+            ${buildStatItem("Pricing Data", stats.pricing)}
+            ${buildStatItem("Flight Info", stats.flightInfo)}
+            ${buildStatItem("Logs", stats.logs)}
+            ${buildStatItem("Other Data", stats.other)}
+            ${buildStatItem("Estimated Size", formatBytes(stats.estimatedSize))}
         </div>
     `;
     $("#aes-stats-content").html(statsHtml);
+}
+
+function buildStatItem(label, value) {
+    return `
+        <div class="aes-stat">
+            <span class="aes-stat-label">${label}</span>
+            <span class="aes-stat-value">${value}</span>
+        </div>
+    `;
 }
 
 function analyzeStorageData(data) {
@@ -615,7 +594,7 @@ function showStatusMessage(message, type) {
             break;
         case "info":
         default:
-            statusDiv.addClass("status-warning"); // Using warning style for info
+            statusDiv.addClass("status-info");
             break;
     }
 

@@ -5,6 +5,14 @@ var aircraftFlightData;
 var aircraftFlightAirline;
 var aircraftFleetKey;
 var aircraftFlightNotifications;
+var aircraftFlightExtractionState = {
+    failed: 0,
+    message: '',
+    opened: 0,
+    running: false,
+    tone: '',
+    total: 0,
+};
 const AIRCRAFT_FLIGHTS_SCRIPT_ENABLED = AES.runContentScript("content_aircraftFlights", function() {
     AES.waitForElement(aircraftFlightsReadyTarget, initializeAircraftFlights, {
         scriptName: "content_aircraftFlights",
@@ -118,11 +126,12 @@ function display() {
     //Table
     let tableWell = $('<div class="as-table-well aes-aircraft-flights-summary aes-aircraft-flights-table"></div>').append(buildTable());
     let sequencePanel = buildSequenceValidationPanel();
-    let btn = $('<button type="button" class="btn btn-default"></button>').text('Extract all flight profit/loss');
-    let btn1 = $('<button type="button" class="btn btn-default"></button>').text('Extract finished flight profit/loss');
+    let btn = $('<button type="button" class="btn btn-default aes-aircraft-flights-extract-btn"></button>').text('Download all flight data');
+    let btn1 = $('<button type="button" class="btn btn-default aes-aircraft-flights-extract-btn"></button>').text('Download finished flight data');
     let saveOverrideBtn = $('<button type="button" class="btn btn-default"></button>').text('Save HUB override');
     let resetOverrideBtn = $('<button type="button" class="btn btn-default"></button>').text('Reset to default');
     let hubInput = $('<input type="text" class="form-control aes-aircraft-flights-hub-input" maxlength="3">').val((aircraftFlightData.hubOverride || '').slice(0, 3));
+    let extractStatus = $('<span class="aes-aircraft-flights-extract-status" aria-live="polite"></span>');
     let toolbar = $('<div class="aes-aircraft-flights-toolbar aes-aircraft-flights-summary"></div>').append(
         $('<div class="aes-aircraft-flights-toolbar-row"></div>').append(
             $('<div class="aes-aircraft-flights-toolbar-group"></div>').append(
@@ -133,22 +142,17 @@ function display() {
                 )
             ),
             $('<div class="aes-aircraft-flights-toolbar-group aes-aircraft-flights-toolbar-group-actions"></div>').append(
-                $('<div class="btn-group aes-dashboard-control-actions"></div>').append(btn1, btn)
+                $('<div class="btn-group aes-dashboard-control-actions"></div>').append(btn1, btn),
+                extractStatus
             )
         )
     );
     //btn click
     btn.click(function() {
-        btn.hide();
-        btn1.hide();
-        showAircraftFlightsNotification('Please reload page after all flight info pages open', 'warning');
-        extractAllFlightProfit('all');
+        startFlightProfitExtraction('all');
     });
     btn1.click(function() {
-        btn.hide();
-        btn1.hide();
-        showAircraftFlightsNotification('Please reload page after all flight info pages open', 'warning');
-        extractAllFlightProfit('finished');
+        startFlightProfitExtraction('finished');
     });
     saveOverrideBtn.click(function() {
         let override = hubInput.val().trim().toUpperCase().slice(0, 3);
@@ -176,6 +180,7 @@ function display() {
     let insertionTarget = $('#aircraft-flight-instances-table').closest('.as-table-well');
     if (insertionTarget.length) {
         insertionTarget.before(content);
+        updateFlightExtractionDisplay();
         return;
     }
 
@@ -184,19 +189,196 @@ function display() {
         throw new Error("Aircraft flights insertion target was not found");
     }
     fallbackTarget.prepend(content);
+    updateFlightExtractionDisplay();
 }
 
-async function extractAllFlightProfit(type) {
-    for (const value of aircraftFlightData.flights) {
-        if (type === 'finished') {
-            if (value.status !== 'finished' && value.status !== 'inflight') {
-                continue;
-            }
-        }
-        const url = 'https://' + aircraftFlightData.server + '.airlinesim.aero/action/info/flight?id=' + value.id;
-        window.open(url, '_blank');
-        await AES.sleep(30 + Math.floor(Math.random() * 41));
+async function startFlightProfitExtraction(type) {
+    if (aircraftFlightExtractionState.running) {
+        return;
     }
+
+    const flights = getFlightsForProfitExtraction(type);
+    if (!flights.length) {
+        setFlightExtractionState({
+            failed: 0,
+            message: 'No matching flight data to download.',
+            opened: 0,
+            running: false,
+            tone: 'warning',
+            total: 0,
+        });
+        showAircraftFlightsNotification('No matching flight data to download.', 'warning');
+        return;
+    }
+
+    setFlightExtractionState({
+        failed: 0,
+        message: 'Opening flight data pages 0/' + flights.length + '...',
+        opened: 0,
+        running: true,
+        tone: 'warning',
+        total: flights.length,
+    });
+
+    try {
+        const result = await extractAllFlightProfit(type, function(progress) {
+            setFlightExtractionState({
+                failed: progress.failed,
+                message: 'Opening flight data pages ' + progress.opened + '/' + progress.total + (progress.failed ? ' (' + progress.failed + ' failed)' : '') + '...',
+                opened: progress.opened,
+                running: true,
+                tone: 'warning',
+                total: progress.total,
+            });
+        });
+
+        if (result.failed) {
+            setFlightExtractionState({
+                failed: result.failed,
+                message: 'Opened ' + result.opened + '/' + result.total + ' flight data pages. Allow pop-ups and try again if any are missing.',
+                opened: result.opened,
+                running: false,
+                tone: 'warning',
+                total: result.total,
+            });
+            showAircraftFlightsNotification('Some flight data pages could not be opened.', 'warning');
+            return;
+        }
+
+        setFlightExtractionState({
+            failed: 0,
+            message: 'Opened ' + result.opened + ' flight data pages. Reload this page after they finish.',
+            opened: result.opened,
+            running: false,
+            tone: 'good',
+            total: result.total,
+        });
+        showAircraftFlightsNotification('Please reload page after all flight info pages open', 'warning');
+    } catch (error) {
+        setFlightExtractionState({
+            failed: 0,
+            message: 'Flight data download failed. Try again.',
+            opened: 0,
+            running: false,
+            tone: 'bad',
+            total: flights.length,
+        });
+        showAircraftFlightsNotification('Flight data download failed.', 'error');
+        console.error('[AES] Flight data download failed', error);
+    }
+}
+
+function setFlightExtractionState(nextState) {
+    aircraftFlightExtractionState = Object.assign({}, aircraftFlightExtractionState, nextState);
+    updateFlightExtractionDisplay();
+}
+
+function updateFlightExtractionDisplay() {
+    $('.aes-aircraft-flights-extract-btn').prop('disabled', aircraftFlightExtractionState.running);
+    $('.aes-aircraft-flights-extract-status')
+        .removeClass('good bad warning')
+        .addClass(aircraftFlightExtractionState.tone || '')
+        .text(aircraftFlightExtractionState.message || '');
+}
+
+function getFlightsForProfitExtraction(type) {
+    return aircraftFlightData.flights.filter(function(value) {
+        if (type !== 'finished') {
+            return true;
+        }
+        return value.status === 'finished' || value.status === 'inflight';
+    });
+}
+
+async function extractAllFlightProfit(type, progressCallback) {
+    const flights = getFlightsForProfitExtraction(type);
+    let failed = 0;
+    let lastError = '';
+    let opened = 0;
+
+    for (let i = 0; i < flights.length; i++) {
+        const url = getFlightInfoUrl(flights[i]);
+        const result = await openFlightInfoPage(url);
+
+        if (result.ok) {
+            opened++;
+        } else {
+            failed++;
+            lastError = result.error || lastError;
+        }
+
+        if (progressCallback) {
+            progressCallback({
+                failed: failed,
+                lastError: lastError,
+                opened: opened,
+                total: flights.length,
+            });
+        }
+
+        if (i < flights.length - 1) {
+            await AES.sleep(30 + Math.floor(Math.random() * 41));
+        }
+    }
+
+    return {
+        failed: failed,
+        lastError: lastError,
+        opened: opened,
+        total: flights.length,
+    };
+}
+
+function getFlightInfoUrl(flight) {
+    return 'https://' + aircraftFlightData.server + '.airlinesim.aero/action/info/flight?id=' + flight.id;
+}
+
+async function openFlightInfoPage(url) {
+    const backgroundResult = await requestBackgroundTabOpen(url);
+    if (backgroundResult.ok) {
+        return backgroundResult;
+    }
+
+    const openedWindow = window.open(url, '_blank');
+    if (openedWindow) {
+        return { ok: true, method: 'window.open' };
+    }
+
+    return {
+        error: backgroundResult.error || 'The browser blocked the new tab.',
+        ok: false,
+    };
+}
+
+function requestBackgroundTabOpen(url) {
+    return new Promise(function(resolve) {
+        if (typeof chrome === 'undefined' || !chrome.runtime || typeof chrome.runtime.sendMessage !== 'function') {
+            resolve({
+                error: 'Extension runtime is unavailable.',
+                ok: false,
+            });
+            return;
+        }
+
+        chrome.runtime.sendMessage({
+            active: false,
+            type: 'AES_OPEN_TAB',
+            url: url,
+        }, function(response) {
+            if (chrome.runtime.lastError) {
+                resolve({
+                    error: chrome.runtime.lastError.message,
+                    ok: false,
+                });
+                return;
+            }
+
+            resolve(response || {
+                error: 'No tab open response.',
+                ok: false,
+            });
+        });
+    });
 }
 
 function displayFlightProfit() {

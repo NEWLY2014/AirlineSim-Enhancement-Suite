@@ -201,6 +201,7 @@
 }
 
 .aes-aircraft-flights-toolbar-group-actions {
+    align-items: center;
     margin-left: auto;
 }
 
@@ -219,6 +220,18 @@
 
 .aes-aircraft-flights-toolbar-controls .aes-dashboard-control-actions {
     flex-wrap: nowrap;
+}
+
+.aes-aircraft-flights-extract-status {
+    display: inline-block;
+    flex: 0 1 auto;
+    font-size: 12px;
+    line-height: 1.25;
+    max-width: 320px;
+    min-height: 16px;
+    min-width: 180px;
+    opacity: 0.82;
+    white-space: normal;
 }
 
 .aes-aircraft-flights-hub-input {

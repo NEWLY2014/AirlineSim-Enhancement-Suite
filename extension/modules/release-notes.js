@@ -1,5 +1,25 @@
 const AES_RELEASE_NOTES_STORAGE_KEY = "aesReleaseNotesSeenVersion"
 const AES_RELEASE_NOTES = {
+    "0.8.6": {
+        title: "Release Notes",
+        releaseDate: "2026-06-20",
+        summary: "Thanks for keeping AES up to date.",
+        sections: [
+            {
+                title: "Changed",
+                items: [
+                    "Refreshed the Import/Export page with a consistent AES panel style, improved data summary cards, unified status messages, and responsive layout."
+                ]
+            },
+            {
+                title: "Fixed",
+                items: [
+                    "Fixed Aircraft Flights download controls so the flight data buttons stay visible, show progress, and can be used again after a download run finishes.",
+                    "Improved bulk flight data downloads by opening flight information tabs through the extension background worker and reporting blocked or failed tab opens instead of failing silently."
+                ]
+            }
+        ]
+    },
     "0.8.5": {
         title: "Release Notes",
         releaseDate: "2026-06-13",
