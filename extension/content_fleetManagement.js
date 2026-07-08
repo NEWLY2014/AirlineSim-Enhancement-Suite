@@ -62,9 +62,19 @@ function fltmng_getData() {
     currentFleet = fltmng_normalizeFleetName($('.as-page-fleet-management > .row > .col-md-9 > h2:eq(0)').text());
     $('tbody tr', table).each(function() {
         let aircraftId = fltmng_getAircraftIdFromRow(this);
+        let registration = $('td:eq(1) > span:eq(0)', this).text();
+
+        // Empty fleets still contain a placeholder <tr>. Do not turn that
+        // message row into an aircraft with an empty registration and no ID.
+        if (!fltmng_hasAircraftIdentity({
+            aircraftId: aircraftId,
+            registration: registration
+        })) {
+            return;
+        }
 
         let data = {
-            registration: $('td:eq(1) > span:eq(0)', this).text(),
+            registration: registration,
             nickname: fltmng_getNickname($('td:eq(1) > div:eq(0)', this).text()),
             equipment: $('td:eq(2) > a:eq(0)', this).text(),
             age: fltmng_getAge($('td:eq(4) > span:eq(0)', this).text()),
@@ -102,6 +112,13 @@ function fltmng_getNickname(value) {
 
 function fltmng_normalizeFleetName(value) {
     return (value || '').trim();
+}
+
+function fltmng_hasAircraftIdentity(aircraft) {
+    return !!(aircraft && (
+        aircraft.aircraftId ||
+        String(aircraft.registration || '').trim()
+    ));
 }
 
 function fltmng_getAge(value) {
@@ -340,6 +357,13 @@ function fltmng_updateAircraftFleetStorageData(data) {
         //Push old aircrafts from other fleets. Aircraft missing from the
         //current fleet page has moved or been removed and should not linger.
         data.fleet.forEach(function(value) {
+            // Remove placeholder rows saved by older versions. Real
+            // undelivered aircraft have a registration even before an ID is
+            // assigned, so they remain intact.
+            if (!fltmng_hasAircraftIdentity(value)) {
+                return;
+            }
+
             let found = 0;
             newfleet.forEach(function(newValue) {
                 if (fltmng_isSameAircraft(value, newValue)) {
