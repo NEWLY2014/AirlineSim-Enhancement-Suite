@@ -201,8 +201,14 @@
 }
 
 .aes-aircraft-flights-toolbar-group-actions {
-    align-items: center;
+    align-items: flex-end;
+    flex: 1 1 340px;
+    flex-direction: column;
+    gap: 4px;
+    justify-content: center;
     margin-left: auto;
+    min-width: 0;
+    text-align: right;
 }
 
 .aes-aircraft-flights-toolbar-label {
@@ -222,16 +228,26 @@
     flex-wrap: nowrap;
 }
 
+.aes-aircraft-flights-extract-actions {
+    align-self: flex-end;
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+    max-width: 100%;
+    white-space: nowrap;
+}
+
 .aes-aircraft-flights-extract-status {
-    display: inline-block;
+    display: block;
     flex: 0 1 auto;
     font-size: 12px;
     line-height: 1.25;
-    max-width: 320px;
+    max-width: 100%;
     min-height: 16px;
-    min-width: 180px;
+    min-width: 0;
     opacity: 0.82;
+    text-align: right;
     white-space: normal;
+    width: 100%;
 }
 
 .aes-aircraft-flights-hub-input {
@@ -283,12 +299,17 @@
     width: 30%;
 }
 
-.aes-aircraft-flights-sequence {
-    margin-top: 6px;
+.aes-aircraft-flights-sequence-cell {
+    vertical-align: top;
+}
+
+.aes-aircraft-flights-sequence-checked {
+    opacity: 0.72;
+    white-space: nowrap;
 }
 
 .aes-aircraft-flights-sequence-list {
-    margin: 0;
+    margin: 4px 0 0;
     padding-left: 18px;
 }
 
