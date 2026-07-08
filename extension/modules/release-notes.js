@@ -1,5 +1,25 @@
 const AES_RELEASE_NOTES_STORAGE_KEY = "aesReleaseNotesSeenVersion"
 const AES_RELEASE_NOTES = {
+    "0.8.7": {
+        title: "Release Notes",
+        releaseDate: "2026-07-08",
+        summary: "Thanks for keeping AES up to date.",
+        sections: [
+            {
+                title: "Changed",
+                items: [
+                    "Aircraft Flights controls and messages now use extract terminology, keep the extraction buttons right-aligned, and show the sequence check inside the main summary table above the data save time."
+                ]
+            },
+            {
+                title: "Fixed",
+                items: [
+                    "Fixed Fleet Management so empty fleet placeholder rows are no longer saved as aircraft.",
+                    "Old blank fleet placeholder records are cleaned up while undelivered aircraft with registrations remain preserved."
+                ]
+            }
+        ]
+    },
     "0.8.6": {
         title: "Release Notes",
         releaseDate: "2026-06-20",
