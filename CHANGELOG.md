@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.7] - 2026-07-08
+
+### Changed
+
+- Updated Aircraft Flights controls and messages to use extract terminology, keep the extraction buttons right-aligned, and fold the sequence check into the main summary table above the data save time.
+
+### Fixed
+
+- Fixed Fleet Management so empty fleet placeholder rows are no longer saved as aircraft, and old blank placeholder records are cleaned up while preserving undelivered aircraft that already have registrations.
+
 ## [0.8.6] - 2026-06-20
 
 ### Changed
@@ -390,7 +400,8 @@ for pointing it out).
 
 _First release._
 
-[unreleased]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.6...HEAD
+[unreleased]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.7...HEAD
+[0.8.7]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.6...v0.8.7
 [0.8.6]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.5...v0.8.6
 [0.8.5]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.4...v0.8.5
 [0.8.4]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.3...v0.8.4
