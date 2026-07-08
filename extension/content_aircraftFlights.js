@@ -123,11 +123,12 @@ function persistAircraftFlightSummary(callback) {
 
 function display() {
     displayFlightProfit();
+    let sequenceValidation = validateFlightSequence(aircraftFlightData.flights);
+    highlightSequenceIssueFlights(sequenceValidation.issues);
     //Table
-    let tableWell = $('<div class="as-table-well aes-aircraft-flights-summary aes-aircraft-flights-table"></div>').append(buildTable());
-    let sequencePanel = buildSequenceValidationPanel();
-    let btn = $('<button type="button" class="btn btn-default aes-aircraft-flights-extract-btn"></button>').text('Download all flight data');
-    let btn1 = $('<button type="button" class="btn btn-default aes-aircraft-flights-extract-btn"></button>').text('Download finished flight data');
+    let tableWell = $('<div class="as-table-well aes-aircraft-flights-summary aes-aircraft-flights-table"></div>').append(buildTable(sequenceValidation));
+    let btn = $('<button type="button" class="btn btn-default aes-aircraft-flights-extract-btn"></button>').text('Extract all flight data');
+    let btn1 = $('<button type="button" class="btn btn-default aes-aircraft-flights-extract-btn"></button>').text('Extract finished flight data');
     let saveOverrideBtn = $('<button type="button" class="btn btn-default"></button>').text('Save HUB override');
     let resetOverrideBtn = $('<button type="button" class="btn btn-default"></button>').text('Reset to default');
     let hubInput = $('<input type="text" class="form-control aes-aircraft-flights-hub-input" maxlength="3">').val((aircraftFlightData.hubOverride || '').slice(0, 3));
@@ -142,7 +143,7 @@ function display() {
                 )
             ),
             $('<div class="aes-aircraft-flights-toolbar-group aes-aircraft-flights-toolbar-group-actions"></div>').append(
-                $('<div class="btn-group aes-dashboard-control-actions"></div>').append(btn1, btn),
+                $('<div class="btn-group aes-dashboard-control-actions aes-aircraft-flights-extract-actions"></div>').append(btn1, btn),
                 extractStatus
             )
         )
@@ -172,8 +173,7 @@ function display() {
     let content = $('<div class="aes-aircraft-flights-block"></div>').append(
         $('<div class="aes-aircraft-flights-title"></div>').text('AES Aircraft Flights'),
         toolbar,
-        tableWell,
-        sequencePanel
+        tableWell
     );
     $('.aes-aircraft-flights-block').remove();
     AES.markOwnedElements(content);
@@ -201,13 +201,13 @@ async function startFlightProfitExtraction(type) {
     if (!flights.length) {
         setFlightExtractionState({
             failed: 0,
-            message: 'No matching flight data to download.',
+            message: 'No matching flight data to extract.',
             opened: 0,
             running: false,
             tone: 'warning',
             total: 0,
         });
-        showAircraftFlightsNotification('No matching flight data to download.', 'warning');
+        showAircraftFlightsNotification('No matching flight data to extract.', 'warning');
         return;
     }
 
@@ -257,14 +257,14 @@ async function startFlightProfitExtraction(type) {
     } catch (error) {
         setFlightExtractionState({
             failed: 0,
-            message: 'Flight data download failed. Try again.',
+            message: 'Flight data extraction failed. Try again.',
             opened: 0,
             running: false,
             tone: 'bad',
             total: flights.length,
         });
-        showAircraftFlightsNotification('Flight data download failed.', 'error');
-        console.error('[AES] Flight data download failed', error);
+        showAircraftFlightsNotification('Flight data extraction failed.', 'error');
+        console.error('[AES] Flight data extraction failed', error);
     }
 }
 
@@ -406,7 +406,7 @@ function displayFlightProfit() {
     $("tfoot td", table).attr("colspan", "15")
 }
 
-function buildTable() {
+function buildTable(sequenceValidation) {
     let totalProfitCell = $(formatMoney(aircraftFlightData.profit));
     let row = [];
     row.push($('<tr></tr>').append(
@@ -430,46 +430,36 @@ function buildTable() {
     row.push($('<tr></tr>').append(
         $('<th></th>').text('Override HUB'),
         $('<td id="aes-aircraft-hub-override"></td>').text(aircraftFlightData.hubOverride || '--'),
-        $('<th></th>').text('Data save time'),
-        $('<td></td>').text(AES.formatDateString(aircraftFlightData.date) + ' ' + aircraftFlightData.time)
+        $('<th></th>').text('Sequence check'),
+        buildSequenceValidationCell(sequenceValidation)
     ));
     row.push($('<tr></tr>').append(
         $('<th></th>').text('Current HUB'),
         $('<td id="aes-aircraft-hub-effective"></td>').text(aircraftFlightData.hubEffective || aircraftFlightData.hubDetected || '--'),
-        $('<th></th>'),
-        $('<td></td>')
+        $('<th></th>').text('Data save time'),
+        $('<td></td>').text(AES.formatDateString(aircraftFlightData.date) + ' ' + aircraftFlightData.time)
     ));
 
     let tbody = $('<tbody></tbody>').append(row);
     return $('<table class="table table-bordered table-striped table-hover"></table>').append(tbody);
 }
 
-function buildSequenceValidationPanel() {
-    const validation = validateFlightSequence(aircraftFlightData.flights);
-    highlightSequenceIssueFlights(validation.issues);
+function buildSequenceValidationCell(validation) {
     const statusClass = validation.issueCount ? 'bad' : (validation.checkedCount ? 'good' : 'warning');
     const statusText = validation.issueCount
         ? validation.issueCount + ' issue' + (validation.issueCount === 1 ? '' : 's') + ' found'
         : (validation.checkedCount ? 'Valid sequence' : 'No timed flights to check');
 
-    let rows = [];
-    rows.push($('<tr></tr>').append(
-        $('<th></th>').text('Sequence check'),
-        $('<td></td>').append($('<span></span>').addClass(statusClass).text(statusText)),
-        $('<th></th>').text('Checked flights'),
-        $('<td></td>').text(validation.checkedCount)
-    ));
+    const cell = $('<td class="aes-aircraft-flights-sequence-cell"></td>').append(
+        $('<span></span>').addClass(statusClass).text(statusText),
+        $('<span class="aes-aircraft-flights-sequence-checked"></span>').text(' · ' + validation.checkedCount + ' checked')
+    );
 
     if (validation.issues.length) {
-        rows.push($('<tr></tr>').append(
-            $('<th></th>').text('Issues'),
-            $('<td colspan="3"></td>').append(buildSequenceIssueList(validation.issues))
-        ));
+        cell.append(buildSequenceIssueList(validation.issues));
     }
 
-    return $('<div class="as-table-well aes-aircraft-flights-summary aes-aircraft-flights-sequence"></div>').append(
-        $('<table class="table table-bordered table-striped table-hover"></table>').append($('<tbody></tbody>').append(rows))
-    );
+    return cell;
 }
 
 function buildSequenceIssueList(issues) {
