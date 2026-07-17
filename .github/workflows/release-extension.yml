@@ -5,9 +5,17 @@ on:
     tags:
       - "v*.*.*"
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing version tag to release, for example v0.8.7
+        required: true
+        type: string
 
 permissions:
   contents: write
+
+env:
+  RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
 
 jobs:
   release:
@@ -18,6 +26,12 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Check out release source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+          path: release-source
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -26,13 +40,22 @@ jobs:
       - name: Validate release version
         id: version
         run: |
-          VERSION="$(node -p "require('./extension/manifest.json').version")"
-          VERSION_NAME="$(node -p "require('./extension/manifest.json').version_name || ''")"
-          PACKAGE_VERSION="$(node -p "require('./package.json').version")"
-          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          VERSION="$(node -p "require('./release-source/extension/manifest.json').version")"
+          VERSION_NAME="$(node -p "require('./release-source/extension/manifest.json').version_name || ''")"
+          PACKAGE_VERSION="$(node -p "require('./release-source/package.json').version")"
+          TAG_VERSION="${RELEASE_TAG#v}"
 
-          if [ "$GITHUB_REF_TYPE" != "tag" ]; then
-            echo "This workflow must run from a version tag such as v0.8.8." >&2
+          case "$RELEASE_TAG" in
+            v*.*.*)
+              ;;
+            *)
+              echo "Release tag must look like v0.8.8." >&2
+              exit 1
+              ;;
+          esac
+
+          if [ "$GITHUB_EVENT_NAME" != "workflow_dispatch" ] && [ "$GITHUB_REF_TYPE" != "tag" ]; then
+            echo "Push-triggered releases must run from a version tag." >&2
             exit 1
           fi
 
@@ -52,11 +75,12 @@ jobs:
           fi
 
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
 
       - name: Run tests when present
         run: |
-          if [ -f test/helpers.test.js ]; then
-            npm test
+          if [ -f release-source/test/helpers.test.js ]; then
+            npm --prefix release-source test
           else
             echo "No test suite found; skipping npm test."
           fi
@@ -64,7 +88,7 @@ jobs:
       - name: Package extension
         id: package
         run: |
-          ZIP_PATH="$(npm run package --silent | tail -n 1)"
+          ZIP_PATH="$(npm --prefix release-source run package --silent | tail -n 1)"
 
           if [ ! -f "$ZIP_PATH" ]; then
             echo "Package script did not produce a zip file at $ZIP_PATH." >&2
@@ -79,17 +103,21 @@ jobs:
           node "${{ github.workspace }}/.github/scripts/prepare-release-notes.js" \
             "${{ steps.version.outputs.version }}" \
             "release-notes.md" \
+            "release-source/CHANGELOG.md" \
             >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" \
-            "${{ steps.package.outputs.zip_path }}#AES v${{ steps.version.outputs.version }} extension package" \
-            --title "${{ steps.release_notes.outputs.title }}" \
-            --notes-file release-notes.md \
-            --verify-tag
+          RELEASE_TAG="${{ steps.version.outputs.tag }}"
+          RELEASE_ASSET="${{ steps.package.outputs.zip_path }}#AES v${{ steps.version.outputs.version }} extension package"
+
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" "$RELEASE_ASSET" --clobber
+          else
+            gh release create "$RELEASE_TAG" "$RELEASE_ASSET" --title "${{ steps.release_notes.outputs.title }}" --notes-file release-notes.md --verify-tag
+          fi
 
       - name: Upload and publish to Chrome Web Store
         env:

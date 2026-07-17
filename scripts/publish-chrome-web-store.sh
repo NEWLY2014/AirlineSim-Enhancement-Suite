@@ -53,11 +53,15 @@ TOKEN_RESPONSE=$(curl -fsS -X POST "https://oauth2.googleapis.com/token" \
 ACCESS_TOKEN=$(printf "%s" "$TOKEN_RESPONSE" | json_field access_token)
 
 echo "Uploading $PACKAGE_PATH to Chrome Web Store item $CWS_EXTENSION_ID..."
-UPLOAD_RESPONSE=$(curl -fsS -X POST \
+if ! UPLOAD_RESPONSE=$(curl -sS --fail-with-body -X POST \
     -H "Authorization: Bearer $ACCESS_TOKEN" \
     -H "Content-Type: application/zip" \
     --upload-file "$PACKAGE_PATH" \
-    "$CWS_UPLOAD_URL")
+    "$CWS_UPLOAD_URL"); then
+    echo "Chrome Web Store upload request failed:" >&2
+    echo "$UPLOAD_RESPONSE" >&2
+    exit 1
+fi
 
 UPLOAD_STATE=$(printf "%s" "$UPLOAD_RESPONSE" | json_field uploadState)
 echo "Chrome Web Store upload state: $UPLOAD_STATE"
@@ -104,11 +108,15 @@ esac
 PUBLISH_BODY='{"publishType":"DEFAULT_PUBLISH","blockOnWarnings":true}'
 
 echo "Submitting Chrome Web Store item $CWS_EXTENSION_ID for publishing..."
-PUBLISH_RESPONSE=$(curl -fsS -X POST \
+if ! PUBLISH_RESPONSE=$(curl -sS --fail-with-body -X POST \
     -H "Authorization: Bearer $ACCESS_TOKEN" \
     -H "Content-Type: application/json" \
     --data "$PUBLISH_BODY" \
-    "$CWS_PUBLISH_URL")
+    "$CWS_PUBLISH_URL"); then
+    echo "Chrome Web Store publish request failed:" >&2
+    echo "$PUBLISH_RESPONSE" >&2
+    exit 1
+fi
 
 PUBLISH_STATE=$(printf "%s" "$PUBLISH_RESPONSE" | json_field state || true)
 echo "Chrome Web Store publish state: ${PUBLISH_STATE:-submitted}"

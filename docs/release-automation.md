@@ -26,6 +26,6 @@ The Chrome Web Store extension ID is public and is set in the workflow as `hbbgj
 
 The `Release extension` workflow validates that the tag matches the manifest version, packages the extension with `npm run package`, creates a GitHub Release with the zip attached, uploads the same zip to Chrome Web Store, and submits it for publishing.
 
-If you run the workflow manually from GitHub Actions, choose the version tag as the workflow ref. Running it from a branch will fail the version-tag validation.
+If you run the workflow manually from GitHub Actions, run it from `main` and enter the existing version tag, such as `v0.8.8`, in the `release_tag` input.
 
 Chrome Web Store publishing still goes through Google's normal review process. The workflow submits the item for review; the update appears in the store after approval.

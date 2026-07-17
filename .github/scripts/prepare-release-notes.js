@@ -1,12 +1,12 @@
 const fs = require("fs")
 
-const [version, outputPath] = process.argv.slice(2)
+const [version, outputPath, changelogPath = "CHANGELOG.md"] = process.argv.slice(2)
 
 if (!version || !outputPath) {
     throw new Error("Usage: node prepare-release-notes.js <version> <output-path>")
 }
 
-const lines = fs.readFileSync("CHANGELOG.md", "utf8").split(/\r?\n/)
+const lines = fs.readFileSync(changelogPath, "utf8").split(/\r?\n/)
 const headingPrefix = `## [${version}] - `
 const headingIndex = lines.findIndex(line => line.startsWith(headingPrefix))
 
