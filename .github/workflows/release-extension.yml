@@ -1,0 +1,101 @@
+name: Release extension
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Create release and publish to Chrome Web Store
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Validate release version
+        id: version
+        run: |
+          VERSION="$(node -p "require('./extension/manifest.json').version")"
+          VERSION_NAME="$(node -p "require('./extension/manifest.json').version_name || ''")"
+          PACKAGE_VERSION="$(node -p "require('./package.json').version")"
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+
+          if [ "$GITHUB_REF_TYPE" != "tag" ]; then
+            echo "This workflow must run from a version tag such as v0.8.8." >&2
+            exit 1
+          fi
+
+          if [ "$VERSION" != "$PACKAGE_VERSION" ]; then
+            echo "package.json version ($PACKAGE_VERSION) does not match manifest version ($VERSION)." >&2
+            exit 1
+          fi
+
+          if [ -n "$VERSION_NAME" ] && [ "$VERSION" != "$VERSION_NAME" ]; then
+            echo "manifest version_name ($VERSION_NAME) does not match manifest version ($VERSION)." >&2
+            exit 1
+          fi
+
+          if [ "$VERSION" != "$TAG_VERSION" ]; then
+            echo "Tag version ($TAG_VERSION) does not match manifest version ($VERSION)." >&2
+            exit 1
+          fi
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Run tests when present
+        run: |
+          if [ -f test/helpers.test.js ]; then
+            npm test
+          else
+            echo "No test suite found; skipping npm test."
+          fi
+
+      - name: Package extension
+        id: package
+        run: |
+          ZIP_PATH="$(npm run package --silent | tail -n 1)"
+
+          if [ ! -f "$ZIP_PATH" ]; then
+            echo "Package script did not produce a zip file at $ZIP_PATH." >&2
+            exit 1
+          fi
+
+          echo "zip_path=$ZIP_PATH" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare release notes
+        id: release_notes
+        run: |
+          node "${{ github.workspace }}/.github/scripts/prepare-release-notes.js" \
+            "${{ steps.version.outputs.version }}" \
+            "release-notes.md" \
+            >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            "${{ steps.package.outputs.zip_path }}#AES v${{ steps.version.outputs.version }} extension package" \
+            --title "${{ steps.release_notes.outputs.title }}" \
+            --notes-file release-notes.md \
+            --verify-tag
+
+      - name: Upload and publish to Chrome Web Store
+        env:
+          CWS_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
+          CWS_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
+          CWS_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
+          CWS_PUBLISHER_ID: ${{ secrets.CWS_PUBLISHER_ID }}
+          CWS_EXTENSION_ID: hbbgjkgglkddalmgfnhgeinmfkobgdke
+        run: scripts/publish-chrome-web-store.sh "${{ steps.package.outputs.zip_path }}"

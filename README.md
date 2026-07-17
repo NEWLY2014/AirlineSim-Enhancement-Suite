@@ -60,6 +60,10 @@ Sources: the [original forum thread](https://forums.airlinesim.aero/t/introducin
 
 These features make developing for AES easier.
 
+### Releases
+
+Release automation is documented in [docs/release-automation.md](docs/release-automation.md).
+
 ### Notifications
 
 AES comes with its own notification API. This uses AS’ notification style and location. The AES notification API consists of two components: `Notifications` and `Notification`.
