@@ -13,9 +13,7 @@ if [ ! -f "$PACKAGE_PATH" ]; then
     exit 1
 fi
 
-: "${CWS_CLIENT_ID:?Set CWS_CLIENT_ID in the environment.}"
-: "${CWS_CLIENT_SECRET:?Set CWS_CLIENT_SECRET in the environment.}"
-: "${CWS_REFRESH_TOKEN:?Set CWS_REFRESH_TOKEN in the environment.}"
+: "${CWS_ACCESS_TOKEN:?Set CWS_ACCESS_TOKEN in the environment.}"
 : "${CWS_PUBLISHER_ID:?Set CWS_PUBLISHER_ID in the environment.}"
 : "${CWS_EXTENSION_ID:?Set CWS_EXTENSION_ID in the environment.}"
 
@@ -44,13 +42,7 @@ process.stdin.on("end", () => {
 ' "$1"
 }
 
-TOKEN_RESPONSE=$(curl -fsS -X POST "https://oauth2.googleapis.com/token" \
-    --data-urlencode "client_id=$CWS_CLIENT_ID" \
-    --data-urlencode "client_secret=$CWS_CLIENT_SECRET" \
-    --data-urlencode "refresh_token=$CWS_REFRESH_TOKEN" \
-    --data-urlencode "grant_type=refresh_token")
-
-ACCESS_TOKEN=$(printf "%s" "$TOKEN_RESPONSE" | json_field access_token)
+ACCESS_TOKEN=$CWS_ACCESS_TOKEN
 
 echo "Uploading $PACKAGE_PATH to Chrome Web Store item $CWS_EXTENSION_ID..."
 if ! UPLOAD_RESPONSE=$(curl -sS --fail-with-body -X POST \

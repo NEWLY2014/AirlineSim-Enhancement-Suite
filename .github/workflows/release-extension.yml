@@ -37,6 +37,16 @@ jobs:
         with:
           node-version: "22"
 
+      - name: Authenticate to Google Cloud
+        id: cws_auth
+        uses: google-github-actions/auth@v3
+        with:
+          credentials_json: ${{ secrets.CWS_SERVICE_ACCOUNT_KEY }}
+          service_account: uploader@airlinesim-enhancement-suite.iam.gserviceaccount.com
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/chromewebstore
+          create_credentials_file: false
+
       - name: Validate release version
         id: version
         run: |
@@ -121,9 +131,7 @@ jobs:
 
       - name: Upload and publish to Chrome Web Store
         env:
-          CWS_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
-          CWS_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
-          CWS_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
+          CWS_ACCESS_TOKEN: ${{ steps.cws_auth.outputs.access_token }}
           CWS_PUBLISHER_ID: ${{ secrets.CWS_PUBLISHER_ID }}
           CWS_EXTENSION_ID: hbbgjkgglkddalmgfnhgeinmfkobgdke
         run: scripts/publish-chrome-web-store.sh "${{ steps.package.outputs.zip_path }}"

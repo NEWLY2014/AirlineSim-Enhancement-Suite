@@ -6,10 +6,13 @@ This repository publishes releases from version tags.
 
 Add these repository secrets before cutting the first automated release:
 
-- `CWS_CLIENT_ID`: OAuth client ID from the Google Cloud project with the Chrome Web Store API enabled.
-- `CWS_CLIENT_SECRET`: OAuth client secret for that client.
-- `CWS_REFRESH_TOKEN`: Refresh token granted with the `https://www.googleapis.com/auth/chromewebstore` scope.
+- `CWS_SERVICE_ACCOUNT_KEY`: JSON key for the Chrome Web Store service account.
 - `CWS_PUBLISHER_ID`: Publisher ID from the Chrome Web Store Developer Dashboard.
+
+The workflow authenticates as `uploader@airlinesim-enhancement-suite.iam.gserviceaccount.com`.
+Add this service account to the Publisher's `Account` page in the Chrome Web Store
+Developer Dashboard. The service account also needs `roles/iam.serviceAccountTokenCreator`
+on itself so GitHub Actions can mint the short-lived access token.
 
 The Chrome Web Store extension ID is public and is set in the workflow as `hbbgjkgglkddalmgfnhgeinmfkobgdke`.
 
