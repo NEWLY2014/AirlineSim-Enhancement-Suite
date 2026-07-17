@@ -14,20 +14,35 @@ Add this service account to the Publisher's `Account` page in the Chrome Web Sto
 Developer Dashboard. The service account also needs `roles/iam.serviceAccountTokenCreator`
 on itself so GitHub Actions can mint the short-lived access token.
 
-The Chrome Web Store extension ID is public and is set in the workflow as `hbbgjkgglkddalmgfnhgeinmfkobgdke`.
+The Chrome Web Store extension IDs are public and are set in the workflow:
+
+- Beta: `jhkbhhgoielpdhdhkpahkifijocaaobn`
+- Stable: `hbbgjkgglkddalmgfnhgeinmfkobgdke`
 
 ## Release flow
 
-1. Update `package.json`, `extension/manifest.json`, and `extension/manifest.json` `version_name` to the same version.
+1. Choose a channel and set the version metadata:
+
+   - Beta: `extension/manifest.json` `version` is `0.8.8`, while `version_name` and `package.json` `version` are `0.8.8-beta`.
+   - Stable: `extension/manifest.json` `version`, `version_name`, and `package.json` `version` are all `0.8.8`.
+
 2. Commit and push the version change.
-3. Create and push a matching tag:
+3. Create and push the matching tag:
 
    ```sh
+   # Beta: uploads only to the trusted-tester beta listing.
+   git tag v0.8.8-beta
+   git push origin v0.8.8-beta
+
+   # Stable: uploads to both CWS listings and creates a GitHub Release.
    git tag v0.8.8
    git push origin v0.8.8
    ```
 
-The `Release extension` workflow validates that the tag matches the manifest version, packages the extension with `npm run package`, creates a GitHub Release with the zip attached, uploads the same zip to Chrome Web Store, and submits it for publishing.
+The `Release extension` workflow packages the extension with `npm run package` and then follows the selected channel:
+
+- Beta tags upload and submit only to the Chrome Web Store beta listing. Its existing trusted-tester visibility is retained.
+- Stable tags upload and submit to the beta listing and the stable listing, then create or update the GitHub Release with the same zip. If the beta listing already has the same `manifest.version` from an earlier beta build, the workflow treats that listing as already covered and skips its duplicate upload.
 
 If you run the workflow manually from GitHub Actions, run it from `main` and enter the existing version tag, such as `v0.8.8`, in the `release_tag` input.
 

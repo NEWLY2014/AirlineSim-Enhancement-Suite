@@ -53,39 +53,39 @@ jobs:
           VERSION="$(node -p "require('./release-source/extension/manifest.json').version")"
           VERSION_NAME="$(node -p "require('./release-source/extension/manifest.json').version_name || ''")"
           PACKAGE_VERSION="$(node -p "require('./release-source/package.json').version")"
-          TAG_VERSION="${RELEASE_TAG#v}"
-
-          case "$RELEASE_TAG" in
-            v*.*.*)
-              ;;
-            *)
-              echo "Release tag must look like v0.8.8." >&2
-              exit 1
-              ;;
-          esac
-
           if [ "$GITHUB_EVENT_NAME" != "workflow_dispatch" ] && [ "$GITHUB_REF_TYPE" != "tag" ]; then
             echo "Push-triggered releases must run from a version tag." >&2
             exit 1
           fi
 
-          if [ "$VERSION" != "$PACKAGE_VERSION" ]; then
-            echo "package.json version ($PACKAGE_VERSION) does not match manifest version ($VERSION)." >&2
+          case "$RELEASE_TAG" in
+            "v$VERSION")
+              CHANNEL=stable
+              EXPECTED_DISPLAY_VERSION="$VERSION"
+              ;;
+            "v$VERSION-beta")
+              CHANNEL=beta
+              EXPECTED_DISPLAY_VERSION="$VERSION-beta"
+              ;;
+            *)
+              echo "Tag must be v$VERSION for a stable release or v$VERSION-beta for a beta release." >&2
+              exit 1
+              ;;
+          esac
+
+          if [ "$PACKAGE_VERSION" != "$EXPECTED_DISPLAY_VERSION" ]; then
+            echo "package.json version ($PACKAGE_VERSION) must be $EXPECTED_DISPLAY_VERSION." >&2
             exit 1
           fi
 
-          if [ -n "$VERSION_NAME" ] && [ "$VERSION" != "$VERSION_NAME" ]; then
-            echo "manifest version_name ($VERSION_NAME) does not match manifest version ($VERSION)." >&2
-            exit 1
-          fi
-
-          if [ "$VERSION" != "$TAG_VERSION" ]; then
-            echo "Tag version ($TAG_VERSION) does not match manifest version ($VERSION)." >&2
+          if [ -n "$VERSION_NAME" ] && [ "$VERSION_NAME" != "$EXPECTED_DISPLAY_VERSION" ]; then
+            echo "manifest version_name ($VERSION_NAME) must be $EXPECTED_DISPLAY_VERSION." >&2
             exit 1
           fi
 
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+          echo "channel=$CHANNEL" >> "$GITHUB_OUTPUT"
 
       - name: Run tests when present
         run: |
@@ -109,6 +109,7 @@ jobs:
 
       - name: Prepare release notes
         id: release_notes
+        if: steps.version.outputs.channel == 'stable'
         run: |
           node "${{ github.workspace }}/.github/scripts/prepare-release-notes.js" \
             "${{ steps.version.outputs.version }}" \
@@ -117,6 +118,7 @@ jobs:
             >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release
+        if: steps.version.outputs.channel == 'stable'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -129,7 +131,15 @@ jobs:
             gh release create "$RELEASE_TAG" "$RELEASE_ASSET" --title "${{ steps.release_notes.outputs.title }}" --notes-file release-notes.md --verify-tag
           fi
 
+      - name: Upload and publish to Chrome Web Store Beta
+        env:
+          CWS_ACCESS_TOKEN: ${{ steps.cws_auth.outputs.access_token }}
+          CWS_PUBLISHER_ID: ${{ secrets.CWS_PUBLISHER_ID }}
+          CWS_EXTENSION_ID: jhkbhhgoielpdhdhkpahkifijocaaobn
+        run: scripts/publish-chrome-web-store.sh "${{ steps.package.outputs.zip_path }}"
+
       - name: Upload and publish to Chrome Web Store
+        if: steps.version.outputs.channel == 'stable'
         env:
           CWS_ACCESS_TOKEN: ${{ steps.cws_auth.outputs.access_token }}
           CWS_PUBLISHER_ID: ${{ secrets.CWS_PUBLISHER_ID }}

@@ -42,7 +42,84 @@ process.stdin.on("end", () => {
 ' "$1"
 }
 
+revision_version() {
+    node -e '
+const revision = process.argv[1];
+let input = "";
+process.stdin.setEncoding("utf8");
+process.stdin.on("data", chunk => input += chunk);
+process.stdin.on("end", () => {
+  const status = JSON.parse(input);
+  const channels = status[revision] && status[revision].distributionChannels;
+  const versions = (channels || []).map(channel => channel.crxVersion).filter(Boolean);
+  if (versions.length === 0) process.exit(1);
+  const compare = (left, right) => {
+    const leftParts = left.split(".").map(Number);
+    const rightParts = right.split(".").map(Number);
+    const length = Math.max(leftParts.length, rightParts.length);
+    for (let index = 0; index < length; index += 1) {
+      const difference = (leftParts[index] || 0) - (rightParts[index] || 0);
+      if (difference !== 0) return difference;
+    }
+    return 0;
+  };
+  console.log(versions.sort(compare).at(-1));
+});
+' "$1"
+}
+
+compare_versions() {
+    node -e '
+const [left, right] = process.argv.slice(1);
+const leftParts = left.split(".").map(Number);
+const rightParts = right.split(".").map(Number);
+const length = Math.max(leftParts.length, rightParts.length);
+for (let index = 0; index < length; index += 1) {
+  const difference = (leftParts[index] || 0) - (rightParts[index] || 0);
+  if (difference !== 0) {
+    console.log(difference > 0 ? "newer" : "older");
+    process.exit(0);
+  }
+}
+console.log("same");
+' "$1" "$2"
+}
+
 ACCESS_TOKEN=$CWS_ACCESS_TOKEN
+PACKAGE_VERSION=$(unzip -p "$PACKAGE_PATH" manifest.json | json_field version)
+
+if ! STATUS_RESPONSE=$(curl -sS --fail-with-body \
+    -H "Authorization: Bearer $ACCESS_TOKEN" \
+    "$CWS_FETCH_STATUS_URL"); then
+    echo "Chrome Web Store status request failed:" >&2
+    echo "$STATUS_RESPONSE" >&2
+    exit 1
+fi
+
+PUBLISHED_VERSION=$(printf "%s" "$STATUS_RESPONSE" | revision_version publishedItemRevisionStatus || true)
+SUBMITTED_VERSION=$(printf "%s" "$STATUS_RESPONSE" | revision_version submittedItemRevisionStatus || true)
+
+for CURRENT_VERSION in "$SUBMITTED_VERSION" "$PUBLISHED_VERSION"; do
+    if [ -z "$CURRENT_VERSION" ]; then
+        continue
+    fi
+
+    VERSION_COMPARISON=$(compare_versions "$PACKAGE_VERSION" "$CURRENT_VERSION")
+    case "$VERSION_COMPARISON" in
+        older)
+            echo "Package version $PACKAGE_VERSION is older than existing Chrome Web Store version $CURRENT_VERSION." >&2
+            exit 1
+            ;;
+        same)
+            if [ "$CURRENT_VERSION" = "$PUBLISHED_VERSION" ]; then
+                echo "Chrome Web Store item $CWS_EXTENSION_ID already has published version $PACKAGE_VERSION; skipping."
+            else
+                echo "Chrome Web Store item $CWS_EXTENSION_ID already has submitted version $PACKAGE_VERSION; skipping."
+            fi
+            exit 0
+            ;;
+    esac
+done
 
 echo "Uploading $PACKAGE_PATH to Chrome Web Store item $CWS_EXTENSION_ID..."
 if ! UPLOAD_RESPONSE=$(curl -sS --fail-with-body -X POST \
