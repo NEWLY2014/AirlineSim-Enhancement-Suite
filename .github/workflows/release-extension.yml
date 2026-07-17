@@ -121,7 +121,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           RELEASE_TAG="${{ steps.version.outputs.tag }}"
-          RELEASE_ASSET="${{ steps.package.outputs.zip_path }}#AES v${{ steps.version.outputs.version }} extension package"
+          RELEASE_ASSET="${{ steps.package.outputs.zip_path }}"
 
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
             gh release upload "$RELEASE_TAG" "$RELEASE_ASSET" --clobber
