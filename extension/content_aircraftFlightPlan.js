@@ -13,7 +13,7 @@ var aircraftFlightPlanState = {
     template: null,
     templateStale: false,
 };
-const AIRCRAFT_FLIGHT_PLAN_TEMPLATE_VERSION = 5;
+const AIRCRAFT_FLIGHT_PLAN_TEMPLATE_VERSION = 6;
 const AIRCRAFT_FLIGHT_PLAN_SCRIPT_ENABLED = AES.runContentScript("content_aircraftFlightPlan", function() {
     AES.waitForElement(aircraftFlightPlanReadyTarget, function() {
         return aircraftFlightPlanInit();
@@ -323,6 +323,8 @@ function afp_getUniqueFlightEntries() {
             let infoHref = $('a[title="View flight number"]', block).attr('href') || '';
             let valueMatch = infoHref.match(/\/numbers\/(\d+)/);
             let value = valueMatch ? valueMatch[1] : '';
+            let segmentMatch = infoHref.match(/[?&]segment=(\d+)/);
+            let segmentIndex = segmentMatch ? parseInt(segmentMatch[1], 10) : 0;
             let key = value || code;
 
             if (!key) {
@@ -340,21 +342,64 @@ function afp_getUniqueFlightEntries() {
                 };
             }
 
-            if (entries[key].selectedDays.indexOf(dayIndex) === -1) {
+            // The visual plan renders every leg of a via flight as a separate
+            // block. Only segment 0 identifies the flight's selectable service
+            // day; later segments belong to that same occurrence, even when
+            // they depart after midnight.
+            if (segmentIndex === 0 && entries[key].selectedDays.indexOf(dayIndex) === -1) {
                 entries[key].selectedDays.push(dayIndex);
                 entries[key].daySettings[dayIndex] = {
                     departure: afp_getVisualBlockDepartureTime(block),
-                    arrival: afp_getVisualBlockArrivalTime(block, dayIndex),
+                    segments: {},
                 };
             }
+
+            if (!entries[key]._segments) {
+                entries[key]._segments = [];
+            }
+            entries[key]._segments.push({
+                arrival: afp_getVisualBlockArrivalTime(block, dayIndex),
+                dayIndex: dayIndex,
+                departure: afp_getVisualBlockDepartureTime(block),
+                segmentIndex: segmentIndex,
+            });
         });
     });
 
     return Object.keys(entries).map(function(key) {
-        entries[key].selectedDays.sort(function(a, b) {
+        let entry = entries[key];
+        entry.selectedDays.sort(function(a, b) {
             return a - b;
         });
-        return entries[key];
+
+        entry._segments.forEach(function(segment) {
+            let segmentDepartureMinutes = segment.dayIndex * 1440 +
+                (parseInt(segment.departure.hours, 10) || 0) * 60 +
+                (parseInt(segment.departure.minutes, 10) || 0);
+            let sourceDay = null;
+            let shortestDistance = 7 * 1440 + 1;
+
+            entry.selectedDays.forEach(function(candidateDay) {
+                let candidate = entry.daySettings[candidateDay];
+                let candidateDepartureMinutes = candidateDay * 1440 +
+                    (parseInt(candidate.departure.hours, 10) || 0) * 60 +
+                    (parseInt(candidate.departure.minutes, 10) || 0);
+                let distance = (segmentDepartureMinutes - candidateDepartureMinutes + 7 * 1440) % (7 * 1440);
+                if (distance < shortestDistance) {
+                    shortestDistance = distance;
+                    sourceDay = candidateDay;
+                }
+            });
+
+            if (sourceDay != null) {
+                entry.daySettings[sourceDay].segments[segment.segmentIndex] = {
+                    arrival: segment.arrival,
+                };
+            }
+        });
+
+        delete entry._segments;
+        return entry;
     });
 }
 
@@ -1019,7 +1064,8 @@ function afp_getPlannerSourceDaySettings(entry) {
         let days = {};
         entry.selectedDays.forEach(function(sourceDay) {
             let daySetting = entry.daySettings && entry.daySettings[sourceDay] ? entry.daySettings[sourceDay] : {};
-            let arrival = daySetting.arrival || {};
+            let segmentSetting = daySetting.segments && daySetting.segments[segmentIndex] ? daySetting.segments[segmentIndex] : {};
+            let arrival = segmentSetting.arrival || daySetting.arrival || {};
             days[sourceDay] = {
                 arrivalDayOffset: parseInt(arrival.dayOffset || 0, 10) || 0,
                 arrivalHours: String(arrival.hours || ''),
