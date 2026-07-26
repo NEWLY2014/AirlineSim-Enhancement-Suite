@@ -59,8 +59,22 @@ function getStorageData() {
         let key = aircraftFlightData.server + 'flightInfo' + aircraftFlightData.flights[i].id;
         keys.push(key);
     }
+    let flightPlanHubKey = aircraftFlightData.server + aircraftFlightAirline.id + 'aircraftFlightPlanHub' + aircraftFlightData.aircraftId;
+    keys.push(flightPlanHubKey);
     chrome.storage.local.get(keys, function(result) {
         AES.tryRun("content_aircraftFlights", function() {
+        let flightPlanHubData = result[flightPlanHubKey];
+        if (
+            flightPlanHubData &&
+            flightPlanHubData.type === 'aircraftFlightPlanHub' &&
+            String(flightPlanHubData.aircraftId) === String(aircraftFlightData.aircraftId) &&
+            flightPlanHubData.hub
+        ) {
+            aircraftFlightData.hubCounts = flightPlanHubData.counts || {};
+            aircraftFlightData.hubDetected = flightPlanHubData.hub;
+            aircraftFlightData.hubEffective = flightPlanHubData.hub;
+            aircraftFlightData.hubDetectionSource = 'flightPlan';
+        }
         for (let flightInfo in result) {
             if (!result[flightInfo]) {
                 continue;
@@ -111,6 +125,7 @@ function persistAircraftFlightSummary(callback) {
         finishedFlights: aircraftFlightData.finishedFlights,
         hubCounts: aircraftFlightData.hubCounts,
         hubDetected: aircraftFlightData.hubDetected,
+        hubDetectionSource: aircraftFlightData.hubDetectionSource || 'flights',
         hubEffective: aircraftFlightData.hubEffective || aircraftFlightData.hubDetected,
         hubOverride: aircraftFlightData.hubOverride || '',
         profit: aircraftFlightData.profit,
@@ -681,6 +696,7 @@ function getData() {
         totalFlights: flightsStats.totalFlights,
         hubCounts: hubStats.counts,
         hubDetected: hubStats.hub,
+        hubDetectionSource: 'flights',
         hubEffective: hubStats.hub,
         hubOverride: '',
         profit: 0,
@@ -848,6 +864,10 @@ function syncFleetHubData(callback) {
         matches.forEach(function(match) {
             if ((match.aircraft.hubDetected || '') != (aircraftFlightData.hubDetected || '')) {
                 match.aircraft.hubDetected = aircraftFlightData.hubDetected || '';
+                changed = true;
+            }
+            if ((match.aircraft.hubDetectionSource || '') != (aircraftFlightData.hubDetectionSource || 'flights')) {
+                match.aircraft.hubDetectionSource = aircraftFlightData.hubDetectionSource || 'flights';
                 changed = true;
             }
             if (!match.aircraft.hubOverride && (match.aircraft.hubEffective || '') != (match.aircraft.hubDetected || '')) {

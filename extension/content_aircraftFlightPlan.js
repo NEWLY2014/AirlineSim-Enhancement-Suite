@@ -3,6 +3,8 @@ var aircraftFlightPlanState = {
     airline: null,
     aircraft: null,
     extracting: false,
+    hubObserver: null,
+    hubSaveTimer: null,
     job: null,
     notifications: null,
     offsetDays: 1,
@@ -24,6 +26,12 @@ const AIRCRAFT_FLIGHT_PLAN_SCRIPT_ENABLED = AES.runContentScript("content_aircra
 
 if (AIRCRAFT_FLIGHT_PLAN_SCRIPT_ENABLED) {
     AES.whenPageOwnershipLost(function() {
+        if (aircraftFlightPlanState.hubObserver) {
+            aircraftFlightPlanState.hubObserver.disconnect();
+            aircraftFlightPlanState.hubObserver = null;
+        }
+        window.clearTimeout(aircraftFlightPlanState.hubSaveTimer);
+        aircraftFlightPlanState.hubSaveTimer = null;
         $('#aes-aircraft-flight-plan-panel').remove();
         aircraftFlightPlanState.processingJob = false;
     });
@@ -39,6 +47,7 @@ async function aircraftFlightPlanInit() {
     aircraftFlightPlanState.airline = currentAirline && currentAirline.id ? currentAirline : AES.getAirline();
     aircraftFlightPlanState.notifications = typeof Notifications === 'function' ? new Notifications() : null;
     aircraftFlightPlanState.aircraft = afp_getCurrentAircraft();
+    await afp_saveFlightPlanHubData();
 
     let result = await afp_storageGet([afp_getTemplateKey(), afp_getJobKey(), afp_getOffsetDaysKey()]);
     aircraftFlightPlanState.template = afp_normalizeTemplate(result[afp_getTemplateKey()] || null);
@@ -52,6 +61,7 @@ async function aircraftFlightPlanInit() {
     }
 
     afp_renderPanel();
+    afp_watchFlightPlanHubData();
     window.setTimeout(function() {
         afp_resumePendingJob();
     }, 300);
@@ -71,6 +81,73 @@ function afp_getJobKey() {
 
 function afp_getOffsetDaysKey() {
     return aircraftFlightPlanState.server + aircraftFlightPlanState.airline.id + 'flightPlanAssistantOffsetDays';
+}
+
+function afp_getHubKey() {
+    return aircraftFlightPlanState.server + aircraftFlightPlanState.airline.id + 'aircraftFlightPlanHub' + aircraftFlightPlanState.aircraft.id;
+}
+
+function afp_getFlightPlanHubStats() {
+    let counts = {};
+    afp_getVisualPlan().find('.block.location .inbound, .block.location .outbound').each(function() {
+        let airport = String($(this).attr('title') || $(this).text() || '').trim().toUpperCase();
+        if (!airport) {
+            return;
+        }
+        counts[airport] = (counts[airport] || 0) + 1;
+    });
+
+    let airports = Object.keys(counts).sort(function(a, b) {
+        if (counts[b] === counts[a]) {
+            return a.localeCompare(b);
+        }
+        return counts[b] - counts[a];
+    });
+
+    return {
+        counts: counts,
+        hub: airports[0] || '',
+    };
+}
+
+async function afp_saveFlightPlanHubData() {
+    let stats = afp_getFlightPlanHubStats();
+    if (!stats.hub || !aircraftFlightPlanState.airline || !aircraftFlightPlanState.airline.id || !aircraftFlightPlanState.aircraft.id) {
+        return;
+    }
+
+    await afp_storageSet({
+        [afp_getHubKey()]: {
+            aircraftId: aircraftFlightPlanState.aircraft.id,
+            counts: stats.counts,
+            hub: stats.hub,
+            server: aircraftFlightPlanState.server,
+            type: 'aircraftFlightPlanHub',
+        }
+    });
+}
+
+function afp_watchFlightPlanHubData() {
+    let visualPlan = afp_getVisualPlan();
+    if (!visualPlan.length || typeof MutationObserver === 'undefined') {
+        return;
+    }
+
+    if (aircraftFlightPlanState.hubObserver) {
+        aircraftFlightPlanState.hubObserver.disconnect();
+    }
+    aircraftFlightPlanState.hubObserver = new MutationObserver(function() {
+        window.clearTimeout(aircraftFlightPlanState.hubSaveTimer);
+        aircraftFlightPlanState.hubSaveTimer = window.setTimeout(function() {
+            afp_saveFlightPlanHubData().catch(function(error) {
+                AES.reportContentScriptError('content_aircraftFlightPlan', error);
+            });
+        }, 250);
+    });
+    aircraftFlightPlanState.hubObserver.observe(visualPlan[0], {
+        childList: true,
+        subtree: true,
+    });
 }
 
 function afp_storageGet(keys) {
