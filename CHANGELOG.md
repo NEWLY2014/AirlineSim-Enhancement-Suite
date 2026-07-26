@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Changed AES server date handling to use `frontendSettings.server.time` as its sole UTC time source, independent of the user's Footer UTC, hub-time, or local-time preference.
 - Changed Aircraft Flights HUB detection to prefer each aircraft's complete Flight Plan rotation, with the Flights history retained as a fallback and manual overrides still taking precedence.
+- Changed Release Notes into version-by-version pages with Previous and Next navigation for browsing earlier AES releases.
 
 ### Fixed
 

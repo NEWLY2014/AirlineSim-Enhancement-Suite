@@ -467,33 +467,46 @@
 #aes-release-notes-dialog .modal-content {
     border-radius: 6px;
     box-shadow: 0 20px 48px rgba(0, 0, 0, 0.25);
+    display: flex;
+    flex-direction: column;
+    height: min(760px, 88vh);
     overflow: hidden;
 }
 
 .aes-release-notes-header {
+    flex: 0 0 auto;
     padding: 0;
 }
 
 .aes-release-notes-hero {
-    padding: 22px 24px 20px;
+    padding: 24px 28px;
     position: relative;
 }
 
 .aes-release-notes-brand {
     display: flex;
-    align-items: flex-start;
-    gap: 16px;
+    align-items: center;
+    gap: 20px;
 }
 
 .aes-release-notes-logo {
-    border-radius: 6px;
+    border-radius: 8px;
     flex: 0 0 auto;
-    height: 56px;
-    width: 56px;
+    height: 64px;
+    width: 64px;
 }
 
 .aes-release-notes-title-wrap {
     min-width: 0;
+}
+
+.aes-release-notes-product {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    margin: 0 0 6px;
+    opacity: 0.78;
+    text-transform: uppercase;
 }
 
 .aes-release-notes-badge {
@@ -502,23 +515,22 @@
     font-size: 11px;
     font-weight: 600;
     letter-spacing: 0.02em;
-    margin-bottom: 10px;
+    margin-top: 10px;
     padding: 4px 10px;
-    text-transform: uppercase;
 }
 
 .aes-release-notes-header .modal-title {
     margin: 0;
     padding-right: 42px;
-    font-size: 28px;
+    font-size: 27px;
     font-weight: 700;
-    line-height: 1.15;
+    line-height: 1.2;
 }
 
 .aes-release-notes-version {
-    font-size: 14px;
-    margin: 8px 0 0;
-    opacity: 0.85;
+    font-size: 13px;
+    margin: 6px 0 0;
+    opacity: 0.76;
 }
 
 .aes-release-notes-close {
@@ -533,16 +545,10 @@
 }
 
 .aes-release-notes-body {
-    max-height: 65vh;
+    flex: 1 1 auto;
+    min-height: 0;
     overflow-y: auto;
     padding: 20px 24px 12px;
-}
-
-.aes-release-notes-summary {
-    font-size: 15px;
-    line-height: 1.55;
-    margin: 10px 0 0;
-    max-width: 62ch;
 }
 
 .aes-release-notes-sections {
@@ -573,6 +579,7 @@
 .aes-release-notes-footer {
     display: flex;
     align-items: center;
+    flex: 0 0 auto;
     justify-content: space-between;
     gap: 12px;
     padding: 16px 24px 20px;
@@ -582,8 +589,38 @@
     white-space: nowrap;
 }
 
+.aes-release-notes-pagination {
+    align-items: center;
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+}
+
+.aes-release-notes-page-button {
+    min-width: 84px;
+}
+
+.aes-release-notes-page-indicator {
+    font-variant-numeric: tabular-nums;
+    min-width: 64px;
+    opacity: 0.78;
+    text-align: center;
+    white-space: nowrap;
+}
+
 .aes-release-notes-confirm {
     min-width: 112px;
+}
+
+@media (max-width: 600px) {
+    .aes-release-notes-footer {
+        flex-wrap: wrap;
+    }
+
+    .aes-release-notes-pagination {
+        order: -1;
+        width: 100%;
+    }
 }
 
 #aes-release-notes-dialog.aes-release-notes-theme-dark .modal-content {
