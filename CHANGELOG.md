@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Changed AES server date handling to use `frontendSettings.server.time` as its sole UTC time source, independent of the user's Footer UTC, hub-time, or local-time preference.
+
 ## [0.8.7] - 2026-07-08
 
 ### Changed

@@ -289,120 +289,16 @@ class AES {
      * @returns {object} datetime - { date: "20240607", time: "16:24 UTC" }
      */
     static getServerDate() {
-        const sources = AES.#getServerDateSources()
-        for (let i = 0; i < sources.length; i++) {
-            const parsed = AES.#parseServerDateSource(sources[i])
-            if (parsed) {
-                return parsed
-            }
-        }
-
         const settingsDate = AES.#getServerDateFromFrontendSettings()
         if (settingsDate) {
             return settingsDate
         }
 
-        throw new Error("Unable to read server date from the page footer. Check AES.getServerDate()")
-    }
-
-    static #getServerDateSources() {
-        const sources = []
-        const addSource = function(value) {
-            const source = String(value || "").trim()
-            if (source && sources.indexOf(source) === -1) {
-                sources.push(source)
-            }
-        }
-
-        const footer = document.querySelector(".as-navbar-bottom")
-        const clockIcon = footer ? footer.querySelector(".fa-clock-o") : null
-        const clockCandidates = [
-            clockIcon,
-            clockIcon && clockIcon.parentElement,
-            clockIcon && clockIcon.closest("span"),
-            clockIcon && clockIcon.closest("li"),
-            clockIcon && clockIcon.closest("div"),
-            footer,
-        ]
-
-        clockCandidates.forEach(function(element) {
-            if (!element) {
-                return
-            }
-            addSource(element.innerText || element.textContent)
-            addSource(element.getAttribute && element.getAttribute("title"))
-            addSource(element.getAttribute && element.getAttribute("aria-label"))
-        })
-
-        if (footer) {
-            Array.from(footer.childNodes || []).forEach(function(node) {
-                addSource(node.innerText || node.textContent)
-            })
-        }
-
-        return sources
-    }
-
-    static #parseServerDateSource(source) {
-        source = String(source || "").replace(/\s+/g, " ").trim()
-        if (!source) {
-            return null
-        }
-
-        const patterns = [
-            /(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})[\sT]+(\d{1,2}):(\d{2})\s*([A-Z]{2,4})?/i,
-            /(\d{1,2})[.\-/](\d{1,2})[.\-/](\d{2,4})[\sT]+(\d{1,2}):(\d{2})\s*([A-Z]{2,4})?/i,
-        ]
-
-        for (let i = 0; i < patterns.length; i++) {
-            const match = source.match(patterns[i])
-            if (!match) {
-                continue
-            }
-
-            let year
-            let month
-            let day
-            if (i === 0) {
-                year = parseInt(match[1], 10)
-                month = parseInt(match[2], 10)
-                day = parseInt(match[3], 10)
-            } else {
-                day = parseInt(match[1], 10)
-                month = parseInt(match[2], 10)
-                year = parseInt(match[3], 10)
-                if (year < 100) {
-                    year += 2000
-                }
-            }
-
-            const hours = parseInt(match[4], 10)
-            const minutes = parseInt(match[5], 10)
-            const timezone = (match[6] || "UTC").toUpperCase()
-            const date = new Date(Date.UTC(year, month - 1, day, hours, minutes))
-            if (
-                date.getUTCFullYear() !== year ||
-                date.getUTCMonth() !== month - 1 ||
-                date.getUTCDate() !== day ||
-                date.getUTCHours() !== hours ||
-                date.getUTCMinutes() !== minutes
-            ) {
-                continue
-            }
-
-            return {
-                date: `${String(year).padStart(4, "0")}${String(month).padStart(2, "0")}${String(day).padStart(2, "0")}`,
-                time: `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")} ${timezone}`
-            }
-        }
-
-        return null
+        throw new Error("Unable to read frontendSettings.server.time. Check AES.getServerDate()")
     }
 
     static #getServerDateFromFrontendSettings() {
-        const settingsTime = globalThis.frontendSettings &&
-            globalThis.frontendSettings.server &&
-            globalThis.frontendSettings.server.time
+        const settingsTime = AES.#getFrontendSettingsServerTime()
         if (!settingsTime) {
             return null
         }
@@ -412,16 +308,62 @@ class AES {
             return null
         }
 
-        const year = String(parsedTime.getUTCFullYear())
-        const month = String(parsedTime.getUTCMonth() + 1).padStart(2, "0")
-        const day = String(parsedTime.getUTCDate()).padStart(2, "0")
-        const hours = String(parsedTime.getUTCHours()).padStart(2, "0")
-        const minutes = String(parsedTime.getUTCMinutes()).padStart(2, "0")
+        if (AES._serverClockSource !== settingsTime) {
+            AES._serverClockSource = settingsTime
+            AES._serverClockTimestamp = parsedTime.getTime()
+            AES._serverClockPerformance = typeof performance !== "undefined" && typeof performance.now === "function"
+                ? performance.now()
+                : null
+            AES._serverClockLocalTimestamp = Date.now()
+        }
+
+        const elapsed = AES._serverClockPerformance != null && typeof performance !== "undefined" && typeof performance.now === "function"
+            ? performance.now() - AES._serverClockPerformance
+            : Date.now() - AES._serverClockLocalTimestamp
+        const currentServerTime = new Date(AES._serverClockTimestamp + Math.max(0, elapsed))
+        const year = String(currentServerTime.getUTCFullYear())
+        const month = String(currentServerTime.getUTCMonth() + 1).padStart(2, "0")
+        const day = String(currentServerTime.getUTCDate()).padStart(2, "0")
+        const hours = String(currentServerTime.getUTCHours()).padStart(2, "0")
+        const minutes = String(currentServerTime.getUTCMinutes()).padStart(2, "0")
 
         return {
             date: `${year}${month}${day}`,
             time: `${hours}:${minutes} UTC`
         }
+    }
+
+    static #getFrontendSettingsServerTime() {
+        const directTime = globalThis.frontendSettings &&
+            globalThis.frontendSettings.server &&
+            globalThis.frontendSettings.server.time
+        if (directTime) {
+            return String(directTime)
+        }
+
+        const scripts = Array.from(document.scripts || [])
+        for (let i = 0; i < scripts.length; i++) {
+            const source = scripts[i].textContent || ""
+            if (source.indexOf("frontendSettings") === -1) {
+                continue
+            }
+
+            const match = source.match(/(?:window\.)?frontendSettings\s*=\s*(\{[\s\S]*?\})\s*;/)
+            if (!match) {
+                continue
+            }
+
+            try {
+                const settings = JSON.parse(match[1])
+                if (settings && settings.server && settings.server.time) {
+                    return String(settings.server.time)
+                }
+            } catch (error) {
+                console.warn("[AES] Unable to parse frontendSettings", error)
+            }
+        }
+
+        return null
     }
 
     /**
