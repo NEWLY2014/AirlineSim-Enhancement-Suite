@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.8] - 2026-07-26
+
 ### Changed
 
 - Changed AES server date handling to use `frontendSettings.server.time` as its sole UTC time source, independent of the user's Footer UTC, hub-time, or local-time preference.
@@ -14,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed Flight Plan Assistant schedule shifting for flights with intermediate stops, including later segments that depart after midnight.
 - Fixed missing Flights table border segments when AES and another extension both insert columns by anchoring AES columns to the details column and keeping the Footer span synchronized with the live table layout.
 
 ## [0.8.7] - 2026-07-08
@@ -409,7 +412,8 @@ for pointing it out).
 
 _First release._
 
-[unreleased]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.7...HEAD
+[unreleased]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.8...HEAD
+[0.8.8]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.7...v0.8.8
 [0.8.7]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.6...v0.8.7
 [0.8.6]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.5...v0.8.6
 [0.8.5]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.4...v0.8.5

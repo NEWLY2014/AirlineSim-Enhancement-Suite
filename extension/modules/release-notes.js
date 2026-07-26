@@ -1,5 +1,26 @@
 const AES_RELEASE_NOTES_STORAGE_KEY = "aesReleaseNotesSeenVersion"
 const AES_RELEASE_NOTES = {
+    "0.8.8": {
+        title: "Release Notes",
+        releaseDate: "2026-07-26",
+        summary: "Thanks for keeping AES up to date.",
+        sections: [
+            {
+                title: "Changed",
+                items: [
+                    "AES server dates now use frontendSettings.server.time as their sole UTC source, independent of the Footer time display preference.",
+                    "Aircraft Flights HUB detection now prefers each aircraft's complete Flight Plan rotation, while retaining Flights history as a fallback and preserving manual overrides."
+                ]
+            },
+            {
+                title: "Fixed",
+                items: [
+                    "Fixed Flight Plan Assistant schedule shifting for flights with intermediate stops, including later segments that depart after midnight.",
+                    "Fixed missing Flights table border segments when AES and another extension both insert columns."
+                ]
+            }
+        ]
+    },
     "0.8.7": {
         title: "Release Notes",
         releaseDate: "2026-07-08",
