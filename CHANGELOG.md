@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Changed AES server date handling to use `frontendSettings.server.time` as its sole UTC time source, independent of the user's Footer UTC, hub-time, or local-time preference.
 
+### Fixed
+
+- Fixed missing Flights table border segments when AES and another extension both insert columns by anchoring AES columns to the details column and keeping the Footer span synchronized with the live table layout.
+
 ## [0.8.7] - 2026-07-08
 
 ### Changed

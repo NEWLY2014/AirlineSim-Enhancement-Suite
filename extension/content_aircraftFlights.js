@@ -5,6 +5,8 @@ var aircraftFlightData;
 var aircraftFlightAirline;
 var aircraftFleetKey;
 var aircraftFlightNotifications;
+var aircraftFlightsTableLayoutObserver = null;
+var aircraftFlightsTableLayoutTimer = null;
 var aircraftFlightExtractionState = {
     failed: 0,
     message: '',
@@ -39,6 +41,12 @@ function aircraftFlightsReadyTarget() {
 
 if (AIRCRAFT_FLIGHTS_SCRIPT_ENABLED) {
     AES.whenPageOwnershipLost(function() {
+        if (aircraftFlightsTableLayoutObserver) {
+            aircraftFlightsTableLayoutObserver.disconnect();
+            aircraftFlightsTableLayoutObserver = null;
+        }
+        clearTimeout(aircraftFlightsTableLayoutTimer);
+        aircraftFlightsTableLayoutTimer = null;
         $('.aes-aircraft-flights-block').remove();
         $('.aes-aircraft-flights-extra-header, .aes-aircraft-flights-extra-cell').remove();
         clearFlightSequenceHighlights();
@@ -387,7 +395,8 @@ function displayFlightProfit() {
     //Head
     $('.aes-aircraft-flights-extra-header, .aes-aircraft-flights-extra-cell', table).remove();
     let th = ['<th class="aes-aircraft-flights-extra-header">Profit/Loss</th>', '<th class="aes-aircraft-flights-extra-header">Extract date</th>'];
-    $('th:eq(9)', table).after(th);
+    let headerAnchor = $('thead tr', table).first().children('th').last();
+    headerAnchor.before(th);
     //body
     aircraftFlightData.flights.forEach(function(value) {
         let td = [];
@@ -400,10 +409,93 @@ function displayFlightProfit() {
             td.push('<td class="aes-aircraft-flights-extra-cell text-center">--</td>');
         }
 
-        $('td:eq(11)', value.row).after(td);
+        let detailsCell = $('a[href*="action/info/flight"]', value.row).closest('td').first();
+        if (detailsCell.length) {
+            detailsCell.before(td);
+        }
+    });
+    $('tbody tr', table).each(function() {
+        let row = $(this);
+        if (row.children('.aes-aircraft-flights-extra-cell').length) {
+            return;
+        }
+        let detailsCell = $('a[href*="action/info/flight"]', row).closest('td').first();
+        let anchor = detailsCell.length ? detailsCell : row.children('td').last();
+        if (anchor.length) {
+            anchor.before(
+                '<td class="aes-aircraft-flights-extra-cell text-center">--</td>',
+                '<td class="aes-aircraft-flights-extra-cell text-center">--</td>'
+            );
+        }
     });
     AES.markOwnedElements($('.aes-aircraft-flights-extra-header, .aes-aircraft-flights-extra-cell', table));
-    $("tfoot td", table).attr("colspan", "15")
+    reconcileAircraftFlightsTableLayout();
+    watchAircraftFlightsTableLayout();
+}
+
+function getAircraftFlightsLogicalColumnCount(row) {
+    return $(row).children('th, td').toArray().reduce(function(total, cell) {
+        return total + (parseInt(cell.colSpan, 10) || 1);
+    }, 0);
+}
+
+function reconcileAircraftFlightsTableLayout() {
+    let table = $('#aircraft-flight-instances-table');
+    if (!table.length) {
+        return;
+    }
+
+    let headerRow = $('thead tr', table).first();
+    let headerAnchor = headerRow.children('th').last();
+    let headers = headerRow.children('.aes-aircraft-flights-extra-header');
+    if (headerAnchor.length && headers.length && headers.last().next()[0] !== headerAnchor[0]) {
+        headerAnchor.before(headers);
+    }
+
+    $('tbody tr', table).each(function() {
+        let row = $(this);
+        let detailsCell = $('a[href*="action/info/flight"]', row).closest('td').first();
+        let aesCells = row.children('.aes-aircraft-flights-extra-cell');
+        if (detailsCell.length && aesCells.length && aesCells.last().next()[0] !== detailsCell[0]) {
+            detailsCell.before(aesCells);
+        }
+    });
+
+    let columnCount = 0;
+    $('thead tr, tbody tr', table).each(function() {
+        columnCount = Math.max(columnCount, getAircraftFlightsLogicalColumnCount(this));
+    });
+    if (columnCount) {
+        $('tfoot tr', table).each(function() {
+            let footerCells = $(this).children('th, td');
+            if (footerCells.length === 1 && String(footerCells.attr('colspan') || '') !== String(columnCount)) {
+                footerCells.attr('colspan', columnCount);
+            }
+        });
+    }
+}
+
+function watchAircraftFlightsTableLayout() {
+    let table = document.querySelector('#aircraft-flight-instances-table');
+    if (!table || typeof MutationObserver === 'undefined') {
+        return;
+    }
+
+    if (aircraftFlightsTableLayoutObserver) {
+        aircraftFlightsTableLayoutObserver.disconnect();
+    }
+    aircraftFlightsTableLayoutObserver = new MutationObserver(function() {
+        clearTimeout(aircraftFlightsTableLayoutTimer);
+        aircraftFlightsTableLayoutTimer = window.setTimeout(function() {
+            reconcileAircraftFlightsTableLayout();
+        }, 0);
+    });
+    aircraftFlightsTableLayoutObserver.observe(table, {
+        attributeFilter: ['colspan'],
+        attributes: true,
+        childList: true,
+        subtree: true,
+    });
 }
 
 function buildTable(sequenceValidation) {
