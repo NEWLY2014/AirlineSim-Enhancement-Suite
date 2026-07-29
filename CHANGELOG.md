@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixed Competitor Monitoring on the Dashboard so it resolves the selected controlled airline from the Dashboard URL and rebuilds missing or stale competitor indexes from saved records.
+
 ## [0.8.8] - 2026-07-26
 
 ### Changed

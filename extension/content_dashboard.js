@@ -2062,7 +2062,7 @@ function displayCompetitorMonitoringAirlinesTable(div) {
         });
 
         if (!competitorKeys.length) {
-            loadSchedulesAndDisplayTable();
+            migrateLegacyCompetitorMonitoringData();
             return;
         }
 
@@ -2073,6 +2073,10 @@ function displayCompetitorMonitoringAirlinesTable(div) {
                     compAirlines.push(compData);
                 }
             });
+            if (compAirlines.length != competitorKeys.length) {
+                migrateLegacyCompetitorMonitoringData();
+                return;
+            }
             saveCompetitorMonitoringIndex();
             loadSchedulesAndDisplayTable();
         });
@@ -2096,10 +2100,23 @@ function displayCompetitorMonitoringAirlinesTable(div) {
                             ownerAirline: airline
                         };
                         migratedCompetitorData[newKey] = compData;
-                        legacyKeysToRemove.push(key);
+                        if (key != newKey) {
+                            legacyKeysToRemove.push(key);
+                        }
                     }
 
-                    if (compData.ownerId == airline.id && compData.tracking) {
+                    if (compData.ownerId == airline.id && compData.id && compData.tracking) {
+                        const expectedKey = AES.getCompetitorMonitoringKey(server, airline.id, compData.id);
+                        if (compData.key != expectedKey) {
+                            compData = {
+                                ...compData,
+                                key: expectedKey
+                            };
+                            migratedCompetitorData[expectedKey] = compData;
+                            if (key != expectedKey) {
+                                legacyKeysToRemove.push(key);
+                            }
+                        }
                         compAirlines.push(compData);
                     }
                 }
@@ -2110,7 +2127,9 @@ function displayCompetitorMonitoringAirlinesTable(div) {
             settings.competitorMonitoring.migrationFlags[migrationFlagKey] = 1;
             if (Object.keys(migratedCompetitorData).length) {
                 dashboardStorage.set(migratedCompetitorData, function() {
-                    dashboardStorage.remove(legacyKeysToRemove, function() {});
+                    if (legacyKeysToRemove.length) {
+                        dashboardStorage.remove(legacyKeysToRemove, function() {});
+                    }
                 });
             }
             AES.updateSettings(function(currentSettings) {
@@ -2125,10 +2144,6 @@ function displayCompetitorMonitoringAirlinesTable(div) {
     dashboardStorage.get([indexKey], function(result) {
         if (Array.isArray(result[indexKey])) {
             loadFromIndex(result[indexKey]);
-        } else if (settings.competitorMonitoring.migrationFlags && settings.competitorMonitoring.migrationFlags[migrationFlagKey]) {
-            dashboardStorage.set({ [indexKey]: [] }, function() {
-                loadSchedulesAndDisplayTable();
-            });
         } else {
             migrateLegacyCompetitorMonitoringData();
         }

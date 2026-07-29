@@ -136,23 +136,27 @@ class AES {
             $('.as-navbar-main .dropdown > a.name').first().text().trim();
         const name = displayName ? displayName.replace(/[^A-Za-z0-9]/g, '_') : null;
         const data = name ? serverAirlinesData[name] : null;
-        let id = data?.id || null;
+        const selectedAirlineId = new URL(window.location.href).searchParams.get('select');
+        const hasSelectedAirlineId = /^\d+$/.test(selectedAirlineId || '');
+        let id = hasSelectedAirlineId ? selectedAirlineId : (data?.id || null);
         let code = data?.code || '';
 
-        $('.as-navbar-main .dropdown-menu a[href*="/app/enterprise/dashboard?select="]').each(function () {
-            const link = $(this);
-            const linkName = link.find('span').first().text().trim() || link.text().trim();
-            if (linkName !== displayName) {
-                return;
-            }
+        if (!hasSelectedAirlineId) {
+            $('.as-navbar-main .dropdown-menu a[href*="/app/enterprise/dashboard"][href*="select="]').each(function () {
+                const link = $(this);
+                const linkName = (link.find('span').first().text().trim() || link.text().trim()).replace(/\s+/g, ' ');
+                if (linkName !== displayName.replace(/\s+/g, ' ')) {
+                    return;
+                }
 
-            const href = link.attr('href') || '';
-            const match = href.match(/select=(\d+)/);
-            if (match) {
-                id = match[1];
-            }
-            return false;
-        });
+                const href = link.attr('href') || '';
+                const match = href.match(/select=(\d+)/);
+                if (match) {
+                    id = match[1];
+                }
+                return false;
+            });
+        }
 
         if (name) {
             if (typeof serverAirlinesData[name] !== 'object' || serverAirlinesData[name] === null) {
