@@ -1,5 +1,18 @@
 const AES_RELEASE_NOTES_STORAGE_KEY = "aesReleaseNotesSeenVersion"
 const AES_RELEASE_NOTES = {
+    "0.8.9": {
+        title: "Release Notes",
+        releaseDate: "2026-08-03",
+        summary: "Thanks for keeping AES up to date.",
+        sections: [
+            {
+                title: "Fixed",
+                items: [
+                    "Fixed Competitor Monitoring on the Dashboard so saved competitors load for the selected controlled airline and missing or stale competitor indexes are rebuilt automatically."
+                ]
+            }
+        ]
+    },
     "0.8.8": {
         title: "Release Notes",
         releaseDate: "2026-07-26",
