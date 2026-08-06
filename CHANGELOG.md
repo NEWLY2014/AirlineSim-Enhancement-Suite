@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.10] - 2026-08-06
+
+### Fixed
+
+- Fixed Competitor Monitoring loading for installations with missing Dashboard settings, malformed saved column definitions, or an empty local controlled-airline cache.
+
 ## [0.8.9] - 2026-08-03
 
 ### Fixed
@@ -419,7 +425,8 @@ for pointing it out).
 
 _First release._
 
-[unreleased]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.9...HEAD
+[unreleased]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.10...HEAD
+[0.8.10]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.9...v0.8.10
 [0.8.9]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.8...v0.8.9
 [0.8.8]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.7...v0.8.8
 [0.8.7]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.6...v0.8.7

@@ -45,12 +45,16 @@ function initializeDashboard() {
                 AES.updateSettings(function(currentSettings) {
                     currentSettings.general = settings.general;
                     currentSettings.routeManagement = currentSettings.routeManagement || {};
-                    currentSettings.competitorMonitoring = currentSettings.competitorMonitoring || {};
+                    if (!currentSettings.competitorMonitoring || typeof currentSettings.competitorMonitoring != 'object' || Array.isArray(currentSettings.competitorMonitoring)) {
+                        currentSettings.competitorMonitoring = {};
+                    }
                     currentSettings.aircraftProfitability = currentSettings.aircraftProfitability || {};
                     currentSettings.general.dashboardFilterScopeKey = settings.general.dashboardFilterScopeKey;
                     currentSettings.routeManagement.tableColumns = settings.routeManagement.tableColumns;
                     currentSettings.routeManagement.filter = settings.routeManagement.filter;
+                    currentSettings.competitorMonitoring.tableColumns = settings.competitorMonitoring.tableColumns;
                     currentSettings.competitorMonitoring.filter = settings.competitorMonitoring.filter;
+                    currentSettings.competitorMonitoring.migrationFlags = settings.competitorMonitoring.migrationFlags;
                     currentSettings.aircraftProfitability.filter = settings.aircraftProfitability.filter;
                 }, function(updatedSettings) {
                     settings = updatedSettings;
@@ -165,8 +169,7 @@ function normalizeDashboardFilterScope() {
     if (ensureRouteManagementSettings()) {
         changed = true;
     }
-    if (!settings.competitorMonitoring) {
-        setDefaultCompetitorMonitoringSettings();
+    if (ensureCompetitorMonitoringSettings()) {
         changed = true;
     }
     if (!settings.aircraftProfitability) {
@@ -1761,7 +1764,7 @@ function displayCompetitorMonitoring() {
 
 function getLatestDateKeys(data, limit) {
     let latest = [];
-    if (!data) {
+    if (!data || typeof data != 'object') {
         return latest;
     }
 
@@ -1930,10 +1933,14 @@ function displayCompetitorMonitoringAirlinesTable(div) {
                                 hubs[hub] = 1;
                             }
                             for (let flight in schedule.flightNumber) {
+                                let flightData = schedule.flightNumber[flight];
+                                if (!flightData || typeof flightData != 'object') {
+                                    continue;
+                                }
                                 //Cargo Freq
-                                data.scheduleCargoFreq += schedule.flightNumber[flight].cargoFreq;
+                                data.scheduleCargoFreq += Number(flightData.cargoFreq) || 0;
                                 //Pax Freq
-                                data.schedulePAXFreq += schedule.flightNumber[flight].paxFreq;
+                                data.schedulePAXFreq += Number(flightData.paxFreq) || 0;
                                 //Flight nr
                                 data.scheduleFltNr++;
                             }
@@ -1974,10 +1981,14 @@ function displayCompetitorMonitoringAirlinesTable(div) {
                                     hubs[hub] = 1;
                                 }
                                 for (let flight in schedule.flightNumber) {
+                                    let flightData = schedule.flightNumber[flight];
+                                    if (!flightData || typeof flightData != 'object') {
+                                        continue;
+                                    }
                                     //Cargo Freq
-                                    data.scheduleCargoFreqPre += schedule.flightNumber[flight].cargoFreq;
+                                    data.scheduleCargoFreqPre += Number(flightData.cargoFreq) || 0;
                                     //Pax Freq
-                                    data.schedulePAXFreqPre += schedule.flightNumber[flight].paxFreq;
+                                    data.schedulePAXFreqPre += Number(flightData.paxFreq) || 0;
                                     //Flight nr
                                     data.scheduleFltNrPre++;
                                 }
@@ -2133,9 +2144,15 @@ function displayCompetitorMonitoringAirlinesTable(div) {
                 });
             }
             AES.updateSettings(function(currentSettings) {
+                if (!currentSettings.competitorMonitoring || typeof currentSettings.competitorMonitoring != 'object' || Array.isArray(currentSettings.competitorMonitoring)) {
+                    currentSettings.competitorMonitoring = {};
+                }
+                currentSettings.competitorMonitoring.tableColumns = settings.competitorMonitoring.tableColumns;
+                currentSettings.competitorMonitoring.filter = settings.competitorMonitoring.filter;
                 currentSettings.competitorMonitoring.migrationFlags = settings.competitorMonitoring.migrationFlags;
             }, function(updatedSettings) {
                 settings = updatedSettings;
+                ensureCompetitorMonitoringSettings();
                 loadSchedulesAndDisplayTable();
             });
         });
@@ -2750,35 +2767,47 @@ function setDefaultCompetitorMonitoringSettings() {
 }
 
 function ensureCompetitorMonitoringSettings() {
-    if (!settings.competitorMonitoring) {
+    let changed = false;
+    if (!settings.competitorMonitoring || typeof settings.competitorMonitoring != 'object' || Array.isArray(settings.competitorMonitoring)) {
         setDefaultCompetitorMonitoringSettings();
-        return;
+        return true;
     }
 
     if (!Array.isArray(settings.competitorMonitoring.filter)) {
         settings.competitorMonitoring.filter = [];
+        changed = true;
     }
-    if (!settings.competitorMonitoring.migrationFlags || typeof settings.competitorMonitoring.migrationFlags != 'object') {
+    if (!settings.competitorMonitoring.migrationFlags || typeof settings.competitorMonitoring.migrationFlags != 'object' || Array.isArray(settings.competitorMonitoring.migrationFlags)) {
         settings.competitorMonitoring.migrationFlags = {};
+        changed = true;
     }
 
     let defaultColumns = getDefaultCompetitorMonitoringColumns();
     if (!Array.isArray(settings.competitorMonitoring.tableColumns)) {
         settings.competitorMonitoring.tableColumns = defaultColumns;
-        return;
+        return true;
     }
 
+    let storedColumnCount = settings.competitorMonitoring.tableColumns.length;
     settings.competitorMonitoring.tableColumns = settings.competitorMonitoring.tableColumns.filter(function(column) {
-        return column.headGroup != 'Actions';
+        return column && typeof column == 'object' && typeof column.field == 'string' && column.field &&
+            typeof column.text == 'string' && typeof column.headGroup == 'string' && column.headGroup != 'Actions';
     });
+    if (settings.competitorMonitoring.tableColumns.length != storedColumnCount) {
+        changed = true;
+    }
 
     settings.competitorMonitoring.tableColumns.forEach(function(column) {
         if (column.field == 'faffkoDela') {
             column.field = 'faffkoDelta';
             column.text = 'FKO &Delta;';
+            changed = true;
         }
         if (column.field == 'faffkoDelta') {
-            column.text = 'FKO &Delta;';
+            if (column.text != 'FKO &Delta;') {
+                column.text = 'FKO &Delta;';
+                changed = true;
+            }
         }
     });
 
@@ -2788,8 +2817,10 @@ function ensureCompetitorMonitoringSettings() {
         });
         if (!existing) {
             settings.competitorMonitoring.tableColumns.push(defaultColumn);
+            changed = true;
         }
     });
+    return changed;
 }
 
 function getRatingNr(rating) {

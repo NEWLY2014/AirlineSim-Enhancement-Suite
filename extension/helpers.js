@@ -131,7 +131,15 @@ class AES {
     static getCurrentAirline() {
         const server = AES.getServerName();
         const serverKey = `${server}_airlinesData`;
-        const serverAirlinesData = JSON.parse(localStorage.getItem(serverKey) || '{}');
+        let serverAirlinesData = {};
+        try {
+            const storedAirlinesData = JSON.parse(localStorage.getItem(serverKey) || '{}');
+            if (storedAirlinesData && typeof storedAirlinesData === 'object' && !Array.isArray(storedAirlinesData)) {
+                serverAirlinesData = storedAirlinesData;
+            }
+        } catch (error) {
+            console.warn('[AES] Ignoring invalid saved airline lookup data.', error);
+        }
         const displayName = $('.as-navbar-main .dropdown > a.name span').first().text().trim() ||
             $('.as-navbar-main .dropdown > a.name').first().text().trim();
         const name = displayName ? displayName.replace(/[^A-Za-z0-9]/g, '_') : null;
@@ -142,20 +150,29 @@ class AES {
         let code = data?.code || '';
 
         if (!hasSelectedAirlineId) {
-            $('.as-navbar-main .dropdown-menu a[href*="/app/enterprise/dashboard"][href*="select="]').each(function () {
+            const normalizedDisplayName = displayName.replace(/\s+/g, ' ').trim();
+            const dashboardLinks = $('.as-navbar-main .dropdown-menu a[href*="select="]');
+            let matchingIds = [];
+            dashboardLinks.each(function () {
                 const link = $(this);
                 const linkName = (link.find('span').first().text().trim() || link.text().trim()).replace(/\s+/g, ' ');
-                if (linkName !== displayName.replace(/\s+/g, ' ')) {
+                if (normalizedDisplayName && linkName !== normalizedDisplayName) {
                     return;
                 }
 
                 const href = link.attr('href') || '';
                 const match = href.match(/select=(\d+)/);
                 if (match) {
-                    id = match[1];
+                    matchingIds.push(match[1]);
                 }
-                return false;
             });
+
+            matchingIds = matchingIds.filter(function(candidateId, position, ids) {
+                return ids.indexOf(candidateId) === position;
+            });
+            if (matchingIds.length === 1) {
+                id = matchingIds[0];
+            }
         }
 
         if (name) {
