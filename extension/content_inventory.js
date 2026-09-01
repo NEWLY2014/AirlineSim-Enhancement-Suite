@@ -140,6 +140,7 @@ async function displayInventory() {
     }
     const storageData = await chrome.storage.local.get({[storageKey.key]: defaultPricingData})
     pricingData = storageData[storageKey.key]
+    await confirmPendingPricingUpdate(prices)
 
     //Do Analysis
     analysis = getAnalysis(flights, prices, pricingData.date);
@@ -161,6 +162,9 @@ async function displayInventory() {
                 //Do nothing
             } else {
                 //Pricing not updated today
+                if (pricingData.date[todayDate].pricingUpdatePending) {
+                    return;
+                }
                 //Check if new price available
                 if (analysis.hasValue('newPrice')) {
                     //Update price
@@ -186,6 +190,39 @@ async function displayInventory() {
                 }
             }
         }
+    }
+}
+
+async function confirmPendingPricingUpdate(prices) {
+    const dates = Object.keys(pricingData.date || {}).sort(function(a, b) {
+        return Number(b) - Number(a);
+    });
+    const pendingDate = dates.find(function(date) {
+        return pricingData.date[date] && pricingData.date[date].pricingUpdatePending;
+    });
+    if (!pendingDate) {
+        return;
+    }
+
+    const pendingRecord = pricingData.date[pendingDate];
+    const targetPrices = pendingRecord.pricingUpdatePending.targetPrices || {};
+    const compartments = Object.keys(targetPrices);
+    const confirmed = compartments.length && compartments.every(function(cmp) {
+        return prices[cmp] && prices[cmp].currentPrice === targetPrices[cmp];
+    });
+    if (!confirmed) {
+        return;
+    }
+
+    const pendingUpdate = pendingRecord.pricingUpdatePending;
+    pendingRecord.pricingUpdated = 1;
+    delete pendingRecord.pricingUpdatePending;
+    try {
+        await chrome.storage.local.set({ [pricingData.key]: pricingData });
+    } catch (error) {
+        pendingRecord.pricingUpdated = 0;
+        pendingRecord.pricingUpdatePending = pendingUpdate;
+        console.error('[AES] Unable to confirm the saved pricing update.', error);
     }
 }
 
@@ -983,16 +1020,7 @@ function displayAnalysis(analysis, prices) {
         $(applyNewPriceInvPricingBtn).click(function() {
             $(this).closest("ul").find("li button").closest("li").remove();
             invPricingAnalysisBarSpan.text('Updating prices...');
-            //Get updated time
-            let updateTime = AES.getServerDate().time;
-            pricingData.date[todayDate] = analysis;
-            pricingData.date[todayDate].updateTime = updateTime;
-            pricingData.date[todayDate].date = todayDate;
-            pricingData.date[todayDate].pricingUpdated = 1;
-            chrome.storage.local.set({
-                [pricingData.key]: pricingData }, function() {
-                $('[name="submit-prices"]').click();
-            });
+            submitPendingPricingUpdate(getTargetPricingUpdates(prices, false), invPricingAnalysisBarSpan);
         });
         let applyReferencePriceInvPricingBtn = $('<button class="btn btn-default" id="aes-btn-invPricing-apply-reference-prices">apply reference prices (and save data)</button>');
         $(applyReferencePriceInvPricingBtn).click(function() {
@@ -1003,15 +1031,7 @@ function displayAnalysis(analysis, prices) {
                     prices[cmp].newPriceInput.value = analysis.data[cmp].referenceNewPrice;
                 }
             }
-            let updateTime = AES.getServerDate().time;
-            pricingData.date[todayDate] = analysis;
-            pricingData.date[todayDate].updateTime = updateTime;
-            pricingData.date[todayDate].date = todayDate;
-            pricingData.date[todayDate].pricingUpdated = 1;
-            chrome.storage.local.set({
-                [pricingData.key]: pricingData }, function() {
-                $('[name="submit-prices"]').click();
-            });
+            submitPendingPricingUpdate(getTargetPricingUpdates(prices, true), invPricingAnalysisBarSpan);
         });
         //Update new pricing input
         if (analysis.hasValue('newPrice')) {
@@ -1035,7 +1055,11 @@ function displayAnalysis(analysis, prices) {
                 }
             } else {
                 //Today pricing not updated
-                invPricingAnalysisBarSpan.text("Today's snapshot data saved at: " + pricingData.date[todayDate].updateTime);
+                if (pricingData.date[todayDate].pricingUpdatePending) {
+                    invPricingAnalysisBarSpan.text("Price update submitted but not confirmed. Check the target prices and retry if needed.");
+                } else {
+                    invPricingAnalysisBarSpan.text("Today's snapshot data saved at: " + pricingData.date[todayDate].updateTime);
+                }
                 $(invPricingAnalysisBar).append($('<li></li>').html(saveInvPricingBtn.text("save snapshot data again")));
                 if (analysis.hasValue('newPrice')) {
                     $(invPricingAnalysisBar).append($('<li></li>').html(applyNewPriceInvPricingBtn));
@@ -1055,6 +1079,52 @@ function displayAnalysis(analysis, prices) {
             }
         }
     }
+}
+
+function getTargetPricingUpdates(prices, useReferencePrices) {
+    let targetPrices = {};
+    for (let cmp in analysis.data) {
+        let targetPrice = analysis.data[cmp].newPrice;
+        if (!targetPrice && useReferencePrices) {
+            targetPrice = analysis.data[cmp].referenceNewPrice;
+        }
+        if (targetPrice) {
+            let submittedPrice = AES.cleanInteger(prices[cmp].newPriceInput.value);
+            if (Number.isFinite(submittedPrice) && submittedPrice > 0) {
+                targetPrices[cmp] = submittedPrice;
+            }
+        }
+    }
+    return targetPrices;
+}
+
+function submitPendingPricingUpdate(targetPrices, status) {
+    if (!Object.keys(targetPrices).length) {
+        status.removeClass().addClass('bad').text('No valid target prices were found. Prices were not submitted.');
+        return;
+    }
+    let updateTime = AES.getServerDate().time;
+    Object.keys(pricingData.date).forEach(function(date) {
+        if (pricingData.date[date]) {
+            delete pricingData.date[date].pricingUpdatePending;
+        }
+    });
+    pricingData.date[todayDate] = analysis;
+    pricingData.date[todayDate].updateTime = updateTime;
+    pricingData.date[todayDate].date = todayDate;
+    pricingData.date[todayDate].pricingUpdated = 0;
+    pricingData.date[todayDate].pricingUpdatePending = {
+        targetPrices: targetPrices,
+        updateTime: updateTime
+    };
+    chrome.storage.local.set({ [pricingData.key]: pricingData }, function() {
+        if (chrome.runtime && chrome.runtime.lastError) {
+            delete pricingData.date[todayDate].pricingUpdatePending;
+            status.removeClass().addClass('bad').text('Unable to save the pending price update. Prices were not submitted.');
+            return;
+        }
+        $('[name="submit-prices"]').click();
+    });
 }
 
 //Display History
