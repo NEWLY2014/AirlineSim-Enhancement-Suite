@@ -381,7 +381,7 @@ function buildDashboardTable(options) {
     if (options.selectable) {
         let checkbox = $('<input type="checkbox">');
         checkbox.change(function() {
-            $('tbody tr:visible input[type="checkbox"]', tableHtml).prop('checked', this.checked);
+            setVisibleDashboardRowsChecked(tableHtml, this.checked);
         });
         categoryCells.push($('<th rowspan="2"></th>').append(checkbox));
     }
@@ -482,34 +482,44 @@ function updateDashboardTableFooter(table) {
         return;
     }
 
-    let columnPrefix = table.data('aesDashboardColumnPrefix') || '';
     let rowCells = $('tfoot tr', table).children();
     let offset = rowCells.length - columns.length;
 
+    let aggregates = columns.map(function(column) {
+        return column.number && !column.id && column.aggregate !== false ? { total: 0, count: 0 } : null;
+    });
+    let tableElement = table[0];
+    let tbody = tableElement && tableElement.tBodies ? tableElement.tBodies[0] : null;
+
+    if (tbody) {
+        Array.prototype.forEach.call(tbody.rows, function(row) {
+            if (!isDashboardRowVisible(row)) {
+                return;
+            }
+            let cellOffset = row.cells.length - columns.length;
+            aggregates.forEach(function(aggregate, index) {
+                if (!aggregate) {
+                    return;
+                }
+                let cell = row.cells[index + cellOffset];
+                let value = parseDashboardNumber(cell ? cell.textContent : '');
+                if (!isNaN(value)) {
+                    aggregate.total += value;
+                    aggregate.count++;
+                }
+            });
+        });
+    }
+
     columns.forEach(function(column, index) {
         let footerCell = rowCells.eq(index + offset);
-        if (!column.number || column.id || column.aggregate === false) {
+        let aggregate = aggregates[index];
+        if (!aggregate || !aggregate.count) {
             footerCell.empty();
             return;
         }
 
-        let columnClass = getDashboardColumnClass(columnPrefix, column);
-        let values = $('tbody tr', table).filter(function() {
-            return $(this).css('display') != 'none';
-        }).map(function() {
-            return parseDashboardNumber($(this).find("." + columnClass).text());
-        }).toArray().filter(function(value) {
-            return !isNaN(value);
-        });
-
-        if (!values.length) {
-            footerCell.empty();
-            return;
-        }
-
-        let result = values.reduce(function(total, value) {
-            return total + value;
-        }, 0) / values.length;
+        let result = aggregate.total / aggregate.count;
         result = Math.round(result * 10) / 10;
         footerCell.html(formatDashboardCell(column.format, result));
     });
@@ -765,14 +775,7 @@ function buildGeneratedDashboardAction(value, tableOptionsRule, table) {
     switch (value) {
         case 'selectFirstSix':
             return $('<button type="button" class="btn btn-default">Select first 6</button>').click(function() {
-                let count = 0;
-                $('tbody tr:visible', table).each(function() {
-                    $(this).find('input[type="checkbox"]').prop('checked', true);
-                    count++;
-                    if (count >= 6) {
-                        return false;
-                    }
-                });
+                setVisibleDashboardRowsChecked(table, true, 6);
             });
         case 'openAircraft':
             return $('<button type="button" class="btn btn-default">Open aircraft (max 6)</button>').click(function() {
@@ -857,18 +860,70 @@ function buildGeneratedDashboardAction(value, tableOptionsRule, table) {
 }
 
 function getSelectedDashboardRows(table) {
-    return $('tbody input[type="checkbox"]:checked', table).closest('tr:visible').map(function() {
-        return $(this).data('aesDashboardRowData');
-    }).toArray().filter(function(rowData) {
-        return !!rowData;
+    let selectedRows = [];
+    forEachDashboardRow(table, function(row) {
+        let checkbox = row.querySelector('input[type="checkbox"]');
+        if (isDashboardRowVisible(row) && checkbox && checkbox.checked) {
+            let rowData = $(row).data('aesDashboardRowData');
+            if (rowData) {
+                selectedRows.push(rowData);
+            }
+        }
     });
+    return selectedRows;
 }
 
 function removeCheckedDashboardRows(table) {
-    $('tbody input[type="checkbox"]:checked', table)
-        .closest('tr')
-        .filter(':visible')
-        .remove();
+    let tableElement = table && table[0];
+    let tbody = tableElement && tableElement.tBodies ? tableElement.tBodies[0] : null;
+    if (!tbody) {
+        return;
+    }
+
+    let rowsToRemove = [];
+    Array.prototype.forEach.call(tbody.rows, function(row) {
+        let checkbox = row.querySelector('input[type="checkbox"]');
+        if (isDashboardRowVisible(row) && checkbox && checkbox.checked) {
+            rowsToRemove.push(row);
+        }
+    });
+    if (!rowsToRemove.length) {
+        return;
+    }
+
+    let nextSibling = tbody.nextSibling;
+    tableElement.removeChild(tbody);
+    rowsToRemove.forEach(function(row) {
+        row.remove();
+    });
+    tableElement.insertBefore(tbody, nextSibling);
+}
+
+function forEachDashboardRow(table, callback) {
+    let tableElement = table && table[0];
+    let tbody = tableElement && tableElement.tBodies ? tableElement.tBodies[0] : null;
+    if (!tbody) {
+        return;
+    }
+    Array.prototype.forEach.call(tbody.rows, callback);
+}
+
+function isDashboardRowVisible(row) {
+    return row.style.display !== 'none' && !row.hidden;
+}
+
+function setVisibleDashboardRowsChecked(table, checked, limit) {
+    let updated = 0;
+    forEachDashboardRow(table, function(row) {
+        if (!isDashboardRowVisible(row) || (limit !== undefined && updated >= limit)) {
+            return;
+        }
+        let checkbox = row.querySelector('input[type="checkbox"]');
+        if (checkbox) {
+            checkbox.checked = checked;
+            updated++;
+        }
+    });
 }
 
 function buildGeneratedDashboardColumns(tableOptionsRule) {
@@ -1230,9 +1285,7 @@ function buildRouteManagementActions() {
 }
 
 function selectFirstRouteManagementRows() {
-    $('tbody tr:visible', '#aes-table-routeManagement').slice(0, 6).each(function() {
-        $(this).find('input[type="checkbox"]').prop('checked', true);
-    });
+    setVisibleDashboardRowsChecked($('#aes-table-routeManagement'), true, 6);
 }
 
 function hideSelectedRouteManagementRows() {
@@ -2449,11 +2502,7 @@ function displayCompetitorMonitoringAirlinesTableOptions(table, compAirlinesSche
 }
 
 function getSelectedCompetitorRows(table) {
-    return $('tbody input[type="checkbox"]:checked', table).closest('tr:visible').map(function() {
-        return $(this).data('aesDashboardRowData');
-    }).toArray().filter(function(rowData) {
-        return !!rowData;
-    });
+    return getSelectedDashboardRows(table);
 }
 
 function getDefaultCompetitorMonitoringColumns() {
