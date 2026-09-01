@@ -682,11 +682,10 @@ function generateRecommendation(analysis, prices) {
         item.referenceNewPrice = 0;
         item.referenceNewPricePoint = 0;
 
-        if (generateBoundaryRecommendation(item, config, prices[cmp])) {
-            continue;
-        }
-
         if (!item.valid || !item.canRecommend) {
+            if (generateBoundaryRecommendation(item, config, prices[cmp])) {
+                continue;
+            }
             if (item.valid && item.analysisSourcePrice && !item.useCurrentPrice) {
                 item.recType = 'neutral';
                 item.recommendation = 'Wait for current price';
@@ -709,15 +708,25 @@ function generateRecommendation(analysis, prices) {
         }
 
         if (!step) {
+            if (generateBoundaryRecommendation(item, config, prices[cmp])) {
+                continue;
+            }
             item.recType = 'neutral';
             item.recommendation = 'No matching step';
             continue;
         }
 
         const currentPricePoint = prices[cmp].currentPricePoint;
+        const steppedPricePoint = currentPricePoint + step.step;
+        const currentPriceOutsideBoundary = currentPricePoint < config.minPrice || currentPricePoint > config.maxPrice;
+        const steppedPriceOutsideBoundary = steppedPricePoint < config.minPrice || steppedPricePoint > config.maxPrice;
+        if (currentPriceOutsideBoundary && steppedPriceOutsideBoundary) {
+            generateBoundaryRecommendation(item, config, prices[cmp]);
+            continue;
+        }
         const targetPricePoint = Math.min(
             config.maxPrice,
-            Math.max(config.minPrice, currentPricePoint + step.step)
+            Math.max(config.minPrice, steppedPricePoint)
         );
 
         // Set recommendation type
