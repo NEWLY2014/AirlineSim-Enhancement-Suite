@@ -1,5 +1,25 @@
 const AES_RELEASE_NOTES_STORAGE_KEY = "aesReleaseNotesSeenVersion"
 const AES_RELEASE_NOTES = {
+    "0.8.11": {
+        title: "Release Notes",
+        releaseDate: "2026-09-01",
+        summary: "Thanks for keeping AES up to date.",
+        sections: [
+            {
+                title: "Changed",
+                items: [
+                    "Improved Dashboard performance when selecting or hiding rows in large tables, including faster Aircraft Profitability summary updates.",
+                    "Refined Inventory Pricing boundary adjustments so load-based recommendations are used when they bring the price within the configured limits; otherwise the price returns to the nearest limit."
+                ]
+            },
+            {
+                title: "Fixed",
+                items: [
+                    "Fixed Inventory Pricing so a submitted adjustment is marked as completed only after the game confirms that all submitted prices took effect."
+                ]
+            }
+        ]
+    },
     "0.8.10": {
         title: "Release Notes",
         releaseDate: "2026-08-06",

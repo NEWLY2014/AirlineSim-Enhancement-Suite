@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.11] - 2026-09-01
+
+### Changed
+
+- Improved Dashboard performance when selecting or hiding rows in large tables by avoiding repeated layout measurements, batching row removal, and calculating Aircraft Profitability summary values in a single pass.
+- Refined Inventory Pricing boundary adjustments so a load-based price step is used when it brings an out-of-range price within the configured minimum and maximum; otherwise the price returns to the nearest boundary.
+
+### Fixed
+
+- Fixed Inventory Pricing so price adjustments are recorded as completed only after the game reports all submitted target prices as the current prices. Unconfirmed submissions remain pending and are not automatically resubmitted.
+
 ## [0.8.10] - 2026-08-06
 
 ### Fixed
@@ -425,7 +436,8 @@ for pointing it out).
 
 _First release._
 
-[unreleased]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.10...HEAD
+[unreleased]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.11...HEAD
+[0.8.11]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.10...v0.8.11
 [0.8.10]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.9...v0.8.10
 [0.8.9]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.8...v0.8.9
 [0.8.8]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.7...v0.8.8
