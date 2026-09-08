@@ -139,10 +139,10 @@ completion; live-game acceptance still requires separate validation.
 ### Shared page queue
 
 AES batch navigation and Inventory price submissions share one queue across tabs.
-Dashboard batches accept up to 10 selections. The queue starts one page operation
-at a time, waits for loading to finish, and leaves at least two seconds between
-operations. A stalled operation releases its slot after 30 seconds without an
-automatic retry. Pending price submissions are cancelled if the page or inputs
+Dashboard batches accept up to 10 selections. The queue dispatches operations sequentially with a random 30–70 ms delay,
+without waiting for page loading to finish. Browser scheduling and message/storage
+latency may lengthen the actual interval. Dispatched operations are not replayed
+automatically. Pending price submissions are cancelled if the page or inputs
 change while waiting. Browser session storage preserves queue state across
 background-worker restarts; closing the browser clears the session.
 

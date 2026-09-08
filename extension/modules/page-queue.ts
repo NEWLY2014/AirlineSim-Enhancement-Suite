@@ -2,9 +2,8 @@
  * no timer or open response channel has to survive service-worker suspension. */
 (() => {
     const KEY = 'aesPageQueueV1';
-    const GAP = 2000;
+    const gap = () => 30 + Math.floor(Math.random() * 41);
     const LEASE = 10000;
-    const LOAD_TIMEOUT = 30000;
     const CLIENT_TIMEOUT = 120000; // Background-tab polling can be throttled to once a minute.
     type Kind = 'open' | 'price' | 'navigate';
     interface Job {
@@ -47,23 +46,15 @@
     function fail(job: Job, error: string) { job.state = 'failed'; job.error = error; }
     async function pump(s: State) {
         const now = Date.now();
-        s.jobs = s.jobs.filter(j => j.state === 'running' || j.state === 'queued' || now - j.seen < 60000);
+        s.jobs = s.jobs.filter(j => j.state === 'queued' || now - j.seen < 60000);
         for (const job of s.jobs) {
             if (job.state === 'queued' && now - job.seen > CLIENT_TIMEOUT) fail(job, 'The requesting page stopped waiting.');
         }
-        const active = s.jobs.find(j => j.state === 'running');
-        if (active) {
-            try {
-                // A worker may stop after creating a tab but before saving its ID.
-                // Keep the slot until timeout instead of starting another request.
-                if (active.target === undefined && now - (active.started || 0) < LOAD_TIMEOUT) return;
-                const tab = active.target === undefined ? undefined : await chrome.tabs.get(active.target);
-                if (!tab) fail(active, 'The target tab is unavailable.');
-                else if (tab.status === 'complete' && (active.kind !== 'price' || active.loading)) active.state = 'done';
-            } catch { fail(active, 'The target tab was closed.'); }
-            if (active.state === 'running' && now - (active.started || 0) >= LOAD_TIMEOUT) fail(active, 'Page load timed out; the operation will not be retried automatically.');
-            if (active.state === 'running') return;
-            s.next = Math.max(s.next, now + GAP);
+        const submitting = s.jobs.find(j => j.kind === 'price' && j.state === 'running');
+        if (submitting) {
+            if (now < (submitting.expires || 0)) return;
+            fail(submitting, 'Price dispatch permit expired.');
+            s.next = Math.max(s.next, now + gap());
         }
         if (now < s.next) return;
         const job = s.jobs.find(j => j.state === 'queued');
@@ -71,7 +62,7 @@
         // Price permits are granted only by that page's own poll below. A delayed
         // response must never cause another client to start the pending price job.
         if (job.kind === 'price') return;
-        job.state = 'running'; job.started = now; s.next = now + GAP;
+        job.state = 'running'; job.started = now; s.next = now + gap();
         job.target = job.kind === 'navigate' ? job.source : undefined;
         // Persist intent before the side effect. Restarting must not replay it.
         await save(s);
@@ -81,6 +72,8 @@
                 : await chrome.tabs.create({url: job.url, active: false});
             job.target = tab?.id;
             if (job.target === undefined) fail(job, 'No tab was created.');
+            else job.state = 'done';
+            s.next = Math.max(s.next, Date.now() + gap());
         } catch (e) { fail(job, e instanceof Error ? e.message : String(e)); }
     }
     chrome.runtime.onMessage.addListener((message: unknown, sender, reply) => {
@@ -106,40 +99,42 @@
             }
             if (!job) return {ok:false,error:'Queue request expired. Please retry.'};
             job.seen = now;
+            if (message.op === 'complete' && job.kind === 'price' && job.state === 'running') {
+                job.state = 'done'; s.next = Math.max(s.next, now + gap());
+            }
             if (message.op === 'cancel') {
                 if (job.state === 'queued' || (job.kind === 'price' && !job.loading)) fail(job, 'Cancelled by the requesting page.');
-                s.next = Math.max(s.next, now + GAP);
             }
             await pump(s);
             if (message.op === 'poll' && job.kind === 'price' && job.state === 'queued' &&
-                !s.jobs.some(j => j.state === 'running') && s.jobs.find(j => j.state === 'queued') === job && now >= s.next) {
-                job.state = 'running'; job.started = now; job.expires = now + LEASE; job.target = source; s.next = now + GAP;
+                !s.jobs.some(j => j.kind === 'price' && j.state === 'running') && s.jobs.find(j => j.state === 'queued') === job && now >= s.next) {
+                job.state = 'running'; job.started = now; job.expires = now + LEASE; job.target = source; s.next = now + gap();
             }
             await save(s);
             return {ok:job.state !== 'failed', state:job.state, expires:job.expires, error:job.error,
+                retryAfter:Math.max(5, s.next - Date.now()),
                 position:s.jobs.filter(j => j.state === 'queued').indexOf(job) + 1};
         }).then(reply, error => reply({ok:false,error:'Page queue unavailable: ' + String(error)}));
         return true;
     });
-    // Loading cancels requests from a document which has navigated away. The
-    // active price job remains reserved through its refresh, including redirects.
+    // Navigation only cancels waiting source requests; target load completion
+    // never holds or advances the dispatch clock.
     chrome.tabs.onUpdated.addListener((id, change) => {
-        if (change.status !== 'loading' && change.status !== 'complete') return;
+        if (change.status !== 'loading') return;
         void transaction(async s => {
             for (const job of s.jobs) {
-                if (job.source === id && job.state === 'queued' && change.status === 'loading') fail(job, 'The requesting page navigated away.');
-                if (job.target === id && job.state === 'running') {
-                    if (change.status === 'loading') job.loading = true;
-                    if (change.status === 'complete' && (job.kind !== 'price' || job.loading)) {job.state = 'done'; s.next = Date.now() + GAP;}
-                }
+                if (job.source === id && job.state === 'queued') fail(job, 'The requesting page navigated away.');
+                // A navigation start is also a dispatch acknowledgement if the
+                // submitting document unloads before its explicit reply arrives.
+                if (job.source === id && job.kind === 'price' && job.state === 'running') {job.state = 'done'; s.next = Math.max(s.next, Date.now() + gap());}
             }
             await save(s);
         }).catch(console.error);
     });
     chrome.tabs.onRemoved.addListener(id => {
         void transaction(async s => {
-            for (const job of s.jobs) if ((job.source === id && job.state === 'queued') || (job.target === id && job.state === 'running')) fail(job, 'Tab closed.');
-            s.next = Math.max(s.next, Date.now() + GAP); await save(s);
+            for (const job of s.jobs) if (job.source === id && job.state === 'queued') fail(job, 'Tab closed.');
+            await save(s);
         }).catch(console.error);
     });
 })();

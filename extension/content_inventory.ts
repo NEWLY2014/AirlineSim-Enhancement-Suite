@@ -1139,6 +1139,7 @@ function watchNativePriceSubmission() {
                 authorizedPriceSubmit = true;
                 try { form.requestSubmit(submitter instanceof HTMLButtonElement || submitter instanceof HTMLInputElement ? submitter : undefined); }
                 finally { authorizedPriceSubmit = false; }
+                void slot.complete();
                 status.text('Price submission dispatched.');
             } catch (error) { await slot.cancel(); throw error; }
         }, status, revision);
@@ -1173,6 +1174,7 @@ async function submitPendingPricingUpdate(targetPrices: Partial<Record<AESModel.
         pricingData = next;
         authorizedPriceSubmit = true;
         try { $(submitter).trigger('click'); } finally { authorizedPriceSubmit = false; }
+        void slot.complete();
         status.removeClass().addClass('warning').text('Price update submitted but not confirmed.');
     } catch (error) { await slot.cancel(); throw error; }
 }

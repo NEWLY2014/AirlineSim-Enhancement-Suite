@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Share one paced page queue across dashboard batches, flight-data extraction and competitor extraction continuations. Dashboard batches now accept up to 10 selections.
+- Share one paced page queue across dashboard batches, flight-data extraction and competitor extraction continuations. Dashboard batches now accept up to 10 selections. Dispatches use randomized 30–70 ms gaps without waiting for page loads.
 - Queue both AES and native Inventory price submissions with page navigation, rechecking pending page state and edited prices before submitting.
 
 ## [0.8.13] - 2026-09-08

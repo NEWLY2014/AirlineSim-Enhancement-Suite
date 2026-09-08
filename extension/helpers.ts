@@ -669,12 +669,13 @@ class AES {
         });
     }
 
-    static async queuePage(url: string, kind: 'open' | 'price' | 'navigate' = 'open', current: () => boolean = () => AES.isPageOwner()): Promise<{cancel: () => Promise<void>; expires?: number}> {
+    static async queuePage(url: string, kind: 'open' | 'price' | 'navigate' = 'open', current: () => boolean = () => AES.isPageOwner()): Promise<{cancel: () => Promise<void>; complete: () => Promise<void>; expires?: number}> {
         const sourceUrl = location.href;
         const valid = () => current() && location.href === sourceUrl;
         if (!valid()) throw new Error('The requesting page is no longer current.');
         const id = crypto.randomUUID();
         const cancel = async () => { try { await AES.pageQueueMessage({op:'cancel', id}); } catch {} };
+        const complete = async () => { try { await AES.pageQueueMessage({op:'complete', id}); } catch {} };
         try {
             await AES.pageQueueMessage({op:'enqueue', id, url:new URL(url, location.href).href, kind});
             while (valid()) {
@@ -682,10 +683,10 @@ class AES {
                 if (!valid()) break;
                 if (kind === 'price' && result.state === 'running') {
                     if (typeof result.expires !== 'number' || Date.now() >= result.expires) throw new Error('The price submission slot expired. Please retry.');
-                    return {cancel, expires: result.expires};
+                    return {cancel, complete, expires: result.expires};
                 }
-                if (result.state === 'done' || (kind !== 'price' && result.state === 'running')) return {cancel};
-                await AES.sleep(500);
+                if (result.state === 'done' || (kind !== 'price' && result.state === 'running')) return {cancel, complete};
+                await AES.sleep(typeof result.retryAfter === 'number' ? Math.min(70, Math.max(5, result.retryAfter)) : 50);
             }
             throw new Error('Page changed while waiting in the queue.');
         } catch (error) { await cancel(); throw error; }

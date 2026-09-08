@@ -87,12 +87,10 @@ test('Chromium loads the extension runtime, exports real storage and injects the
         throw new Error('Queue browser condition timed out');
     };
     assert.equal(await page.locator('#aes-table-routeManagement tbody input:checked').count(), 10);
-    await waitUntil(()=>inventoryRequests.length===1);
-    await new Promise(resolve=>setTimeout(resolve,2500));
-    assert.equal(inventoryRequests.length,1,'second request waits for first page load');
-    releaseFirst();
+    await waitUntil(()=>inventoryRequests.length>=1);
     await waitUntil(()=>inventoryRequests.length===10);
-    for(let i=1;i<inventoryRequests.length;i++) assert.ok(inventoryRequests[i]-inventoryRequests[i-1]>=1900,'page requests are paced');
+    releaseFirst(); // All ten dispatch while the first page is still loading.
+    for(let i=1;i<inventoryRequests.length;i++) assert.ok(inventoryRequests[i]-inventoryRequests[i-1]>=20,'page requests are paced');
     assert.equal(inventoryRequests.length,10);
     const inventoryPages=context.pages().filter(p=>p.url().includes('/app/com/inventory/'));
     await Promise.all(inventoryPages.slice(0,2).map(p=>p.locator('#aes-table-analysis').waitFor()));
@@ -100,7 +98,7 @@ test('Chromium loads the extension runtime, exports real storage and injects the
     await inventoryPages[0].locator('#aes-btn-invPricing-apply-new-prices').click();
     await inventoryPages[1].locator('[name="submit-prices"]').click();
     await waitUntil(()=>priceRequests.length===2);
-    assert.ok(priceRequests[0]-inventoryRequests.at(-1)>=1900,'price submission waits behind navigation');
-    assert.ok(priceRequests[1]-priceRequests[0]>=1900,'both price entry points share the same queue');
+    assert.ok(priceRequests[0]-inventoryRequests.at(-1)>=20,'price submission shares navigation spacing');
+    assert.ok(priceRequests[1]-priceRequests[0]>=20,'both price entry points share the same queue');
     assert.deepEqual(errors, []);
 });
