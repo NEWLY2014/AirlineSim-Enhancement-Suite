@@ -117,6 +117,15 @@ test('menu remains valid inside legacy navbar lists', () => {
     assert.ok(p.w.document.querySelector('#aes-menu-items').classList.contains('dropdown-menu'));
     assert.ok(p.w.document.querySelector('#aes-menu > a .caret'));
     assert.equal(p.w.document.querySelector('#aes-menu .aes-menu-icon'), null);
+    const menu = p.w.document.querySelector('#aes-menu');
+    const toggle = menu.querySelector('a');
+    menu.dispatchEvent(new p.w.MouseEvent('mouseenter'));
+    assert.equal(p.w.document.querySelector('#aes-menu-items').hidden, false);
+    assert.equal(toggle.getAttribute('aria-expanded'), 'true');
+    menu.dispatchEvent(new p.w.MouseEvent('mouseleave'));
+    assert.equal(p.w.document.querySelector('#aes-menu-items').hidden, true);
+    assert.equal(toggle.getAttribute('aria-expanded'), 'false');
+    assert.equal(menu.classList.contains('open'), false);
     p.w.document.querySelector('#aes-menu > a').click();
     assert.ok(p.w.document.querySelector('#aes-menu').classList.contains('open'));
     assert.equal(p.w.document.querySelector('#aes-menu-items').hidden, false);

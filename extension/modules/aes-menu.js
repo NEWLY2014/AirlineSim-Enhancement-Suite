@@ -18,6 +18,10 @@ class AESMenu {
         this.#container.append(this.#button, this.#menu)
 
         target.after(this.#container);
+        if (this.#legacy) {
+            this.#container.addEventListener('mouseenter', () => this.#setOpen(true));
+            this.#container.addEventListener('mouseleave', () => this.#setOpen(false));
+        }
         this.#button.addEventListener('click', event => {
             event.preventDefault();
             event.stopPropagation();
