@@ -73,7 +73,7 @@ Load `build/extension` as the unpacked extension in Chrome or Edge. Run
 `npm run build` after editing TypeScript, then reload the extension and the
 AirlineSim page. The `extension/` directory contains TypeScript sources and static
 assets; generated JavaScript is written only to `build/extension`. Vendored jQuery
-remains JavaScript. Packaging uses the same source-free build directory.
+remains JavaScript (jQuery 4.0.0 full build). Packaging uses the same source-free build directory.
 
 `npm test` builds first and tests the generated JavaScript. `npm run package`
 builds before creating `dist/AES-vX.X.X.zip`, whose root contains `manifest.json`.

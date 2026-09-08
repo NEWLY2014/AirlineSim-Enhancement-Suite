@@ -350,3 +350,12 @@ behavior has been removed, including its 21 generated source-directory scripts.
 Builds never publish JavaScript beside TypeScript sources. The Chromium smoke
 test loads the build directory, and build tests reject first-party JavaScript in
 `extension/`. Run `npm run build` after source edits and reload the extension.
+
+## jQuery follow-up
+
+Following the separate compatibility assessment, the approved vendor is now
+jQuery 4.0.0 full with `@types/jquery` 4.0.1. The full build preserves the three
+dashboard delay/queue handlers. The source directory still contains no first-party
+JavaScript, and loading/packaging still uses `build/extension`. See
+[jQuery upgrade assessment](jquery-upgrade-assessment.md) for the measured tradeoff
+and the historical Slim investigation.

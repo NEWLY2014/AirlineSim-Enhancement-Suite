@@ -35,6 +35,8 @@ test('Chromium loads the extension runtime, exports real storage and injects the
     page.on('pageerror', error => errors.push(error.message));
     await page.goto(`chrome-extension://${id}/options.html`);
     await page.locator('#aes-backup-btn').waitFor();
+    assert.equal(await page.evaluate(() => jQuery.fn.jquery), '4.0.0');
+    assert.equal(await page.evaluate(() => typeof jQuery.fn.delay), 'function');
     const downloadReady = page.waitForEvent('download');
     await page.locator('#aes-backup-btn').click();
     const download = await downloadReady;

@@ -124,3 +124,32 @@ test('aircraft removal preserves unrecognized records added after rendering',asy
     p.w.document.querySelector('#aircraft-id-1 input').click();button(p,'Remove aircraft').click();button(p,'Confirm remove 1').click();
     assert.deepEqual(p.saved.paine42aircraftFleet.fleet,[unknown]);
 });
+
+for (const [label, message] of [
+    ['Open aircraft (max 6)', 'No delivered aircraft selected'],
+    ['Remove aircraft', 'Select aircraft first'],
+]) {
+    test('empty selection restores dashboard button: ' + label, {timeout:5000}, async t => {
+        const p=dashboard(t,'aircraftProfitability',{paine42aircraftFleet:{fleet:[{aircraftId:1,registration:'AA-1'}]}});
+        await load(p,'#aircraft-id-1');
+        const before=JSON.stringify(p.saved), control=p.w.$(button(p,label));
+        assert.doesNotThrow(()=>control.trigger('click'));
+        assert.equal(control.text(),message);
+        await new Promise(resolve=>control.promise().done(resolve));
+        assert.equal(control.text(),label);
+        assert.equal(JSON.stringify(p.saved),before);
+        assert.deepEqual(p.opened,[]);
+    });
+}
+
+test('empty competitor selection restores removal button without changing storage', {timeout:5000}, async t => {
+    const key='paine42_99competitorMonitoring';
+    const p=dashboard(t,'competitorMonitoring',{paine42competitorMonitoringIndex:['99'],[key]:{key,type:'competitorMonitoring',server:'paine',ownerId:'42',id:'99',tracking:1,tab0:{'20260908':{id:'99',displayName:'Other Air'}},tab2:{}}});
+    await load(p,'#aes-compMon-row-99');
+    const before=JSON.stringify(p.saved), control=p.w.$(button(p,'Remove airline'));
+    assert.doesNotThrow(()=>control.trigger('click'));
+    assert.equal(control.text(),'Select airline first');
+    await new Promise(resolve=>control.promise().done(resolve));
+    assert.equal(control.text(),'Remove airline');
+    assert.equal(JSON.stringify(p.saved),before);
+});

@@ -28,8 +28,8 @@ test('built manifest and HTML reference existing assets and classic JavaScript',
         if (!script.startsWith('js/vendor/')) assert.ok(statSync(join(__dirname, '..', 'extension', script.replace(/\.js$/, '.ts'))).isFile(), script);
     }
     for (const asset of assets) assert.ok(statSync(join(root, asset)).isFile(), asset);
-    assert.equal(read('js/vendor/jquery-3.7.1.slim.min.js'),
-        readFileSync(join(__dirname, '..', 'extension', 'js/vendor/jquery-3.7.1.slim.min.js'), 'utf8'));
+    assert.equal(read('js/vendor/jquery-4.0.0.min.js'),
+        readFileSync(join(__dirname, '..', 'extension', 'js/vendor/jquery-4.0.0.min.js'), 'utf8'));
 });
 
 test('built extension excludes TypeScript sources and development artifacts', () => {

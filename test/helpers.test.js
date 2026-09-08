@@ -17,7 +17,7 @@ function page(html, path = '/app/info/enterprises/12685?tab=0') {
         get(keys, callback) { const value = { ...saved }; if (callback) callback(value); else return Promise.resolve(value); },
         set(value, callback) { Object.assign(saved, value); if (callback) callback(); else return Promise.resolve(); }
     } } };
-    evaluate(source('js/vendor/jquery-3.7.1.slim.min.js'));
+    evaluate(source('js/vendor/jquery-4.0.0.min.js'));
     evaluate(source('helpers.js') + '\nwindow.TestAES = AES; window.AES = AES;');
     return { dom, w, aes: w.TestAES, saved, load: file => evaluate(source(file)), close: () => { w.TestAES._ownershipLostCallbacks.forEach(fn => fn()); w.TestAES._pageControlObserver.disconnect(); w.close(); } };
 }

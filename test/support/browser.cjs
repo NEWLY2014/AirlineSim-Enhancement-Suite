@@ -52,7 +52,7 @@ function browser(t, { html = '', path = '/app/info/ors', data = {}, helpers = tr
     };
     const run = code => runInContext(code, dom.getInternalVMContext());
     const load = file => run(source(file));
-    load('js/vendor/jquery-3.7.1.slim.min.js');
+    load('js/vendor/jquery-4.0.0.min.js');
     if (helpers) load('helpers.js');
     t.after(() => {
         if (helpers) run('AES._ownershipLostCallbacks.forEach(fn => fn()); AES._pageControlObserver?.disconnect();');
