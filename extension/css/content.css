@@ -519,7 +519,19 @@
     padding: 4px 10px;
 }
 
-.aes-release-notes-header .modal-title {
+/* Keep host-page heading decorations out of the release notes. */
+#aes-release-notes-dialog .modal-title,
+#aes-release-notes-dialog .aes-release-notes-card-title {
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    color: inherit;
+    padding: 0;
+    text-shadow: none;
+}
+
+#aes-release-notes-dialog .aes-release-notes-header .modal-title {
     margin: 0;
     padding-right: 42px;
     font-size: 27px;
