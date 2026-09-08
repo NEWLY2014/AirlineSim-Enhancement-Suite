@@ -4,10 +4,10 @@
 var server, airline, ownerAirline, activeTab, compData;
 const ENTERPRISE_OVERVIEW_SCRIPT_ENABLED = AES.runContentScript("content_enterpriseOverview", function() {
     AES.waitForElement(function() {
-        return $(".nav-tabs .active").length && $(".container-fluid:eq(2) h2").length;
+        return $(".nav-tabs .active").length && AES.getEnterpriseHeading() && AES.getNavbarAirline().displayName;
     }, initializeEnterpriseOverview, {
         scriptName: "content_enterpriseOverview",
-        errorMessage: "Enterprise overview insertion target .container-fluid:eq(2) h2 was not found"
+        errorMessage: "Enterprise overview insertion target enterprise heading was not found"
     });
 });
 
@@ -120,9 +120,9 @@ function displayMain() {
     //Add display
     let mainDiv = $('<div id="aes-panel-airline-competitive-monitoring"></div>').append('<h3>AirlineSim Enhancement Suite Airline</h3>', panel, divComp);
     AES.markOwnedElements(mainDiv);
-    let insertionTarget = $(".container-fluid:eq(2) h2");
+    let insertionTarget = $(AES.getEnterpriseHeading());
     if (!insertionTarget.length) {
-        throw new Error("Enterprise overview insertion target .container-fluid:eq(2) h2 was not found");
+        throw new Error("Enterprise overview insertion target enterprise heading was not found");
     }
     insertionTarget.after(mainDiv);
 }

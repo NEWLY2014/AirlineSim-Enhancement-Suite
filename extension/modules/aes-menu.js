@@ -2,18 +2,36 @@ class AESMenu {
     #container
     #button
     #menu
+    #onOutsideClick
+    #onKeydown
 
     constructor(target) {
         if (!target) {
             return
         }
 
-        this.#container = this.#createContainer()
+        this.#container = this.#createContainer(target.tagName === "LI")
         this.#button = this.#createButton()
         this.#menu = this.#createMenu()
         this.#container.append(this.#button, this.#menu)
 
         target.after(this.#container);
+        this.#button.addEventListener('click', event => {
+            event.stopPropagation();
+            this.#setOpen(this.#menu.hidden);
+        });
+        this.#onOutsideClick = event => {
+            if (!this.#container.contains(event.target)) this.#setOpen(false);
+        };
+        this.#onKeydown = event => {
+            if (event.key === 'Escape' && !this.#menu.hidden) {
+                this.#setOpen(false);
+                this.#button.focus();
+            }
+        };
+        this.#menu.addEventListener('click', () => this.#setOpen(false));
+        document.addEventListener('click', this.#onOutsideClick);
+        document.addEventListener('keydown', this.#onKeydown);
         AES.markOwnedElements(this.#container)
     }
 
@@ -21,10 +39,10 @@ class AESMenu {
      * Creates the menu container
      * @returns {HTMLElement} container
      */
-    #createContainer() {
-        const container = document.createElement("li")
+    #createContainer(legacy) {
+        const container = document.createElement(legacy ? "li" : "div")
         container.id = "aes-menu"
-        container.className = "dropdown"
+        container.className = "aes-navigation"
         return container
     }
 
@@ -33,16 +51,22 @@ class AESMenu {
      * @returns {HTMLElement} button
      */
     #createButton() {
-        const caret = document.createElement("span")
-        caret.className = "caret"
-        const button = document.createElement("a")
-        button.setAttribute("role", "button")
+        const button = document.createElement("button")
+        button.type = "button"
         button.setAttribute("tabindex", "0")
-        button.dataset.toggle = "dropdown"
+        button.setAttribute("aria-expanded", "false")
+        button.setAttribute("aria-controls", "aes-menu-items")
         button.className = "dropdown-toggle"
-        button.textContent = "AES"
-        button.style = "cursor: pointer"
-        button.append(caret)
+        button.innerHTML = `
+            <svg class="aes-menu-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="7" height="7" rx="1"/>
+                <rect x="14" y="3" width="7" height="7" rx="1"/>
+                <rect x="3" y="14" width="7" height="7" rx="1"/>
+                <rect x="14" y="14" width="7" height="7" rx="1"/>
+            </svg>
+            <span>AES</span>
+            <svg class="aes-menu-chevron" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6l6 -6"/></svg>
+        `
 
         return button
     }
@@ -53,7 +77,9 @@ class AESMenu {
      */
     #createMenu() {
         const menu = document.createElement("ul")
-        menu.className = "dropdown-menu"
+        menu.className = "aes-menu-items"
+        menu.id = "aes-menu-items"
+        menu.hidden = true
         const menuItems = []
         const content = [{
             label: "Community",
@@ -133,17 +159,17 @@ class AESMenu {
             icon.className = `fa ${content.icon.className}`
         }
         if (content.data?.toggle) {
-            const button = document.createElement("a")
-            button.setAttribute("role", "button")
+            const button = document.createElement("button")
+            button.type = "button"
             button.setAttribute("tabindex", "0")
             button.style = "cursor: pointer"
             if (icon) {
                 button.append(icon)
             }
             button.append(content.label)
-            for (const attribute in content.data) {
-                button.dataset[attribute] = content.data[attribute]
-            }
+            button.addEventListener('click', () => {
+                document.dispatchEvent(new CustomEvent('aes:show-about'));
+            });
             menuItemContent = button
         }
         if (content.href) {
@@ -166,7 +192,14 @@ class AESMenu {
         return menuItem
     }
 
+    #setOpen(open) {
+        this.#menu.hidden = !open;
+        this.#button.setAttribute('aria-expanded', String(open));
+    }
+
     destroy() {
+        document.removeEventListener('click', this.#onOutsideClick);
+        document.removeEventListener('keydown', this.#onKeydown);
         if (this.#container) {
             this.#container.remove()
         }
@@ -185,7 +218,8 @@ AES.runContentScript("module:aes-menu", function() {
         return document.querySelector("#as-navbar-main-collapse .navbar-nav > li:nth-child(5)") ||
             document.querySelector("#as-navbar-main-collapse .navbar-nav > li:last-child") ||
             document.querySelector(".as-navbar-main .navbar-nav > li:nth-child(5)") ||
-            document.querySelector(".as-navbar-main .navbar-nav > li:last-child")
+            document.querySelector(".as-navbar-main .navbar-nav > li:last-child") ||
+            document.querySelector('#header [role="menubar"]')
     }
 
     function ensureAESMenu() {

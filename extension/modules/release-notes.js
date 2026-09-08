@@ -1,5 +1,26 @@
 const AES_RELEASE_NOTES_STORAGE_KEY = "aesReleaseNotesSeenVersion"
 const AES_RELEASE_NOTES = {
+    "0.8.12": {
+        "title": "Release Notes",
+        "releaseDate": "2026-09-08",
+        "summary": "Compatibility with AirlineSim’s updated interface.",
+        "sections": [
+            {
+                "title": "Changed",
+                "items": [
+                    "AES navigation now follows the game's menu theme, spacing and hover styles while preserving the original menu items and icons."
+                ]
+            },
+            {
+                "title": "Fixed",
+                "items": [
+                    "Restored AES Settings, Competitor Monitoring and Personnel Management access on Paine's updated interface.",
+                    "Wait for the current airline header to load before initializing page tools, and distinguish the controlled airline from viewed competitors.",
+                    "Updated flight information, notifications and dialog placement for the new page layout, while retaining legacy UI support."
+                ]
+            }
+        ]
+    },
     "0.8.11": {
         title: "Release Notes",
         releaseDate: "2026-09-01",
@@ -821,7 +842,7 @@ class ReleaseNotesDialog {
     #createContainer() {
         const container = document.createElement("div")
         container.id = "aes-release-notes-dialog"
-        container.className = "modal fade in"
+        container.className = "bootstrap modal fade in"
         container.setAttribute("role", "dialog")
         container.setAttribute("aria-modal", "true")
         container.style.display = "block"
@@ -1007,7 +1028,7 @@ class ReleaseNotesDialog {
     }
 
     #getTheme() {
-        const theme = window.frontendSettings && window.frontendSettings.theme
+        const theme = AES.getFrontendSettings().theme
         if (theme === "classic" || theme === "light") {
             return theme
         }

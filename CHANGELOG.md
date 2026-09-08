@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.12] - 2026-09-08
+
+### Fixed
+
+- Match the AES header dropdown to native navigation using game theme colors, spacing, typography, line icons, hover states and left-aligned popup positioning, while preserving the legacy AES menu items and icons.
+- Support Paine's new React navigation with a standalone AES menu and an accessible About dialog, retaining legacy navigation support.
+- Wait for the current airline selector to finish loading and use the server-provided controlled enterprise ID, keeping competitor data separate from the controlled airline.
+- Locate Settings, enterprise overview, flight information and notification insertion points by page structure instead of obsolete container positions.
+- Open Personnel Management directly from the Dashboard without depending on the old navbar menu order.
+- Restore the Bootstrap styling scope for release notes dialogs in the new layout and read the selected theme from inline frontend settings.
+
+### Development
+
+- Add DOM regression tests covering both navigation generations, delayed header rendering, airline identity, menu remounting and page panels. Run with `npm ci` followed by `npm test`.
+
 ## [0.8.11] - 2026-09-01
 
 ### Changed

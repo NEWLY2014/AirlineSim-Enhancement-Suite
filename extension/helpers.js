@@ -1,6 +1,47 @@
 /** Shared logic */
 class AES {
 
+    // The new header is rendered asynchronously and uses CSS modules. Match the
+    // semantic class prefix, never the generated hash or Base UI element IDs.
+    static getNavbarAirline() {
+        const menu = document.querySelector('#header [role="menubar"]');
+        const selector = menu?.parentElement.querySelector('button[aria-haspopup="menu"]');
+        const text = prefix => Array.from(selector?.querySelectorAll('span') || [])
+            .find(element => Array.from(element.classList).some(name => name.startsWith(prefix)))
+            ?.textContent.trim() || '';
+        return {
+            displayName: text('_name_') || $('.as-navbar-main .dropdown > a.name span').first().text().trim() ||
+                $('.as-navbar-main .dropdown > a.name').first().text().trim(),
+            code: text('_code_')
+        };
+    }
+
+    static getPageContainer() {
+        return document.querySelector('.bootstrap.container-fluid') ||
+            document.querySelector('h1')?.closest('.container-fluid') || null;
+    }
+
+    static getEnterpriseHeading() {
+        const tabs = document.querySelector('.nav-tabs');
+        return tabs?.parentElement.parentElement.querySelector('h2') || null;
+    }
+
+    // Content scripts cannot read page-world globals directly. Parse only JSON
+    // from the server's inline assignment; never execute page scripts.
+    static getFrontendSettings() {
+        if (globalThis.frontendSettings) return globalThis.frontendSettings;
+        for (const script of Array.from(document.scripts || [])) {
+            const match = (script.textContent || '').match(/(?:window\.)?frontendSettings\s*=\s*(\{[\s\S]*?\})\s*;/);
+            if (!match) continue;
+            try {
+                return JSON.parse(match[1]);
+            } catch (error) {
+                console.warn('[AES] Unable to parse frontendSettings', error);
+            }
+        }
+        return {};
+    }
+
     /**
      * Safely updates extension settings using the latest stored snapshot.
      * @param {function(object): void} mutator
@@ -36,9 +77,21 @@ class AES {
      * @returns {object} {id:string, name: string, code: string, displayName: string}
      */
     static getAirline() {
+        if (!/\/app\/info\/enterprises\/\d+/.test(window.location.pathname) &&
+            !window.location.pathname.startsWith('/app/enterprise/dashboard')) {
+            const current = AES.getCurrentAirline();
+            if (!current.name) throw new Error('Unable to determine airline from the current page');
+            return current;
+        }
         const server = AES.getServerName();
         const serverKey = `${server}_airlinesData`;
-        const serverAirlinesData = JSON.parse(localStorage.getItem(serverKey) || '{}');
+        let serverAirlinesData = {};
+        try {
+            const saved = JSON.parse(localStorage.getItem(serverKey) || '{}');
+            if (saved && typeof saved === 'object' && !Array.isArray(saved)) serverAirlinesData = saved;
+        } catch (error) {
+            console.warn('[AES] Ignoring invalid saved airline lookup data.', error);
+        }
 
         let table;
         const url = window.location.href;
@@ -89,14 +142,13 @@ class AES {
             } else if (url.includes('/app/info/enterprises/') && url.includes('tab') && !url.includes('tab=0')) {
                 displayName = $('h2 span').first().text().trim();
             } else {
-                displayName = $('.as-navbar-main .dropdown > a.name span').first().text().trim() ||
-                    $('.as-navbar-main .dropdown > a.name').first().text().trim() ||
-                    $('title').text().split('|')[0].trim();
+                displayName = AES.getNavbarAirline().displayName;
             }
         }
 
         const href = $('a[href*="tab=2"]').attr('href') || $('a[href*="enterprises/"]').attr('href');
-        const match = href?.match(/enterprises\/(\d+)/) || href?.match(/\.\/(\d+)/);
+        const match = window.location.pathname.match(/\/info\/enterprises\/(\d+)/) ||
+            href?.match(/enterprises\/(\d+)/) || href?.match(/\.\/(\d+)/);
         const idFromHref = match ? match[1] : null;
         const name = displayName
             ? displayName.replace(/[^A-Za-z0-9]/g, '_')
@@ -140,14 +192,15 @@ class AES {
         } catch (error) {
             console.warn('[AES] Ignoring invalid saved airline lookup data.', error);
         }
-        const displayName = $('.as-navbar-main .dropdown > a.name span').first().text().trim() ||
-            $('.as-navbar-main .dropdown > a.name').first().text().trim();
+        const navbar = AES.getNavbarAirline();
+        const displayName = navbar.displayName;
         const name = displayName ? displayName.replace(/[^A-Za-z0-9]/g, '_') : null;
         const data = name ? serverAirlinesData[name] : null;
-        const selectedAirlineId = new URL(window.location.href).searchParams.get('select');
+        const selectedAirlineId = AES.getFrontendSettings().fixedEnterpriseId ||
+            new URL(window.location.href).searchParams.get('select');
         const hasSelectedAirlineId = /^\d+$/.test(selectedAirlineId || '');
-        let id = hasSelectedAirlineId ? selectedAirlineId : (data?.id || null);
-        let code = data?.code || '';
+        let id = hasSelectedAirlineId ? String(selectedAirlineId) : (data?.id || null);
+        let code = navbar.code || data?.code || '';
 
         if (!hasSelectedAirlineId) {
             const normalizedDisplayName = displayName.replace(/\s+/g, ' ').trim();
@@ -355,36 +408,8 @@ class AES {
     }
 
     static #getFrontendSettingsServerTime() {
-        const directTime = globalThis.frontendSettings &&
-            globalThis.frontendSettings.server &&
-            globalThis.frontendSettings.server.time
-        if (directTime) {
-            return String(directTime)
-        }
-
-        const scripts = Array.from(document.scripts || [])
-        for (let i = 0; i < scripts.length; i++) {
-            const source = scripts[i].textContent || ""
-            if (source.indexOf("frontendSettings") === -1) {
-                continue
-            }
-
-            const match = source.match(/(?:window\.)?frontendSettings\s*=\s*(\{[\s\S]*?\})\s*;/)
-            if (!match) {
-                continue
-            }
-
-            try {
-                const settings = JSON.parse(match[1])
-                if (settings && settings.server && settings.server.time) {
-                    return String(settings.server.time)
-                }
-            } catch (error) {
-                console.warn("[AES] Unable to parse frontendSettings", error)
-            }
-        }
-
-        return null
+        const time = AES.getFrontendSettings().server?.time;
+        return time ? String(time) : null;
     }
 
     /**
@@ -674,6 +699,17 @@ class AES {
         AES.#installContentScriptErrorReporter(scriptName);
 
         const run = function() {
+            // The new React header initially renders an empty enterprise selector.
+            // Page tables can already exist at that point; wait before choosing
+            // storage keys so the first load never saves under an empty airline.
+            if (!scriptName.startsWith('module:') && document.getElementById('header') &&
+                AES.getFrontendSettings().fixedEnterpriseId && !AES.getNavbarAirline().displayName) {
+                AES.waitForElement(() => !!AES.getNavbarAirline().displayName, initializer, {
+                    scriptName,
+                    errorMessage: 'Current airline header did not finish loading'
+                });
+                return;
+            }
             AES.tryRun(scriptName, initializer);
         };
 
@@ -915,7 +951,7 @@ class AES {
         container.append(item);
 
         if (!container.parentNode) {
-            const target = document.querySelector("nav.as-navbar-main + .container-fluid") || document.body || document.documentElement;
+            const target = AES.getPageContainer() || document.body || document.documentElement;
             target.prepend(container);
         }
 

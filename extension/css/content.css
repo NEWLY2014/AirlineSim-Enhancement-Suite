@@ -754,3 +754,131 @@
     height: 0;
     overflow: hidden;
 }
+
+/* Self-contained navigation: Paine's React header no longer hosts Bootstrap. */
+#aes-menu {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+    font: inherit;
+}
+/* Use the same theme tokens as AirlineSim's native navigation. The fallback
+   values preserve the menu on servers still using the legacy header. */
+#aes-menu > button {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs, 3px);
+    padding: var(--spacing-sm, 6px) var(--spacing-md, 10px);
+    border: 1px solid transparent;
+    border-radius: var(--radius-md, 4px);
+    background: transparent;
+    color: var(--color-text-emphasis, inherit);
+    font-family: var(--font-sans, inherit);
+    font-size: var(--font-size-md, 13px);
+    font-weight: var(--font-weight-regular, 400);
+    line-height: var(--line-height-normal, 1.4286);
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+}
+#aes-menu > button:hover, #aes-menu > button[aria-expanded="true"] {
+    background: rgb(0 0 0 / 20%);
+}
+#aes-menu > button[aria-expanded="true"] {
+    border-bottom: 0;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+}
+#aes-menu .aes-menu-icon {
+    width: var(--font-size-xl, 16px);
+    height: var(--font-size-xl, 16px);
+    margin-right: var(--spacing-xs, 3px);
+    flex-shrink: 0;
+}
+#aes-menu .aes-menu-chevron { width: 1.2em; height: 1.2em; flex-shrink: 0; }
+#aes-menu button:focus-visible, #aes-menu a:focus-visible {
+    outline: 2px solid var(--color-border-focus, #82b5e8);
+    outline-offset: -2px;
+}
+#aes-menu .aes-menu-items {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 1100;
+    min-width: 16rem;
+    max-height: 75vh;
+    overflow-y: auto;
+    padding: var(--spacing-sm, 6px) 0;
+    margin: 0;
+    list-style: none;
+    border: 1px solid var(--nav-menu-popup-color-border, #353536);
+    border-radius: var(--radius-md, 4px);
+    background: var(--nav-menu-popup-color-background, #4d5052);
+    color: var(--nav-menu-item-color-text, #c7c7c7);
+    font-family: var(--font-sans, inherit);
+    font-size: var(--font-size-sm, 11px);
+    line-height: var(--line-height-normal, 1.4286);
+    box-shadow: none;
+}
+#aes-menu .aes-menu-items[hidden] { display: none; }
+#aes-menu .aes-menu-items a, #aes-menu .aes-menu-items button {
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs, 3px);
+    width: 100%;
+    padding: var(--spacing-xs, 3px) var(--spacing-lg, 16px);
+    border: 0;
+    appearance: none;
+    background: var(--nav-menu-item-color-background, transparent);
+    color: var(--nav-menu-item-color-text, #c7c7c7);
+    text-decoration: none;
+    text-align: left;
+    font: inherit;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color var(--transition-fast, 150ms), color var(--transition-fast, 150ms);
+}
+#aes-menu .aes-menu-items a:hover, #aes-menu .aes-menu-items button:hover,
+#aes-menu .aes-menu-items a:focus-visible, #aes-menu .aes-menu-items button:focus-visible {
+    background: var(--nav-menu-item-color-background-highlighted, #417ad0);
+    color: var(--nav-menu-item-color-text-highlighted, #fff);
+}
+#aes-menu .dropdown-header {
+    padding: var(--spacing-xs, 3px) var(--spacing-lg, 16px);
+    color: var(--nav-menu-group-label-color-text, #929292);
+    background: var(--nav-menu-group-label-color-background, transparent);
+    font-size: var(--font-size-xs, 10px);
+    line-height: var(--line-height-normal, 1.4286);
+    text-transform: var(--nav-menu-group-label-text-transform, none);
+    cursor: default;
+}
+#aes-menu .divider {
+    height: 1px;
+    background: var(--nav-menu-separator-color-background, #686868);
+    margin: var(--spacing-sm, 6px) 0;
+}
+/* Preserve the legacy AES item icons within the native-style menu. */
+#aes-menu .aes-menu-items .fa {
+    display: inline-block;
+    flex-shrink: 0;
+    width: 1.25em;
+    margin-right: var(--spacing-xs, 3px);
+    text-align: center;
+}
+#aes-about-dialog.aes-about-modal {
+    padding: 0;
+    border: 1px solid #687078;
+    border-radius: 6px;
+    background: #30343a;
+    color: #f4f5f6;
+    max-width: 94vw;
+}
+#aes-about-dialog::backdrop { background: #0008; }
+#aes-about-dialog .modal-dialog { margin: 0; }
+#aes-about-dialog .modal-content { background: inherit; color: inherit; }
+#aes-about-dialog .modal-body { position: relative; padding: 30px; }
+/* Backdrop is outside the game's scoped .bootstrap tree. */
+.aes-release-notes-backdrop { position: fixed; inset: 0; z-index: 1040; background: #0008; }
+#aes-release-notes-dialog { position: fixed; inset: 0; z-index: 1050; overflow: auto; }

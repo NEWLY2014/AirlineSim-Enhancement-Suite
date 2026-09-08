@@ -5,6 +5,7 @@ class AboutDialog {
     #modalContent
     #closeButton
     #body
+    #onShow
 
     constructor() {
         this.#closeButton = this.#createCloseButton()
@@ -20,18 +21,23 @@ class AboutDialog {
         this.#target.append(this.#container)
         AES.markOwnedElements(this.#container)
 
-        const observer = this.#mutationObserver()
-        observer.observe(this.#container, {attributes: true})
+        this.#onShow = () => {
+            if (!this.#container.open) this.#container.showModal();
+        };
+        document.addEventListener('aes:show-about', this.#onShow);
+        this.#closeButton.addEventListener('click', () => this.#container.close());
+        this.#container.addEventListener('click', event => {
+            if (event.target === this.#container) this.#container.close();
+        });
     }
 
     #createContainer() {
-        const container = document.createElement("div")
-        container.class = "modal"
+        const container = document.createElement("dialog")
+        container.className = "bootstrap aes-about-modal"
         container.id = "aes-about-dialog"
         container.setAttribute("role", "dialog")
         container.setAttribute("aria-modal", "true")
-        container.setAttribute("aria-hidden", "true")
-        container.style = "display: none"
+        container.setAttribute("aria-label", "About AirlineSim Enhancement Suite")
 
         return container
     }
@@ -92,19 +98,8 @@ class AboutDialog {
         return target
     }
 
-    #mutationObserver() {
-        const observer = new MutationObserver(this.#correctBootstrapBehaviour.bind(this))
-        return observer
-    }
-
-    #correctBootstrapBehaviour() {
-        if (this.#container.classList.contains("in") && !this.#container.classList.contains("modal")) {
-            this.#container.classList.add("modal")
-            this.#container.style = "display: block"
-        }
-    }
-
     destroy() {
+        document.removeEventListener("aes:show-about", this.#onShow);
         if (this.#container) {
             this.#container.remove()
         }

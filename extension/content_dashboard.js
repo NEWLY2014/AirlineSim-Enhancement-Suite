@@ -3430,9 +3430,7 @@ function generalAddPersonnelManagementRow(tbody) {
     //Action
     let btn = $('<button type="button" class="btn btn-default">Open personnel management</button>');
     btn.click(function() {
-        //get schedule link
-        let link = $('#as-navbar-main-collapse > ul > li:eq(4) > ul > li:eq(5) > a');
-        link[0].click();
+        window.location.assign('/action/enterprise/staffOverview');
     });
     td[2].append(btn);
 }

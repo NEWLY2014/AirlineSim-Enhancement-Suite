@@ -1,8 +1,11 @@
 {
   "name": "airlinesim-enhancement-suite",
-  "version": "0.8.11",
+  "version": "0.8.12",
   "scripts": {
     "package": "scripts/package-extension.sh",
     "test": "node test/helpers.test.js"
+  },
+  "devDependencies": {
+    "jsdom": "^30.0.1"
   }
 }

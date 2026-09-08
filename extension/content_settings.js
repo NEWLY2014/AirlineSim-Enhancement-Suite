@@ -4,22 +4,22 @@ var settings;
 const SETTINGS_SCRIPT_ENABLED = AES.runContentScript("content_settings", function() {
     chrome.storage.local.get(['settings'], function(result) {
         AES.waitForElement(function() {
-            return $(".container-fluid:eq(2)");
+            return $(AES.getPageContainer());
         }, function() {
             settings = result.settings || {};
             displaySettings();
-            AES.markOwnedElements($("#aes-div-settingArea"));
+            AES.markOwnedElements($("#aes-settings-root"));
             settingDisplayHandle('Inventory Pricing')
         }, {
             scriptName: "content_settings",
-            errorMessage: "Settings insertion target .container-fluid:eq(2) was not found"
+            errorMessage: "Settings insertion target page content container was not found"
         });
     });
 });
 
 if (SETTINGS_SCRIPT_ENABLED) {
     AES.whenPageOwnershipLost(function() {
-        $('#aes-div-settingArea').remove();
+        $('#aes-settings-root').remove();
     });
 }
 
@@ -65,11 +65,12 @@ function displaySettings() {
     let divmd10 = $('<div id="aes-div-settingArea" class="col-md-10"></div>');
     let rowDiv = $('<div class="row"></div>').append(divmd2, divmd10);
     let h = $('<h2>AirlineSim Enhancement Suite Settings</h2>');
-    let mainDiv = $(".container-fluid:eq(2)");
+    let mainDiv = $(AES.getPageContainer());
     if (!mainDiv.length) {
-        throw new Error("Settings insertion target .container-fluid:eq(2) was not found");
+        throw new Error("Settings insertion target page content container was not found");
     }
-    mainDiv.prepend(h, rowDiv);
+    $("#aes-settings-root").remove();
+    mainDiv.prepend($('<section id="aes-settings-root"></section>').append(h, rowDiv));
 }
 //FLight Info
 function displayFlightInfoSettings() {

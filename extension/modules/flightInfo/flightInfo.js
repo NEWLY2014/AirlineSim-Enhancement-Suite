@@ -111,7 +111,7 @@ class FlightInfo {
         const container = this.#createContainer(heading, panel);
         AES.markOwnedElements(container);
 
-        const anchor = document.querySelector('body > .container-fluid > h1');
+        const anchor = AES.getPageContainer()?.querySelector('h1');
 
         if (anchor) {
             anchor.insertAdjacentElement('afterend', container);
