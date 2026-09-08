@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.13] - 2026-09-08
+
+### Fixed
+
+- Remove host-page heading backgrounds, borders and shadows from the Release Notes dialog.
+- Restore the native legacy UI appearance of the AES navigation menu while keeping modern navigation styles scoped to the new UI.
+- Restore hover-to-open and mouse-leave-to-close behavior for the AES menu in the legacy UI.
+
 ## [0.8.12] - 2026-09-08
 
 ### Fixed

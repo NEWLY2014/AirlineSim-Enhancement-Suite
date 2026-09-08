@@ -1,5 +1,20 @@
 const AES_RELEASE_NOTES_STORAGE_KEY = "aesReleaseNotesSeenVersion"
 const AES_RELEASE_NOTES = {
+    "0.8.13": {
+        "title": "Release Notes",
+        "releaseDate": "2026-09-08",
+        "summary": "Release Notes styling and legacy navigation fixes.",
+        "sections": [
+            {
+                "title": "Fixed",
+                "items": [
+                    "Remove host-page heading backgrounds, borders and shadows from the Release Notes dialog.",
+                    "Restore the native legacy UI appearance of the AES navigation menu while keeping modern navigation styles scoped to the new UI.",
+                    "Restore hover-to-open and mouse-leave-to-close behavior for the AES menu in the legacy UI."
+                ]
+            }
+        ]
+    },
     "0.8.12": {
         "title": "Release Notes",
         "releaseDate": "2026-09-08",
