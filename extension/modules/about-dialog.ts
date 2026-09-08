@@ -94,7 +94,7 @@ class AboutDialog {
     }
 
     #setTarget() {
-        const target = document.querySelector("body")
+        const target = document.body
         return target
     }
 

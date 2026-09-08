@@ -1,12 +1,81 @@
 /** Shared logic */
 class AES {
+    /** Validate fields used by fleet pages while retaining legacy/unknown metadata. */
+    static isFleetAircraft(value: unknown): value is AESModel.FleetAircraft {
+        if (!AES.isRecord(value)) return false;
+        if (value.aircraftId !== undefined && value.aircraftId !== null &&
+            typeof value.aircraftId !== 'string' && typeof value.aircraftId !== 'number') return false;
+        return ['registration', 'fleet', 'hubDetected', 'hubEffective', 'hubOverride', 'hubDetectionSource']
+            .every(key => value[key] === undefined || value[key] === null || typeof value[key] === 'string');
+    }
+
+    static readFleetRecord(value: unknown): AESModel.FleetRecord | null {
+        if (!AES.isRecord(value) || !Array.isArray(value.fleet)) return null;
+        return { ...value, fleet: value.fleet.filter(AES.isFleetAircraft) };
+    }
+
+    static isAircraftProfit(value: unknown): value is AESModel.AircraftProfit {
+        if (!AES.isRecord(value)) return false;
+        return ['date', 'time'].every(key => typeof value[key] === 'string') &&
+            ['finishedFlights', 'totalFlights', 'profit', 'profitFlights'].every(key =>
+                typeof value[key] === 'number' && Number.isFinite(value[key])) &&
+            ['hubDetected', 'hubEffective', 'hubOverride'].every(key =>
+                value[key] === undefined || value[key] === null || typeof value[key] === 'string');
+    }
+
+    static _competitorPageData: AESModel.CompetitorRecord | undefined;
+    static _serverClockSource: string | undefined;
+    static _serverClockTimestamp = 0;
+    static _serverClockPerformance: number | null = null;
+    static _serverClockLocalTimestamp = 0;
+    static _pageControlInitialized = false;
+    static _pageOwner = false;
+    static _ownershipLostCallbacks: Array<() => void> = [];
+    static _pageControlObserver: MutationObserver | undefined;
+    static _contentScriptErrorReporterInstalled = false;
+    static _reportedErrors: Record<string, boolean> = {};
+
+    static isRecord(value: unknown): value is Record<string, unknown> {
+        return value !== null && typeof value === 'object' && !Array.isArray(value);
+    }
+
+    static #parseFrontendSettings(value: unknown): AESModel.FrontendSettings {
+        if (!AES.isRecord(value)) return {};
+        const { fixedEnterpriseId, theme, server, ...extra } = value;
+        const result: AESModel.FrontendSettings = { ...extra };
+        if (typeof theme === 'string') result.theme = theme;
+        if (typeof value.fixedEnterpriseId === 'string' || typeof value.fixedEnterpriseId === 'number') {
+            result.fixedEnterpriseId = value.fixedEnterpriseId;
+        }
+        if (AES.isRecord(value.server) && typeof value.server.time === 'string') {
+            result.server = { ...value.server, time: value.server.time };
+        }
+        return result;
+    }
+
+    static #parseAirlineLookup(value: unknown): Record<string, AESModel.StoredAirline> {
+        const result: Record<string, AESModel.StoredAirline> = Object.create(null);
+        if (!AES.isRecord(value)) return result;
+        for (const [key, entry] of Object.entries(value)) {
+            if (!AES.isRecord(entry)) continue;
+            const airline: AESModel.StoredAirline = { ...entry };
+            if (typeof entry.id === 'string' || entry.id === null) airline.id = entry.id;
+            else if (typeof entry.id === 'number' && Number.isFinite(entry.id)) airline.id = String(entry.id);
+            else delete airline.id;
+            if (typeof entry.code === 'string') airline.code = entry.code;
+            else delete airline.code;
+            result[key] = airline;
+        }
+        return result;
+    }
+
 
     // The new header is rendered asynchronously and uses CSS modules. Match the
     // semantic class prefix, never the generated hash or Base UI element IDs.
     static getNavbarAirline() {
         const menu = document.querySelector('#header [role="menubar"]');
-        const selector = menu?.parentElement.querySelector('button[aria-haspopup="menu"]');
-        const text = prefix => Array.from(selector?.querySelectorAll('span') || [])
+        const selector = menu?.parentElement?.querySelector('button[aria-haspopup="menu"]');
+        const text = (prefix: string) => Array.from(selector?.querySelectorAll('span') || [])
             .find(element => Array.from(element.classList).some(name => name.startsWith(prefix)))
             ?.textContent.trim() || '';
         return {
@@ -23,18 +92,18 @@ class AES {
 
     static getEnterpriseHeading() {
         const tabs = document.querySelector('.nav-tabs');
-        return tabs?.parentElement.parentElement.querySelector('h2') || null;
+        return tabs?.parentElement?.parentElement?.querySelector('h2') || null;
     }
 
     // Content scripts cannot read page-world globals directly. Parse only JSON
     // from the server's inline assignment; never execute page scripts.
-    static getFrontendSettings() {
-        if (globalThis.frontendSettings) return globalThis.frontendSettings;
+    static getFrontendSettings(): AESModel.FrontendSettings {
+        if (globalThis.frontendSettings) return AES.#parseFrontendSettings(globalThis.frontendSettings);
         for (const script of Array.from(document.scripts || [])) {
             const match = (script.textContent || '').match(/(?:window\.)?frontendSettings\s*=\s*(\{[\s\S]*?\})\s*;/);
             if (!match) continue;
             try {
-                return JSON.parse(match[1]);
+                return AES.#parseFrontendSettings(JSON.parse(match[1]));
             } catch (error) {
                 console.warn('[AES] Unable to parse frontendSettings', error);
             }
@@ -47,9 +116,9 @@ class AES {
      * @param {function(object): void} mutator
      * @param {function(object): void} callback
      */
-    static updateSettings(mutator, callback) {
+    static updateSettings(mutator: (settings: Record<string, unknown>) => void, callback?: (settings: Record<string, unknown>) => void) {
         chrome.storage.local.get(['settings'], function(result) {
-            let currentSettings = result.settings || {};
+            let currentSettings = AES.isRecord(result.settings) ? result.settings : {};
             if (typeof mutator === 'function') {
                 mutator(currentSettings);
             }
@@ -76,7 +145,7 @@ class AES {
      * Returns the airline info from the dashboard, with fallback to localStorage
      * @returns {object} {id:string, name: string, code: string, displayName: string}
      */
-    static getAirline() {
+    static getAirline(): AESModel.Airline {
         if (!/\/app\/info\/enterprises\/\d+/.test(window.location.pathname) &&
             !window.location.pathname.startsWith('/app/enterprise/dashboard')) {
             const current = AES.getCurrentAirline();
@@ -85,10 +154,10 @@ class AES {
         }
         const server = AES.getServerName();
         const serverKey = `${server}_airlinesData`;
-        let serverAirlinesData = {};
+        let serverAirlinesData: Record<string, AESModel.StoredAirline> = Object.create(null);
         try {
             const saved = JSON.parse(localStorage.getItem(serverKey) || '{}');
-            if (saved && typeof saved === 'object' && !Array.isArray(saved)) serverAirlinesData = saved;
+            serverAirlinesData = AES.#parseAirlineLookup(saved);
         } catch (error) {
             console.warn('[AES] Ignoring invalid saved airline lookup data.', error);
         }
@@ -180,14 +249,14 @@ class AES {
      * Returns the airline currently controlled by the user from the navbar.
      * @returns {object} {id:string, name: string, code: string, displayName: string}
      */
-    static getCurrentAirline() {
+    static getCurrentAirline(): AESModel.Airline {
         const server = AES.getServerName();
         const serverKey = `${server}_airlinesData`;
-        let serverAirlinesData = {};
+        let serverAirlinesData: Record<string, AESModel.StoredAirline> = Object.create(null);
         try {
             const storedAirlinesData = JSON.parse(localStorage.getItem(serverKey) || '{}');
             if (storedAirlinesData && typeof storedAirlinesData === 'object' && !Array.isArray(storedAirlinesData)) {
-                serverAirlinesData = storedAirlinesData;
+                serverAirlinesData = AES.#parseAirlineLookup(storedAirlinesData);
             }
         } catch (error) {
             console.warn('[AES] Ignoring invalid saved airline lookup data.', error);
@@ -198,14 +267,14 @@ class AES {
         const data = name ? serverAirlinesData[name] : null;
         const selectedAirlineId = AES.getFrontendSettings().fixedEnterpriseId ||
             new URL(window.location.href).searchParams.get('select');
-        const hasSelectedAirlineId = /^\d+$/.test(selectedAirlineId || '');
+        const hasSelectedAirlineId = /^\d+$/.test(String(selectedAirlineId || ''));
         let id = hasSelectedAirlineId ? String(selectedAirlineId) : (data?.id || null);
         let code = navbar.code || data?.code || '';
 
         if (!hasSelectedAirlineId) {
             const normalizedDisplayName = displayName.replace(/\s+/g, ' ').trim();
             const dashboardLinks = $('.as-navbar-main .dropdown-menu a[href*="select="]');
-            let matchingIds = [];
+            let matchingIds: string[] = [];
             dashboardLinks.each(function () {
                 const link = $(this);
                 const linkName = (link.find('span').first().text().trim() || link.text().trim()).replace(/\s+/g, ' ');
@@ -256,12 +325,35 @@ class AES {
      * @param {string} competitorAirlineId
      * @returns {string}
      */
-    static getCompetitorMonitoringKey(server, ownerAirlineId, competitorAirlineId) {
+    static getCompetitorMonitoringKey(server: string, ownerAirlineId: string | null, competitorAirlineId: string | null) {
         if (ownerAirlineId) {
             return `${server}${ownerAirlineId}_${competitorAirlineId}competitorMonitoring`;
         }
 
         return `${server}${competitorAirlineId}competitorMonitoring`;
+    }
+
+    // Both enterprise page scripts receive the same record. A delayed read must
+    // not replace changes made by the other script since the read was requested.
+    static getCompetitorPageData(stored: unknown, server: string, owner: AESModel.Airline, airline: AESModel.Airline): AESModel.CompetitorRecord {
+        const key = AES.getCompetitorMonitoringKey(server, owner.id, airline.id);
+        if (AES._competitorPageData?.key === key) return AES._competitorPageData;
+        const old = AES.isRecord(stored) ? stored : {};
+        const data: AESModel.CompetitorRecord = {
+            ...old,
+            key,
+            server,
+            ownerId: owner.id,
+            ownerAirline: owner,
+            id: airline.id,
+            type: 'competitorMonitoring',
+            tab0: AES.isRecord(old.tab0) ? old.tab0 : {},
+            tab2: AES.isRecord(old.tab2) ? old.tab2 : {},
+            tracking: typeof old.tracking === 'number' || typeof old.tracking === 'boolean' ? old.tracking : 0,
+            autoExtract: typeof old.autoExtract === 'number' || typeof old.autoExtract === 'boolean' ? old.autoExtract : 0
+        };
+        AES._competitorPageData = data;
+        return data;
     }
 
     /**
@@ -270,7 +362,7 @@ class AES {
      * @param {string} ownerAirlineId
      * @returns {string}
      */
-    static getCompetitorMonitoringIndexKey(server, ownerAirlineId) {
+    static getCompetitorMonitoringIndexKey(server: string, ownerAirlineId: string | null) {
         return `${server}${ownerAirlineId}competitorMonitoringIndex`;
     }
 
@@ -280,7 +372,7 @@ class AES {
      * @param {string} alignment: "right" | "left"
      * @returns {HTMLElement} span with formatted value
      */
-    static formatCurrency(value, alignment) {
+    static formatCurrency(value: number, alignment?: "right" | "left") {
         let container = document.createElement("span")
         let formattedValue = Intl.NumberFormat().format(value)
         let indicatorEl = document.createElement("span")
@@ -319,13 +411,13 @@ class AES {
      * @param {string} "20240524"
      * @returns {string} "2024-05-24" | "error: invalid format for AES.formatDateString"
      */
-    static formatDateString(date) {
+    static formatDateString(date: string | null | undefined) {
         if (!date) {
             return
         }
 
         const correctLength = date.length === 8
-        const isInteger = Number.isInteger(parseInt(date))
+        const isInteger = Number.isInteger(parseInt(String(date)))
         let result = "error: invalid format for AES.formatDateString"
 
         if (correctLength && isInteger) {
@@ -342,9 +434,9 @@ class AES {
      * @param {string} "212024"
      * @returns {string} "21/2014 | "error: invalid format for AES.formatDateStringWeek"
      */
-    static formatDateStringWeek(date) {
+    static formatDateStringWeek(date: string | number) {
         const correctLength = date.toString().length === 6
-        const isInteger = Number.isInteger(parseInt(date))
+        const isInteger = Number.isInteger(parseInt(String(date)))
         let result = "error: invalid format for AES.formatDateStringWeek"
 
         if (correctLength && isInteger) {
@@ -417,10 +509,10 @@ class AES {
      * @param {array} ["20240520", "20240524"]
      * @returns {integer} 4
      */
-    static getDateDiff(dates) {
+    static getDateDiff(dates: readonly [string, string]) {
         let dateA = new Date(`${this.formatDateString(dates[0])}T12:00:00Z`)
         let dateB = new Date(`${this.formatDateString(dates[1])}T12:00:00Z`)
-        let result = Math.round((dateA - dateB)/(1000 * 60 * 60 * 24))
+        let result = Math.round((dateA.getTime() - dateB.getTime())/(1000 * 60 * 60 * 24))
 
         return result
     }
@@ -430,19 +522,15 @@ class AES {
      * @param {string} value - "-2,000 AS$" | "2.000 AS$" | "256"
      * @returns {integer} -2000 | 2000 | 256
      */
-    static cleanInteger(value) {
-        if (typeof value !== 'string') {
-            value = String(value);
-        }
-        value = value.trim();
-        value = value.replace(/[,.\s]|AS\$/g, '');
-        const cleaned = value.replace(/[^\d-]/g, '');
+    static cleanInteger(value: unknown) {
+        const text = String(value).trim().replace(/[,.\s]|AS\$/g, '');
+        const cleaned = text.replace(/[^\d-]/g, '');
         const parsed = parseInt(cleaned, 10);
         return isNaN(parsed) ? 0 : parsed;
     }
 
     // Sleep for some time
-    static sleep(ms) {
+    static sleep(ms: number) {
         return new Promise(resolve => setTimeout(resolve, ms));
     }
 
@@ -454,13 +542,13 @@ class AES {
      * @param {object} options
      * @returns {{disconnect: function(): void}}
      */
-    static waitForElement(target, callback, options) {
+    static waitForElement(target: AESModel.WaitTarget, callback: (target: AESModel.WaitResult) => void | Promise<void>, options: AESModel.WaitOptions = {}) {
         options = options || {};
         const scriptName = options.scriptName || "content script";
         const debounce = typeof options.debounce === "number" ? options.debounce : 100;
         const timeout = typeof options.timeout === "number" ? options.timeout : 15000;
         const root = options.root || document.documentElement || document.body;
-        let observer = null;
+        let observer: MutationObserver | null = null;
         let refreshTimer = 0;
         let timeoutTimer = 0;
         let finished = false;
@@ -537,7 +625,7 @@ class AES {
         return { disconnect: cleanup };
     }
 
-    static #resolveWaitTarget(target) {
+    static #resolveWaitTarget(target: AESModel.WaitTarget) {
         if (typeof target === "function") {
             return target();
         }
@@ -558,21 +646,21 @@ class AES {
         return null;
     }
 
-    static #isWaitTargetFound(target) {
+    static #isWaitTargetFound(target: AESModel.WaitResult) {
         if (!target) {
             return false;
         }
         if (typeof target === "boolean") {
             return target;
         }
-        if (typeof target.length === "number" && target !== window && !target.nodeType && typeof target !== "string") {
+        if (typeof target === "object" && "length" in target && typeof target.length === "number") {
             return target.length > 0;
         }
         return true;
     }
 
     // Open pages with delay
-    static async openPagesWithDelay(pages) {
+    static async openPagesWithDelay(pages: string[]) {
         for (let i = 0; i < pages.length; i++) {
             if (i >= 20) break;
             window.open(pages[i], '_blank');
@@ -595,8 +683,8 @@ class AES {
      * @param {string} versionB
      * @returns {integer} 1 | 0 | -1
      */
-    static compareVersions(versionA, versionB) {
-        function parseVersion(value) {
+    static compareVersions(versionA: string, versionB: string) {
+        function parseVersion(value: string) {
             const match = String(value || "0.0.0").trim().match(/^(\d+)\.(\d+)\.(\d+)([A-Za-z]*)$/);
             if (!match) {
                 return { major: 0, minor: 0, patch: 0, suffix: "" };
@@ -612,7 +700,7 @@ class AES {
 
         const a = parseVersion(versionA);
         const b = parseVersion(versionB);
-        const numericKeys = ["major", "minor", "patch"];
+        const numericKeys = ["major", "minor", "patch"] as const;
 
         for (let i = 0; i < numericKeys.length; i++) {
             const key = numericKeys[i];
@@ -675,7 +763,7 @@ class AES {
      * @param {string} scriptName
      * @returns {boolean}
      */
-    static shouldRunContentScript(scriptName) {
+    static shouldRunContentScript(scriptName: string) {
         const allowed = AES.claimPageControl();
         if (!allowed) {
             console.info("[AES] Skipping initialization because a newer AES version is active on this page.", scriptName || "");
@@ -690,7 +778,7 @@ class AES {
      * @param {object} options
      * @returns {boolean}
      */
-    static runContentScript(scriptName, initializer, options) {
+    static runContentScript(scriptName: string, initializer: AESModel.Initializer, options?: { ready?: boolean }) {
         const allowed = AES.shouldRunContentScript(scriptName);
         if (!allowed) {
             return false;
@@ -731,11 +819,11 @@ class AES {
      * @param {string} scriptName
      * @param {function(): void|Promise<void>} callback
      */
-    static tryRun(scriptName, callback) {
+    static tryRun(scriptName: string, callback: AESModel.Initializer) {
         try {
             const result = typeof callback === "function" ? callback() : null;
             if (result && typeof result.catch === "function") {
-                result.catch(function(error) {
+                result.catch(function(error: unknown) {
                     AES.reportContentScriptError(scriptName, error);
                 });
             }
@@ -749,10 +837,10 @@ class AES {
     /**
      * Reports a content script error to the console and the page UI.
      * @param {string} scriptName
-     * @param {Error|any} error
+     * @param {unknown} error
      */
-    static reportContentScriptError(scriptName, error) {
-        const errorMessage = error && error.message ? error.message : String(error || "Unknown error");
+    static reportContentScriptError(scriptName: string, error: unknown) {
+        const errorMessage = (error instanceof Error || AES.isRecord(error)) && error.message ? String(error.message) : String(error || "Unknown error");
         const message = `AES ${scriptName || "content script"} error: ${errorMessage}`;
         console.error(`[AES] ${scriptName || "content script"} failed`, error);
 
@@ -763,7 +851,7 @@ class AES {
         }
         AES._reportedErrors[key] = true;
         AES.writeLog("error", scriptName || "content script", errorMessage, {
-            stack: error && error.stack ? String(error.stack) : "",
+            stack: (error instanceof Error || AES.isRecord(error)) && error.stack ? String(error.stack) : "",
         });
 
         try {
@@ -785,7 +873,7 @@ class AES {
      * @param {string} message
      * @param {object} details
      */
-    static writeLog(level, source, message, details) {
+    static writeLog(level: string, source: string, message: string, details?: object) {
         if (!globalThis.chrome || !chrome.storage || !chrome.storage.local) {
             return;
         }
@@ -793,7 +881,7 @@ class AES {
         const now = new Date();
         const dateKey = AES.#formatLogDate(now);
         const storageKey = `aesLog_${dateKey}`;
-        const entry = {
+        const entry: AESModel.LogEntry = {
             time: now.toISOString(),
             level: level || "info",
             source: source || "",
@@ -812,7 +900,7 @@ class AES {
                 return;
             }
 
-            const logData = result[storageKey] && typeof result[storageKey] === "object"
+            const logData = AES.isRecord(result[storageKey])
                 ? result[storageKey]
                 : {
                     type: "log",
@@ -839,7 +927,7 @@ class AES {
      * Registers a callback that fires when this AES instance loses page ownership.
      * @param {function(): void} callback
      */
-    static whenPageOwnershipLost(callback) {
+    static whenPageOwnershipLost(callback: () => void) {
         if (typeof callback !== "function") {
             return;
         }
@@ -851,29 +939,20 @@ class AES {
      * Marks elements as belonging to this AES instance.
      * @param {HTMLElement|Array|NodeList|jQuery} elements
      */
-    static markOwnedElements(elements) {
+    static markOwnedElements(elements: Node | ArrayLike<Node | null | undefined> | null | undefined) {
         if (!elements) {
             return;
         }
 
         const ownOwner = chrome.runtime.id;
         const ownVersion = AES.getVersion();
-        const mark = function(element) {
-            if (!element || !element.setAttribute) {
-                return;
-            }
+        const mark = function(element: Node | null | undefined) {
+            if (!(element instanceof Element)) return;
             element.setAttribute("data-aes-owner", ownOwner);
             element.setAttribute("data-aes-version", ownVersion);
         };
 
-        if (typeof elements.each === "function") {
-            elements.each(function() {
-                mark(this);
-            });
-            return;
-        }
-
-        if (Array.isArray(elements) || (typeof elements.length === "number" && elements !== window && !elements.nodeType)) {
+        if (!(elements instanceof Node)) {
             Array.from(elements).forEach(mark);
             return;
         }
@@ -891,7 +970,9 @@ class AES {
         });
     }
 
-    static #getPageControlMarker(createIfMissing) {
+    static #getPageControlMarker(createIfMissing: true): HTMLElement;
+    static #getPageControlMarker(createIfMissing: boolean): HTMLElement | null;
+    static #getPageControlMarker(createIfMissing: boolean): HTMLElement | null {
         let marker = document.getElementById("aes-page-control");
         if (!marker && createIfMissing) {
             marker = document.createElement("meta");
@@ -921,7 +1002,7 @@ class AES {
         AES.#refreshPageOwnership();
     }
 
-    static #installContentScriptErrorReporter(scriptName) {
+    static #installContentScriptErrorReporter(scriptName: string) {
         if (AES._contentScriptErrorReporterInstalled) {
             return;
         }
@@ -937,7 +1018,7 @@ class AES {
         });
     }
 
-    static #showFallbackError(message) {
+    static #showFallbackError(message: string) {
         const container = document.querySelector(".feedbackPanel") || document.createElement("ul");
         if (!container.classList.contains("feedbackPanel")) {
             container.className = "feedbackPanel";
@@ -960,7 +1041,7 @@ class AES {
         }, 12000);
     }
 
-    static #formatLogDate(date) {
+    static #formatLogDate(date: Date) {
         const year = String(date.getFullYear());
         const month = String(date.getMonth() + 1).padStart(2, "0");
         const day = String(date.getDate()).padStart(2, "0");

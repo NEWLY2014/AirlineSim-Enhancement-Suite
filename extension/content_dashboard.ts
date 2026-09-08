@@ -1,12 +1,46 @@
 "use strict";
+(() => {
 //MAIN
 //Global vars
-var settings, airline, server, todayDate;
-var dashboardControlPanelExpanded = {};
-var routeManagementFilterTimer = null;
-const dashboardStorage = globalThis.chrome?.storage?.local;
+let settings: AESModel.DashboardSettings, airline: AESModel.Airline, server: string, todayDate: ReturnType<typeof AES.getServerDate>;
+const dashboardControlPanelExpanded: Record<string, boolean> = {};
+let routeManagementFilterTimer: number | undefined;
+let dashboardRevision = 0;
+const nativeDashboardStorage = globalThis.chrome?.storage?.local;
+const dashboardStorage = {
+    get(keys: string | string[] | Record<string, unknown> | null, callback: (items: Record<string, unknown>) => void) {
+        const revision = dashboardRevision;
+        if (!AES.isPageOwner()) return;
+        nativeDashboardStorage.get(keys, result => {
+            if (!dashboardCallbackSucceeded(revision)) return;
+            AES.tryRun('content_dashboard', () => callback(result));
+        });
+    },
+    set(values: Record<string, unknown>, callback: () => void) {
+        const revision = dashboardRevision;
+        if (!AES.isPageOwner()) return;
+        nativeDashboardStorage.set(values, () => {
+            if (dashboardCallbackSucceeded(revision)) AES.tryRun('content_dashboard', callback);
+        });
+    },
+    remove(keys: string[], callback: () => void) {
+        const revision = dashboardRevision;
+        if (!AES.isPageOwner()) return;
+        nativeDashboardStorage.remove(keys, () => {
+            if (dashboardCallbackSucceeded(revision)) AES.tryRun('content_dashboard', callback);
+        });
+    }
+};
+function dashboardCallbackSucceeded(revision?: number) {
+    const error = chrome.runtime.lastError;
+    if (error) {
+        AES.reportContentScriptError('content_dashboard', new Error(error.message));
+        return false;
+    }
+    return AES.isPageOwner() && (revision === undefined || revision === dashboardRevision);
+}
 const DASHBOARD_SCRIPT_ENABLED = AES.runContentScript("content_dashboard", function() {
-    if (!dashboardStorage) {
+    if (!nativeDashboardStorage) {
         throw new Error("chrome.storage.local is unavailable");
     }
     AES.waitForElement("#enterprise-dashboard", function() {
@@ -19,6 +53,7 @@ const DASHBOARD_SCRIPT_ENABLED = AES.runContentScript("content_dashboard", funct
 
 if (DASHBOARD_SCRIPT_ENABLED) {
     AES.whenPageOwnershipLost(function() {
+        dashboardRevision++;
         clearTimeout(routeManagementFilterTimer);
         $("#aes-dashboard-root").remove();
     });
@@ -31,10 +66,11 @@ function initializeDashboard() {
     server = AES.getServerName();
     dashboardStorage.get(['settings'], function(result) {
         AES.tryRun("content_dashboard", function() {
-            settings = result.settings || {};
+            settings = readDashboardSettings(result.settings);
             let settingsInitialized = ensureDashboardSettings();
             let filterScopeChanged = normalizeDashboardFilterScope();
 
+            const initializedSettings = settings;
             displayDashboard();
             AES.markOwnedElements($("#aes-dashboard-root"))
             dashboardHandle();
@@ -42,20 +78,20 @@ function initializeDashboard() {
                 dashboardHandle();
             });
             if (settingsInitialized || filterScopeChanged) {
-                AES.updateSettings(function(currentSettings) {
-                    currentSettings.general = settings.general;
-                    currentSettings.routeManagement = currentSettings.routeManagement || {};
+                updateDashboardSettings(function(currentSettings) {
+                    currentSettings.general = initializedSettings.general;
+                    currentSettings.routeManagement = currentSettings.routeManagement || getDefaultRouteManagementSettings();
                     if (!currentSettings.competitorMonitoring || typeof currentSettings.competitorMonitoring != 'object' || Array.isArray(currentSettings.competitorMonitoring)) {
-                        currentSettings.competitorMonitoring = {};
+                        currentSettings.competitorMonitoring = {tableColumns: [], filter: []};
                     }
-                    currentSettings.aircraftProfitability = currentSettings.aircraftProfitability || {};
-                    currentSettings.general.dashboardFilterScopeKey = settings.general.dashboardFilterScopeKey;
-                    currentSettings.routeManagement.tableColumns = settings.routeManagement.tableColumns;
-                    currentSettings.routeManagement.filter = settings.routeManagement.filter;
-                    currentSettings.competitorMonitoring.tableColumns = settings.competitorMonitoring.tableColumns;
-                    currentSettings.competitorMonitoring.filter = settings.competitorMonitoring.filter;
-                    currentSettings.competitorMonitoring.migrationFlags = settings.competitorMonitoring.migrationFlags;
-                    currentSettings.aircraftProfitability.filter = settings.aircraftProfitability.filter;
+                    currentSettings.aircraftProfitability = currentSettings.aircraftProfitability || {filter: [], hideColumn: []};
+                    currentSettings.general.dashboardFilterScopeKey = initializedSettings.general.dashboardFilterScopeKey;
+                    currentSettings.routeManagement.tableColumns = initializedSettings.routeManagement.tableColumns;
+                    currentSettings.routeManagement.filter = initializedSettings.routeManagement.filter;
+                    currentSettings.competitorMonitoring.tableColumns = initializedSettings.competitorMonitoring.tableColumns;
+                    currentSettings.competitorMonitoring.filter = initializedSettings.competitorMonitoring.filter;
+                    currentSettings.competitorMonitoring.migrationFlags = initializedSettings.competitorMonitoring.migrationFlags;
+                    currentSettings.aircraftProfitability.filter = initializedSettings.aircraftProfitability.filter;
                 }, function(updatedSettings) {
                     settings = updatedSettings;
                 });
@@ -95,7 +131,7 @@ function displayDashboard() {
     let normalizedDefaultDashboard = normalizeDashboardTab(settings.general.defaultDashboard);
     if (normalizedDefaultDashboard != settings.general.defaultDashboard) {
         settings.general.defaultDashboard = normalizedDefaultDashboard;
-        AES.updateSettings(function(currentSettings) {
+        updateDashboardSettings(function(currentSettings) {
             currentSettings.general.defaultDashboard = normalizedDefaultDashboard;
         }, function(updatedSettings) {
             settings = updatedSettings;
@@ -108,7 +144,7 @@ function dashboardHandle() {
     let value = normalizeDashboardTab($("#aes-select-dashboard-main").val());
     $("#aes-select-dashboard-main").val(value);
     settings.general.defaultDashboard = value;
-    AES.updateSettings(function(currentSettings) {
+    updateDashboardSettings(function(currentSettings) {
         currentSettings.general.defaultDashboard = value;
     }, function(updatedSettings) {
         settings = updatedSettings;
@@ -131,9 +167,9 @@ function dashboardHandle() {
     }
 }
 
-function normalizeDashboardTab(value) {
+function normalizeDashboardTab(value: unknown) {
     let allowed = ['general', 'routeManagement', 'competitorMonitoring', 'aircraftProfitability'];
-    return allowed.indexOf(value) != -1 ? value : 'general';
+    return typeof value === 'string' && allowed.indexOf(value) != -1 ? value : 'general';
 }
 
 function ensureDashboardSettings() {
@@ -173,7 +209,7 @@ function normalizeDashboardFilterScope() {
         changed = true;
     }
     if (!settings.aircraftProfitability) {
-        settings.aircraftProfitability = {};
+        settings.aircraftProfitability = {filter: [], hideColumn: []};
         changed = true;
     }
 
@@ -200,7 +236,7 @@ function normalizeDashboardFilterScope() {
     return changed;
 }
 
-function buildDashboardControlPanel(title, summary, content, expanded) {
+function buildDashboardControlPanel(title: string, summary: string, content: JQuery, expanded: boolean) {
     let activeDashboard = $("#aes-select-dashboard-main").val() || 'dashboard';
     let panelStateKey = activeDashboard + ':' + title;
     if (dashboardControlPanelExpanded[panelStateKey] !== undefined) {
@@ -224,10 +260,13 @@ function buildDashboardControlPanel(title, summary, content, expanded) {
     return $('<fieldset class="aes-dashboard-control-panel"></fieldset>').append(legend, body);
 }
 
-function buildDashboardColumnsPicker(columns, options) {
-    let groups = {};
+function buildDashboardColumnsPicker<C extends object>(columns: C[], options: {
+    groupField: keyof C; valueField: keyof C; visibleField: keyof C; labelField: keyof C;
+    onChange: (column: C, checked: boolean) => void;
+}) {
+    let groups: Record<string, C[]> = {};
     columns.forEach(function(col) {
-        let group = col[options.groupField] || 'Columns';
+        let group = String(col[options.groupField] || 'Columns');
         if (!groups[group]) {
             groups[group] = [];
         }
@@ -241,13 +280,13 @@ function buildDashboardColumnsPicker(columns, options) {
         let grid = $('<div class="aes-dashboard-column-grid"></div>');
 
         groups[group].forEach(function(col) {
-            let input = $('<input type="checkbox">').val(col[options.valueField]);
+            let input = $('<input type="checkbox">').val(String(col[options.valueField] || ''));
             input.prop('checked', !!col[options.visibleField]);
             input.change(function() {
-                options.onChange(col, this.checked);
+                options.onChange(col, $(this).prop('checked'));
             });
 
-            grid.append($('<label class="aes-dashboard-column-choice"></label>').append(input, $('<span></span>').html(col[options.labelField])));
+            grid.append($('<label class="aes-dashboard-column-choice"></label>').append(input, $('<span></span>').html(String(col[options.labelField] || ''))));
         });
 
         groupDiv.append(grid);
@@ -257,11 +296,11 @@ function buildDashboardColumnsPicker(columns, options) {
     return content;
 }
 
-function getDashboardColumnClass(columnPrefix, column) {
+function getDashboardColumnClass(columnPrefix: string, column: AESModel.DashboardColumn) {
     return column.className || column.cellClass || (columnPrefix + column.data);
 }
 
-function formatDashboardCell(type, value) {
+function formatDashboardCell(type: string | undefined, value: AESModel.DashboardScalar | JQuery) {
     if (value === undefined || value === null || value === '') {
         return '';
     }
@@ -273,18 +312,18 @@ function formatDashboardCell(type, value) {
             }
             let span = $('<span></span>');
             let text = '';
-            if (value > 0) {
+            if (Number(value) > 0) {
                 span.addClass('good');
                 text = '+';
             }
-            if (value < 0) {
+            if (Number(value) < 0) {
                 span.addClass('bad');
             }
-            span.text(text + new Intl.NumberFormat().format(value) + ' AS$');
+            span.text(text + new Intl.NumberFormat().format(Number(value)) + ' AS$');
             return span;
         }
         case 'scheduleState': {
-            let span = $('<span></span>').text(value);
+            let span = $('<span></span>').text(String(value));
             switch (value) {
                 case 'Active':
                     span.addClass('good');
@@ -299,16 +338,16 @@ function formatDashboardCell(type, value) {
             return span;
         }
         default:
-            return value;
+            return typeof value === 'object' ? value : String(value);
     }
 }
 
-function sortDashboardTable(table, columnClass, number) {
-    let tableRows = $('tbody tr', table);
+function sortDashboardTable(table: JQuery, columnClass: string, number: boolean | number | undefined) {
+    let tableRows = $('tbody tr', table).toArray();
     let tableBody = $('tbody', table);
     tableBody.empty();
-    let indexes = [];
-    tableRows.each(function() {
+    let indexes: Array<string | number> = [];
+    $(tableRows).each(function() {
         if (number) {
             let value = parseDashboardNumber($(this).find("." + columnClass).text());
             indexes.push(isNaN(value) ? 0 : value);
@@ -347,7 +386,7 @@ function sortDashboardTable(table, columnClass, number) {
     for (let i = 0; i < sorted.length; i++) {
         for (let j = tableRows.length - 1; j >= 0; j--) {
             let value = number ? parseDashboardNumber($(tableRows[j]).find("." + columnClass).text()) : $(tableRows[j]).find("." + columnClass).text();
-            if (number && isNaN(value)) {
+            if (number && Number.isNaN(value)) {
                 value = 0;
             }
             if (value == sorted[i]) {
@@ -358,7 +397,7 @@ function sortDashboardTable(table, columnClass, number) {
     }
 }
 
-function buildDashboardTable(options) {
+function buildDashboardTable(options: AESModel.DashboardTableOptions) {
     let tableHtml = $('<table class="table table-bordered table-striped table-hover"></table>');
     if (options.tableId) {
         tableHtml.attr('id', options.tableId);
@@ -367,7 +406,7 @@ function buildDashboardTable(options) {
     let visibleColumns = options.columns.filter(function(column) {
         return column.visible;
     });
-    let categoryCounts = {};
+    let categoryCounts: Record<string, number> = {};
     visibleColumns.forEach(function(column) {
         let category = column.category || 'Columns';
         if (!categoryCounts[category]) {
@@ -377,11 +416,11 @@ function buildDashboardTable(options) {
     });
 
     let categoryCells = [];
-    let headerCells = [];
+    let headerCells: Array<string | JQuery> = [];
     if (options.selectable) {
         let checkbox = $('<input type="checkbox">');
         checkbox.change(function() {
-            setVisibleDashboardRowsChecked(tableHtml, this.checked);
+            setVisibleDashboardRowsChecked(tableHtml, $(this).prop('checked'));
         });
         categoryCells.push($('<th rowspan="2"></th>').append(checkbox));
     }
@@ -397,7 +436,7 @@ function buildDashboardTable(options) {
             sort.click(function() {
                 sortDashboardTable(tableHtml, columnClass, column.number);
             });
-            headerCells.push($('<th style="cursor: pointer;"></th>').html(sort));
+            headerCells.push($('<th style="cursor: pointer;"></th>').append(sort));
         } else {
             headerCells.push($('<th></th>').html(column.title));
         }
@@ -405,16 +444,16 @@ function buildDashboardTable(options) {
 
     let headRows = [];
     if (Object.keys(categoryCounts).length) {
-        headRows.push($('<tr></tr>').append(categoryCells));
-        headRows.push($('<tr></tr>').append(headerCells));
+        headRows.push($('<tr></tr>').append(...categoryCells));
+        headRows.push($('<tr></tr>').append(...headerCells));
     } else {
         if (options.selectable) {
             headerCells.unshift($('<th></th>'));
         }
-        headRows.push($('<tr></tr>').append(headerCells));
+        headRows.push($('<tr></tr>').append(...headerCells));
     }
 
-    let bodyRows = [];
+    let bodyRows: Array<string | JQuery> = [];
     options.data.forEach(function(rowData) {
         let cells = [];
         if (options.selectable) {
@@ -423,24 +462,25 @@ function buildDashboardTable(options) {
         visibleColumns.forEach(function(column) {
             let value = column.render ? column.render(rowData) : rowData[column.data];
             let td = $('<td></td>').addClass(getDashboardColumnClass(options.columnPrefix || '', column));
-            td.html(column.format ? formatDashboardCell(column.format, value) : value);
+            td.append(column.format ? formatDashboardCell(column.format, value) : (typeof value === 'object' && value !== null ? value : String(value ?? '')));
             cells.push(td);
         });
 
-        let row = $('<tr></tr>').append(cells);
+        let row = $('<tr></tr>').append(...cells);
         if (options.rowId) {
-            row.attr('id', options.rowId(rowData));
+            const id = options.rowId(rowData);
+            if (id != null) row.attr('id', String(id));
         }
-        row.data('aesDashboardRowData', rowData);
+        dashboardRows.set(row[0], rowData);
         bodyRows.push(row);
     });
 
-    let thead = $('<thead></thead>').append(headRows);
-    let tbody = $('<tbody></tbody>').append(bodyRows);
+    let thead = $('<thead></thead>').append(...headRows);
+    let tbody = $('<tbody></tbody>').append(...bodyRows);
     tableHtml.append(thead, tbody);
     if (options.footer) {
         tableHtml.append(buildDashboardTableFooter(options, visibleColumns));
-        tableHtml.data('aesDashboardFooterColumns', visibleColumns);
+        footerColumns.set(tableHtml[0], visibleColumns);
         tableHtml.data('aesDashboardColumnPrefix', options.columnPrefix || '');
         updateDashboardTableFooter(tableHtml);
     }
@@ -451,7 +491,7 @@ function buildDashboardTable(options) {
     };
 }
 
-function buildDashboardTableFooter(options, visibleColumns) {
+function buildDashboardTableFooter(options: AESModel.DashboardTableOptions, visibleColumns: AESModel.DashboardColumn[]) {
     let cells = [];
     if (options.selectable) {
         cells.push('<th>Average</th>');
@@ -466,18 +506,18 @@ function buildDashboardTableFooter(options, visibleColumns) {
         cells.push($('<td></td>'));
     });
 
-    return $('<tfoot></tfoot>').append($('<tr></tr>').append(cells));
+    return $('<tfoot></tfoot>').append($('<tr></tr>').append(...cells));
 }
 
-function parseDashboardNumber(value) {
+function parseDashboardNumber(value: unknown) {
     if (value === undefined || value === null) {
         return NaN;
     }
     return parseFloat(String(value).replace(/,/g, '').replace(/[^0-9.-]/g, ''));
 }
 
-function updateDashboardTableFooter(table) {
-    let columns = table.data('aesDashboardFooterColumns');
+function updateDashboardTableFooter(table: JQuery) {
+    let columns: AESModel.DashboardColumn[] | undefined = footerColumns.get(table[0]);
     if (!columns) {
         return;
     }
@@ -489,10 +529,10 @@ function updateDashboardTableFooter(table) {
         return column.number && !column.id && column.aggregate !== false ? { total: 0, count: 0 } : null;
     });
     let tableElement = table[0];
-    let tbody = tableElement && tableElement.tBodies ? tableElement.tBodies[0] : null;
+    let tbody = tableElement instanceof HTMLTableElement ? tableElement.tBodies[0] : null;
 
     if (tbody) {
-        Array.prototype.forEach.call(tbody.rows, function(row) {
+        Array.from(tbody.rows).forEach(function(row) {
             if (!isDashboardRowVisible(row)) {
                 return;
             }
@@ -521,11 +561,11 @@ function updateDashboardTableFooter(table) {
 
         let result = aggregate.total / aggregate.count;
         result = Math.round(result * 10) / 10;
-        footerCell.html(formatDashboardCell(column.format, result));
+        footerCell.empty().append(formatDashboardCell(column.format, result));
     });
 }
 
-function applyDashboardTableFilters(table, filters, columns, filterValueField, columnPrefix) {
+function applyDashboardTableFilters(table: JQuery, filters: AESModel.DashboardFilter[], columns: AESModel.DashboardColumn[], filterValueField: string, columnPrefix = '') {
     $('tbody tr', table).show();
     $('tbody tr', table).each(function() {
         let row = this;
@@ -538,8 +578,8 @@ function applyDashboardTableFilters(table, filters, columns, filterValueField, c
                 return;
             }
 
-            let cell = $(row).find("." + getDashboardColumnClass(columnPrefix || '', column)).text();
-            let value = filter.value;
+            let cell: string | number = $(row).find("." + getDashboardColumnClass(columnPrefix || '', column)).text();
+            let value: string | number = filter.value;
             if (column.number) {
                 cell = cell ? parseDashboardNumber(cell) : 0;
                 value = value ? parseDashboardNumber(value) : 0;
@@ -567,12 +607,12 @@ function applyDashboardTableFilters(table, filters, columns, filterValueField, c
     updateDashboardTableFooter(table);
 }
 
-function normalizeDashboardFilters(filters, columns, preferredValueField, preferredLabelField) {
+function normalizeDashboardFilters(filters: unknown, columns: AESModel.DashboardColumn[], preferredValueField: string, preferredLabelField: string) {
     if (!Array.isArray(filters)) {
         return [];
     }
 
-    return filters.map(function(filter) {
+    return filters.filter(AES.isRecord).map(function(filter) {
         let candidates = [
             filter ? filter[preferredValueField] : undefined,
             filter ? filter.filterValue : undefined,
@@ -583,7 +623,7 @@ function normalizeDashboardFilters(filters, columns, preferredValueField, prefer
             return value !== undefined && value !== null && value !== '' && array.indexOf(value) === index;
         });
 
-        let column = null;
+        let column: AESModel.DashboardColumn | undefined;
         candidates.some(function(candidate) {
             column = columns.find(function(col) {
                 return col.filterValue == candidate || col.data == candidate || col.className == candidate;
@@ -613,45 +653,45 @@ function normalizeDashboardFilters(filters, columns, preferredValueField, prefer
         }
 
         return {
-            [preferredValueField]: column.filterValue || column.data || column.className,
+            [preferredValueField]: column.filterValue || column.data || column.className || '',
             [preferredLabelField]: column.title || column.text || column.name || '',
-            operation: filter.operation || '=',
-            value: filter.value === undefined || filter.value === null ? '' : filter.value
+            operation: String(filter.operation || '='),
+            value: String(filter.value ?? '')
         };
     }).filter(function(filter) {
-        return !!filter;
+        return filter !== null;
     });
 }
 
-function buildDashboardFilterPanel(options) {
-    let rows = [];
+function buildDashboardFilterPanel(options: AESModel.DashboardFilterPanelOptions) {
+    let rows: JQuery[] = [];
     options.filters = options.filters || [];
     options.filters.forEach(function(filter) {
         rows.push($('<tr></tr>').append(addFilterRow(filter[options.valueField], filter[options.labelField], filter.operation, filter.value)));
     });
 
-    let tbody = $('<tbody></tbody>').append(rows);
-    let columnOptions = [];
+    let tbody = $('<tbody></tbody>').append(...rows);
+    let columnOptions: Array<string | JQuery> = [];
     options.columns.filter(function(column) {
         return column.filterable !== false;
     }).forEach(function(column) {
         columnOptions.push('<option value="' + (column.filterValue || column.data) + '">' + column.title + '</option>');
     });
-    let columnSelect = $('<select class="form-control"></select>').append(columnOptions);
+    let columnSelect = $('<select class="form-control"></select>').append(...columnOptions);
     let operationSelect = $('<select class="form-control"></select>');
     updateOperationOptions();
     columnSelect.change(updateOperationOptions);
     let input = $('<input type="text" class="form-control" style="min-width: 50px;">');
     let addBtn = $('<button type="button" class="btn btn-default"></button>').text('Add');
     addBtn.click(function() {
-        tbody.append($('<tr></tr>').append(addFilterRow($('option:selected', columnSelect).val(), $('option:selected', columnSelect).text(), $('option:selected', operationSelect).text(), input.val())));
+        tbody.append($('<tr></tr>').append(addFilterRow(String($('option:selected', columnSelect).val() || ''), $('option:selected', columnSelect).text(), $('option:selected', operationSelect).text(), String(input.val() || ''))));
         updateSummary();
     });
 
     let tfoot = $('<tfoot></tfoot>').append($('<tr></tr>').append(
-        $('<td></td>').html(columnSelect),
-        $('<td class="aes-dashboard-filter-operation"></td>').html(operationSelect),
-        $('<td></td>').html(input),
+        $('<td></td>').append(columnSelect),
+        $('<td class="aes-dashboard-filter-operation"></td>').append(operationSelect),
+        $('<td></td>').append(input),
         $('<td></td>').append(addBtn)
     ));
     let table = $('<table class="table table-bordered table-striped table-hover"></table>').append(
@@ -675,7 +715,7 @@ function buildDashboardFilterPanel(options) {
     updateSummary();
     return panel;
 
-    function addFilterRow(titleCode, title, operation, value) {
+    function addFilterRow(titleCode: string, title: string, operation: string, value: string) {
         let deleteBtn = $('<button type="button" class="btn btn-xs btn-default">Remove</button>');
         deleteBtn.click(function() {
             $(this).closest("tr").remove();
@@ -696,7 +736,7 @@ function buildDashboardFilterPanel(options) {
         return $('tbody tr', table).map(function() {
             let cells = $(this).children('td');
             return {
-                [options.valueField]: cells.eq(0).find('input[type="hidden"]').val(),
+                [options.valueField]: String(cells.eq(0).find('input[type="hidden"]').val() || ''),
                 [options.labelField]: cells.eq(0).text(),
                 operation: cells.eq(1).text(),
                 value: cells.eq(2).text()
@@ -720,7 +760,7 @@ function buildDashboardFilterPanel(options) {
         } else if (typeof operations == 'function') {
             operations = operations(selectedColumn);
         }
-        let currentOperation = operationSelect.val();
+        let currentOperation = String(operationSelect.val() || '');
         operationSelect.empty().append(operations.map(function(operation) {
             return $('<option></option>').text(operation);
         }));
@@ -730,7 +770,7 @@ function buildDashboardFilterPanel(options) {
     }
 }
 
-function buildGeneratedDashboardTableSettings(tableOptionsRule, table) {
+function buildGeneratedDashboardTableSettings(tableOptionsRule: AESModel.DashboardGeneratedTableOptions, table: JQuery) {
     if (!tableOptionsRule.tableSettings) {
         return '';
     }
@@ -745,7 +785,7 @@ function buildGeneratedDashboardTableSettings(tableOptionsRule, table) {
         onApply: function(filter, status) {
             status.removeClass('good bad warning').addClass('warning').text('Saving...');
             settings[tableOptionsRule.tableSettingStorage].filter = filter;
-            AES.updateSettings(function(currentSettings) {
+            updateDashboardSettings(function(currentSettings) {
                 currentSettings[tableOptionsRule.tableSettingStorage].filter = filter;
             }, function(updatedSettings) {
                 settings = updatedSettings;
@@ -757,10 +797,10 @@ function buildGeneratedDashboardTableSettings(tableOptionsRule, table) {
     })));
     divCol.push($('<div class="col-md-4"></div>').append(buildGeneratedDashboardColumns(tableOptionsRule)));
 
-    return $('<div class="row aes-dashboard-controls"></div>').append(divCol);
+    return $('<div class="row aes-dashboard-controls"></div>').append(...divCol);
 }
 
-function buildGeneratedDashboardActions(tableOptionsRule, table) {
+function buildGeneratedDashboardActions(tableOptionsRule: AESModel.DashboardGeneratedTableOptions, table: JQuery) {
     let div = $('<div class="btn-group aes-dashboard-control-actions"></div>');
     tableOptionsRule.options.forEach(function(value) {
         let action = buildGeneratedDashboardAction(value, tableOptionsRule, table);
@@ -771,7 +811,7 @@ function buildGeneratedDashboardActions(tableOptionsRule, table) {
     return buildDashboardControlPanel('Actions', '', div, true);
 }
 
-function buildGeneratedDashboardAction(value, tableOptionsRule, table) {
+function buildGeneratedDashboardAction(value: string, tableOptionsRule: AESModel.DashboardGeneratedTableOptions, table: JQuery) {
     switch (value) {
         case 'selectFirstSix':
             return $('<button type="button" class="btn btn-default">Select first 6</button>').click(function() {
@@ -834,13 +874,15 @@ function buildGeneratedDashboardAction(value, tableOptionsRule, table) {
 
                 let fleetKey = server + airline.id + 'aircraftFleet';
                 dashboardStorage.get(fleetKey, function(result) {
-                    let storedFleetData = result[fleetKey];
-                    storedFleetData.fleet = storedFleetData.fleet.filter(function(value) {
+                    const rawFleetData = result[fleetKey];
+                    if (!AES.isRecord(rawFleetData) || !Array.isArray(rawFleetData.fleet)) return;
+                    const storedFleetData = { ...rawFleetData, fleet: rawFleetData.fleet.filter(function(value: unknown) {
+                        if (!AES.isFleetAircraft(value)) return true;
                         if (value.aircraftId) {
                             return aircraftIds.map(String).indexOf(String(value.aircraftId)) == -1;
                         }
                         return registrations.indexOf(value.registration) == -1;
-                    });
+                    }) };
                     dashboardStorage.set({ [fleetKey]: storedFleetData }, function() {
                         removeCheckedDashboardRows(table);
                         updateDashboardTableFooter(table);
@@ -859,12 +901,12 @@ function buildGeneratedDashboardAction(value, tableOptionsRule, table) {
     }
 }
 
-function getSelectedDashboardRows(table) {
-    let selectedRows = [];
+function getSelectedDashboardRows(table: JQuery) {
+    let selectedRows: AESModel.DashboardRow[] = [];
     forEachDashboardRow(table, function(row) {
-        let checkbox = row.querySelector('input[type="checkbox"]');
+        let checkbox = row.querySelector<HTMLInputElement>('input[type="checkbox"]');
         if (isDashboardRowVisible(row) && checkbox && checkbox.checked) {
-            let rowData = $(row).data('aesDashboardRowData');
+            let rowData = dashboardRows.get(row);
             if (rowData) {
                 selectedRows.push(rowData);
             }
@@ -873,16 +915,16 @@ function getSelectedDashboardRows(table) {
     return selectedRows;
 }
 
-function removeCheckedDashboardRows(table) {
+function removeCheckedDashboardRows(table: JQuery) {
     let tableElement = table && table[0];
-    let tbody = tableElement && tableElement.tBodies ? tableElement.tBodies[0] : null;
+    let tbody = tableElement instanceof HTMLTableElement ? tableElement.tBodies[0] : null;
     if (!tbody) {
         return;
     }
 
-    let rowsToRemove = [];
-    Array.prototype.forEach.call(tbody.rows, function(row) {
-        let checkbox = row.querySelector('input[type="checkbox"]');
+    let rowsToRemove: HTMLTableRowElement[] = [];
+    Array.from(tbody.rows).forEach(function(row) {
+        let checkbox = row.querySelector<HTMLInputElement>('input[type="checkbox"]');
         if (isDashboardRowVisible(row) && checkbox && checkbox.checked) {
             rowsToRemove.push(row);
         }
@@ -899,26 +941,26 @@ function removeCheckedDashboardRows(table) {
     tableElement.insertBefore(tbody, nextSibling);
 }
 
-function forEachDashboardRow(table, callback) {
+function forEachDashboardRow(table: JQuery, callback: (row: HTMLTableRowElement) => void) {
     let tableElement = table && table[0];
-    let tbody = tableElement && tableElement.tBodies ? tableElement.tBodies[0] : null;
+    let tbody = tableElement instanceof HTMLTableElement ? tableElement.tBodies[0] : null;
     if (!tbody) {
         return;
     }
-    Array.prototype.forEach.call(tbody.rows, callback);
+    Array.from(tbody.rows).forEach(callback);
 }
 
-function isDashboardRowVisible(row) {
+function isDashboardRowVisible(row: HTMLTableRowElement) {
     return row.style.display !== 'none' && !row.hidden;
 }
 
-function setVisibleDashboardRowsChecked(table, checked, limit) {
+function setVisibleDashboardRowsChecked(table: JQuery, checked: boolean, limit?: number) {
     let updated = 0;
     forEachDashboardRow(table, function(row) {
         if (!isDashboardRowVisible(row) || (limit !== undefined && updated >= limit)) {
             return;
         }
-        let checkbox = row.querySelector('input[type="checkbox"]');
+        let checkbox = row.querySelector<HTMLInputElement>('input[type="checkbox"]');
         if (checkbox) {
             checkbox.checked = checked;
             updated++;
@@ -926,7 +968,7 @@ function setVisibleDashboardRowsChecked(table, checked, limit) {
     });
 }
 
-function buildGeneratedDashboardColumns(tableOptionsRule) {
+function buildGeneratedDashboardColumns(tableOptionsRule: AESModel.DashboardGeneratedTableOptions) {
     let visibleCount = tableOptionsRule.column.filter(function(col) {
         return col.visible;
     }).length;
@@ -949,7 +991,7 @@ function buildGeneratedDashboardColumns(tableOptionsRule) {
 
             tableOptionsRule.hideColumn = newHideColumns;
             settings[tableOptionsRule.tableSettingStorage].hideColumn = tableOptionsRule.hideColumn;
-            AES.updateSettings(function(currentSettings) {
+            updateDashboardSettings(function(currentSettings) {
                 currentSettings[tableOptionsRule.tableSettingStorage].hideColumn = tableOptionsRule.hideColumn;
             }, function(updatedSettings) {
                 settings = updatedSettings;
@@ -964,8 +1006,10 @@ function buildGeneratedDashboardColumns(tableOptionsRule) {
 
 //Route Management Dashboard
 function displayRouteManagement() {
+    if (!AES.isPageOwner()) return;
+    dashboardRevision++;
     if (ensureRouteManagementSettings()) {
-        AES.updateSettings(function(currentSettings) {
+        updateDashboardSettings(function(currentSettings) {
             currentSettings.routeManagement = settings.routeManagement;
         }, function(updatedSettings) {
             settings = updatedSettings;
@@ -981,7 +1025,7 @@ function displayRouteManagement() {
     //Get schedule
     let scheduleKey = server + airline.id + 'schedule';
     dashboardStorage.get([scheduleKey], function(result) {
-        let scheduleData = result[scheduleKey];
+        let scheduleData = readDashboardSchedule(result[scheduleKey]);
         if (scheduleData) {
             // Table
             generateRouteManagementTable(scheduleData);
@@ -1217,7 +1261,7 @@ function ensureRouteManagementSettings() {
         return changed;
     }
 
-    const existingColumnsByClass = {};
+    const existingColumnsByClass: Record<string, AESModel.DashboardRouteColumn> = {};
     previousColumns.forEach(function(column) {
         existingColumnsByClass[column.class] = column;
     });
@@ -1230,12 +1274,8 @@ function ensureRouteManagementSettings() {
             return;
         }
 
-        ['name', 'number', 'value'].forEach(function(field) {
-            if (existingColumn[field] === undefined && defaultColumn[field] !== undefined) {
-                existingColumn[field] = defaultColumn[field];
-                changed = true;
-            }
-        });
+        if (existingColumn.number === undefined) { existingColumn.number = defaultColumn.number; changed = true; }
+        if (existingColumn.value === undefined) { existingColumn.value = defaultColumn.value; changed = true; }
         if (existingColumn.show === undefined) {
             existingColumn.show = defaultColumn.show;
             changed = true;
@@ -1311,7 +1351,7 @@ function scheduleRouteManagementApplyFilter() {
         window.clearTimeout(routeManagementFilterTimer);
     }
     routeManagementFilterTimer = window.setTimeout(function() {
-        routeManagementFilterTimer = null;
+        routeManagementFilterTimer = undefined;
         routeManagementApplyFilter();
     }, 60);
 }
@@ -1344,7 +1384,7 @@ function displayRouteManagementFilters() {
             onApply: function(filter, status) {
                 status.removeClass('good bad warning').addClass('warning').text('Saving...');
                 settings.routeManagement.filter = filter;
-                AES.updateSettings(function(currentSettings) {
+                updateDashboardSettings(function(currentSettings) {
                     currentSettings.routeManagement = currentSettings.routeManagement || getDefaultRouteManagementSettings();
                     currentSettings.routeManagement.filter = filter;
                 }, function(updatedSettings) {
@@ -1359,7 +1399,7 @@ function displayRouteManagementFilters() {
     return div;
 }
 
-function displayRouteManagementColumns(scheduleData) {
+function displayRouteManagementColumns(scheduleData: AESModel.DashboardSchedule) {
     let visibleCount = settings.routeManagement.tableColumns.filter(function(col) {
         return col.show;
     }).length;
@@ -1377,7 +1417,9 @@ function displayRouteManagementColumns(scheduleData) {
         visibleField: 'show',
         onChange: function(col, checked) {
             col.source.show = checked ? 1 : 0;
-            AES.updateSettings(function(currentSettings) {
+            const currentColumn = settings.routeManagement.tableColumns.find(column => column.class === col.source.class);
+            if (currentColumn) currentColumn.show = checked ? 1 : 0;
+            updateDashboardSettings(function(currentSettings) {
                 currentSettings.routeManagement = currentSettings.routeManagement || getDefaultRouteManagementSettings();
                 currentSettings.routeManagement.tableColumns = settings.routeManagement.tableColumns;
             }, function(updatedSettings) {
@@ -1392,7 +1434,7 @@ function displayRouteManagementColumns(scheduleData) {
     return div;
 }
 
-function generateRouteManagementTable(scheduleData) {
+function generateRouteManagementTable(scheduleData: AESModel.DashboardSchedule) {
     try {
         renderRouteManagementTable(scheduleData);
     } catch (error) {
@@ -1401,7 +1443,7 @@ function generateRouteManagementTable(scheduleData) {
     }
 }
 
-function renderRouteManagementTable(scheduleData) {
+function renderRouteManagementTable(scheduleData: AESModel.DashboardSchedule) {
     //Remove table
     $('#aes-div-routeManagement').remove();
     if (!scheduleData || !scheduleData.date) {
@@ -1416,7 +1458,7 @@ function renderRouteManagementTable(scheduleData) {
         }
     }
     dates.sort(function(a, b) {
-        return b - a;
+        return Number(b) - Number(a);
     });
     if (!dates.length || !scheduleData.date[dates[0]] || !Array.isArray(scheduleData.date[dates[0]].schedule)) {
         renderRouteManagementMessage('No valid schedule data in memory. Extract schedule data again from the General dashboard.');
@@ -1425,8 +1467,8 @@ function renderRouteManagementTable(scheduleData) {
     //LatestSchedule
     let schedule = scheduleData.date[dates[0]].schedule;
     //Generate table rows
-    let uniqueOD = [];
-    let data = [];
+    let uniqueOD: string[] = [];
+    let data: AESModel.DashboardRow[] = [];
     schedule.forEach(function(od) {
         if (!od || !od.od || !od.origin || !od.destination || !od.flightNumber) {
             return;
@@ -1484,12 +1526,12 @@ function renderRouteManagementTable(scheduleData) {
         dashboardStorage.get([keyOutbound], function(outboundData) {
             dashboardStorage.get([keyInbound], function(inboundData) {
                 try {
-                    let outAnalysis = outboundData[keyOutbound];
-                    let inAnalysis = inboundData[keyInbound];
+                    let outAnalysis = readDashboardAnalysis(outboundData[keyOutbound]);
+                    let inAnalysis = readDashboardAnalysis(inboundData[keyInbound]);
                     let outDates = outAnalysis ? getRouteAnalysisImportantDates(outAnalysis.date) : null;
                     let inDates = inAnalysis ? getRouteAnalysisImportantDates(inAnalysis.date) : null;
                     //Route index
-                    let routeIndex = {};
+                    let routeIndex: Record<string, number> = {};
                     if (outAnalysis && inAnalysis && outDates && inDates) {
                         let outAnalysisRecord = outDates.analysis && outAnalysis.date ? outAnalysis.date[outDates.analysis] : null;
                         let inAnalysisRecord = inDates.analysis && inAnalysis.date ? inAnalysis.date[inDates.analysis] : null;
@@ -1515,72 +1557,72 @@ function renderRouteManagementTable(scheduleData) {
     }
 }
 
-function renderRouteManagementMessage(message) {
+function renderRouteManagementMessage(message: string) {
     $('#aes-div-routeManagement').remove();
     let divTable = $('<div id="aes-div-routeManagement"></div>').append($('<p class="warning"></p>').text(message));
     $('#aes-div-dashboard-routeManagement').append(divTable);
 }
 
-function updateRouteAnalysisColumns(data, dates, routeIndex) {
+function updateRouteAnalysisColumns(data: AESModel.DashboardAnalysis | null, dates: AESModel.DashboardAnalysisDates | null, routeIndex: Partial<Record<string, number>>) {
 
     if (data && dates && data.date) {
         let rowId = '#aes-row-' + data.origin + data.destination;
 
         if (dates.analysis && data.date[dates.analysis] && data.date[dates.analysis].data) {
             //Analysis date
-            $(rowId + ' .aes-analysisDate').text(AES.formatDateString(dates.analysis));
+            $(rowId + ' .aes-analysisDate').text(AES.formatDateString(dates.analysis) || '');
 
             //Pricing date
             if (dates.pricing) {
-                $(rowId + ' .aes-pricingDate').text(AES.formatDateString(dates.pricing));
+                $(rowId + ' .aes-pricingDate').text(AES.formatDateString(dates.pricing) || '');
             }
 
             //Pax Load
-            $(rowId + ' .aes-paxLoad').html(displayLoad(getRouteAnalysisLoad(data.date[dates.analysis].data, 'pax')));
+            $(rowId + ' .aes-paxLoad').empty().append(displayLoad(getRouteAnalysisLoad(data.date[dates.analysis].data, 'pax')));
 
             //Cargo Load
-            $(rowId + ' .aes-cargoLoad').html(displayLoad(getRouteAnalysisLoad(data.date[dates.analysis].data, 'cargo')));
+            $(rowId + ' .aes-cargoLoad').empty().append(displayLoad(getRouteAnalysisLoad(data.date[dates.analysis].data, 'cargo')));
 
             //All Load
-            $(rowId + ' .aes-load').html(displayLoad(getRouteAnalysisLoad(data.date[dates.analysis].data, 'all')));
+            $(rowId + ' .aes-load').empty().append(displayLoad(getRouteAnalysisLoad(data.date[dates.analysis].data, 'all')));
 
             //PAX Index
-            $(rowId + ' .aes-paxIndex').html(displayIndex(getRouteAnalysisIndex(data.date[dates.analysis].data, 'pax')));
+            $(rowId + ' .aes-paxIndex').empty().append(displayIndex(getRouteAnalysisIndex(data.date[dates.analysis].data, 'pax')));
 
             //Cargo Index
-            $(rowId + ' .aes-cargoIndex').html(displayIndex(getRouteAnalysisIndex(data.date[dates.analysis].data, 'cargo')));
+            $(rowId + ' .aes-cargoIndex').empty().append(displayIndex(getRouteAnalysisIndex(data.date[dates.analysis].data, 'cargo')));
 
             //PAX Index
-            $(rowId + ' .aes-index').html(displayIndex(getRouteAnalysisIndex(data.date[dates.analysis].data, 'all')));
+            $(rowId + ' .aes-index').empty().append(displayIndex(getRouteAnalysisIndex(data.date[dates.analysis].data, 'all')));
 
             if (dates.analysisOneBefore && data.date[dates.analysisOneBefore] && data.date[dates.analysisOneBefore].data) {
                 //Previous analysis date
-                $(rowId + ' .aes-analysisPreDate').text(AES.formatDateString(dates.analysisOneBefore));
+                $(rowId + ' .aes-analysisPreDate').text(AES.formatDateString(dates.analysisOneBefore) || '');
 
                 //Pax Load Delta
-                $(rowId + ' .aes-paxLoadDelta').html(displayRouteAnalysisLoadDelta(data.date[dates.analysis].data, data.date[dates.analysisOneBefore].data, 'pax'));
+                $(rowId + ' .aes-paxLoadDelta').empty().append(displayRouteAnalysisLoadDelta(data.date[dates.analysis].data, data.date[dates.analysisOneBefore].data, 'pax'));
                 //Cargo Load Delta
-                $(rowId + ' .aes-cargoLoadDelta').html(displayRouteAnalysisLoadDelta(data.date[dates.analysis].data, data.date[dates.analysisOneBefore].data, 'cargo'));
+                $(rowId + ' .aes-cargoLoadDelta').empty().append(displayRouteAnalysisLoadDelta(data.date[dates.analysis].data, data.date[dates.analysisOneBefore].data, 'cargo'));
                 //All Load Delta
-                $(rowId + ' .aes-loadDelta').html(displayRouteAnalysisLoadDelta(data.date[dates.analysis].data, data.date[dates.analysisOneBefore].data, 'all'));
+                $(rowId + ' .aes-loadDelta').empty().append(displayRouteAnalysisLoadDelta(data.date[dates.analysis].data, data.date[dates.analysisOneBefore].data, 'all'));
 
                 //PAX Index Delta
-                $(rowId + ' .aes-paxIndexDelta').html(displayRouteAnalysisIndexDelta(data.date[dates.analysis].data, data.date[dates.analysisOneBefore].data, 'pax'));
+                $(rowId + ' .aes-paxIndexDelta').empty().append(displayRouteAnalysisIndexDelta(data.date[dates.analysis].data, data.date[dates.analysisOneBefore].data, 'pax'));
                 //Cargo Index Delta
-                $(rowId + ' .aes-cargoIndexDelta').html(displayRouteAnalysisIndexDelta(data.date[dates.analysis].data, data.date[dates.analysisOneBefore].data, 'cargo'));
+                $(rowId + ' .aes-cargoIndexDelta').empty().append(displayRouteAnalysisIndexDelta(data.date[dates.analysis].data, data.date[dates.analysisOneBefore].data, 'cargo'));
                 //PAX Index Delta
-                $(rowId + ' .aes-indexDelta').html(displayRouteAnalysisIndexDelta(data.date[dates.analysis].data, data.date[dates.analysisOneBefore].data, 'all'));
+                $(rowId + ' .aes-indexDelta').empty().append(displayRouteAnalysisIndexDelta(data.date[dates.analysis].data, data.date[dates.analysisOneBefore].data, 'all'));
             }
 
             //Route Index
             if (routeIndex.pax !== undefined && routeIndex.pax !== null) {
-                $(rowId + ' .aes-routeIndexPax').html(displayIndex(routeIndex.pax));
+                $(rowId + ' .aes-routeIndexPax').empty().append(displayIndex(routeIndex.pax));
             }
             if (routeIndex.cargo !== undefined && routeIndex.cargo !== null) {
-                $(rowId + ' .aes-routeIndexCargo').html(displayIndex(routeIndex.cargo));
+                $(rowId + ' .aes-routeIndexCargo').empty().append(displayIndex(routeIndex.cargo));
             }
             if (routeIndex.all !== undefined && routeIndex.all !== null) {
-                $(rowId + ' .aes-routeIndex').html(displayIndex(routeIndex.all));
+                $(rowId + ' .aes-routeIndex').empty().append(displayIndex(routeIndex.all));
             }
             scheduleRouteManagementApplyFilter();
         }
@@ -1588,7 +1630,7 @@ function updateRouteAnalysisColumns(data, dates, routeIndex) {
 
 }
 
-function displayRouteAnalysisLoadDelta(dataCurrent, dataPrevious, type) {
+function displayRouteAnalysisLoadDelta(dataCurrent: AESModel.DashboardAnalysis['date'][string]['data'], dataPrevious: AESModel.DashboardAnalysis['date'][string]['data'], type: string) {
     let load = getRouteAnalysisLoad(dataCurrent, type);
     let preLoad = getRouteAnalysisLoad(dataPrevious, type);
     if (load !== undefined && load !== null && preLoad !== undefined && preLoad !== null) {
@@ -1605,9 +1647,10 @@ function displayRouteAnalysisLoadDelta(dataCurrent, dataPrevious, type) {
         span.addClass('warning').text(diff + "%");
         return span;
     }
+    return $();
 }
 
-function displayRouteAnalysisIndexDelta(dataCurrent, dataPrevious, type) {
+function displayRouteAnalysisIndexDelta(dataCurrent: AESModel.DashboardAnalysis['date'][string]['data'], dataPrevious: AESModel.DashboardAnalysis['date'][string]['data'], type: string) {
     let index = getRouteAnalysisIndex(dataCurrent, type);
     let preIndex = getRouteAnalysisIndex(dataPrevious, type);
     if (index !== undefined && index !== null && preIndex !== undefined && preIndex !== null) {
@@ -1624,13 +1667,14 @@ function displayRouteAnalysisIndexDelta(dataCurrent, dataPrevious, type) {
         span.addClass('warning').text(diff);
         return span;
     }
+    return $();
 }
 
-function getRouteAnalysisLoad(data, type) {
+function getRouteAnalysisLoad(data: AESModel.DashboardAnalysis['date'][string]['data'], type: string) {
     if (!data) {
         return;
     }
-    let cmp = [];
+    let cmp: AESModel.Cabin[] = [];
     switch (type) {
         case 'all':
             cmp = ['Y', 'C', 'F', 'Cargo'];
@@ -1644,8 +1688,7 @@ function getRouteAnalysisLoad(data, type) {
         default:
             // code block
     }
-    let cap, bkd;
-    cap = bkd = 0;
+    let cap = 0, bkd = 0;
     cmp.forEach(function(comp) {
         if (data[comp] && data[comp].valid) {
             cap += data[comp].totalCap;
@@ -1661,7 +1704,7 @@ function getRouteAnalysisLoad(data, type) {
     return 0;
 }
 
-function displayLoad(load) {
+function displayLoad(load: number | null | undefined) {
     if (load !== undefined && load !== null) {
         let span = $('<span></span>');
         if (load >= 70) {
@@ -1675,13 +1718,14 @@ function displayLoad(load) {
         span.addClass('warning').text(load + "%");
         return span;
     }
+    return $();
 }
 
-function getRouteAnalysisIndex(data, type) {
+function getRouteAnalysisIndex(data: AESModel.DashboardAnalysis['date'][string]['data'], type: string) {
     if (!data) {
         return;
     }
-    let cmp = [];
+    let cmp: AESModel.Cabin[] = [];
     let index = 0;
     switch (type) {
         case 'all':
@@ -1694,7 +1738,7 @@ function getRouteAnalysisIndex(data, type) {
             cmp = ['Cargo'];
             break;
         default:
-            cmp = 0;
+            cmp = [];
             break;
     }
     if (cmp) {
@@ -1712,13 +1756,13 @@ function getRouteAnalysisIndex(data, type) {
     }
 }
 
-function getRouteAnalysisImportantDates(dates) {
+function getRouteAnalysisImportantDates(dates: AESModel.DashboardAnalysis['date']) {
     //Get latest analysis and pricing date
     let latest = {
-        analysis: 0,
-        pricing: 0,
-        analysisOneBefore: 0,
-        pricingOneBefore: 0
+        analysis: '',
+        pricing: '',
+        analysisOneBefore: '',
+        pricingOneBefore: ''
     }
     if (!dates) {
         return latest;
@@ -1750,7 +1794,8 @@ function getRouteAnalysisImportantDates(dates) {
     return latest;
 }
 
-function displayIndex(index) {
+function displayIndex(index: number | null | undefined) {
+    if (index == null) return $('<span></span>');
     let span = $('<span></span>');
     if (index >= 90) {
         return span.addClass('good').text(index);
@@ -1761,7 +1806,7 @@ function displayIndex(index) {
     return span.addClass('warning').text(index);
 }
 
-function displayIndexChange(index) {
+function displayIndexChange(index: number) {
     if (index > 0) {
         return ' (<span class="good">+' + index + '</span>)';
     }
@@ -1772,6 +1817,8 @@ function displayIndexChange(index) {
 }
 //Display General
 function displayGeneral() {
+    if (!AES.isPageOwner()) return;
+    dashboardRevision++;
     let mainDiv = $("#aes-div-dashboard");
     mainDiv.empty();
 
@@ -1798,6 +1845,8 @@ function displayGeneral() {
 
 //Display Competitor Monitoring
 function displayCompetitorMonitoring() {
+    if (!AES.isPageOwner()) return;
+    dashboardRevision++;
     //Div
     let div = $('<div id="aes-div-dashboard-competitorMonitoring" class="as-panel"></div>').append('<p class="warning">Loading competitor monitoring data...</p>');
 
@@ -1815,15 +1864,15 @@ function displayCompetitorMonitoring() {
 
 }
 
-function getLatestDateKeys(data, limit) {
-    let latest = [];
+function getLatestDateKeys(data: object | null, limit: number) {
+    let latest: string[] = [];
     if (!data || typeof data != 'object') {
         return latest;
     }
 
     for (let date in data) {
         latest.push(date);
-        latest.sort(function(a, b) { return b - a });
+        latest.sort(function(a, b) { return Number(b) - Number(a) });
         if (latest.length > limit) {
             latest.pop();
         }
@@ -1832,15 +1881,15 @@ function getLatestDateKeys(data, limit) {
     return latest;
 }
 
-function displayCompetitorMonitoringAirlinesTable(div) {
-    let compAirlines = [];
-    let compAirlinesSchedule = [];
+function displayCompetitorMonitoringAirlinesTable(div: JQuery) {
+    let compAirlines: AESModel.DashboardCompetitor[] = [];
+    let compAirlinesSchedule: Record<string, AESModel.DashboardSchedule> = {};
     let indexKey = AES.getCompetitorMonitoringIndexKey(server, airline.id);
     let migrationFlagKey = server + ':' + airline.id + ':ownerIndexV1';
     $('#aes-div-dashboard').off('.aesCompetitorMonitoring');
 
     let deduplicateCompetitorAirlines = function() {
-        let seen = {};
+        let seen: Record<string, boolean> = {};
         compAirlines = compAirlines.filter(function(compAirline) {
             if (!compAirline || !compAirline.id) {
                 return false;
@@ -1864,7 +1913,7 @@ function displayCompetitorMonitoringAirlinesTable(div) {
         dashboardStorage.set({ [indexKey]: competitorIds }, function() {});
     };
 
-    let removeCompetitorFromIndex = function(competitorId) {
+    let removeCompetitorFromIndex = function(competitorId: string) {
         dashboardStorage.get({ [indexKey]: [] }, function(result) {
             let competitorIds = Array.isArray(result[indexKey]) ? result[indexKey].map(String) : [];
             competitorIds = competitorIds.filter(function(id) {
@@ -1874,14 +1923,14 @@ function displayCompetitorMonitoringAirlinesTable(div) {
         });
     };
 
-    let renderCompetitorMonitoringError = function(message, error) {
+    let renderCompetitorMonitoringError = function(message: string, error: unknown) {
         if (error) {
             console.error('[AES] Unable to render competitor monitoring dashboard.', error);
         }
         div.empty().append($('<p class="warning"></p>').text(message));
     };
 
-    let getStoredDateRecord = function(data, date) {
+    let getStoredDateRecord = function<T>(data: Record<string, T>, date: string): T | null {
         return data && date && data[date] ? data[date] : null;
     };
 
@@ -1891,22 +1940,23 @@ function displayCompetitorMonitoringAirlinesTable(div) {
             return server + compAirline.id + 'schedule';
         });
 
-        let displayTable = function(scheduleItems) {
+        let displayTable = function(scheduleItems: Record<string, unknown>) {
             try {
                 div.empty();
                 for (let key in scheduleItems) {
-                    if (scheduleItems[key] && scheduleItems[key].type == 'schedule' && scheduleItems[key].server == server && scheduleItems[key].airline) {
-                        compAirlinesSchedule[scheduleItems[key].airline.id] = scheduleItems[key];
+                    const schedule = readDashboardSchedule(scheduleItems[key]);
+                    if (schedule && schedule.type === 'schedule' && schedule.server === server) {
+                        compAirlinesSchedule[schedule.airline.id] = schedule;
                     }
                 }
 
-                let tableData = [];
+                let tableData: AESModel.DashboardRow[] = [];
                 if (compAirlines.length) {
                     compAirlines.forEach(function myFunction(value) {
                 if (!value || !value.id) {
                     return;
                 }
-                let data = {};
+                let data: AESModel.DashboardRow = {};
                 //Airline
                 data.airlineId = value.id;
                 data.competitorMonitoringKey = value.key;
@@ -1941,7 +1991,7 @@ function displayCompetitorMonitoringAirlinesTable(div) {
                 let factsCurrent = getStoredDateRecord(value.tab2, dates[0]);
                 let factsPrevious = getStoredDateRecord(value.tab2, dates[1]);
                 if (factsCurrent) {
-                    data.fafWeek = AES.formatDateStringWeek(factsCurrent.week);
+                    data.fafWeek = AES.formatDateStringWeek(String(factsCurrent.week || ''));
                     data.fafAirportsServed = factsCurrent.airportsServed;
                     data.fafOperatedFlights = factsCurrent.operatedFlights;
                     data.fafSeatsOffered = factsCurrent.seatsOffered;
@@ -1950,7 +2000,7 @@ function displayCompetitorMonitoringAirlinesTable(div) {
                     data.faffko = factsCurrent.fko;
                     //If previous date exists
                     if (factsPrevious) {
-                        data.fafWeekPre = AES.formatDateStringWeek(factsPrevious.week);
+                        data.fafWeekPre = AES.formatDateStringWeek(String(factsPrevious.week || ''));
                         data.fafAirportsServedDelta = getDelta(data.fafAirportsServed, factsPrevious.airportsServed);
                         data.fafOperatedFlightsDelta = getDelta(data.fafOperatedFlights, factsPrevious.operatedFlights);
                         data.fafSeatsOfferedDelta = getDelta(data.fafSeatsOffered, factsPrevious.seatsOffered);
@@ -1960,13 +2010,13 @@ function displayCompetitorMonitoringAirlinesTable(div) {
                     }
                 }
                 //Schedule Columns
-                let scheduleData = compAirlinesSchedule[data.airlineId];
+                let scheduleData = compAirlinesSchedule[String(data.airlineId)];
                 if (scheduleData && scheduleData.date) {
                     dates = getLatestDateKeys(scheduleData.date, 2);
                     let scheduleCurrent = getStoredDateRecord(scheduleData.date, dates[0]);
                     let schedulePrevious = getStoredDateRecord(scheduleData.date, dates[1]);
                     if (scheduleCurrent && Array.isArray(scheduleCurrent.schedule)) {
-                        let hubs = {};
+                        let hubs: Record<string, number> = {};
                         //For display
                         data.scheduleDate = AES.formatDateString(dates[0]);
                         //For table
@@ -1991,17 +2041,17 @@ function displayCompetitorMonitoringAirlinesTable(div) {
                                     continue;
                                 }
                                 //Cargo Freq
-                                data.scheduleCargoFreq += Number(flightData.cargoFreq) || 0;
+                                data.scheduleCargoFreq = Number(data.scheduleCargoFreq || 0) + (Number(flightData.cargoFreq) || 0);
                                 //Pax Freq
-                                data.schedulePAXFreq += Number(flightData.paxFreq) || 0;
+                                data.schedulePAXFreq = Number(data.schedulePAXFreq || 0) + (Number(flightData.paxFreq) || 0);
                                 //Flight nr
-                                data.scheduleFltNr++;
+                                data.scheduleFltNr = Number(data.scheduleFltNr || 0) + 1;
                             }
                         });
                         //Total Frequency
                         data.scheduleTotalFreq = data.schedulePAXFreq + data.scheduleCargoFreq;
                         //Hubs
-                        let hubArray = [];
+                        let hubArray: Array<[string, number]> = [];
                         for (let hub in hubs) {
                             hubArray.push([hub, hubs[hub]]);
                         }
@@ -2011,9 +2061,9 @@ function displayCompetitorMonitoringAirlinesTable(div) {
                         data.scheduleHubs = '';
                         hubArray.forEach(function(hubA, index) {
                             if (index) {
-                                data.scheduleHubs += ', ';
+                                data.scheduleHubs = Number(data.scheduleHubs || 0) + (', ');
                             }
-                            data.scheduleHubs += hubA[0] + ' (' + hubA[1] + ')';
+                            data.scheduleHubs = Number(data.scheduleHubs || 0) + (hubA[0] + ' (' + hubA[1] + ')');
                         });
 
                         //Previous schedule data
@@ -2039,11 +2089,11 @@ function displayCompetitorMonitoringAirlinesTable(div) {
                                         continue;
                                     }
                                     //Cargo Freq
-                                    data.scheduleCargoFreqPre += Number(flightData.cargoFreq) || 0;
+                                    data.scheduleCargoFreqPre = Number(data.scheduleCargoFreqPre || 0) + (Number(flightData.cargoFreq) || 0);
                                     //Pax Freq
-                                    data.schedulePAXFreqPre += Number(flightData.paxFreq) || 0;
+                                    data.schedulePAXFreqPre = Number(data.schedulePAXFreqPre || 0) + (Number(flightData.paxFreq) || 0);
                                     //Flight nr
-                                    data.scheduleFltNrPre++;
+                                    data.scheduleFltNrPre = Number(data.scheduleFltNrPre || 0) + 1;
                                 }
                             });
                             //Total Frequency
@@ -2117,11 +2167,11 @@ function displayCompetitorMonitoringAirlinesTable(div) {
         }
     };
 
-    let loadFromIndex = function(competitorIds) {
+    let loadFromIndex = function(competitorIds: string[]) {
         competitorIds = competitorIds.map(String).filter(function(id, position, ids) {
             return ids.indexOf(id) == position;
         });
-        let competitorKeys = competitorIds.map(function(competitorId) {
+        let competitorKeys = competitorIds.map(function(competitorId: string) {
             return AES.getCompetitorMonitoringKey(server, airline.id, competitorId);
         });
 
@@ -2132,7 +2182,7 @@ function displayCompetitorMonitoringAirlinesTable(div) {
 
         dashboardStorage.get(competitorKeys, function(items) {
             competitorKeys.forEach(function(key) {
-                let compData = items[key];
+                let compData = readDashboardCompetitor(items[key]);
                 if (compData && compData.type == 'competitorMonitoring' && compData.server == server && compData.ownerId == airline.id && compData.tracking) {
                     compAirlines.push(compData);
                 }
@@ -2148,13 +2198,13 @@ function displayCompetitorMonitoringAirlinesTable(div) {
 
     let migrateLegacyCompetitorMonitoringData = function() {
         dashboardStorage.get(null, function(items) {
-            let legacyKeysToRemove = [];
-            let migratedCompetitorData = {};
+            let legacyKeysToRemove: string[] = [];
+            let migratedCompetitorData: Record<string, unknown> = {};
 
             //Get data
             for (let key in items) {
-                if (items[key] && items[key].type && items[key].type == 'competitorMonitoring' && items[key].server == server) {
-                    let compData = items[key];
+                let compData = readDashboardCompetitor(items[key]);
+                if (compData && compData.server === server) {
                     if (!compData.ownerId && compData.id && airline.id) {
                         const newKey = AES.getCompetitorMonitoringKey(server, airline.id, compData.id);
                         compData = {
@@ -2163,7 +2213,7 @@ function displayCompetitorMonitoringAirlinesTable(div) {
                             ownerId: airline.id,
                             ownerAirline: airline
                         };
-                        migratedCompetitorData[newKey] = compData;
+                        migratedCompetitorData[newKey] = {...(AES.isRecord(items[key]) ? items[key] : {}), key: newKey, ownerId: airline.id, ownerAirline: airline};
                         if (key != newKey) {
                             legacyKeysToRemove.push(key);
                         }
@@ -2176,7 +2226,7 @@ function displayCompetitorMonitoringAirlinesTable(div) {
                                 ...compData,
                                 key: expectedKey
                             };
-                            migratedCompetitorData[expectedKey] = compData;
+                            migratedCompetitorData[expectedKey] = {...(AES.isRecord(items[key]) ? items[key] : {}), key: expectedKey, ownerId: airline.id, ownerAirline: airline};
                             if (key != expectedKey) {
                                 legacyKeysToRemove.push(key);
                             }
@@ -2186,19 +2236,13 @@ function displayCompetitorMonitoringAirlinesTable(div) {
                 }
             }
 
+            const finishMigration = () => {
             saveCompetitorMonitoringIndex();
             settings.competitorMonitoring.migrationFlags = settings.competitorMonitoring.migrationFlags || {};
             settings.competitorMonitoring.migrationFlags[migrationFlagKey] = 1;
-            if (Object.keys(migratedCompetitorData).length) {
-                dashboardStorage.set(migratedCompetitorData, function() {
-                    if (legacyKeysToRemove.length) {
-                        dashboardStorage.remove(legacyKeysToRemove, function() {});
-                    }
-                });
-            }
-            AES.updateSettings(function(currentSettings) {
+            updateDashboardSettings(function(currentSettings) {
                 if (!currentSettings.competitorMonitoring || typeof currentSettings.competitorMonitoring != 'object' || Array.isArray(currentSettings.competitorMonitoring)) {
-                    currentSettings.competitorMonitoring = {};
+                    currentSettings.competitorMonitoring = {tableColumns: [], filter: []};
                 }
                 currentSettings.competitorMonitoring.tableColumns = settings.competitorMonitoring.tableColumns;
                 currentSettings.competitorMonitoring.filter = settings.competitorMonitoring.filter;
@@ -2208,6 +2252,14 @@ function displayCompetitorMonitoringAirlinesTable(div) {
                 ensureCompetitorMonitoringSettings();
                 loadSchedulesAndDisplayTable();
             });
+            };
+            if (Object.keys(migratedCompetitorData).length) {
+                dashboardStorage.set(migratedCompetitorData, () => {
+                    if (legacyKeysToRemove.length) dashboardStorage.remove(legacyKeysToRemove, finishMigration);
+                    else finishMigration();
+                });
+            } else finishMigration();
+
         });
     };
 
@@ -2220,10 +2272,11 @@ function displayCompetitorMonitoringAirlinesTable(div) {
     });
 }
 
-function displayCompetitorMonitoringAirlineScheduleTable(mainDiv, scheduleData, data) {
+function displayCompetitorMonitoringAirlineScheduleTable(mainDiv: JQuery, scheduleData: AESModel.DashboardSchedule, data: AESModel.DashboardRow) {
     mainDiv.hide();
     //Build schedule rows
-    let rows = [];
+    let rows: AESModel.DashboardRow[] = [];
+    let table: JQuery | undefined;
     if (data.scheduleDateUse) {
         let columns = [
             {
@@ -2308,7 +2361,7 @@ function displayCompetitorMonitoringAirlineScheduleTable(mainDiv, scheduleData, 
                 number: 1,
 	      }
 	    ];
-        scheduleData.date[data.scheduleDateUse].schedule.forEach(function(od) {
+        scheduleData.date[String(data.scheduleDateUse)].schedule.forEach(function(od) {
             let fltNr = 0;
             let paxFreq = 0;
             let cargoFreq = 0;
@@ -2333,19 +2386,19 @@ function displayCompetitorMonitoringAirlineScheduleTable(mainDiv, scheduleData, 
             };
             rows.push(cellValue);
         });
-        var table = buildDashboardTable({
+        table = buildDashboardTable({
             tableId: 'aes-table-competitorMonitoring-airline-schedule',
             columns: columns,
             data: rows,
             footer: false
         }).table;
     } else {
-        rows.push('<tr><td><span class="warning">No schedule found</span></td></tr>');
+
     }
 
     //Build layout
     if (!table) {
-        table = $('<table id="aes-table-competitorMonitoring-airline-schedule" class="table table-bordered table-striped table-hover"></table>').append($('<tbody></tbody>').append(rows));
+        table = $('<table id="aes-table-competitorMonitoring-airline-schedule" class="table table-bordered table-striped table-hover"></table>').append('<tbody><tr><td><span class="warning">No schedule found</span></td></tr></tbody>');
     }
     let tableWell = $('<div style="overflow-x:auto;" class="as-table-well"></div>').append(table);
     let button = $('<button type="button" class="btn btn-default">Back to overview</button>');
@@ -2375,7 +2428,9 @@ function displayCompetitorMonitoringAirlinesTableColumns() {
         visibleField: 'visible',
         onChange: function(col, checked) {
             col.visible = checked ? 1 : 0;
-            AES.updateSettings(function(currentSettings) {
+            const currentColumn = settings.competitorMonitoring.tableColumns.find(column => column.field === col.field);
+            if (currentColumn) currentColumn.visible = checked ? 1 : 0;
+            updateDashboardSettings(function(currentSettings) {
                 currentSettings.competitorMonitoring.tableColumns = settings.competitorMonitoring.tableColumns;
             }, function(updatedSettings) {
                 settings = updatedSettings;
@@ -2389,7 +2444,7 @@ function displayCompetitorMonitoringAirlinesTableColumns() {
     return div;
 }
 
-function displayCompetitorMonitoringAirlinesTableFilters(table, columns) {
+function displayCompetitorMonitoringAirlinesTableFilters(table: JQuery | null, columns: AESModel.DashboardColumn[]) {
     let normalizedFilters = normalizeDashboardFilters(settings.competitorMonitoring.filter || [], columns, 'data', 'title');
     settings.competitorMonitoring.filter = normalizedFilters;
     let div = $('<div class="col-md-4"></div>').append(buildDashboardFilterPanel({
@@ -2400,7 +2455,7 @@ function displayCompetitorMonitoringAirlinesTableFilters(table, columns) {
         onApply: function(filter, status) {
             status.removeClass('good bad warning').addClass('warning').text('Saving...');
             settings.competitorMonitoring.filter = filter;
-            AES.updateSettings(function(currentSettings) {
+            updateDashboardSettings(function(currentSettings) {
                 currentSettings.competitorMonitoring.filter = filter;
             }, function(updatedSettings) {
                 settings = updatedSettings;
@@ -2417,7 +2472,7 @@ function displayCompetitorMonitoringAirlinesTableFilters(table, columns) {
     return div;
 }
 
-function displayCompetitorMonitoringAirlinesTableOptions(table, compAirlinesSchedule, mainDiv, removeCompetitorFromIndex) {
+function displayCompetitorMonitoringAirlinesTableOptions(table?: JQuery, compAirlinesSchedule: Record<string, AESModel.DashboardSchedule> = {}, mainDiv: JQuery = $(), removeCompetitorFromIndex: (id: string) => void = () => {}) {
     let actions = $('<div class="btn-group aes-dashboard-control-actions"></div>');
     let openAirlineBtn = $('<button type="button" class="btn btn-default">Open airline page</button>');
     let showScheduleBtn = $('<button type="button" class="btn btn-default">Show airline schedule</button>');
@@ -2447,10 +2502,10 @@ function displayCompetitorMonitoringAirlinesTableOptions(table, compAirlinesSche
             return;
         }
         let rows = getSelectedCompetitorRows(table);
-        if (!rows.length || !compAirlinesSchedule[rows[0].airlineId]) {
+        if (!rows.length || !compAirlinesSchedule[String(rows[0].airlineId)]) {
             return;
         }
-        displayCompetitorMonitoringAirlineScheduleTable(mainDiv, compAirlinesSchedule[rows[0].airlineId], rows[0]);
+        displayCompetitorMonitoringAirlineScheduleTable(mainDiv, compAirlinesSchedule[String(rows[0].airlineId)], rows[0]);
     });
 
     removeBtn.click(function() {
@@ -2472,21 +2527,22 @@ function displayCompetitorMonitoringAirlinesTableOptions(table, compAirlinesSche
         }
 
         let keys = rows.map(function(rowData) {
-            return rowData.competitorMonitoringKey;
+            return String(rowData.competitorMonitoringKey || '');
         });
         dashboardStorage.get(keys, function(compMonitoringData) {
-            let updates = {};
+            let updates: Record<string, unknown> = {};
             rows.forEach(function(rowData) {
-                let compData = compMonitoringData[rowData.competitorMonitoringKey];
+                const raw = compMonitoringData[String(rowData.competitorMonitoringKey)];
+                let compData = readDashboardCompetitor(raw);
                 if (compData) {
                     compData.tracking = 0;
-                    updates[compData.key] = compData;
+                    updates[compData.key] = {...(AES.isRecord(raw) ? raw : {}), tracking: 0};
                 }
             });
             dashboardStorage.set(updates, function() {
                 rows.forEach(function(rowData) {
                     $('#aes-compMon-row-' + rowData.airlineId, table).remove();
-                    removeCompetitorFromIndex(rowData.airlineId);
+                    removeCompetitorFromIndex(String(rowData.airlineId));
                 });
                 btn.data('confirm', false).removeClass('btn-warning').addClass('btn-default').text('Remove airline');
             });
@@ -2501,7 +2557,7 @@ function displayCompetitorMonitoringAirlinesTableOptions(table, compAirlinesSche
     return optionsDiv;
 }
 
-function getSelectedCompetitorRows(table) {
+function getSelectedCompetitorRows(table: JQuery) {
     return getSelectedDashboardRows(table);
 }
 
@@ -2872,7 +2928,7 @@ function ensureCompetitorMonitoringSettings() {
     return changed;
 }
 
-function getRatingNr(rating) {
+function getRatingNr(rating: unknown) {
     switch (rating) {
         case 'AAA':
             return 10;
@@ -2909,13 +2965,16 @@ function getRatingNr(rating) {
     }
 }
 
-function getDelta(newNr, oldNr) {
-    return newNr - oldNr;
+function getDelta(newNr: unknown, oldNr: unknown) {
+    const difference = Number(newNr) - Number(oldNr);
+    return Number.isFinite(difference) ? difference : '';
 };
 //Display Aircraft aircraftProfitability
 function displayAircraftProfitability() {
+    if (!AES.isPageOwner()) return;
+    dashboardRevision++;
     if (!settings.aircraftProfitability) {
-        settings.aircraftProfitability = {};
+        settings.aircraftProfitability = {filter: [], hideColumn: []};
     }
     if (!Array.isArray(settings.aircraftProfitability.filter)) {
         settings.aircraftProfitability.filter = [];
@@ -3140,7 +3199,7 @@ function displayAircraftProfitability() {
                 return;
             }
 
-            let keys = [];
+            let keys: string[] = [];
             aircraftFleetData.fleet.forEach(function(value) {
                 if (!value.aircraftId) {
                     return;
@@ -3150,23 +3209,25 @@ function displayAircraftProfitability() {
             dashboardStorage.get(keys, function(result) {
                 try {
                     for (let aircraftFlightData in result) {
+                        const summary: unknown = result[aircraftFlightData];
+                        if (!AES.isRecord(summary) || !AES.isAircraftProfit(summary)) continue;
                         for (let i = 0; i < aircraftFleetData.fleet.length; i++) {
-                            if (aircraftFleetData.fleet[i].aircraftId == result[aircraftFlightData].aircraftId) {
+                            if (aircraftFleetData.fleet[i].aircraftId == summary.aircraftId) {
                                 aircraftFleetData.fleet[i].profit = {
-                                    date: result[aircraftFlightData].date,
-                                    finishedFlights: result[aircraftFlightData].finishedFlights,
-                                    hubCounts: result[aircraftFlightData].hubCounts,
-                                    hubDetected: result[aircraftFlightData].hubDetected,
-                                    hubEffective: result[aircraftFlightData].hubEffective,
-                                    hubOverride: result[aircraftFlightData].hubOverride,
-                                    profit: result[aircraftFlightData].profit,
-                                    profitFlights: result[aircraftFlightData].profitFlights,
-                                    time: result[aircraftFlightData].time,
-                                    totalFlights: result[aircraftFlightData].totalFlights,
+                                    date: summary.date,
+                                    finishedFlights: summary.finishedFlights,
+                                    hubCounts: summary.hubCounts,
+                                    hubDetected: summary.hubDetected,
+                                    hubEffective: summary.hubEffective,
+                                    hubOverride: summary.hubOverride,
+                                    profit: summary.profit,
+                                    profitFlights: summary.profitFlights,
+                                    time: summary.time,
+                                    totalFlights: summary.totalFlights,
                                 };
-                                aircraftFleetData.fleet[i].hubOverride = aircraftFleetData.fleet[i].hubOverride || result[aircraftFlightData].hubOverride || '';
-                                aircraftFleetData.fleet[i].hubDetected = result[aircraftFlightData].hubDetected || result[aircraftFlightData].hubEffective || aircraftFleetData.fleet[i].hubDetected || '';
-                                aircraftFleetData.fleet[i].hubEffective = aircraftFleetData.fleet[i].hubOverride || result[aircraftFlightData].hubEffective || result[aircraftFlightData].hubDetected || aircraftFleetData.fleet[i].hubDetected || '';
+                                aircraftFleetData.fleet[i].hubOverride = aircraftFleetData.fleet[i].hubOverride || summary.hubOverride || '';
+                                aircraftFleetData.fleet[i].hubDetected = summary.hubDetected || summary.hubEffective || aircraftFleetData.fleet[i].hubDetected || '';
+                                aircraftFleetData.fleet[i].hubEffective = aircraftFleetData.fleet[i].hubOverride || summary.hubEffective || summary.hubDetected || aircraftFleetData.fleet[i].hubDetected || '';
                             }
                         }
                     }
@@ -3207,11 +3268,11 @@ function displayAircraftProfitability() {
         }
     });
 
-    function renderAircraftProfitabilityMessage(message) {
+    function renderAircraftProfitabilityMessage(message: string) {
         renderAircraftProfitabilityPanel($('<p class="warning"></p>').text(message));
     }
 
-    function renderAircraftProfitabilityPanel(tableDiv) {
+    function renderAircraftProfitabilityPanel(tableDiv: JQuery) {
         let div = $('<div class="as-panel"></div>').append(tableDiv);
         let mainDiv = $("#aes-div-dashboard");
         mainDiv.empty();
@@ -3219,7 +3280,7 @@ function displayAircraftProfitability() {
         mainDiv.append(title, div);
     }
 
-    function getDashboardAircraftFleetData(primaryKey, callback) {
+    function getDashboardAircraftFleetData(primaryKey: string, callback: (fleet: AESModel.FleetRecord | null) => void) {
         dashboardStorage.get([primaryKey], function(result) {
             if (isValidDashboardAircraftFleetData(result[primaryKey])) {
                 callback(result[primaryKey]);
@@ -3232,12 +3293,12 @@ function displayAircraftProfitability() {
         });
     }
 
-    function isValidDashboardAircraftFleetData(value) {
-        return value && Array.isArray(value.fleet);
+    function isValidDashboardAircraftFleetData(value: unknown): value is AESModel.FleetRecord {
+        return AES.isRecord(value) && Array.isArray(value.fleet) && value.fleet.every(AES.isFleetAircraft);
     }
 
-    function findDashboardAircraftFleetFallback(allData, primaryKey) {
-        let candidates = [];
+    function findDashboardAircraftFleetFallback(allData: Record<string, unknown>, primaryKey: string) {
+        let candidates: Array<{key: string; value: AESModel.FleetRecord; score: number}> = [];
         Object.keys(allData || {}).forEach(function(key) {
             let value = allData[key];
             if (key === primaryKey || !key.endsWith('aircraftFleet') || !isValidDashboardAircraftFleetData(value)) {
@@ -3268,9 +3329,9 @@ function displayAircraftProfitability() {
         return candidates.length ? candidates[0].value : null;
     }
 
-    function getDashboardAircraftFleetMatchScore(value) {
+    function getDashboardAircraftFleetMatchScore(value: AESModel.FleetRecord) {
         let score = 0;
-        let valueAirline = value.airline || {};
+        let valueAirline = AES.isRecord(value.airline) ? value.airline : {};
         if (airline.id && valueAirline.id == airline.id) {
             score += 8;
         }
@@ -3289,23 +3350,23 @@ function displayAircraftProfitability() {
         return score;
     }
 
-    function prepareAircraftProfitabilityData(storage) {
-        let data = [];
+    function prepareAircraftProfitabilityData(storage: AESModel.FleetRecord) {
+        let data: AESModel.DashboardRow[] = [];
         storage.fleet.forEach(function(value) {
-            let profit = {};
-            if (value.profit) {
+            let profit: AESModel.DashboardRow = {};
+            if (AES.isAircraftProfit(value.profit)) {
                 profit.totalFlights = value.profit.totalFlights;
                 profit.finishedFlights = value.profit.finishedFlights;
                 profit.profitFlights = value.profit.profitFlights;
                 profit.profit = value.profit.profit;
                 profit.dateProfit = AES.formatDateString(value.profit.date) + ' ' + value.profit.time;
             }
-            data.push({
+            data.push(flatRecord({
                 aircraftId: value.aircraftId,
                 delivered: value.delivered === undefined ? '' : (value.delivered ? 'Yes' : 'No'),
                 registration: value.registration,
                 equipment: value.equipment,
-                hubEffective: value.hubOverride || value.hubEffective || value.hubDetected || (value.profit ? (value.profit.hubOverride || value.profit.hubEffective || value.profit.hubDetected) : '') || '',
+                hubEffective: value.hubOverride || value.hubEffective || value.hubDetected || (AES.isAircraftProfit(value.profit) ? (value.profit.hubOverride || value.profit.hubEffective || value.profit.hubDetected) : '') || '',
                 fleet: value.fleet,
                 nickname: value.nickname,
                 note: value.note,
@@ -3319,14 +3380,14 @@ function displayAircraftProfitability() {
                 seatConfig: value.seatConfig || '',
                 seatF: value.seatF,
                 seatY: value.seatY,
-                totalSeats: value.totalSeats === undefined ? ((value.seatY || 0) + (value.seatC || 0) + (value.seatF || 0)) : value.totalSeats,
-                dateAircraft: AES.formatDateString(value.date) + ' ' + value.time,
+                totalSeats: value.totalSeats === undefined ? (Number(value.seatY || 0) + Number(value.seatC || 0) + Number(value.seatF || 0)) : value.totalSeats,
+                dateAircraft: AES.formatDateString(String(value.date || '')) + ' ' + value.time,
                 totalFlights: profit.totalFlights,
                 finishedFlights: profit.finishedFlights,
                 profitFlights: profit.profitFlights,
                 profit: profit.profit,
                 dateProfit: profit.dateProfit
-            });
+            }));
         });
         return data;
     }
@@ -3334,7 +3395,7 @@ function displayAircraftProfitability() {
 }
 
 //Auto table generator
-function generateTable(tableOptionsRule) {
+function generateTable(tableOptionsRule: AESModel.DashboardGeneratedTableOptions) {
     let dashboardTable = buildDashboardTable({
         columns: tableOptionsRule.column,
         data: tableOptionsRule.data,
@@ -3352,7 +3413,7 @@ function generateTable(tableOptionsRule) {
     return $('<div></div>').append(buildGeneratedDashboardTableSettings(tableOptionsRule, dashboardTable.table), dashboardTable.tableWell);
 }
 //Display general helper functions
-function generalAddScheduleRow(tbody) {
+function generalAddScheduleRow(tbody: JQuery) {
     let td1 = $('<td></td>').text("Schedule");
     let td2 = $('<td></td>');
     let td3 = $('<td></td>');
@@ -3361,7 +3422,7 @@ function generalAddScheduleRow(tbody) {
     //Get schedule
     let scheduleKey = server + airline.id + 'schedule';
     dashboardStorage.get([scheduleKey], function(result) {
-        let scheduleData = result[scheduleKey];
+        let scheduleData = readDashboardSchedule(result[scheduleKey]);
         if (scheduleData) {
             let lastUpdate = getDate('schedule', scheduleData.date);
             let diff = AES.getDateDiff([todayDate.date, lastUpdate]);
@@ -3384,13 +3445,14 @@ function generalAddScheduleRow(tbody) {
     });
 }
 
-function generalUpdateScheduleAction(td3) {
+function generalUpdateScheduleAction(td3: JQuery) {
     let btn = $('<button type="button" class="btn btn-default">Extract schedule data</button>');
     btn.click(function() {
-        settings.schedule.autoExtract = 1;
-        //get schedule link
+        if (!AES.isPageOwner()) return;
         let link = $('#enterprise-dashboard table:eq(0) tfoot td a:eq(2)');
-        AES.updateSettings(function(currentSettings) {
+        if (!link.length) { $(this).text('Schedule link unavailable. Reload the dashboard.'); return; }
+        settings.schedule.autoExtract = 1;
+        updateDashboardSettings(function(currentSettings) {
             currentSettings.schedule.autoExtract = 1;
         }, function(updatedSettings) {
             settings = updatedSettings;
@@ -3400,19 +3462,19 @@ function generalUpdateScheduleAction(td3) {
     td3.append(btn);
 }
 
-function generalAddPersonnelManagementRow(tbody) {
+function generalAddPersonnelManagementRow(tbody: JQuery) {
     let td = [];
     td.push($('<td></td>').text("Personnel Management"));
     td.push($('<td></td>'));
     td.push($('<td></td>'));
-    let row = $('<tr></tr>').append(td);
+    let row = $('<tr></tr>').append(...td);
     tbody.append(row);
     //Get Status
     let key = server + airline.id + 'personnelManagement';
     dashboardStorage.get([key], function(result) {
-        let personnelManagementData = result[key];
+        let personnelManagementData = AES.isRecord(result[key]) ? result[key] : null;
         if (personnelManagementData) {
-            let lastUpdate = personnelManagementData.date;
+            let lastUpdate = String(personnelManagementData.date || '');
             let diff = AES.getDateDiff([todayDate.date, lastUpdate]);
             let span = $('<span></span>').text('Last personnel salary update: ' + AES.formatDateString(lastUpdate) + ' (' + diff + ' days ago).');
             if (diff >= 0 && diff < 7) {
@@ -3441,7 +3503,7 @@ function displayDefault() {
 }
 
 //Helper
-function getDate(type, scheduleData) {
+function getDate(type: string, scheduleData: object) {
     switch (type) {
         case 'schedule':
             //scheduleData must be schedule object with dates as properties
@@ -3454,6 +3516,85 @@ function getDate(type, scheduleData) {
             dates.reverse();
             return dates[0];
         default:
-            return 0;
+            return '';
     }
 }
+
+const footerColumns = new WeakMap<HTMLElement, AESModel.DashboardColumn[]>();
+const dashboardRows = new WeakMap<HTMLElement, AESModel.DashboardRow>();
+function scalar(value: unknown): AESModel.DashboardScalar {
+    return value == null || typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean' ? value : undefined;
+}
+function flatRecord(value: unknown): AESModel.DashboardRow {
+    return AES.isRecord(value) ? Object.fromEntries(Object.entries(value).map(([key, value]) => [key, scalar(value)])) : {};
+}
+function readDashboardSettings(raw: unknown): AESModel.DashboardSettings {
+    const value = AES.isRecord(raw) ? raw : {};
+    const general = AES.isRecord(value.general) ? value.general : {};
+    const route = AES.isRecord(value.routeManagement) ? value.routeManagement : {};
+    const competitor = AES.isRecord(value.competitorMonitoring) ? value.competitorMonitoring : {};
+    const aircraft = AES.isRecord(value.aircraftProfitability) ? value.aircraftProfitability : {};
+    const readFilters = (filters: unknown): AESModel.DashboardFilter[] => Array.isArray(filters) ? filters.filter(AES.isRecord).map(filter => Object.fromEntries(Object.entries(filter).map(([k,v]) => [k, String(v ?? '')]))) : [];
+    const routeColumns: AESModel.DashboardRouteColumn[] = Array.isArray(route.tableColumns) ? route.tableColumns.filter(AES.isRecord).filter(col => typeof col.class === 'string' && typeof col.name === 'string').map(col => ({...col, class: String(col.class), name: String(col.name), number: Number(col.number || 0), show: col.show === undefined ? 1 : Number(col.show), value: typeof col.value === 'string' ? col.value : undefined})) : [];
+    const compColumns: AESModel.DashboardCompetitorColumn[] = Array.isArray(competitor.tableColumns) ? competitor.tableColumns.filter(AES.isRecord).filter(col => typeof col.field === 'string' && typeof col.text === 'string' && typeof col.headGroup === 'string').map(col => ({...col, field: String(col.field), text: String(col.text), headGroup: String(col.headGroup), visible: Number(col.visible || 0), number: Number(col.number || 0)})) : [];
+    return {...value,
+        general: {...general, defaultDashboard: normalizeDashboardTab(general.defaultDashboard), dashboardFilterScopeKey: typeof general.dashboardFilterScopeKey === 'string' ? general.dashboardFilterScopeKey : undefined},
+        schedule: {...(AES.isRecord(value.schedule) ? value.schedule : {})},
+        routeManagement: {...route, tableColumns: routeColumns, filter: readFilters(route.filter)},
+        competitorMonitoring: {...competitor, tableColumns: compColumns, filter: readFilters(competitor.filter), migrationFlags: AES.isRecord(competitor.migrationFlags) ? Object.fromEntries(Object.entries(competitor.migrationFlags).filter((entry): entry is [string, number] => typeof entry[1] === 'number')) : {}},
+        aircraftProfitability: {...aircraft, filter: readFilters(aircraft.filter), hideColumn: Array.isArray(aircraft.hideColumn) ? aircraft.hideColumn.filter((v): v is string => typeof v === 'string') : []}
+    };
+}
+function updateDashboardSettings(mutator: (settings: AESModel.DashboardSettings) => void, callback?: (settings: AESModel.DashboardSettings) => void) {
+    if (!AES.isPageOwner()) return;
+    const revision = dashboardRevision;
+    nativeDashboardStorage.get(['settings'], result => {
+        if (!dashboardCallbackSucceeded()) return;
+        AES.tryRun('content_dashboard', () => {
+            const typed = readDashboardSettings(result.settings);
+            mutator(typed);
+            nativeDashboardStorage.set({settings: typed}, () => {
+                if (dashboardCallbackSucceeded() && revision === dashboardRevision) callback?.(typed);
+            });
+        });
+    });
+}
+function readDashboardSchedule(value: unknown): AESModel.DashboardSchedule | null {
+    if (!AES.isRecord(value) || !AES.isRecord(value.date)) return null;
+    const date: AESModel.DashboardSchedule['date'] = {};
+    for (const [key, snapshot] of Object.entries(value.date)) {
+        if (!/^\d{8}$/.test(key) || !AES.isRecord(snapshot) || !Array.isArray(snapshot.schedule)) continue;
+        const schedule: AESModel.DashboardSchedule['date'][string]['schedule'] = [];
+        for (const route of snapshot.schedule) {
+            if (!AES.isRecord(route) || typeof route.origin !== 'string' || typeof route.destination !== 'string' || typeof route.od !== 'string' || !AES.isRecord(route.flightNumber)) continue;
+            const flightNumber: AESModel.ScheduleRoute['flightNumber'] = {};
+            for (const [nr, frequency] of Object.entries(route.flightNumber)) {
+                if (AES.isRecord(frequency)) flightNumber[nr] = {paxFreq: Number(frequency.paxFreq) || 0, cargoFreq: Number(frequency.cargoFreq) || 0, remark: String(frequency.remark || ''), valid: String(frequency.valid || '')};
+            }
+            schedule.push({origin: route.origin, destination: route.destination, od: route.od, direction: route.direction === 'Inbound' ? 'Inbound' : 'Outbound', flightNumber});
+        }
+        date[key] = {schedule};
+    }
+    return {type: typeof value.type === 'string' ? value.type : undefined, server: typeof value.server === 'string' ? value.server : undefined, airline: {id: AES.isRecord(value.airline) ? String(value.airline.id || '') : ''}, date};
+}
+function readDashboardAnalysis(value: unknown): AESModel.DashboardAnalysis | null {
+    if (!AES.isRecord(value) || !AES.isRecord(value.date)) return null;
+    const date: AESModel.DashboardAnalysis['date'] = {};
+    for (const [key, snapshot] of Object.entries(value.date)) {
+        if (!/^\d{8}$/.test(key) || !AES.isRecord(snapshot) || !AES.isRecord(snapshot.data)) continue;
+        const data: AESModel.DashboardAnalysis['date'][string]['data'] = {};
+        const cabins: AESModel.Cabin[] = ['Y','C','F','Cargo'];
+        for (const cabin of cabins) {
+            const item = snapshot.data[cabin];
+            if (AES.isRecord(item)) data[cabin] = {valid: !!item.valid, totalCap: Number(item.totalCap) || 0, totalBkd: Number(item.totalBkd) || 0, index: Number(item.index) || 0};
+        }
+        date[key] = {data, pricingUpdated: snapshot.pricingUpdated ? 1 : 0};
+    }
+    return {origin: String(value.origin || ''), destination: String(value.destination || ''), date};
+}
+function readDashboardCompetitor(value: unknown): AESModel.DashboardCompetitor | null {
+    if (!AES.isRecord(value) || value.type !== 'competitorMonitoring' || !value.id) return null;
+    const dates = (raw: unknown): Record<string, AESModel.DashboardRow> => AES.isRecord(raw) ? Object.fromEntries(Object.entries(raw).filter(([key, entry]) => /^\d{8}$/.test(key) && AES.isRecord(entry)).map(([key, entry]) => [key, flatRecord(entry)])) : {};
+    return {...value, key: String(value.key || ''), type: value.type, server: String(value.server || ''), id: String(value.id), ownerId: value.ownerId ? String(value.ownerId) : undefined, tracking: value.tracking === true || value.tracking === 1, tab0: dates(value.tab0), tab2: dates(value.tab2)};
+}
+})();

@@ -22,7 +22,8 @@ class OnlineReservationSystem {
         try {
             const stored = localStorage.getItem(OnlineReservationSystem.LOCAL_STORAGE_KEY);
             if (stored !== null) {
-                this.#maxRating = parseInt(stored, 10);
+                const rating = parseInt(stored, 10);
+                if (Number.isFinite(rating)) this.#maxRating = rating;
             }
         } catch (e) {
             console.error('Failed to access localStorage:', e);
@@ -64,7 +65,7 @@ class OnlineReservationSystem {
     #setupNavigationPersistence() {
         document.querySelectorAll('.navigation a[href]').forEach(link => {
             link.addEventListener('click', () => {
-                localStorage.setItem(OnlineReservationSystem.LOCAL_STORAGE_KEY, this.#maxRating);
+                localStorage.setItem(OnlineReservationSystem.LOCAL_STORAGE_KEY, String(this.#maxRating));
             });
         });
     }
@@ -74,7 +75,7 @@ class OnlineReservationSystem {
      * @param text
      * @returns {HTMLSpanElement}
      */
-    #generateSpanElement(text) {
+    #generateSpanElement(text: string) {
         const span = document.createElement('span');
         span.textContent = text;
         span.className = 'aes-text-left';
@@ -100,7 +101,7 @@ class OnlineReservationSystem {
      * @returns {Element}
      */
     #getResultsTable() {
-        return document.querySelector('.ors-result .as-panel .as-table-well > table.table');
+        return document.querySelector<HTMLTableElement>('.ors-result .as-panel .as-table-well > table.table');
     }
 
     /**
@@ -108,7 +109,7 @@ class OnlineReservationSystem {
      * @param table
      * @returns {number}
      */
-    #getMaxRatingFromTable(table) {
+    #getMaxRatingFromTable(table: HTMLTableElement) {
         const ratingImgs = table.querySelectorAll('td.rating img');
         const ratings = Array.from(ratingImgs).map(img => {
             const title = img.getAttribute('title');
@@ -121,7 +122,7 @@ class OnlineReservationSystem {
      * Processes each tbody in the results table to add the "Difference" column.
      * @param tbody
      */
-    #processTbody(tbody) {
+    #processTbody(tbody: HTMLTableSectionElement) {
         const rows = tbody.querySelectorAll('tr');
         if (rows.length === 0) return;
 
@@ -137,7 +138,7 @@ class OnlineReservationSystem {
      * @param headerRow
      * @returns {number}
      */
-    #insertDifferenceHeader(headerRow) {
+    #insertDifferenceHeader(headerRow: HTMLTableRowElement) {
         const ths = headerRow.querySelectorAll('th');
         let ratingThIdx = Array.from(ths).findIndex(th => th.classList.contains('rating'));
         if (ratingThIdx === -1) {
@@ -156,7 +157,7 @@ class OnlineReservationSystem {
      * Inserts a "Difference" cell in each row of the results table.
      * @param row
      */
-    #insertDifferenceCell(row) {
+    #insertDifferenceCell(row: HTMLTableRowElement) {
         const ratingTd = row.querySelector('td.rating') || row.querySelector('td.aircraft');
         const diffTd = document.createElement('td');
         diffTd.className = 'aes-ors-difference';
@@ -168,7 +169,7 @@ class OnlineReservationSystem {
                 const title = img.getAttribute('title');
                 rating = title ? parseInt(title.match(/-?\d+/)?.[0] || '0', 10) : 0;
             }
-            diffTd.textContent = this.#maxRating - rating;
+            diffTd.textContent = String(this.#maxRating - rating);
         } else {
             diffTd.textContent = '';
         }

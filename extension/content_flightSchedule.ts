@@ -1,12 +1,23 @@
 "use strict";
+(() => {
 //MAIN
-var settings, compData, server, airline, ownerAirline, date;
+var settings: Record<string, unknown>;
+var compData: AESModel.CompetitorRecord | undefined;
+var server: string;
+var airline: AESModel.Airline;
+var ownerAirline: AESModel.Airline;
+var date: { date: string; time: string };
 const FLIGHT_SCHEDULE_SCRIPT_ENABLED = AES.runContentScript("content_flightSchedule", function() {
     server = AES.getServerName();
     airline = AES.getAirline();
     ownerAirline = AES.getCurrentAirline();
     date = AES.getServerDate();
     chrome.storage.local.get(['settings'], function(result) {
+        if (!AES.isPageOwner()) return;
+        if (chrome.runtime.lastError) {
+            AES.reportContentScriptError("content_flightSchedule", new Error(chrome.runtime.lastError.message));
+            return;
+        }
         AES.waitForElement(function() {
             return $('.flight-schedule');
         }, function() {
@@ -24,8 +35,8 @@ if (FLIGHT_SCHEDULE_SCRIPT_ENABLED) {
     });
 }
 //FUNCTIONS
-function initializeFlightSchedule(result) {
-    settings = result.settings || {};
+function initializeFlightSchedule(result: Record<string, unknown>) {
+    settings = AES.isRecord(result.settings) ? result.settings : {};
     let label = $('<h3 id="aes-schedule-heading"></h3>').text('AES Schedule');
     let btn = $('<button class="btn btn-default" id="aes-extractSchedule-btn"></button>').text('Extract Schedule');
     let panel = $('<div id="aes-panel-schedule" class="as-panel"></div>').append(btn);
@@ -42,10 +53,11 @@ function initializeFlightSchedule(result) {
     });
 
     //Automation
-    if (settings.schedule && settings.schedule.autoExtract) {
+    if (AES.isRecord(settings.schedule) && settings.schedule.autoExtract) {
         AES.updateSettings(function(currentSettings) {
-            currentSettings.schedule = currentSettings.schedule || {};
-            currentSettings.schedule.autoExtract = 0;
+            const scheduleSettings = AES.isRecord(currentSettings.schedule) ? currentSettings.schedule : {};
+            scheduleSettings.autoExtract = 0;
+            currentSettings.schedule = scheduleSettings;
         }, function(updatedSettings) {
             settings = updatedSettings;
             btn.click();
@@ -55,7 +67,12 @@ function initializeFlightSchedule(result) {
         let key = AES.getCompetitorMonitoringKey(server, ownerAirline.id, airline.id);
         let legacyKey = AES.getCompetitorMonitoringKey(server, null, airline.id);
         chrome.storage.local.get([key, legacyKey], function(compMonitoringData) {
-            compData = compMonitoringData[key] || compMonitoringData[legacyKey];
+            if (!AES.isPageOwner()) return;
+            if (chrome.runtime.lastError) {
+                AES.reportContentScriptError("content_flightSchedule", new Error(chrome.runtime.lastError.message));
+                return;
+            }
+            compData = AES.getCompetitorPageData(compMonitoringData[key] || compMonitoringData[legacyKey], server, ownerAirline, airline);
             if (compData) {
                 if (compData.autoExtract) {
                     compData.key = key;
@@ -71,18 +88,23 @@ function initializeFlightSchedule(result) {
 
 function extractSchedule() {
     // Update UI
-    let span = $('<span class="warning"></span>').text('Extracting...');
+    $('#aes-schedule-status').remove();
+    let span = $('<span id="aes-schedule-status" class="warning"></span>').text('Extracting...');
     $('#aes-panel-schedule').append(span);
-    $('#aes-extractSchedule-btn').remove();
+    const button = $('#aes-extractSchedule-btn').prop('disabled', true);
+    const fail = (message: string) => {
+        span.removeClass().addClass('bad').text(message);
+        button.prop('disabled', false);
+    };
 
     // Pull every table-body and build an array of route-segments
     let tbodyList = $('.flight-schedule table tbody');
-    let schedule = [];
+    let schedule: AESModel.ScheduleRoute[] = [];
 
     for (let i = 0; i < tbodyList.length; i++) {
         let destinationCount = 0;
-        let rows = $('tr', tbodyList[i]);
-        let route = {};
+        let rows = $<HTMLTableRowElement>('tr', tbodyList[i]);
+        let route: Partial<AESModel.ScheduleRoute> = {};
 
         for (let j = 0; j < rows.length; j++) {
             let cls = rows[j].className;
@@ -94,7 +116,7 @@ function extractSchedule() {
             } else if (cls === 'destination') {
                 // on a second+ destination, push the prior segment
                 if (destinationCount) {
-                    schedule.push(route);
+                    if (isCompleteScheduleRoute(route)) schedule.push(route);
                     route = { origin: route.origin };
                 }
                 route.destination = $('a', rows[j]).text();
@@ -110,11 +132,16 @@ function extractSchedule() {
         }
 
         // push the last segment for this table
-        schedule.push(route);
+        if (isCompleteScheduleRoute(route)) schedule.push(route);
+    }
+
+    if (!schedule.length) {
+        fail('No flight segments found. Existing schedule data was kept.');
+        return;
     }
 
     // build hub counts for OD logic
-    let hub = {};
+    let hub: Record<string, number> = {};
     schedule.forEach(r => { hub[r.origin] = (hub[r.origin]||0) + 1 });
 
     // assign od & direction
@@ -131,30 +158,54 @@ function extractSchedule() {
     });
 
     // save into chrome.storage
-    let newScheduleData = { date: date.date, updateTime: date.time, schedule };
+    let newScheduleData: AESModel.ScheduleSnapshot = { date: date.date, updateTime: date.time, schedule };
     let key = server + airline.id + 'schedule';
-    let defaultScheduleData = { type: 'schedule', server, airline, date: {} };
+    let defaultScheduleData: AESModel.ScheduleRecord = { type: 'schedule', server, airline, date: {} };
 
     chrome.storage.local.get({ [key]: defaultScheduleData }, function(result) {
-        let scheduleData = result[key];
-        scheduleData.airline = airline;
-        scheduleData.date[date.date] = newScheduleData;
+        if (!AES.isPageOwner()) return;
+        if (chrome.runtime.lastError) {
+            fail('Unable to read schedule history: ' + chrome.runtime.lastError.message);
+            return;
+        }
+        const old = AES.isRecord(result[key]) ? result[key] : {};
+        const scheduleData: AESModel.ScheduleRecord = {
+            ...old, type: 'schedule', server, airline,
+            date: { ...(AES.isRecord(old.date) ? old.date : {}), [date.date]: newScheduleData }
+        };
         chrome.storage.local.set({ [key]: scheduleData }, function() {
-            span.removeClass().addClass('good').text('Schedule extracted!');
-            if (compData && compData.autoExtract) {
-                compData.autoExtract = 0;
-                chrome.storage.local.set({ [compData.key]: compData }, function() {
+            if (!AES.isPageOwner()) return;
+            if (chrome.runtime.lastError) {
+                fail('Unable to save schedule: ' + chrome.runtime.lastError.message);
+                return;
+            }
+            const complete = () => {
+                span.removeClass().addClass('good').text('Schedule extracted!');
+                button.remove();
+            };
+            const competitor = compData;
+            if (competitor?.autoExtract) {
+                chrome.storage.local.set({ [competitor.key]: { ...competitor, autoExtract: 0 } }, function() {
+                    if (!AES.isPageOwner()) return;
+                    if (chrome.runtime.lastError) {
+                        fail('Schedule saved, but automation could not be completed: ' + chrome.runtime.lastError.message);
+                        return;
+                    }
+                    competitor.autoExtract = 0;
+                    complete();
                     window.open('./' + airline.id + '?tab=0', '_self');
                 });
-            }
+            } else complete();
         });
     });
 }
 
-function getLineDetails(row, route) {
+function getLineDetails(row: HTMLTableRowElement, route: Partial<AESModel.ScheduleRoute>) {
     // parse flight number
-    let parts = $(".code:eq(0)", row).text().split(' ');
+    let parts = $(".code:eq(0)", row).text().trim().split(/\s+/);
     let flightNumber = parseInt(parts[1], 10);
+
+    if (!/^\d+$/.test(parts[1] || '') || !Number.isSafeInteger(flightNumber)) return route;
 
     // ensure container
     if (!route.flightNumber) route.flightNumber = {};
@@ -183,3 +234,9 @@ function getLineDetails(row, route) {
 
     return route;
 }
+
+function isCompleteScheduleRoute(route: Partial<AESModel.ScheduleRoute>): route is AESModel.ScheduleRoute {
+    return !!route.origin && !!route.destination && !!route.flightNumber && Object.keys(route.flightNumber).length > 0;
+}
+
+})();

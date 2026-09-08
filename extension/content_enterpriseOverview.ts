@@ -1,7 +1,12 @@
 "use strict";
+(() => {
 //MAIN
 //Global vars
-var server, airline, ownerAirline, activeTab, compData;
+var server: string;
+var airline: AESModel.Airline;
+var ownerAirline: AESModel.Airline;
+var activeTab: string;
+var compData: AESModel.CompetitorRecord;
 const ENTERPRISE_OVERVIEW_SCRIPT_ENABLED = AES.runContentScript("content_enterpriseOverview", function() {
     AES.waitForElement(function() {
         return $(".nav-tabs .active").length && AES.getEnterpriseHeading() && AES.getNavbarAirline().displayName;
@@ -15,31 +20,14 @@ function initializeEnterpriseOverview() {
     server = AES.getServerName();
     airline = AES.getAirline();
     ownerAirline = AES.getCurrentAirline();
-    activeTab = ($(".nav-tabs .active").attr('class') || '').split(" ");
-    activeTab = activeTab[0];
+    activeTab = ($(".nav-tabs .active").attr('class') || '').split(" ")[0];
     let key = AES.getCompetitorMonitoringKey(server, ownerAirline.id, airline.id);
     let legacyKey = AES.getCompetitorMonitoringKey(server, null, airline.id);
     chrome.storage.local.get([key, legacyKey], function(compMonitoringData) {
         AES.tryRun("content_enterpriseOverview", function() {
-            compData = compMonitoringData[key] || compMonitoringData[legacyKey];
-            if (!compData) {
-                compData = {
-                    key: key,
-                    server: server,
-                    ownerId: ownerAirline.id,
-                    ownerAirline: ownerAirline,
-                    id: airline.id,
-                    type: "competitorMonitoring",
-                    tab0: {},
-                    tab2: {},
-                    tracking: 0,
-                    autoExtract: 0
-                }
-            } else {
-                compData.key = key;
-                compData.ownerId = ownerAirline.id;
-                compData.ownerAirline = ownerAirline;
-            }
+            if (!AES.isPageOwner()) return;
+            if (chrome.runtime.lastError) throw new Error(chrome.runtime.lastError.message);
+            compData = AES.getCompetitorPageData(compMonitoringData[key] || compMonitoringData[legacyKey], server, ownerAirline, airline);
             displayMain();
         });
     });
@@ -58,55 +46,38 @@ function displayMain() {
     let panel = $('<div class="as-panel"></div>');
 
     //Checkbox
-    let checkbox = $('<input type="checkbox">');
+    let checkbox = $<HTMLInputElement>('<input type="checkbox">');
     let label = $('<label></label>').append(checkbox, ' Follow this airline in Competitor Monitoring');
     let divCheckbox = $('<div class="checkbox"></div>').append(label);
 
     //Competitive display comp monitoring
     let divComp = $('<div></div>');
-    $(checkbox).change(function() {
-        if (this.checked) {
-            //Update tracker
-            compData.tracking = 1;
-            chrome.storage.local.set({
-                [compData.key]: compData }, function() {});
-            updateCompetitorMonitoringIndex(true);
-
-            //Action bar
-            let actionBar = $('<ul class="as-panel as-action-bar"></ul>');
+    checkbox.change(function() {
+        const tracking = this.checked;
+        const previousTracking = compData.tracking;
+        compData.tracking = tracking ? 1 : 0;
+        checkbox.prop('disabled', true);
+        saveCompetitorRecord(function() {
+            checkbox.prop('disabled', false);
+            updateCompetitorMonitoringIndex(tracking);
+            divComp.empty();
+            if (!tracking) return;
+            const actionBar = $('<ul class="as-panel as-action-bar"></ul>');
             divComp.append(actionBar);
-            //Display
             displayCompetitorMonitoring(divComp);
-
-
             switch (activeTab) {
-                case 'tab0':
-
-                    displayTab0(actionBar);
-                    break;
+                case 'tab0': displayTab0(actionBar); break;
+                case 'tab2': displayTab2(actionBar); break;
                 case 'tab1':
-                    // Nothing
-                    break;
-                case 'tab2':
-                    displayTab2(actionBar)
-                    break;
-                case 'tab3':
-                    // Nothing controlled via schedule content script
-                    break;
-                default:
-                    console.log('Error 0925: Enterprise Overview Active Tab not found ' + activeTab)
-                    die();
+                case 'tab3': break;
+                default: throw new Error("Unsupported enterprise tab: " + activeTab);
             }
             displayAutomation(actionBar);
-        } else {
-            //Update tracker
-            compData.tracking = 0;
-            chrome.storage.local.set({
-                [compData.key]: compData }, function() {});
-            updateCompetitorMonitoringIndex(false);
-            //Display
-            divComp.empty();
-        }
+        }, function(error) {
+            compData.tracking = previousTracking;
+            checkbox.prop('disabled', false).prop('checked', !!previousTracking);
+            AES.reportContentScriptError("content_enterpriseOverview", error);
+        });
     });
     //Checkbox default
     if (compData.tracking) {
@@ -120,21 +91,25 @@ function displayMain() {
     //Add display
     let mainDiv = $('<div id="aes-panel-airline-competitive-monitoring"></div>').append('<h3>AirlineSim Enhancement Suite Airline</h3>', panel, divComp);
     AES.markOwnedElements(mainDiv);
-    let insertionTarget = $(AES.getEnterpriseHeading());
+    let insertionTarget = $(AES.getEnterpriseHeading() || []);
     if (!insertionTarget.length) {
         throw new Error("Enterprise overview insertion target enterprise heading was not found");
     }
     insertionTarget.after(mainDiv);
 }
 
-function updateCompetitorMonitoringIndex(tracking) {
+function updateCompetitorMonitoringIndex(tracking: boolean) {
     if (!ownerAirline.id || !airline.id) {
         return;
     }
 
     let indexKey = AES.getCompetitorMonitoringIndexKey(server, ownerAirline.id);
     chrome.storage.local.get({ [indexKey]: [] }, function(result) {
-        let index = Array.isArray(result[indexKey]) ? result[indexKey].map(String) : [];
+        if (chrome.runtime.lastError) {
+            AES.reportContentScriptError("content_enterpriseOverview", new Error(chrome.runtime.lastError.message));
+            return;
+        }
+        let index: string[] = Array.isArray(result[indexKey]) ? result[indexKey].map(String) : [];
         let competitorId = String(airline.id);
         index = index.filter(function(id, position) {
             return index.indexOf(id) == position;
@@ -150,22 +125,32 @@ function updateCompetitorMonitoringIndex(tracking) {
             });
         }
 
-        chrome.storage.local.set({ [indexKey]: index }, function() {});
+        chrome.storage.local.set({ [indexKey]: index }, function() {
+            if (chrome.runtime.lastError) AES.reportContentScriptError("content_enterpriseOverview", new Error(chrome.runtime.lastError.message));
+        });
     });
 }
 
-function displayAutomation(actionBar) {
+function displayAutomation(actionBar: JQuery) {
     if (!compData.autoExtract) { //
         let span = $('<span></span>');
         let btn = $('<button type="button" class="btn btn-default">save all tab data</button>');
         btn.click(function() {
-            btn.remove();
+            btn.prop('disabled', true);
             span.removeClass().addClass('warning').text('extracting...');
+            const previousAutoExtract = compData.autoExtract;
             compData.autoExtract = 1;
-            if (activeTab == 'tab0') {
+            if (activeTab === 'tab0') {
                 $('#aes-btn-save-tab0-data').click();
             } else {
-                window.open('./' + airline.id + '?tab=0', '_self');
+                saveCompetitorRecord(function() {
+                    btn.remove();
+                    window.open('./' + airline.id + '?tab=0', '_self');
+                }, function(error) {
+                    compData.autoExtract = previousAutoExtract;
+                    btn.prop('disabled', false);
+                    span.removeClass().addClass('bad').text(error.message);
+                });
             }
         });
         let li = $('<li></li>').append(btn, span);
@@ -177,18 +162,18 @@ function displayAutomation(actionBar) {
     }
 }
 
-function displayCompetitorMonitoring(div) {
+function displayCompetitorMonitoring(div: JQuery) {
     let th = [];
     th.push('<th>Overview</th>');
     th.push('<th>Facts and Figures</th>');
     th.push('<th>Schedule</th>');
-    let headRow = $('<tr></tr>').append(th);
+    let headRow = $('<tr></tr>').append(...th);
     let thead = $('<thead></thead>').append(headRow);
     //body
     let td = [];
-    td.push($('<td></td>').html(displayOverviewRow()));
-    td.push($('<td></td>').html(displayFactsAndFiguresRow()));
-    td.push($('<td></td>').html(displayScheduleRow()));
+    td.push($('<td></td>').append(displayOverviewRow()));
+    td.push($('<td></td>').append(displayFactsAndFiguresRow()));
+    td.push($('<td></td>').append(displayScheduleRow()));
     let row = $('<tr></tr>').append(td);
     let tbody = $('<tbody></tbody>').append(row);
     let table = $('<table class="table table-bordered table-striped table-hover"></table>').append(thead, tbody);
@@ -199,7 +184,7 @@ function displayCompetitorMonitoring(div) {
 
 }
 
-function displayTab0(actionBar) {
+function displayTab0(actionBar: JQuery) {
     //Get data
     let data = getTab0Data();
     //Save Data
@@ -207,20 +192,23 @@ function displayTab0(actionBar) {
     let btnSave = $('<button id="aes-btn-save-tab0-data" type="button" class="btn btn-default">save competitor overview data</button>');
 
     btnSave.click(function() {
-        btnSave.remove();
+        btnSave.prop('disabled', true);
         span.removeClass().addClass('warning').text('saving data...');
         let time = AES.getServerDate()
 
+        const previous = compData.tab0[time.date];
+        data.updateTime = time.time;
+        data.date = time.date;
         compData.tab0[time.date] = data;
-        compData.tab0[time.date].updateTime = time.time;
-        compData.tab0[time.date].date = time.date;
-        chrome.storage.local.set({
-            [compData.key]: compData }, function() {
+        saveCompetitorRecord(function() {
+            btnSave.remove();
             span.removeClass().addClass("good").text("Overview Tab data Saved!");
-            if (compData.autoExtract) {
-                window.open('./' + airline.id + '?tab=2', '_self');
-            }
-
+            if (compData.autoExtract) window.open('./' + airline.id + '?tab=2', '_self');
+        }, function(error) {
+            if (previous === undefined) delete compData.tab0[time.date];
+            else compData.tab0[time.date] = previous;
+            btnSave.prop('disabled', false);
+            span.removeClass().addClass('bad').text(error.message);
         });
     });
     let li = $('<li></li>').append(span, btnSave);
@@ -232,7 +220,7 @@ function displayTab0(actionBar) {
     }
 }
 
-function displayTab2(actionBar) {
+function displayTab2(actionBar: JQuery) {
     let data = getTab2Data();
     //Save Data
     let span = $('<span></span>');
@@ -240,13 +228,10 @@ function displayTab2(actionBar) {
 
     //Check if this week already saved
     let update = 1;
-    let dates = [];
-    for (let date in compData.tab2) {
-        dates.push(date);
-    }
-    dates.sort(function(a, b) { return b - a });
+    const dates = getCompetitorHistoryDates(compData.tab2);
     if (dates.length) {
-        if (compData.tab2[dates[0]].week == data.week) {
+        const previous = compData.tab2[dates[0]];
+        if (AES.isRecord(previous) && previous.week == data.week) {
             update = 0;
         }
     }
@@ -255,19 +240,23 @@ function displayTab2(actionBar) {
     let li;
     if (update) {
         btnSave.click(function() {
-            btnSave.remove();
+            btnSave.prop('disabled', true);
             span.removeClass().addClass('warning').text('saving data...');
             let time = AES.getServerDate()
 
+            const previous = compData.tab2[time.date];
+            data.updateTime = time.time;
+            data.date = time.date;
             compData.tab2[time.date] = data;
-            compData.tab2[time.date].updateTime = time.time;
-            compData.tab2[time.date].date = time.date;
-            chrome.storage.local.set({
-                [compData.key]: compData }, function() {
+            saveCompetitorRecord(function() {
+                btnSave.remove();
                 span.removeClass().addClass("good").text("Fact and figures Tab data Saved!");
-                if (compData.autoExtract) {
-                    window.open('./' + airline.id + '?tab=3', '_self');
-                }
+                if (compData.autoExtract) window.open('./' + airline.id + '?tab=3', '_self');
+            }, function(error) {
+                if (previous === undefined) delete compData.tab2[time.date];
+                else compData.tab2[time.date] = previous;
+                btnSave.prop('disabled', false);
+                span.removeClass().addClass('bad').text(error.message);
             });
         });
         li = $('<li></li>').append(span, btnSave);
@@ -291,11 +280,7 @@ function displayTab2(actionBar) {
 
 function displayOverviewRow() {
     let span = $('<span></span>');
-    let dates = [];
-    for (let propertyName in compData.tab0) {
-        dates.push(propertyName);
-    }
-    dates.sort(function(a, b) { return b - a });
+    const dates = getCompetitorHistoryDates(compData.tab0);
     if (dates.length) {
         let diff = AES.getDateDiff([AES.getServerDate().date, dates[0]]);
         span.text('Last overview extract ' + AES.formatDateString(dates[0]) + ' (' + diff + ' days ago)');
@@ -312,14 +297,11 @@ function displayOverviewRow() {
 
 function displayFactsAndFiguresRow() {
     let span = $('<span></span>');
-    let dates = [];
-    for (let propertyName in compData.tab2) {
-        dates.push(propertyName);
-    }
-    dates.sort(function(a, b) { return b - a });
+    const dates = getCompetitorHistoryDates(compData.tab2);
     if (dates.length) {
         let diff = AES.getDateDiff([AES.getServerDate().date, dates[0]]);
-        span.text('Last facts and figures extract for week ' + formatWeekDate(compData.tab2[dates[0]].week) + ' done on ' + AES.formatDateString(dates[0]) + ' (' + diff + ' days ago)');
+        const latest = compData.tab2[dates[0]];
+        span.text('Last facts and figures extract for week ' + formatWeekDate(AES.isRecord(latest) ? latest.week : undefined) + ' done on ' + AES.formatDateString(dates[0]) + ' (' + diff + ' days ago)');
         if (diff >= 0 && diff < 7) {
             span.addClass('good');
         } else {
@@ -333,26 +315,22 @@ function displayFactsAndFiguresRow() {
 
 function displayScheduleRow() {
     let span = $('<span></span>');
-    let dates = [];
-    for (let propertyName in compData.tab0) {
-        dates.push(propertyName);
-    }
-    dates.sort(function(a, b) { return b - a });
+    const dates = getCompetitorHistoryDates(compData.tab0);
     if (dates.length) {
-        let id = compData.tab0[dates[0]].id;
+        const overview = compData.tab0[dates[0]];
+        const id = AES.isRecord(overview) ? overview.id : undefined;
+        if (typeof id !== "string" && typeof id !== "number") return span.addClass('bad').text('No Schedule data found.');
         let scheduleKey = server + id + 'schedule';
         chrome.storage.local.get([scheduleKey], function(result) {
             let scheduleData = result[scheduleKey];
-            if (scheduleData) {
-                let scheduleDates = [];
-                for (let date in scheduleData.date) {
-                    if (Number.isInteger(parseInt(date))) {
-                        scheduleDates.push(date);
-                    }
+            if (AES.isRecord(scheduleData) && AES.isRecord(scheduleData.date)) {
+                const scheduleDates = getCompetitorHistoryDates(scheduleData.date);
+                if (!scheduleDates.length) {
+                    span.addClass('bad').text('No Schedule data found.');
+                    return;
                 }
-                scheduleDates.reverse();
                 let diff = AES.getDateDiff([AES.getServerDate().date, scheduleDates[0]]);
-                span.text('Last schedule extract ' + AES.formatDateString(dates[0]) + ' (' + diff + ' days ago)');
+                span.text('Last schedule extract ' + AES.formatDateString(scheduleDates[0]) + ' (' + diff + ' days ago)');
                 if (diff >= 0 && diff < 7) {
                     span.addClass('good');
                 } else {
@@ -370,14 +348,12 @@ function displayScheduleRow() {
 
 }
 
-function getTab0Data() {
-    let data = {};
-    //airline generic ;
-    let airline = AES.getAirline();
-    data.id = airline.id;
-    data.code = airline.code;
-    data.name = airline.name;
-    data.displayName = airline.displayName;
+function getTab0Data(): AESModel.CompetitorOverview {
+    const currentAirline = AES.getAirline();
+    const data: AESModel.CompetitorOverview = {
+        ...currentAirline, rating: '', pax: NaN, cargo: NaN, stations: NaN,
+        fleet: NaN, employees: NaN, tab0data: 1
+    };
     //First table
     let table = $(".layout-col-md-4 > .as-fieldset:eq(0) table tbody");
     data.rating = $('td:eq(1)', $('tr', table).last()).text().trim().replace(/[^A-Za-z0-9]/g, '');
@@ -395,16 +371,19 @@ function getTab0Data() {
     return data;
 }
 
-function getTab2Data() {
+function getTab2Data(): AESModel.CompetitorFacts {
     //First table
-    let data = {};
+    const data: AESModel.CompetitorFacts = {
+        week: NaN, airportsServed: NaN, operatedFlights: NaN, seatsOffered: NaN,
+        sko: NaN, cargoOffered: NaN, fko: NaN, tab2data: 2
+    };
     let table = $(".tab-content table");
-    let getNumber = function(text) {
+    let getNumber = function(text: string) {
         let number = text.trim().split('(')[0].replace(/\D/g, '');
         return number ? parseInt(number, 10) : NaN;
     };
-    let getNumberByLabel = function(labels, fallbackCell) {
-        let value;
+    let getNumberByLabel = function(labels: string[], fallbackCell: JQuery) {
+        let value: number | undefined;
         table.find('tbody tr').each(function() {
             let label = $(this).find('th, td').first().text().trim().toLowerCase();
             let found = labels.some(function(match) {
@@ -432,7 +411,25 @@ function getTab2Data() {
     return data;
 }
 
-function formatWeekDate(date) {
-    let a = date.toString();
+function formatWeekDate(date: unknown) {
+    if (typeof date !== 'string' && typeof date !== 'number') return 'unknown';
+    let a = String(date);
     return a.substring(0, 2) + '/' + a.substring(2, 6);
 }
+
+function getCompetitorHistoryDates(history: Record<string, unknown>): string[] {
+    return Object.keys(history).filter(date => /^\d{8}$/.test(date) && AES.isRecord(history[date]))
+        .sort((a, b) => Number(b) - Number(a));
+}
+
+function saveCompetitorRecord(onSuccess: () => void, onFailure: (error: Error) => void) {
+    chrome.storage.local.set({ [compData.key]: compData }, function() {
+        if (chrome.runtime.lastError) {
+            onFailure(new Error('Unable to save competitor data: ' + chrome.runtime.lastError.message));
+            return;
+        }
+        if (AES.isPageOwner()) AES.tryRun("content_enterpriseOverview", onSuccess);
+    });
+}
+
+})();

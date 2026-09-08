@@ -1,16 +1,19 @@
 "use strict";
+(() => {
+const cabins: AESModel.Cabin[] = ['Y', 'C', 'F', 'Cargo'];
 //MAIN
 //Global vars
-var settings, pricingData, todayDate, analysis, server, airline;
-var aesmodule = { valid: true, error: [] };
-var inventoryObserver = null;
+let settings: AESModel.InventorySettings, pricingData: AESModel.InventoryRecord, todayDate: number;
+let analysis: AESModel.InventoryAnalysis, server: string, airline: AESModel.Airline;
+let aesmodule: Pick<Validation, 'valid' | 'errors'> = { valid: true, errors: [] };
+let inventoryObserver: MutationObserver | null = null;
 var inventoryRefreshTimer = 0;
 var inventoryRenderSignature = "";
+let inventoryRevision = 0;
+let inventoryActionPending = false;
+const inventoryNodeIds = new WeakMap<Node, number>();
+let inventoryNextNodeId = 0;
 const INVENTORY_SCRIPT_ENABLED = AES.runContentScript("content_inventory", function() {
-    $(function(){
-        server = AES.getServerName();
-        airline = AES.getAirline();
-    });
 
     let inventoryStarted = false;
     const startInventory = function() {
@@ -19,6 +22,9 @@ const INVENTORY_SCRIPT_ENABLED = AES.runContentScript("content_inventory", funct
         }
         inventoryStarted = true;
         AES.tryRun("content_inventory", async function() {
+            server = AES.getServerName();
+            const currentAirline = AES.getCurrentAirline();
+            airline = currentAirline?.id ? currentAirline : AES.getAirline();
             settings = await getSettings()
             watchInventoryLayout()
             await rerenderInventoryModule(true)
@@ -34,6 +40,7 @@ const INVENTORY_SCRIPT_ENABLED = AES.runContentScript("content_inventory", funct
 
 if (INVENTORY_SCRIPT_ENABLED) {
     AES.whenPageOwnershipLost(function() {
+        inventoryRevision++;
         if (inventoryObserver) {
             inventoryObserver.disconnect()
             inventoryObserver = null
@@ -43,7 +50,8 @@ if (INVENTORY_SCRIPT_ENABLED) {
     })
 }
 
-async function rerenderInventoryModule(force) {
+async function rerenderInventoryModule(force: boolean) {
+    if (!AES.isPageOwner() || inventoryActionPending) return;
     if (!isInventoryPageReady()) {
         cleanupInventoryDisplay()
         inventoryRenderSignature = ""
@@ -56,8 +64,11 @@ async function rerenderInventoryModule(force) {
     }
 
     inventoryRenderSignature = nextSignature
+    const revision = ++inventoryRevision;
     cleanupInventoryDisplay()
-    settings = await getSettings()
+    const nextSettings = await getSettings();
+    if (!isInventoryCurrent(revision)) return;
+    settings = nextSettings;
     aesmodule = new Validation()
 
     if (!aesmodule.valid) {
@@ -66,10 +77,10 @@ async function rerenderInventoryModule(force) {
         return
     }
     try {
-        await displayInventory()
+        await displayInventory(revision)
         AES.markOwnedElements($("#aes-h3-analysis, #aes-div-analysis, #aes-h3-history, #aes-div-invPricing-historicalData"))
     } catch (error) {
-        if (error && /Unable to read inventory data/.test(String(error.message || error))) {
+        if (error && /Unable to read inventory data/.test(String(error instanceof Error ? error.message : error))) {
             return
         }
         throw error
@@ -77,7 +88,7 @@ async function rerenderInventoryModule(force) {
 }
 
 function watchInventoryLayout() {
-    if (inventoryObserver) {
+    if (!AES.isPageOwner() || inventoryObserver) {
         return
     }
 
@@ -94,9 +105,15 @@ function watchInventoryLayout() {
 }
 
 function getInventorySignature() {
-    const groupedBodies = document.querySelectorAll("#inventory-grouped-table tbody").length
-    const classicRows = document.querySelectorAll("#inventory-table tbody tr").length
-    return [groupedBodies, classicRows].join(":")
+    return ['h2', '#inventory-table', '#inventory-grouped-table', '.pricing table', '.pricing input'].map(selector =>
+        Array.from(document.querySelectorAll(selector)).map(el => {
+            if (!inventoryNodeIds.has(el)) inventoryNodeIds.set(el, ++inventoryNextNodeId);
+            return inventoryNodeIds.get(el) + ':' + el.textContent;
+        }).join('|')).join('::');
+}
+
+function isInventoryCurrent(revision: number) {
+    return AES.isPageOwner() && inventoryRevision === revision && isInventoryPageReady() && getInventorySignature() === inventoryRenderSignature;
 }
 
 function isInventoryPageReady() {
@@ -118,10 +135,10 @@ function cleanupInventoryDisplay() {
  */
 async function getSettings() {
     const data = await chrome.storage.local.get(['settings'])
-    return data.settings
+    return readInventorySettings(data.settings)
 }
 
-async function displayInventory() {
+async function displayInventory(revision: number) {
     todayDate = parseInt(AES.getServerDate().date, 10);
     //Get flights
     let flights = getFlights();
@@ -139,8 +156,12 @@ async function displayInventory() {
         date: {}
     }
     const storageData = await chrome.storage.local.get({[storageKey.key]: defaultPricingData})
-    pricingData = storageData[storageKey.key]
-    await confirmPendingPricingUpdate(prices)
+    if (!isInventoryCurrent(revision)) return;
+    const raw: unknown = storageData[storageKey.key];
+    pricingData = { ...storageKey, ...(AES.isRecord(raw) ? raw : {}), key: storageKey.key,
+        date: AES.isRecord(raw) && AES.isRecord(raw.date) ? raw.date : {} }
+    await confirmPendingPricingUpdate(prices, revision)
+    if (!isInventoryCurrent(revision)) return;
 
     //Do Analysis
     analysis = getAnalysis(flights, prices, pricingData.date);
@@ -157,12 +178,12 @@ async function displayInventory() {
         if (pricingData.date[todayDate]) {
             //Today update exists
             //Check if pricing updated today
-            if (pricingData.date[todayDate].pricingUpdated) {
+            if (getSnapshot(todayDate).pricingUpdated) {
                 //Pricing updated today
                 //Do nothing
             } else {
                 //Pricing not updated today
-                if (pricingData.date[todayDate].pricingUpdatePending) {
+                if (hasPendingUpdate(todayDate)) {
                     return;
                 }
                 //Check if new price available
@@ -193,35 +214,21 @@ async function displayInventory() {
     }
 }
 
-async function confirmPendingPricingUpdate(prices) {
-    const dates = Object.keys(pricingData.date || {}).sort(function(a, b) {
-        return Number(b) - Number(a);
-    });
-    const pendingDate = dates.find(function(date) {
-        return pricingData.date[date] && pricingData.date[date].pricingUpdatePending;
-    });
-    if (!pendingDate) {
-        return;
-    }
-
-    const pendingRecord = pricingData.date[pendingDate];
-    const targetPrices = pendingRecord.pricingUpdatePending.targetPrices || {};
-    const compartments = Object.keys(targetPrices);
-    const confirmed = compartments.length && compartments.every(function(cmp) {
-        return prices[cmp] && prices[cmp].currentPrice === targetPrices[cmp];
-    });
-    if (!confirmed) {
-        return;
-    }
-
-    const pendingUpdate = pendingRecord.pricingUpdatePending;
-    pendingRecord.pricingUpdated = 1;
-    delete pendingRecord.pricingUpdatePending;
+async function confirmPendingPricingUpdate(prices: AESModel.InventoryPrices, revision: number) {
+    const dates = Object.keys(pricingData.date).sort((a,b) => Number(b)-Number(a));
+    const pendingDate = dates.find(date => getSnapshot(date).pricingUpdatePending);
+    if (!pendingDate) return;
+    const pending = getSnapshot(pendingDate).pricingUpdatePending;
+    if (!pending || !cabins.every(cmp => pending.targetPrices[cmp] === undefined || prices[cmp].currentPrice === pending.targetPrices[cmp])) return;
+    const raw = pricingData.date[pendingDate];
+    if (!AES.isRecord(raw) || !isInventoryCurrent(revision)) return;
+    const confirmed: Record<string, unknown> = {...raw, pricingUpdated: 1};
+    delete confirmed.pricingUpdatePending;
+    const next = {...pricingData, date: {...pricingData.date, [pendingDate]: confirmed}};
     try {
-        await chrome.storage.local.set({ [pricingData.key]: pricingData });
+        await chrome.storage.local.set({[next.key]: next});
+        if (isInventoryCurrent(revision)) pricingData = next;
     } catch (error) {
-        pendingRecord.pricingUpdated = 0;
-        pendingRecord.pricingUpdatePending = pendingUpdate;
         console.error('[AES] Unable to confirm the saved pricing update.', error);
     }
 }
@@ -231,13 +238,13 @@ async function confirmPendingPricingUpdate(prices) {
  * @returns {array} flights - array of flight objects
  */
 function getFlights() {
-    const groupedTableBodies = document.querySelectorAll("#inventory-grouped-table tbody")
+    const groupedTableBodies = document.querySelectorAll<HTMLTableSectionElement>("#inventory-grouped-table tbody")
     if (groupedTableBodies.length) {
         return getGroupedFlights(groupedTableBodies)
     }
 
-    const flights = []
-    const flightRows = document.querySelectorAll("#inventory-table tbody tr")
+    const flights: AESModel.InventoryFlight[] = []
+    const flightRows = document.querySelectorAll<HTMLTableRowElement>("#inventory-table tbody tr")
 
     if (!flightRows.length) {
         throw new Error("Unable to read inventory data. The inventory page layout might have changed.")
@@ -248,6 +255,7 @@ function getFlights() {
         flights.push(flight)
     }
 
+    if (!flights.length || flights.some(flight => !flight.fltNr || ![flight.cap, flight.bkd, flight.price].every(Number.isFinite) || flight.cap < 0 || flight.bkd < 0)) throw new Error('Unable to read inventory data: incomplete flight rows');
     return flights
 }
 
@@ -256,8 +264,8 @@ function getFlights() {
  * @param {NodeListOf<HTMLTableSectionElement>} groupedTableBodies
  * @returns {array} flights
  */
-function getGroupedFlights(groupedTableBodies) {
-    const flights = []
+function getGroupedFlights(groupedTableBodies: NodeListOf<HTMLTableSectionElement>) {
+    const flights: AESModel.InventoryFlight[] = []
 
     for (const tbody of groupedTableBodies) {
         const rows = tbody.querySelectorAll("tr")
@@ -270,7 +278,7 @@ function getGroupedFlights(groupedTableBodies) {
             continue
         }
 
-        const flightNumber = sharedCells[1].querySelector("a[href*=numbers]")?.innerText
+        const flightNumber = sharedCells[1].querySelector<HTMLElement>("a[href*=numbers]")?.innerText || ''
         const date = sharedCells[2].innerText
         const status = sharedCells[10].innerText.replace(/\s+/g, "")
 
@@ -304,6 +312,7 @@ function getGroupedFlights(groupedTableBodies) {
         }
     }
 
+    if (!flights.length || flights.some(flight => !flight.fltNr || ![flight.cap, flight.bkd, flight.price].every(Number.isFinite) || flight.cap < 0 || flight.bkd < 0)) throw new Error('Unable to read inventory data: incomplete flight rows');
     return flights
 }
 
@@ -312,9 +321,10 @@ function getGroupedFlights(groupedTableBodies) {
  * @param {HTMLElement} row - the <tr> with flight information
  * @returns {object} flight - object with the parsed flight information
  */
-function getFlight(row) {
+function getFlight(row: HTMLTableRowElement) {
     const cells = row.querySelectorAll("td")
-    const flightNumber = cells[1].querySelector("a[href*=numbers]").innerText
+    if (cells.length < 11) throw new Error("Unable to read inventory data: incomplete flight row");
+    const flightNumber = cells[1].querySelector<HTMLElement>("a[href*=numbers]")?.innerText || ''
     const date = cells[2].innerText
     const compCode = getCompCode(cells[5].innerText)
     const capacity = cells[6].innerText
@@ -340,7 +350,7 @@ function getFlight(row) {
  * @param {string} text - localised word for "Cargo"
  * @returns {string} text - either passthrough of the input or "Cargo"
  */
-function getCompCode(text) {
+function getCompCode(text: string): AESModel.Cabin {
     if (!text) {
         throw new Error("no value provided for getCompCode")
     }
@@ -349,7 +359,8 @@ function getCompCode(text) {
         return "Cargo"
     }
 
-    return text
+    if (text === 'Y' || text === 'C' || text === 'F') return text;
+    throw new Error('Unable to read inventory data: unknown service class');
 }
 
 /**
@@ -358,7 +369,7 @@ function getCompCode(text) {
  */
 function getPriceDetails() {
     const pricingRows = document.querySelectorAll(".pricing table tbody tr")
-    const prices = {}
+    const prices: Partial<AESModel.InventoryPrices> = {}
 
     for (const row of pricingRows) {
         const cells = row.querySelectorAll("td")
@@ -368,7 +379,8 @@ function getPriceDetails() {
         prices[cmp] = price
     }
 
-    return prices
+    if (!prices.Y || !prices.C || !prices.F || !prices.Cargo) throw new Error('Unable to read inventory data: missing price rows');
+    return { Y: prices.Y, C: prices.C, F: prices.F, Cargo: prices.Cargo };
 }
 
 /**
@@ -376,12 +388,14 @@ function getPriceDetails() {
  * @param {array} cells
  * @returns {object} price
  */
-function getPrice(cells) {
+function getPrice(cells: NodeListOf<HTMLTableCellElement>) {
+    if (cells.length < 5) throw new Error("Unable to read inventory data: incomplete pricing row");
     const currentPrice = AES.cleanInteger(cells[1].innerText)
     const defaultPrice = AES.cleanInteger(cells[4].innerText.replace(/\s+/g, ''))
     const currentPricePoint = getCurrentPricePoint(currentPrice, defaultPrice)
     const newPriceInput = cells[2].querySelector("input")
 
+    if (!newPriceInput || !Number.isFinite(currentPrice) || !Number.isFinite(defaultPrice) || defaultPrice <= 0) throw new Error('Unable to read inventory data: invalid price row');
     const price = {
         currentPrice: currentPrice,
         defaultPrice: defaultPrice,
@@ -397,26 +411,21 @@ function getPrice(cells) {
  * @param {string} defaultPrice
  * @returns {integer}
  */
-function getCurrentPricePoint(currentPrice, defaultPrice) {
+function getCurrentPricePoint(currentPrice: number, defaultPrice: number) {
     return Math.round((currentPrice / defaultPrice) * 100)
 }
 
 //Get Analysis
-function getAnalysis(flights, prices, storedData) {
+function getAnalysis(flights: AESModel.InventoryFlight[], prices: AESModel.InventoryPrices, storedData: Record<string, unknown>) {
     //Setup object
     let mostRecentDate
-    let mostRecentData
-    let data = {
-        Y: 0,
-        C: 0,
-        F: 0,
-        Cargo: 0
-    }
-    let analysis = {
+    let mostRecentData: AESModel.InventorySnapshot | undefined
+    const data = { Y: emptyInventoryItem(), C: emptyInventoryItem(), F: emptyInventoryItem(), Cargo: emptyInventoryItem() };
+    let analysis: AESModel.InventoryAnalysis = {
         data: data,
         getLoad: function(cmp) {
             if (this.data[cmp].valid) {
-                return this.data[cmp].totalBkd / this.data[cmp].totalCap;
+                return this.data[cmp].totalCap ? this.data[cmp].totalBkd / this.data[cmp].totalCap : 0;
             } else {
                 return 0;
             }
@@ -528,7 +537,7 @@ function getAnalysis(flights, prices, storedData) {
             }
         },
         displayTotalLoad: function(type) {
-            let cmp = [];
+            let cmp: AESModel.Cabin[] = [];
             switch (type) {
                 case 'all':
                     cmp = ['Y', 'C', 'F', 'Cargo'];
@@ -539,8 +548,7 @@ function getAnalysis(flights, prices, storedData) {
                 default:
                     // code block
             }
-            let load, cap, bkd;
-            load = cap = bkd = 0;
+            let load = 0, cap = 0, bkd = 0;
             for (let i = 0; i < cmp.length; i++) {
                 if (this.data[cmp[i]].valid) {
                     cap += this.data[cmp[i]].totalCap;
@@ -556,7 +564,7 @@ function getAnalysis(flights, prices, storedData) {
             }
         },
         displayTotalIndex: function(type) {
-            let cmp = [];
+            let cmp: AESModel.Cabin[] = [];
             switch (type) {
                 case 'all':
                     cmp = ['Y', 'C', 'F', 'Cargo'];
@@ -567,8 +575,7 @@ function getAnalysis(flights, prices, storedData) {
                 default:
                     // code block
             }
-            let count, totalIndex;
-            count = totalIndex = 0;
+            let count = 0, totalIndex = 0;
             for (let i = 0; i < cmp.length; i++) {
                 if (this.data[cmp[i]].valid) {
                     count++;
@@ -590,7 +597,7 @@ function getAnalysis(flights, prices, storedData) {
             }
         },
         hasValue: function(value) {
-            for (let cmp in this.data) {
+            for (const cmp of cabins) {
                 if (this.data[cmp][value]) {
                     return 1;
                 }
@@ -609,18 +616,19 @@ function getAnalysis(flights, prices, storedData) {
         //Shouldbe function inside storage object
         let dates = []
         for (let date in storedData) {
-            if (Number.isInteger(parseInt(date))) {
+            if (/^\d{8}$/.test(date) && readInventorySnapshot(storedData[date])) {
                 dates.push(date)
             }
         }
         dates.reverse();
         mostRecentDate = dates[0]
-        mostRecentData = storedData[mostRecentDate]
+        mostRecentData = readInventorySnapshot(storedData[mostRecentDate]) || undefined
     }
 
     //extract each cmp analysis
-    for (let cmp in analysis.data) {
+    for (const cmp of cabins) {
         analysis.data[cmp] = {
+            ...emptyInventoryItem(),
             totalCap: 0,
             totalBkd: 0,
             valid: 0,
@@ -705,8 +713,8 @@ function getAnalysis(flights, prices, storedData) {
     return analysis;
 }
 
-function generateRecommendation(analysis, prices) {
-    for (const cmp in analysis.data) {
+function generateRecommendation(analysis: AESModel.InventoryAnalysis, prices: AESModel.InventoryPrices) {
+    for (const cmp of cabins) {
         const item = analysis.data[cmp];
         const config = settings.invPricing.recommendation[cmp];
         item.recommendation = 0;
@@ -799,7 +807,7 @@ function generateRecommendation(analysis, prices) {
     return analysis;
 }
 
-function generateBoundaryRecommendation(item, config, price) {
+function generateBoundaryRecommendation(item: AESModel.InventoryItem, config: AESModel.PricingRecommendation, price: AESModel.InventoryPrice) {
     const currentPricePoint = price.currentPricePoint;
     let targetPricePoint = 0;
 
@@ -824,8 +832,8 @@ function generateBoundaryRecommendation(item, config, price) {
     return true;
 }
 
-function generateReferenceRecommendation(analysis, prices) {
-    for (const cmp in analysis.data) {
+function generateReferenceRecommendation(analysis: AESModel.InventoryAnalysis, prices: AESModel.InventoryPrices) {
+    for (const cmp of cabins) {
         const item = analysis.data[cmp];
 
         if (!item.valid || item.useCurrentPrice || item.newPrice) {
@@ -882,8 +890,8 @@ function generateReferenceRecommendation(analysis, prices) {
     return analysis;
 }
 
-function getMostCommonFlightPrice(flights) {
-    const priceCounts = {};
+function getMostCommonFlightPrice(flights: AESModel.InventoryFlight[]) {
+    const priceCounts: Record<number, number> = {};
     let selectedPrice = 0;
     let selectedCount = 0;
 
@@ -901,9 +909,9 @@ function getMostCommonFlightPrice(flights) {
     return selectedPrice;
 }
 
-function generateRouteIndex(analysis) {
+function generateRouteIndex(analysis: AESModel.InventoryAnalysis) {
     //Each CMP index
-    for (let cmp in analysis.data) {
+    for (const cmp of cabins) {
         if (analysis.data[cmp].valid) {
             let index = (10 ** (analysis.data[cmp].analysisPricePoint / 100 - 1)) * (analysis.getLoad(cmp) * 100);
             analysis.data[cmp].index = Math.round(index);
@@ -913,7 +921,7 @@ function generateRouteIndex(analysis) {
 }
 
 //Display analysis
-function displayAnalysis(analysis, prices) {
+function displayAnalysis(analysis: AESModel.InventoryAnalysis, prices: AESModel.InventoryPrices) {
 
     //Build table
     let mainDiv = $(".container-fluid .row .col-md-10 div .as-panel:eq(0)");
@@ -943,24 +951,24 @@ function displayAnalysis(analysis, prices) {
     if (settings.invPricing.showReferenceRecommendation) {
         th.push('<th>Reference</th>');
     }
-    let headRow = $('<tr></tr>').append(th);
+    let headRow = $('<tr></tr>').append(...th);
     let thead = $('<thead></thead>').append(headRow);
 
     //Table body
     let tbody = $('<tbody></tbody>');
-    for (let cmp in analysis.data) {
+    for (const cmp of cabins) {
         let td = [];
         td.push('<td>' + cmp + '</td>');
         td.push('<td>' + analysis.note(cmp) + '</td>');
         td.push('<td class="aes-text-right">' + analysis.displayPrice(cmp, 'analysis') + '</td>');
         td.push('<td class="aes-text-right">' + analysis.displayLoad(cmp) + '</td>');
-        td.push($('<td class="aes-text-right"></td>').html(analysis.displayIndex(cmp)));
+        td.push($('<td class="aes-text-right"></td>').append(analysis.displayIndex(cmp)));
         td.push('<td class="aes-text-right">' + analysis.displayPrice(cmp, 'current') + '</td>');
         td.push($('<td></td>').append(analysis.displayRec(cmp)));
         if (settings.invPricing.showReferenceRecommendation) {
             td.push($('<td></td>').append(analysis.displayReferenceRec(cmp)));
         }
-        let row = $('<tr></tr>').append(td);
+        let row = $('<tr></tr>').append(...td);
         tbody.append(row);
     }
 
@@ -972,18 +980,18 @@ function displayAnalysis(analysis, prices) {
     tf.push('<th>Total PAX</th>');
     tf.push('<td colspan="2"></td>');
     tf.push($('<td class="aes-text-right"></td>').html(analysis.displayTotalLoad('pax')));
-    tf.push($('<td class="aes-text-right"></td>').html(analysis.displayTotalIndex('pax')));
+    tf.push($('<td class="aes-text-right"></td>').append(analysis.displayTotalIndex('pax')));
     tf.push('<td colspan="' + (settings.invPricing.showReferenceRecommendation ? 3 : 2) + '"></td>');
-    footRow.push($('<tr></tr>').append(tf));
+    footRow.push($('<tr></tr>').append(...tf));
     //Total
     tf = [];
     tf.push('<th>Total PAX+Cargo</th>');
     tf.push('<td colspan="2"></td>');
     tf.push($('<td class="aes-text-right"></td>').html(analysis.displayTotalLoad('all')));
-    tf.push($('<td class="aes-text-right"></td>').html(analysis.displayTotalIndex('all')));
+    tf.push($('<td class="aes-text-right"></td>').append(analysis.displayTotalIndex('all')));
     tf.push('<td colspan="' + (settings.invPricing.showReferenceRecommendation ? 3 : 2) + '"></td>');
-    footRow.push($('<tr></tr>').append(tf));
-    let tfoot = $('<tfoot></tfoot>').append(footRow);
+    footRow.push($('<tr></tr>').append(...tf));
+    let tfoot = $('<tfoot></tfoot>').append(...footRow);
 
     $("#aes-table-analysis").append(thead, tbody, tfoot);
 
@@ -991,63 +999,60 @@ function displayAnalysis(analysis, prices) {
     if (analysis.hasValue('valid') || analysis.hasValue('newPrice')) {
         let invPricingAnalysisBar = $('<ul class="as-action-bar as-panel"></ul>');
         let invPricingAnalysisBarSpan = $('<span class="warning"></span>');
-        invPricingAnalysisBar.append($('<li></li>').html(invPricingAnalysisBarSpan));
+        invPricingAnalysisBar.append($('<li></li>').append(invPricingAnalysisBarSpan));
         $("#aes-div-analysis").prepend(invPricingAnalysisBar);
         //create buttons
         //Save Data
         let saveInvPricingBtn = $('<button class="btn btn-default" id="aes-btn-invPricing-save-snapshot"></button>');
+        const revision = inventoryRevision;
         $(saveInvPricingBtn).click(function() {
-            $(this).closest("li").remove();
-            invPricingAnalysisBarSpan.text('Saving analysis data...');
-            //Get updated time
-            let updateTime = AES.getServerDate().time;
-            pricingData.date[todayDate] = analysis;
-            pricingData.date[todayDate].updateTime = updateTime;
-            pricingData.date[todayDate].date = todayDate;
-            pricingData.date[todayDate].pricingUpdated = 0;
-            chrome.storage.local.set({
-                [pricingData.key]: pricingData }, function() {
-                invPricingAnalysisBarSpan.removeClass().addClass("good").text("Data Saved!");
-                //Automation
-                if (settings.invPricing.autoClose) {
-                    close();
-                }
-            });
+            runInventoryAction(async () => {
+                const snapshot = makeInventorySnapshot(analysis);
+                const previous = pricingData.date[todayDate];
+                // Preserve even an unrecognized pending marker: a snapshot cannot confirm a submitted price.
+                const savedSnapshot = AES.isRecord(previous) && previous.pricingUpdatePending ? {...snapshot, pricingUpdatePending: previous.pricingUpdatePending} : snapshot;
+                const next = {...pricingData, date: {...pricingData.date, [todayDate]: savedSnapshot}};
+                await chrome.storage.local.set({[next.key]: next});
+                if (!isInventoryCurrent(revision)) return;
+                pricingData = next;
+                invPricingAnalysisBarSpan.removeClass().addClass('good').text('Data Saved!');
+                if (settings.invPricing.autoClose) window.close();
+            }, invPricingAnalysisBarSpan, revision);
         });
 
         //Update prices
         let applyNewPriceInvPricingBtn = $('<button class="btn btn-default" id="aes-btn-invPricing-apply-new-prices">apply new prices (and save data)</button>');
         $(applyNewPriceInvPricingBtn).click(function() {
-            $(this).closest("ul").find("li button").closest("li").remove();
+
             invPricingAnalysisBarSpan.text('Updating prices...');
-            submitPendingPricingUpdate(getTargetPricingUpdates(prices, false), invPricingAnalysisBarSpan);
+            runInventoryAction(() => submitPendingPricingUpdate(getTargetPricingUpdates(prices, false), invPricingAnalysisBarSpan, revision), invPricingAnalysisBarSpan, revision);
         });
         let applyReferencePriceInvPricingBtn = $('<button class="btn btn-default" id="aes-btn-invPricing-apply-reference-prices">apply reference prices (and save data)</button>');
         $(applyReferencePriceInvPricingBtn).click(function() {
-            $(this).closest("ul").find("li button").closest("li").remove();
+
             invPricingAnalysisBarSpan.text('Updating prices...');
-            for (let cmp in analysis.data) {
+            for (const cmp of cabins) {
                 if (!analysis.data[cmp].newPrice && analysis.data[cmp].referenceNewPrice) {
-                    prices[cmp].newPriceInput.value = analysis.data[cmp].referenceNewPrice;
+                    prices[cmp].newPriceInput.value = String(analysis.data[cmp].referenceNewPrice);
                 }
             }
-            submitPendingPricingUpdate(getTargetPricingUpdates(prices, true), invPricingAnalysisBarSpan);
+            runInventoryAction(() => submitPendingPricingUpdate(getTargetPricingUpdates(prices, true), invPricingAnalysisBarSpan, revision), invPricingAnalysisBarSpan, revision);
         });
         //Update new pricing input
         if (analysis.hasValue('newPrice')) {
             //Modify new price input
-            for (let cmp in analysis.data) {
+            for (const cmp of cabins) {
                 if (analysis.data[cmp].newPrice) {
-                    prices[cmp].newPriceInput.value = analysis.data[cmp].newPrice;
+                    prices[cmp].newPriceInput.value = String(analysis.data[cmp].newPrice);
                 }
             }
         }
         //For snapshot button
         if (pricingData.date[todayDate]) {
             //Today data does exist
-            if (pricingData.date[todayDate].pricingUpdated) {
+            if (getSnapshot(todayDate).pricingUpdated) {
                 //Today pricing updated
-                invPricingAnalysisBarSpan.text("Today prices have been updated at: " + pricingData.date[todayDate].updateTime);
+                invPricingAnalysisBarSpan.text("Today prices have been updated at: " + getSnapshot(todayDate).updateTime);
 
                 //Automation
                 if (settings.invPricing.autoClose) {
@@ -1055,35 +1060,35 @@ function displayAnalysis(analysis, prices) {
                 }
             } else {
                 //Today pricing not updated
-                if (pricingData.date[todayDate].pricingUpdatePending) {
+                if (hasPendingUpdate(todayDate)) {
                     invPricingAnalysisBarSpan.text("Price update submitted but not confirmed. Check the target prices and retry if needed.");
                 } else {
-                    invPricingAnalysisBarSpan.text("Today's snapshot data saved at: " + pricingData.date[todayDate].updateTime);
+                    invPricingAnalysisBarSpan.text("Today's snapshot data saved at: " + getSnapshot(todayDate).updateTime);
                 }
-                $(invPricingAnalysisBar).append($('<li></li>').html(saveInvPricingBtn.text("save snapshot data again")));
+                $(invPricingAnalysisBar).append($('<li></li>').append(saveInvPricingBtn.text("save snapshot data again")));
                 if (analysis.hasValue('newPrice')) {
-                    $(invPricingAnalysisBar).append($('<li></li>').html(applyNewPriceInvPricingBtn));
+                    $(invPricingAnalysisBar).append($('<li></li>').append(applyNewPriceInvPricingBtn));
                 }
                 if (settings.invPricing.showReferenceRecommendation && analysis.hasValue('referenceNewPrice')) {
-                    $(invPricingAnalysisBar).append($('<li></li>').html(applyReferencePriceInvPricingBtn));
+                    $(invPricingAnalysisBar).append($('<li></li>').append(applyReferencePriceInvPricingBtn));
                 }
             }
         } else {
             //Today data does not exist
-            $(invPricingAnalysisBar).append($('<li></li>').html(saveInvPricingBtn.text("save snapshot data")));
+            $(invPricingAnalysisBar).append($('<li></li>').append(saveInvPricingBtn.text("save snapshot data")));
             if (analysis.hasValue('newPrice')) {
-                $(invPricingAnalysisBar).append($('<li></li>').html(applyNewPriceInvPricingBtn));
+                $(invPricingAnalysisBar).append($('<li></li>').append(applyNewPriceInvPricingBtn));
             }
             if (settings.invPricing.showReferenceRecommendation && analysis.hasValue('referenceNewPrice')) {
-                $(invPricingAnalysisBar).append($('<li></li>').html(applyReferencePriceInvPricingBtn));
+                $(invPricingAnalysisBar).append($('<li></li>').append(applyReferencePriceInvPricingBtn));
             }
         }
     }
 }
 
-function getTargetPricingUpdates(prices, useReferencePrices) {
-    let targetPrices = {};
-    for (let cmp in analysis.data) {
+function getTargetPricingUpdates(prices: AESModel.InventoryPrices, useReferencePrices: boolean) {
+    let targetPrices: Partial<Record<AESModel.Cabin, number>> = {};
+    for (const cmp of cabins) {
         let targetPrice = analysis.data[cmp].newPrice;
         if (!targetPrice && useReferencePrices) {
             targetPrice = analysis.data[cmp].referenceNewPrice;
@@ -1092,48 +1097,60 @@ function getTargetPricingUpdates(prices, useReferencePrices) {
             let submittedPrice = AES.cleanInteger(prices[cmp].newPriceInput.value);
             if (Number.isFinite(submittedPrice) && submittedPrice > 0) {
                 targetPrices[cmp] = submittedPrice;
+            } else {
+                throw new Error('Invalid target price for ' + cmp);
             }
         }
     }
     return targetPrices;
 }
 
-function submitPendingPricingUpdate(targetPrices, status) {
-    if (!Object.keys(targetPrices).length) {
-        status.removeClass().addClass('bad').text('No valid target prices were found. Prices were not submitted.');
-        return;
+async function submitPendingPricingUpdate(targetPrices: Partial<Record<AESModel.Cabin, number>>, status: JQuery, revision: number) {
+    if (!Object.keys(targetPrices).length) throw new Error('No valid target prices were found. Prices were not submitted.');
+    const dates = {...pricingData.date};
+    for (const [date, value] of Object.entries(dates)) {
+        if (AES.isRecord(value)) {
+            const copy = {...value};
+            delete copy.pricingUpdatePending;
+            dates[date] = copy;
+        }
     }
-    let updateTime = AES.getServerDate().time;
-    Object.keys(pricingData.date).forEach(function(date) {
-        if (pricingData.date[date]) {
-            delete pricingData.date[date].pricingUpdatePending;
-        }
-    });
-    pricingData.date[todayDate] = analysis;
-    pricingData.date[todayDate].updateTime = updateTime;
-    pricingData.date[todayDate].date = todayDate;
-    pricingData.date[todayDate].pricingUpdated = 0;
-    pricingData.date[todayDate].pricingUpdatePending = {
-        targetPrices: targetPrices,
-        updateTime: updateTime
-    };
-    chrome.storage.local.set({ [pricingData.key]: pricingData }, function() {
-        if (chrome.runtime && chrome.runtime.lastError) {
-            delete pricingData.date[todayDate].pricingUpdatePending;
-            status.removeClass().addClass('bad').text('Unable to save the pending price update. Prices were not submitted.');
-            return;
-        }
-        $('[name="submit-prices"]').click();
-    });
+    const snapshot = makeInventorySnapshot(analysis);
+    snapshot.pricingUpdatePending = {targetPrices, updateTime: snapshot.updateTime || ''};
+    dates[todayDate] = snapshot;
+    const next = {...pricingData, date: dates};
+    await chrome.storage.local.set({[next.key]: next});
+    if (!isInventoryCurrent(revision)) return;
+    pricingData = next;
+    $('.pricing [name="submit-prices"]').trigger('click');
+    status.removeClass().addClass('warning').text('Price update submitted but not confirmed.');
+}
+
+function makeInventorySnapshot(value: AESModel.InventoryAnalysis): AESModel.InventorySnapshot {
+    return {data: value.data, updateTime: AES.getServerDate().time, date: todayDate, pricingUpdated: 0};
+}
+
+async function runInventoryAction(action: () => Promise<void>, status: JQuery, revision: number) {
+    if (inventoryActionPending || !isInventoryCurrent(revision)) return;
+    inventoryActionPending = true;
+    $('#aes-div-analysis button').prop('disabled', true);
+    try { await action(); }
+    catch (error) {
+        if (isInventoryCurrent(revision)) status.removeClass().addClass('bad').text('Unable to save inventory data. Prices were not submitted. ' + (error instanceof Error ? error.message : ''));
+    } finally {
+        inventoryActionPending = false;
+        if (isInventoryCurrent(revision)) $('#aes-div-analysis button').prop('disabled', false);
+        else if (AES.isPageOwner()) AES.tryRun('content_inventory', () => rerenderInventoryModule(true));
+    }
 }
 
 //Display History
-function displayHistory(analysis) {
+function displayHistory(analysis: AESModel.InventoryAnalysis) {
     //Prepare data
     let dates = [];
     //Get valid dates can add function here
     for (let date in pricingData.date) {
-        if (Number.isInteger(parseInt(date))) {
+        if (/^\d{8}$/.test(date) && readInventorySnapshot(pricingData.date[date])) {
             dates.push(date)
         }
     }
@@ -1167,20 +1184,20 @@ function displayHistory(analysis) {
         $("#aes-select-inventory-history-numberPastDates").val(settings.invPricing.historyTable.numberOfDates);
 
         //Change events
-        $("#aes-check-inventory-history-showNow").change(function() {
+        $<HTMLInputElement>("#aes-check-inventory-history-showNow").change(function() {
             if (this.checked) {
                 settings.invPricing.historyTable.showNow = 1;
             } else {
                 settings.invPricing.historyTable.showNow = 0;
             }
             AES.updateSettings(function(currentSettings) {
-                currentSettings.invPricing.historyTable.showNow = settings.invPricing.historyTable.showNow;
+                getHistoryPreferences(currentSettings).showNow = settings.invPricing.historyTable.showNow;
             }, function(updatedSettings) {
-                settings = updatedSettings;
+                settings = readInventorySettings(updatedSettings);
             });
             buildHistoryTable();
         });
-        $("#aes-check-inventory-history-showOnlyPricing").change(function() {
+        $<HTMLInputElement>("#aes-check-inventory-history-showOnlyPricing").change(function() {
             buildHistoryTable();
             if (this.checked) {
                 settings.invPricing.historyTable.showOnlyPricing = 1;
@@ -1188,17 +1205,17 @@ function displayHistory(analysis) {
                 settings.invPricing.historyTable.showOnlyPricing = 0;
             }
             AES.updateSettings(function(currentSettings) {
-                currentSettings.invPricing.historyTable.showOnlyPricing = settings.invPricing.historyTable.showOnlyPricing;
+                getHistoryPreferences(currentSettings).showOnlyPricing = settings.invPricing.historyTable.showOnlyPricing;
             }, function(updatedSettings) {
-                settings = updatedSettings;
+                settings = readInventorySettings(updatedSettings);
             });
         });
         $("#aes-select-inventory-history-numberPastDates").change(function() {
-            settings.invPricing.historyTable.numberOfDates = $('#aes-select-inventory-history-numberPastDates').val();
+            settings.invPricing.historyTable.numberOfDates = String($('#aes-select-inventory-history-numberPastDates').val());
             AES.updateSettings(function(currentSettings) {
-                currentSettings.invPricing.historyTable.numberOfDates = settings.invPricing.historyTable.numberOfDates;
+                getHistoryPreferences(currentSettings).numberOfDates = settings.invPricing.historyTable.numberOfDates;
             }, function(updatedSettings) {
-                settings = updatedSettings;
+                settings = readInventorySettings(updatedSettings);
             });
             buildHistoryTable();
         });
@@ -1220,8 +1237,8 @@ function buildHistoryTable() {
         showOnlyPricing = 1;
     }
 
-    let numberOfDates = $('#aes-select-inventory-history-numberPastDates').val();
-    switch (numberOfDates) {
+    let numberOfDates: number;
+    switch ($('#aes-select-inventory-history-numberPastDates').val()) {
         case '5':
             numberOfDates = 5;
             break;
@@ -1239,13 +1256,13 @@ function buildHistoryTable() {
     //Get valid dates can add function here
     for (let date in pricingData.date) {
         if (showOnlyPricing) {
-            if (pricingData.date[date].pricingUpdated) {
-                if (Number.isInteger(parseInt(date))) {
+            if (getSnapshot(date).pricingUpdated) {
+                if (/^\d{8}$/.test(date) && readInventorySnapshot(pricingData.date[date])) {
                     dates.push(date)
                 }
             }
         } else {
-            if (Number.isInteger(parseInt(date))) {
+            if (/^\d{8}$/.test(date) && readInventorySnapshot(pricingData.date[date])) {
                 dates.push(date)
             }
         }
@@ -1260,7 +1277,7 @@ function buildHistoryTable() {
     if (dates.length) {
 
         //Headrows
-        let th = ['<th></th>'];
+        let th: Array<string | JQuery> = ['<th></th>'];
         let th1 = ['<th>SC</th>'];
         if (showNow) {
             // The moment of opening the inv tab
@@ -1275,26 +1292,26 @@ function buildHistoryTable() {
             const isOldest = i === dates.length - 1;
             let date = dates[i];
             if (!isOldest) {
-                th.push($('<th colspan="5"></th>').text(AES.formatDateString(date)));
+                th.push($('<th colspan="5"></th>').text(AES.formatDateString(date) || date));
                 th1.push('<th class="text-nowrap aes-text-right">Price</th>');
                 th1.push('<th class="text-nowrap text-right">&Delta; %</th>');
                 th1.push('<th class="text-nowrap text-right">Load</th>');
                 th1.push('<th class="text-nowrap text-right">&Delta; %</th>');
                 th1.push('<th class="text-nowrap text-right">Index</th>');
             } else {
-                th.push($('<th colspan="3"></th>').text(AES.formatDateString(date)));
+                th.push($('<th colspan="3"></th>').text(AES.formatDateString(date) || date));
                 th1.push('<th class="text-nowrap text-right">Price</th>');
                 th1.push('<th class="text-nowrap text-right">Load</th>');
                 th1.push('<th class="text-nowrap text-right">Index</th>');
             }
         }
 
-        let headRow = $('<tr></tr>').append(th);
-        let headRow2 = $('<tr></tr>').append(th1);
+        let headRow = $('<tr></tr>').append(...th);
+        let headRow2 = $('<tr></tr>').append(...th1);
         let thead = $('<thead></thead>').append(headRow, headRow2);
 
         //Build table
-        let compartments = ['Y', 'C', 'F', 'Cargo'];
+        let compartments = cabins;
 
         //Tbody rows
         let tbody = $('<tbody></tbody>');
@@ -1304,43 +1321,43 @@ function buildHistoryTable() {
             if (showNow) {
                 //Now TDs
                 let data = analysis.data[cmp];
-                let prevData = pricingData.date[dates[0]].data[cmp];
+                let prevData = getSnapshot(dates[0]).data[cmp];
                 td.push($('<td class="text-nowrap text-right"></td>').html(displayHistoryPrice(data)));
-                td.push($('<td class="text-nowrap text-right"></td>').html(displayDifference(data, prevData).price));
+                td.push($('<td class="text-nowrap text-right"></td>').text(displayDifference(data, prevData).price));
                 td.push($('<td class="text-nowrap text-right"></td>').html(displayHistoryLoad(data)));
-                td.push($('<td class="text-nowrap text-right"></td>').html(displayDifference(data, prevData).load));
-                td.push($('<td class="text-nowrap text-right"></td>').html(historyDisplayIndex(data, 0)));
+                td.push($('<td class="text-nowrap text-right"></td>').text(displayDifference(data, prevData).load));
+                td.push($('<td class="text-nowrap text-right"></td>').append(historyDisplayIndex(data, 0)));
             }
             //Historical tds
             for (let i = 0; i < dates.length; i++) {
                 const isOldest = i === dates.length - 1;
                 let date = dates[i];
-                let data = pricingData.date[date].data[cmp];
+                let data = getSnapshot(date).data[cmp];
                 if (!isOldest) {
                     // Not the oldest
-                    let prevData = pricingData.date[dates[i + 1]].data[cmp];
+                    let prevData = getSnapshot(dates[i + 1]).data[cmp];
                     td.push($('<td class="text-nowrap text-right"></td>').html(displayHistoryPrice(data)));
-                    td.push($('<td class="text-nowrap text-right"></td>').html(displayDifference(data, prevData).price));
+                    td.push($('<td class="text-nowrap text-right"></td>').text(displayDifference(data, prevData).price));
                     td.push($('<td class="text-nowrap text-right"></td>').html(displayHistoryLoad(data)));
-                    td.push($('<td class="text-nowrap text-right"></td>').html(displayDifference(data, prevData).load));
-                    td.push($('<td class="text-nowrap text-right"></td>').html(historyDisplayIndex(data, 0)));
+                    td.push($('<td class="text-nowrap text-right"></td>').text(displayDifference(data, prevData).load));
+                    td.push($('<td class="text-nowrap text-right"></td>').append(historyDisplayIndex(data, 0)));
                 } else {
                     // Oldest: No difference value
                     td.push($('<td class="text-nowrap text-right"></td>').html(displayHistoryPrice(data)));
                     td.push($('<td class="text-nowrap text-right"></td>').html(displayHistoryLoad(data)));
-                    td.push($('<td class="text-nowrap text-right"></td>').html(historyDisplayIndex(data, 0)));
+                    td.push($('<td class="text-nowrap text-right"></td>').append(historyDisplayIndex(data, 0)));
                 }
             }
 
             //Finish row
-            let row = $('<tr></tr>').append(td);
+            let row = $('<tr></tr>').append(...td);
             tbody.append(row);
         });
 
         //Table footer Total Rows
         let totalColumns = th1.length;
         let footRow = [];
-        let footerRows = ['pax', 'all']
+        let footerRows: Array<'pax' | 'all'> = ['pax', 'all']
         footRow.push('<tr><td colspan="' + totalColumns + '"></td></tr>');
         //Total PAX
         footerRows.forEach(function(type) {
@@ -1353,28 +1370,28 @@ function buildHistoryTable() {
                 tf.push($('<td></td>').html(historyDisplayTotal(data, type)));
                 tf.push('<td></td>');
                 //index
-                tf.push($('<td class="aes-text-right"></td>').html(historyDisplayIndex(data, type)));
+                tf.push($('<td class="aes-text-right"></td>').append(historyDisplayIndex(data, type)));
             }
             for (let i = 0; i < dates.length; i++) {
                 const isOldest = i === dates.length - 1;
                 let date = dates[i];
-                let data = pricingData.date[date].data;
+                let data = getSnapshot(date).data;
                 if (!isOldest) {
                     tf.push('<td colspan="2"></td>');
                     tf.push($('<td></td>').html(historyDisplayTotal(data, type)));
                     tf.push('<td></td>');
-                    tf.push($('<td class="aes-text-right"></td>').html(historyDisplayIndex(data, type)));
+                    tf.push($('<td class="aes-text-right"></td>').append(historyDisplayIndex(data, type)));
                 } else {
                     tf.push('<td></td>');
                     tf.push($('<td></td>').html(historyDisplayTotal(data, type)));
-                    tf.push($('<td class="aes-text-right"></td>').html(historyDisplayIndex(data, type)));
+                    tf.push($('<td class="aes-text-right"></td>').append(historyDisplayIndex(data, type)));
                 }
             }
 
-            footRow.push($('<tr></tr>').append(tf));
+            footRow.push($('<tr></tr>').append(...tf));
         });
 
-        let tfoot = $('<tfoot></tfoot>').append(footRow);
+        let tfoot = $('<tfoot></tfoot>').append(...footRow);
         let table = $('<table class="table table-bordered table-striped table-hover"></table>').append(thead, tbody, tfoot);
         let tableDiv = $('<div style="overflow-x:auto;" id="aes-table-inventory-history" class="as-table-well"></div>').append(table);
 
@@ -1389,57 +1406,22 @@ function displayValidationError() {
         p.push($('<p class="bad"></p>').append($('<b></b>').text(error)));
     });
     p.push($('<p class="warning"></p>').text('Adjust the inventory view and AES will reload automatically.'));
-    let panel = $('<div id="aes-panel-validation" class="as-panel"></div>').append(p);
+    let panel = $('<div id="aes-panel-validation" class="as-panel"></div>').append(...p);
     let h2 = $('<h3 id="aes-h3-validation"></h3>').text('AES Inventory Pricing Module');
     $('h1:eq(0)').after(h2, panel)
 }
 
 //History Table functions
-function historyDisplayIndex(data, type) {
-    let cmp = [];
+function historyDisplayIndex(data: AESModel.InventoryItem | Record<AESModel.Cabin, AESModel.InventoryItem>, type: 'all' | 'pax' | 0) {
     let index = 0;
-    switch (type) {
-        case 'all':
-            cmp = ['Y', 'C', 'F', 'Cargo'];
-            break;
-        case 'pax':
-            cmp = ['Y', 'C', 'F'];
-            break;
-        case 0:
-            cmp = 0;
-            break;
-    }
-    if (cmp) {
-        //Multi index
-        let count = 0;
-        cmp.forEach(function(comp) {
-            if (data[comp].valid) {
-                index += data[comp].index;
-                count++;
-            }
-        });
-        index = Math.round(index / count);
-    } else {
-        //one cmp index
-        if (data.valid) {
-            index = data.index;
-        }
-    }
-    if (index) {
-        let span = $('<span></span>');
-        if (index >= 90) {
-            return span.addClass('good').text(index);
-        }
-        if (index <= 50) {
-            return span.addClass('bad').text(index);
-        }
-        return span.addClass('warning').text(index);
-    } else {
-        return '-';
-    }
+    if ('Y' in data) {
+        const items = (type === 'pax' ? cabins.slice(0, 3) : cabins).map(c => data[c]).filter(item => item.valid);
+        index = items.length ? Math.round(items.reduce((sum, item) => sum + item.index, 0) / items.length) : 0;
+    } else if (data.valid) index = data.index;
+    return index ? $('<span></span>').addClass(index >= 90 ? 'good' : index <= 50 ? 'bad' : 'warning').text(index) : '-';
 }
 
-function historyDisplayTotalText(type) {
+function historyDisplayTotalText(type: 'all' | 'pax') {
     switch (type) {
         case 'all':
             return "Total PAX+Cargo";
@@ -1448,8 +1430,8 @@ function historyDisplayTotalText(type) {
     }
 }
 
-function historyDisplayTotal(data, type) {
-    let cmp = [];
+function historyDisplayTotal(data: Record<AESModel.Cabin, AESModel.InventoryItem>, type: 'all' | 'pax') {
+    let cmp: AESModel.Cabin[] = [];
     switch (type) {
         case 'all':
             cmp = ['Y', 'C', 'F', 'Cargo'];
@@ -1460,8 +1442,7 @@ function historyDisplayTotal(data, type) {
         default:
             // code block
     }
-    let load, cap, bkd;
-    load = cap = bkd = 0;
+    let load = 0, cap = 0, bkd = 0;
     cmp.forEach(function(comp) {
         if (data[comp].valid) {
             cap += data[comp].totalCap;
@@ -1476,7 +1457,7 @@ function historyDisplayTotal(data, type) {
     }
 }
 
-function displayHistoryLoad(data) {
+function displayHistoryLoad(data: AESModel.InventoryItem) {
     if (data.valid) {
         let booked = data.totalBkd;
         let capacity = data.totalCap;
@@ -1487,7 +1468,7 @@ function displayHistoryLoad(data) {
     }
 }
 
-function displayHistoryPrice(data) {
+function displayHistoryPrice(data: AESModel.InventoryItem) {
     if (data.valid) {
         let price = data.analysisPrice;
         let pricePoint = data.analysisPricePoint;
@@ -1497,7 +1478,7 @@ function displayHistoryPrice(data) {
     }
 }
 
-function displayDifference(current, old) {
+function displayDifference(current: AESModel.InventoryItem, old: AESModel.InventoryItem) {
     if (current.valid && old.valid) {
         let currentLoad = Math.round(current.totalBkd / current.totalCap * 100);
         let oldLoad = Math.round(old.totalBkd / old.totalCap * 100);
@@ -1509,7 +1490,7 @@ function displayDifference(current, old) {
     }
 }
 
-function displayPerc(perc, type) {
+function displayPerc(perc: number, type: 'price' | 'load') {
     let span = $('<span></span>');
     switch (type) {
         case 'price':
@@ -1539,7 +1520,7 @@ function displayPerc(perc, type) {
     }
 }
 //Helper functions
-function formatCurrency(value) {
+function formatCurrency(value: number) {
     return Intl.NumberFormat().format(value)
 }
 
@@ -1552,3 +1533,85 @@ function getPricingInventoryKey() {
     let key = server + airline.id + org + dest + 'routeAnalysis';
     return { key: key, server: server, airline: airline, type: "routeAnalysis", origin: org, destination: dest }
 }
+
+function emptyInventoryItem(): AESModel.InventoryItem {
+    return { totalCap: 0, totalBkd: 0, valid: 0, analysisPrice: 0, analysisPricePoint: 0,
+        useCurrentPrice: 0, canRecommend: 0, analysisSourcePrice: 0, currentPrice: 0,
+        currentPricePoint: 0, recommendation: 0, newPrice: 0, newPricePoint: 0, newPriceChange: 0,
+        recType: 'neutral', referenceRecommendation: 0, referenceRecType: 'neutral',
+        referenceNewPrice: 0, referenceNewPricePoint: 0, index: 0 };
+}
+
+function readInventoryItem(value: unknown): AESModel.InventoryItem {
+    const item = emptyInventoryItem();
+    if (!AES.isRecord(value)) return item;
+    const keys: Array<Exclude<keyof AESModel.InventoryItem, 'valid' | 'recommendation' | 'referenceRecommendation' | 'recType' | 'referenceRecType'>> =
+        ['totalCap','totalBkd','analysisPrice','analysisPricePoint','useCurrentPrice','canRecommend','analysisSourcePrice','currentPrice','currentPricePoint','newPrice','newPricePoint','newPriceChange','referenceNewPrice','referenceNewPricePoint','index'];
+    for (const key of keys) if (typeof value[key] === 'number' && Number.isFinite(value[key])) item[key] = value[key];
+    item.valid = !!value.valid && item.totalCap > 0 && ['totalCap','totalBkd','analysisPrice','analysisPricePoint'].every(key => typeof value[key] === 'number' && Number.isFinite(value[key]));
+    for (const key of ['recommendation', 'referenceRecommendation'] as const) if (typeof value[key] === 'string') item[key] = value[key];
+    for (const key of ['recType', 'referenceRecType'] as const) if (typeof value[key] === 'string') item[key] = value[key];
+    return item;
+}
+
+function readInventorySnapshot(value: unknown): AESModel.InventorySnapshot | null {
+    if (!AES.isRecord(value) || !AES.isRecord(value.data)) return null;
+    const result: AESModel.InventorySnapshot = {
+        ...value, data: { Y: readInventoryItem(value.data.Y), C: readInventoryItem(value.data.C), F: readInventoryItem(value.data.F), Cargo: readInventoryItem(value.data.Cargo) },
+        updateTime: typeof value.updateTime === 'string' ? value.updateTime : undefined,
+        date: typeof value.date === 'number' ? value.date : undefined,
+        pricingUpdated: typeof value.pricingUpdated === 'number' ? value.pricingUpdated : 0
+    };
+    delete result.pricingUpdatePending;
+    const pending = value.pricingUpdatePending;
+    if (AES.isRecord(pending) && AES.isRecord(pending.targetPrices)) {
+        const targetPrices: Partial<Record<AESModel.Cabin, number>> = {};
+        for (const cmp of cabins) {
+            const target = pending.targetPrices[cmp];
+            if (typeof target === 'number' && Number.isFinite(target) && target > 0) targetPrices[cmp] = target;
+        }
+        if (Object.keys(targetPrices).length === Object.keys(pending.targetPrices).length && Object.keys(targetPrices).length) {
+            result.pricingUpdatePending = {targetPrices, updateTime: typeof pending.updateTime === 'string' ? pending.updateTime : ''};
+        }
+    }
+    return result;
+}
+
+function hasPendingUpdate(date: string | number) {
+    const value = pricingData.date[date];
+    return AES.isRecord(value) && !!value.pricingUpdatePending;
+}
+
+function getSnapshot(date: string | number): AESModel.InventorySnapshot {
+    return readInventorySnapshot(pricingData.date[date]) || { data: {Y: emptyInventoryItem(), C: emptyInventoryItem(), F: emptyInventoryItem(), Cargo: emptyInventoryItem()} };
+}
+
+function readInventorySettings(value: unknown): AESModel.InventorySettings {
+    if (!AES.isRecord(value) || !AES.isRecord(value.invPricing) || !AES.isRecord(value.invPricing.recommendation)) throw new Error('Inventory pricing settings are missing. Save pricing settings before using inventory analysis.');
+    const source = value.invPricing;
+    const readConfig = (cmp: AESModel.Cabin): AESModel.PricingRecommendation => {
+        const rec = AES.isRecord(source.recommendation) ? source.recommendation[cmp] : undefined;
+        if (!AES.isRecord(rec) || typeof rec.minPrice !== 'number' || !Number.isFinite(rec.minPrice) || typeof rec.maxPrice !== 'number' || !Number.isFinite(rec.maxPrice) || rec.minPrice < 0 || rec.maxPrice < rec.minPrice || !Array.isArray(rec.steps)) throw new Error('Invalid inventory price bounds for ' + cmp);
+        const steps: AESModel.PricingStep[] = [];
+        for (const step of rec.steps) {
+            if (!AES.isRecord(step) || typeof step.min !== 'number' || !Number.isFinite(step.min) || typeof step.max !== 'number' || !Number.isFinite(step.max) || step.min > step.max || typeof step.step !== 'number' || !Number.isFinite(step.step) || typeof step.name !== 'string') throw new Error('Invalid inventory pricing step for ' + cmp);
+            steps.push({min: step.min, max: step.max, name: step.name, step: step.step});
+        }
+        return {minPrice: rec.minPrice, maxPrice: rec.maxPrice, steps};
+    };
+    const history = AES.isRecord(source.historyTable) ? source.historyTable : {};
+    const enabled = (value: unknown) => value === true || value === 1 || value === '1';
+    return { invPricing: { autoAnalysisSave: enabled(source.autoAnalysisSave) ? 1 : 0, autoPriceUpdate: enabled(source.autoPriceUpdate) ? 1 : 0,
+        autoClose: enabled(source.autoClose) ? 1 : 0, showReferenceRecommendation: enabled(source.showReferenceRecommendation) ? 1 : 0,
+        historyTable: {showNow: history.showNow ? 1 : 0, showOnlyPricing: history.showOnlyPricing ? 1 : 0, numberOfDates: typeof history.numberOfDates === 'string' ? history.numberOfDates : '5'},
+        recommendation: {Y: readConfig('Y'), C: readConfig('C'), F: readConfig('F'), Cargo: readConfig('Cargo')} } };
+}
+
+function getHistoryPreferences(settings: Record<string, unknown>): Record<string, unknown> {
+    if (!AES.isRecord(settings.invPricing)) settings.invPricing = {};
+    const inv = settings.invPricing;
+    if (!AES.isRecord(inv)) throw new Error('Invalid inventory settings');
+    if (!AES.isRecord(inv.historyTable)) inv.historyTable = {};
+    return AES.isRecord(inv.historyTable) ? inv.historyTable : {};
+}
+})();

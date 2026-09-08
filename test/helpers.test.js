@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const { readFileSync } = require('node:fs');
 const { runInContext } = require('node:vm');
 const { JSDOM } = require('jsdom');
-const source = file => readFileSync(`${__dirname}/../extension/${file}`, 'utf8');
+const source = file => readFileSync(`${__dirname}/../build/extension/${file}`, 'utf8');
 const header = `<div id="header"><div><button aria-haspopup="menu"><div><span class="_code_newhash_19">AES</span></div><div><span class="_name_newhash_46">AES Airlines</span><span>10,000,000 AS$</span></div></button><div role="menubar"><button role="menuitem">Airline</button></div></div></div>`;
 const settings = `<script>window.frontendSettings = {"fixedEnterpriseId":13150,"theme":"dark","server":{"time":"2026-09-08T00:43:12.858Z"}};</script>`;
 const overview = `<div class="bootstrap container-fluid"><h1>Enterprises</h1><div><h2><span>Acacia Air</span></h2><div class="as-panel"><ul class="nav-tabs"><li class="tab0 active"><a href="./12685?tab=0">Overview</a></li><li><a href="./12685?tab=2">Facts and Figures</a></li></ul><div class="as-table-well"><table><tbody><tr><td>Name</td><td>Acacia Air</td></tr><tr><td>Code</td><td>YY</td></tr></tbody></table></div></div></div></div>`;
@@ -77,9 +77,9 @@ test('competitor panel mounts in the new layout with correct owner data', async 
     p.load('content_enterpriseOverview.js');
     await pause(50);
     assert.equal(p.w.document.querySelectorAll('#aes-panel-airline-competitive-monitoring').length, 1);
-    assert.equal(p.w.compData.ownerId, '13150');
-    assert.equal(p.w.compData.id, '12685');
-    assert.equal(p.w.compData.key, 'paine13150_12685competitorMonitoring');
+    assert.equal(p.aes._competitorPageData.ownerId, '13150');
+    assert.equal(p.aes._competitorPageData.id, '12685');
+    assert.equal(p.aes._competitorPageData.key, 'paine13150_12685competitorMonitoring');
     p.close();
 });
 test('menu works without Bootstrap JS, remounts after React replacement, and cleans up', async () => {
@@ -133,8 +133,9 @@ test('menu remains valid inside legacy navbar lists', () => {
 });
 test('notifications mount within new scoped game styles', () => {
     const p = page('<div class="bootstrap container-fluid"><h1>Test</h1></div>');
-    p.w.eval(source('modules/notification.js') + '\nwindow.Notification = Notification;');
-    p.w.eval(source('modules/notifications.js') + '\nnew Notifications().add("Test", {duration:0});');
+    p.load('modules/notification.js');
+    p.load('modules/notifications.js');
+    runInContext('new Notifications().add("Test", {duration:0});', p.dom.getInternalVMContext());
     assert.ok(p.w.document.querySelector('.bootstrap .feedbackPanel'));
     p.close();
 });
@@ -146,8 +147,94 @@ test('dashboard waits for the new header and renders with the controlled airline
     p.w.document.getElementById('header').outerHTML = header;
     await pause(180);
     assert.equal(p.w.document.querySelectorAll('#aes-dashboard-root').length, 1);
-    assert.equal(p.w.airline.name, 'AES_Airlines');
-    assert.equal(p.w.airline.id, '13150');
+    assert.equal(p.saved.settings.general.dashboardFilterScopeKey, 'paine:13150');
     assert.deepEqual(Object.keys(p.aes._reportedErrors || {}), []);
     p.close();
+});
+
+test('waitForElement preserves selector, collection and legacy scalar readiness', t => {
+    const p = page('<div id="ready"></div>');
+    t.after(p.close);
+    const element = p.w.document.getElementById('ready');
+    for (const value of [element, [element], p.w.document.querySelectorAll('#ready'), p.w.$('#ready'), true, 1, 'AES Airlines']) {
+        let received;
+        p.aes.waitForElement(() => value, target => { received = target; });
+        assert.equal(received, value);
+    }
+    for (const value of [false, 0, '', null, undefined, [], p.w.$('.missing')]) {
+        let called = false;
+        const waiter = p.aes.waitForElement(() => value, () => { called = true; });
+        assert.equal(called, false);
+        waiter.disconnect();
+    }
+    let received;
+    p.aes.waitForElement(['.missing', '#ready'], value => { received = value; });
+    assert.equal(received, element);
+});
+
+test('frontend settings retain theme and validate airline and clock fields', t => {
+    const p = page(settings + header);
+    t.after(p.close);
+    assert.equal(p.aes.getFrontendSettings().theme, 'dark');
+    p.w.frontendSettings = { fixedEnterpriseId: {}, theme: 'light', server: { time: [] }, extra: 42 };
+    const parsed = p.aes.getFrontendSettings();
+    assert.equal(parsed.fixedEnterpriseId, undefined);
+    assert.equal(parsed.server, undefined);
+    assert.equal(parsed.theme, 'light');
+    assert.equal(parsed.extra, 42);
+    assert.throws(() => p.aes.getServerDate(), /Unable to read/);
+});
+
+test('airline lookup accepts legacy numeric IDs and rejects malformed entries', t => {
+    const p = page(header);
+    t.after(p.close);
+    p.w.localStorage.setItem('paine_airlinesData', JSON.stringify({ AES_Airlines: { id: 42, code: 'AA', extra: true } }));
+    assert.equal(p.aes.getCurrentAirline().id, '42');
+    assert.equal(JSON.parse(p.w.localStorage.getItem('paine_airlinesData')).AES_Airlines.extra, true);
+    p.w.localStorage.setItem('paine_airlinesData', JSON.stringify({ AES_Airlines: { id: {}, code: [] } }));
+    assert.equal(p.aes.getCurrentAirline().id, null);
+});
+
+test('notification options retain duration and fade behavior without shadowing the native name', t => {
+    const p = page('<div class="bootstrap container-fluid"></div>');
+    t.after(p.close);
+    const nativeNotification = p.w.Notification;
+    p.load('modules/notification.js');
+    p.load('modules/notifications.js');
+    const timers = [];
+    p.w.setTimeout = (fn, delay) => { timers.push({ fn, delay }); return timers.length; };
+    runInContext('new Notifications().add("Warning", {type:"warning", duration:100, fadeDuration:20});', p.dom.getInternalVMContext());
+    const notification = p.w.document.querySelector('.feedbackPanelWARNING');
+    assert.ok(notification);
+    assert.equal(timers[0].delay, 100);
+    timers[0].fn();
+    assert.equal(notification.classList.contains('aes-notification-exit'), true);
+    assert.equal(timers[1].delay, 20);
+    timers[1].fn();
+    assert.equal(notification.isConnected, false);
+    assert.equal(p.w.Notification, nativeNotification);
+});
+
+test('date and numeric helpers preserve calculation results', t => {
+    const p = page('');
+    t.after(p.close);
+    assert.equal(p.aes.getDateDiff(['20240301', '20240228']), 2);
+    assert.equal(p.aes.getDateDiff(['20240228', '20240301']), -2);
+    assert.equal(p.aes.formatDateStringWeek(212024), '21/2024');
+    assert.equal(p.aes.cleanInteger('-2,000 AS$'), -2000);
+    assert.equal(p.aes.cleanInteger(256), 256);
+    assert.equal(p.aes.cleanInteger('Unavailable'), 0);
+});
+
+test('overlapping enterprise and schedule scripts initialize together in manifest order', async t => {
+    const p = page(settings + header + overview.replace('tab0 active', 'tab3 active') + '<div class="flight-schedule"></div>', '/app/info/enterprises/12685?tab=3');
+    t.after(p.close);
+    p.load('content_flightSchedule.js');
+    p.load('content_enterpriseOverview.js');
+    await pause(50);
+    assert.deepEqual(Object.keys(p.aes._reportedErrors), []);
+    assert.equal(p.w.document.querySelectorAll('#aes-panel-schedule').length, 1);
+    assert.equal(p.w.document.querySelectorAll('#aes-panel-airline-competitive-monitoring').length, 1);
+    assert.equal(p.aes._competitorPageData.ownerAirline.id, '13150');
+    assert.equal(p.aes._competitorPageData.id, '12685');
 });

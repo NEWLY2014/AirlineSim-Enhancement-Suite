@@ -1,8 +1,8 @@
-class Notification {
+class AESNotification {
     name = "Notification"
-    element
+    element: HTMLLIElement
 
-    constructor(content, {type} = {type: "success"}) {
+    constructor(content: string, {type}: AESModel.NotificationOptions = {type: "success"}) {
         const className = this.#getClassName(type)
         this.element = this.#createElement(className)
         if (content) {
@@ -15,7 +15,7 @@ class Notification {
      * @param {string} type
      * @returns {string} className
      */
-    #getClassName(type) {
+    #getClassName(type: AESModel.NotificationType | undefined) {
         let className
         switch (type) {
             case "warning":
@@ -36,7 +36,7 @@ class Notification {
      * @param {string} className - "feedbackPanelINFO" | "feedbackPanelWARNING" | "feedbackPanelERROR"
      * @returns {HTMLElement} element
      */
-    #createElement(className) {
+    #createElement(className: string) {
         const element = document.createElement("li")
         element.className = className
 
@@ -48,7 +48,7 @@ class Notification {
      * @param {string} text
      * @returns {HTMLElement} content
      */
-    #createContent(text) {
+    #createContent(text: string) {
         const content = document.createElement("span")
         content.innerText = ` ${text}`
 
@@ -59,7 +59,7 @@ class Notification {
      * Sets the notification content
      * @param {string} text
      */
-    #setContent(text) {
+    #setContent(text: string) {
         const content = this.#createContent(text)
         this.element.append(content)
     }
@@ -68,7 +68,7 @@ class Notification {
      * Public message setter
      * @param {string} text
      */
-    set message(text) {
+    set message(text: string) {
         this.#setContent(text)
     }
 }

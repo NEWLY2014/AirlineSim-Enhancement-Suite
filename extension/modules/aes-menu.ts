@@ -6,10 +6,7 @@ class AESMenu {
     #onOutsideClick
     #onKeydown
 
-    constructor(target) {
-        if (!target) {
-            return
-        }
+    constructor(target: Element) {
 
         this.#legacy = target.tagName === "LI"
         this.#container = this.#createContainer(this.#legacy)
@@ -25,12 +22,12 @@ class AESMenu {
         this.#button.addEventListener('click', event => {
             event.preventDefault();
             event.stopPropagation();
-            this.#setOpen(this.#menu.hidden);
+            this.#setOpen(Boolean(this.#menu.hidden));
         });
-        this.#onOutsideClick = event => {
-            if (!this.#container.contains(event.target)) this.#setOpen(false);
+        this.#onOutsideClick = (event: MouseEvent) => {
+            if (event.target instanceof Node && !this.#container.contains(event.target)) this.#setOpen(false);
         };
-        this.#onKeydown = event => {
+        this.#onKeydown = (event: KeyboardEvent) => {
             if (event.key === 'Escape' && !this.#menu.hidden) {
                 this.#setOpen(false);
                 this.#button.focus();
@@ -46,7 +43,7 @@ class AESMenu {
      * Creates the menu container
      * @returns {HTMLElement} container
      */
-    #createContainer(legacy) {
+    #createContainer(legacy: boolean) {
         const container = document.createElement(legacy ? "li" : "div")
         container.id = "aes-menu"
         container.className = legacy ? "dropdown aes-navigation-legacy" : "aes-navigation"
@@ -58,9 +55,9 @@ class AESMenu {
      * @returns {HTMLElement} button
      */
     #createButton() {
-        const button = document.createElement(this.#legacy ? "a" : "button")
+        const button: HTMLElement = document.createElement(this.#legacy ? "a" : "button")
         if (this.#legacy) {
-            button.href = "#"
+            button.setAttribute("href", "#")
             button.setAttribute("role", "button")
             button.addEventListener("keydown", event => {
                 if (event.key === " ") {
@@ -69,7 +66,7 @@ class AESMenu {
                 }
             })
         } else {
-            button.type = "button"
+            button.setAttribute("type", "button")
         }
         button.setAttribute("tabindex", "0")
         button.setAttribute("aria-expanded", "false")
@@ -117,7 +114,7 @@ class AESMenu {
             isHeader: true
         },{
             label: "Report a Bug",
-            href: `https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/issues/new?body=AES:%20v${chrome.runtime.getManifest().version_name}%0AChrome:%20v${window.navigator.userAgent.match(/Chrom(?:e|ium)\/([0-9]+)/)[1]}%0A%0A`,
+            href: `https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/issues/new?body=AES:%20v${chrome.runtime.getManifest().version_name}%0AChrome:%20v${window.navigator.userAgent.match(/Chrom(?:e|ium)\/([0-9]+)/)?.[1] || 'unknown'}%0A%0A`,
             newWindow: true,
             icon: { className: "fa-bug" }
         },{
@@ -156,9 +153,10 @@ class AESMenu {
      * @param {object} content - object containing information required to build the item
      * @returns {HTMLElement} menuItem
      */
-    #createMenuItem(content) {
+    #createMenuItem(content: AESModel.MenuItem) {
         const menuItem = document.createElement("li")
-        let menuItemContent, icon
+        let menuItemContent: string | HTMLElement = ""
+        let icon: HTMLSpanElement | undefined
         if (content.label) {
             menuItemContent = content.label
         }
@@ -173,23 +171,23 @@ class AESMenu {
             icon = document.createElement("span")
             icon.setAttribute("aria-hidden", "true")
         }
-        if (content.icon) {
+        if (content.icon && icon) {
             icon.className = `fa ${content.icon.className}`
         }
         if (content.data?.toggle) {
-            const button = document.createElement(this.#legacy ? "a" : "button")
+            const button: HTMLElement = document.createElement(this.#legacy ? "a" : "button")
             if (this.#legacy) {
-                button.href = "#"
+                button.setAttribute("href", "#")
                 button.setAttribute("role", "button")
             } else {
-                button.type = "button"
+                button.setAttribute("type", "button")
             }
             button.setAttribute("tabindex", "0")
-            button.style = "cursor: pointer"
+            button.style.cursor = "pointer"
             if (icon) {
                 button.append(icon)
             }
-            button.append(content.label)
+            button.append(content.label || "")
             button.addEventListener('click', event => {
                 event.preventDefault();
                 document.dispatchEvent(new CustomEvent('aes:show-about'));
@@ -199,7 +197,7 @@ class AESMenu {
         if (content.href) {
             const link = document.createElement("a")
             link.setAttribute("href", content.href)
-            if (content.newWindow && !content.icon) {
+            if (content.newWindow && !content.icon && icon) {
                 icon.className = "fa fa-external-link"
             }
             if (content.newWindow) {
@@ -209,14 +207,14 @@ class AESMenu {
             if (icon) {
                 link.append(icon)
             }
-            link.append(content.label)
+            link.append(content.label || "")
             menuItemContent = link
         }
         menuItem.append(menuItemContent)
         return menuItem
     }
 
-    #setOpen(open) {
+    #setOpen(open: boolean) {
         this.#menu.hidden = !open;
         this.#container.classList.toggle("open", open);
         this.#button.setAttribute('aria-expanded', String(open));
@@ -232,7 +230,7 @@ class AESMenu {
 }
 
 AES.runContentScript("module:aes-menu", function() {
-    let aesMenu = null
+    let aesMenu: AESMenu | null = null
     let refreshTimer = 0
     const observer = new MutationObserver(function() {
         window.clearTimeout(refreshTimer)

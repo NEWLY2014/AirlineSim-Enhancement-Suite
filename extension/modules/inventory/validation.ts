@@ -1,6 +1,6 @@
 class Validation {
     valid = true
-    errors = []
+    errors: string[] = []
     
     constructor() {
         this.checkAllFlightNumbersSelected()
@@ -27,9 +27,9 @@ class Validation {
      * Check “Apply settings to” are set correctly
      */
     checkApplyToSettings() {        
-        let checkboxes = $('.col-md-10 > div > .as-panel:eq(1) > div > div > div:eq(0) fieldset:eq(2) > div input')
-        let valid
-        let messages = []
+        let checkboxes = $<HTMLInputElement>('.col-md-10 > div > .as-panel:eq(1) > div > div > div:eq(0) fieldset:eq(2) > div input')
+        let valid: boolean | undefined
+        let messages: string[] = []
         if (checkboxes.length < 4) {
             this.valid = false
             this.errors.push("Unable to validate “Apply settings to”. The inventory page layout might have changed.")
@@ -78,13 +78,13 @@ class Validation {
      * Check that all “Service Classes” are selected
      */
     checkServiceClasses() {
-        let valid
-        let messages = []
+        let valid: boolean | undefined
+        let messages: string[] = []
         let container = $('.col-md-10 > div > .as-panel:eq(1) > div > div > div:eq(1) .layout-col-md-3')
         let labels = $('fieldset:eq(0) label', container)
         
         labels.each(function() {
-            const input = $('input', this)[0]
+            const input = $<HTMLInputElement>('input', this)[0]
             if (input && !input.checked) {
                 valid = false
                 messages.push(`Please check “${$(this).text()}” under “Service Classes” in the “Data”-panel`)
@@ -101,13 +101,13 @@ class Validation {
      * Check that the correct “Flight Status” is selected
      */
     checkFlightStatus() {
-        let valid
-        let messages = []
+        let valid: boolean | undefined
+        let messages: string[] = []
         let container = $('.col-md-10 > div > .as-panel:eq(1) > div > div > div:eq(1) .layout-col-md-3')
         let labels = $('fieldset:eq(1) label', container)
         labels.each(function(index) {
             if (index === 1 || index === 2) {
-                const input = $('input', this)[0]
+                const input = $<HTMLInputElement>('input', this)[0]
                 if (input && !input.checked) {
                     let message = `Please check “${$(this).text()}” under “Flight Status” in the “Data”-panel`
                     valid = false
@@ -126,8 +126,8 @@ class Validation {
      * Check “Load” settings
      */
     checkLoad() {
-        let valid
-        let messages = []
+        let valid: boolean | undefined
+        let messages: string[] = []
         let container = $('.col-md-10 > div > .as-panel:eq(1) > div > div > div:eq(1) .layout-col-md-3')
         
         $('fieldset:eq(2) div', container).each(function(index) {

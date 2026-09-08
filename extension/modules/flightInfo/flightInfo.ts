@@ -1,5 +1,5 @@
 class FlightInfo {
-    #data = null;
+    #data: AESModel.FlightInfoRecord | null = null;
 
     constructor() {
         // Initialize only
@@ -39,7 +39,7 @@ class FlightInfo {
      * Collects flight data from the current page
      * @returns {{server: string, flightId: number, type: string, money: data, date, time: string}}
      */
-    #collectFlightData() {
+    #collectFlightData(): AESModel.FlightInfoRecord {
         const flightId = this.#getFlightId();
         const dateTime = AES.getServerDate();
         const money = this.#getFinancials();
@@ -60,7 +60,10 @@ class FlightInfo {
      */
     #getFlightId() {
         const url = new URL(window.location.href);
-        return parseInt(url.searchParams.get("id"), 10);
+        const raw = url.searchParams.get("id");
+        const id = raw && /^\d+$/.test(raw) ? Number(raw) : NaN;
+        if (!Number.isSafeInteger(id) || id <= 0) throw new Error("Invalid flight ID");
+        return id;
     }
 
     /**
@@ -68,11 +71,11 @@ class FlightInfo {
      * @returns data - an object containing financial data for each stage CM1 to CM5
      */
     #getFinancials() {
-        const data = {};
+        const data: AESModel.FlightFinancials = {};
         document.querySelectorAll('.cm').forEach((row, index) => {
             const cmLabel = `CM${index + 1}`;
             data[cmLabel] = {};
-            const labels = ['Y', 'C', 'F', 'PAX', 'Cargo', 'Total'];
+            const labels: AESModel.FinancialColumn[] = ['Y', 'C', 'F', 'PAX', 'Cargo', 'Total'];
             row.querySelectorAll('td').forEach((cell, i) => {
                 const label = labels[i];
                 const value = AES.cleanInteger(cell.textContent);
@@ -87,12 +90,14 @@ class FlightInfo {
      * @returns {Promise<void>}
      */
     async #saveData() {
-        const key = `${this.#data.server}${this.#data.type}${this.#data.flightId}`;
+        const data = this.#data;
+        if (!data) return;
+        const key = `${data.server}${data.type}${data.flightId}`;
         const notifications = new Notifications();
         try {
-            await chrome.storage.local.set({ [key]: this.#data });
+            await chrome.storage.local.set({ [key]: data });
             const result = await chrome.storage.local.get(['settings']);
-            if (result?.settings?.flightInfo?.autoClose) {
+            if (AES.isRecord(result.settings) && AES.isRecord(result.settings.flightInfo) && result.settings.flightInfo.autoClose) {
                 window.close();
             }
             notifications.add("Flight information saved successfully.", {type: "success"});
@@ -152,7 +157,7 @@ class FlightInfo {
      * @param panel
      * @returns {HTMLDivElement}
      */
-    #createContainer(heading, panel) {
+    #createContainer(heading: HTMLHeadingElement, panel: HTMLDivElement) {
         const container = document.createElement('div');
         container.appendChild(heading);
         container.appendChild(panel);
@@ -197,16 +202,18 @@ class FlightInfo {
      */
     #buildTableBody() {
         const tbody = document.createElement('tbody');
-        Object.entries(this.#data.money).forEach(([cm, values]) => {
+        Object.entries(this.#data?.money || {}).forEach(([cm, values]) => {
             const row = document.createElement('tr');
             const th = document.createElement('th');
             th.textContent = cm;
             row.appendChild(th);
-            ['Y', 'C', 'F', 'PAX', 'Cargo', 'Total'].forEach(label => {
+            const labels: AESModel.FinancialColumn[] = ['Y', 'C', 'F', 'PAX', 'Cargo', 'Total'];
+            labels.forEach(label => {
                 const td = document.createElement('td');
                 td.className = 'aes-text-right';
-                const currencyEl = AES.formatCurrency(values[label], "right");
-                td.appendChild(currencyEl);
+                const value = values[label];
+                if (value === undefined) td.textContent = "—";
+                else td.appendChild(AES.formatCurrency(value, "right"));
                 row.appendChild(td);
             });
             tbody.appendChild(row);
@@ -227,13 +234,13 @@ class FlightInfo {
 
         const row = document.createElement('tr');
         const cells = [
-            'Flight Id:', this.#data.flightId,
-            'Date:', `${AES.formatDateString(this.#data.date)} ${this.#data.time}`,
+            'Flight Id:', this.#data?.flightId ?? '',
+            'Date:', `${AES.formatDateString(this.#data?.date)} ${this.#data?.time || ""}`,
             '', '', ''
         ];
         cells.forEach(cell => {
             const th = document.createElement('th');
-            th.textContent = cell;
+            th.textContent = String(cell);
             row.appendChild(th);
         });
 

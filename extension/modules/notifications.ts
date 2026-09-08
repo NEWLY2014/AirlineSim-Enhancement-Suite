@@ -1,13 +1,12 @@
 class Notifications {
     name = "Notifications"
-    container
+    container: Element
 
     constructor() {
         const target = AES.getPageContainer() || document.body
         const container = document.querySelector(".feedbackPanel")
-        this.container = container
+        this.container = container || this.#createContainer()
         if (!container) {
-            this.container = this.#createContainer()
             target.prepend(this.container)
         }
     }
@@ -28,8 +27,8 @@ class Notifications {
      * @param {string} message - the message to be displayed
      * @param {object} options
      */
-    newNotification(message, options) {
-        const notification = new Notification(message, options)
+    newNotification(message: string, options?: AESModel.NotificationOptions) {
+        const notification = new AESNotification(message, options)
         this.container.append(notification.element)
         const duration = typeof options?.duration === "number" ? options.duration : 5000
         if (duration > 0) {
@@ -44,7 +43,7 @@ class Notifications {
      * @param {HTMLElement} element
      * @param {object} options
      */
-    #dismiss(element, options) {
+    #dismiss(element: HTMLElement, options?: AESModel.NotificationOptions) {
         if (!element || !element.parentNode) {
             return
         }
@@ -66,7 +65,7 @@ class Notifications {
      * @param {string} message
      * @param {object} options
      */
-    add(message, options) {
+    add(message: string, options?: AESModel.NotificationOptions) {
         this.newNotification(message, options)
     }
 }

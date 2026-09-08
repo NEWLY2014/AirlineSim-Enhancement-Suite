@@ -1,11 +1,13 @@
 "use strict";
+(() => {
 //MAIN
 //Global vars
-var aircraftData = [];
-var server, aircraftFleetKey, aircraftFleetStorageData, airline, date, currentFleet;
+let aircraftData: AESModel.FleetPageAircraft[] = [];
+let server: string, aircraftFleetKey: string, aircraftFleetStorageData: AESModel.FleetRecord;
+let airline: AESModel.Airline, date: ReturnType<typeof AES.getServerDate>, currentFleet: string;
 var fltmngFilterActive = false;
-var fltmngTableObserver = null;
-var fltmngRefreshTimer = null;
+let fltmngTableObserver: MutationObserver | null = null;
+let fltmngRefreshTimer: number | undefined;
 const FLEET_MANAGEMENT_SCRIPT_ENABLED = AES.runContentScript("content_fleetManagement", function() {
     AES.waitForElement(fltmng_getFleetManagementReadyTarget, initializeFleetManagement, {
         scriptName: "content_fleetManagement",
@@ -60,7 +62,7 @@ function fltmng_getData() {
     //Aircraft
     let table = $('.as-page-fleet-management > .row > .col-md-9 > .as-panel:eq(0) table');
     currentFleet = fltmng_normalizeFleetName($('.as-page-fleet-management > .row > .col-md-9 > h2:eq(0)').text());
-    $('tbody tr', table).each(function() {
+    $<HTMLTableRowElement>('tbody tr', table).each(function() {
         let aircraftId = fltmng_getAircraftIdFromRow(this);
         let registration = $('td:eq(1) > span:eq(0)', this).text();
 
@@ -73,7 +75,7 @@ function fltmng_getData() {
             return;
         }
 
-        let data = {
+        let data: AESModel.FleetPageAircraft = {
             registration: registration,
             nickname: fltmng_getNickname($('td:eq(1) > div:eq(0)', this).text()),
             equipment: $('td:eq(2) > a:eq(0)', this).text(),
@@ -102,7 +104,7 @@ function fltmng_getData() {
     });
 }
 
-function fltmng_getNickname(value) {
+function fltmng_getNickname(value: string) {
     if (value == '...') {
         return ''
     } else {
@@ -110,51 +112,49 @@ function fltmng_getNickname(value) {
     }
 }
 
-function fltmng_normalizeFleetName(value) {
+function fltmng_normalizeFleetName(value: string | null | undefined) {
     return (value || '').trim();
 }
 
-function fltmng_hasAircraftIdentity(aircraft) {
+function fltmng_hasAircraftIdentity(aircraft: AESModel.AircraftIdentity | null | undefined) {
     return !!(aircraft && (
         aircraft.aircraftId ||
         String(aircraft.registration || '').trim()
     ));
 }
 
-function fltmng_getAge(value) {
+function fltmng_getAge(value: string) {
     if (value.includes('UTC')) {
         return 0;
     } else {
         value = value.replace(/[a-z]/gi, '');
-    value = value.replace(',', '.');
-    value = parseFloat(value);
-    return value;
+        value = value.replace(',', '.');
+        return parseFloat(value);
     }
 }
 
-function fltmng_getMaintenance(value) {
+function fltmng_getMaintenance(value: string) {
     value = value.replace(/%/g, '');
     value = value.replace(',', '.');
-    value = parseFloat(value);
-    return value;
+    return parseFloat(value);
 }
 
-function fltmng_getAircraftId(value) {
+function fltmng_getAircraftId(value: string | null | undefined) {
     if (value) {
         let match = String(value).match(/(?:\/app\/fleets\/|\.\.\/)*aircraft\/(\d+)(?:\/|[?#]|$)/);
         if (match) {
             return parseInt(match[1], 10);
         }
 
-        value = value.split('/');
-        let parsed = parseInt(value[value.length - 2], 10);
+        const parts = value.split('/');
+        let parsed = parseInt(parts[parts.length - 2], 10);
         if (!isNaN(parsed)) {
             return parsed;
         }
     }
 }
 
-function fltmng_getAircraftIdFromRow(row) {
+function fltmng_getAircraftIdFromRow(row: HTMLTableRowElement) {
     let aircraftId = fltmng_getAircraftId(fltmng_getAircraftPageLink(row));
     if (aircraftId) {
         return aircraftId;
@@ -178,7 +178,7 @@ function fltmng_getAircraftIdFromRow(row) {
     return null;
 }
 
-function fltmng_getAircraftPageLink(row) {
+function fltmng_getAircraftPageLink(row: HTMLTableRowElement) {
     return $('a[href*="aircraft/"][title="Flights"]', row).attr('href') ||
         $('a[href*="aircraft/"][title="Flight Planning"]', row).attr('href') ||
         $('a[href*="aircraft/"][href*="/1"]', row).attr('href') ||
@@ -186,16 +186,16 @@ function fltmng_getAircraftPageLink(row) {
         $('a[href*="aircraft/"]', row).first().attr('href');
 }
 
-function fltmng_isDelivered(row) {
+function fltmng_isDelivered(row: HTMLTableRowElement) {
     return $('td:eq(4)', row).text().indexOf('Delivery:') == -1;
 }
 
-function fltmng_getSeatValue(value) {
+function fltmng_getSeatValue(value: string) {
     let parsed = parseInt(value, 10);
     return isNaN(parsed) ? 0 : parsed;
 }
 
-function fltmng_getSeatConfig(row) {
+function fltmng_getSeatConfig(row: HTMLTableRowElement) {
     return [
         fltmng_getSeatValue($('td:eq(5) > span:eq(0)', row).text()),
         fltmng_getSeatValue($('td:eq(5) > span:eq(1)', row).text()),
@@ -203,21 +203,21 @@ function fltmng_getSeatConfig(row) {
     ].join('/');
 }
 
-function fltmng_getTotalSeats(row) {
+function fltmng_getTotalSeats(row: HTMLTableRowElement) {
     return fltmng_getSeatValue($('td:eq(5) > span:eq(0)', row).text()) +
         fltmng_getSeatValue($('td:eq(5) > span:eq(1)', row).text()) +
         fltmng_getSeatValue($('td:eq(5) > span:eq(2)', row).text());
 }
 
-function fltmng_isPureCargo(row) {
+function fltmng_isPureCargo(row: HTMLTableRowElement) {
     return fltmng_getTotalSeats(row) === 0;
 }
 
-function fltmng_hasPilots(row) {
+function fltmng_hasPilots(row: HTMLTableRowElement) {
     return $('td:eq(5) .subrow', row).text().trim().toLowerCase() == 'yes';
 }
 
-function fltmng_isOwned(row) {
+function fltmng_isOwned(row: HTMLTableRowElement) {
     let owned = '';
     $('.btn-group-contract .dropdown-menu li div', row).each(function() {
         let text = $(this).text().replace(/\s+/g, ' ').trim();
@@ -229,7 +229,7 @@ function fltmng_isOwned(row) {
     return owned == 'yes';
 }
 
-function fltmng_getScheduleState(row) {
+function fltmng_getScheduleState(row: HTMLTableRowElement) {
     let flightPlanningBtn = $('a[title="Flight Planning"]', row);
     if (!flightPlanningBtn.length) {
         return fltmng_isDelivered(row) ? 'empty' : 'undelivered';
@@ -246,7 +246,7 @@ function fltmng_getScheduleState(row) {
     return 'empty';
 }
 
-function fltmng_getScheduleStateLabel(row) {
+function fltmng_getScheduleStateLabel(row: HTMLTableRowElement) {
     switch (fltmng_getScheduleState(row)) {
         case 'active':
             return 'Active';
@@ -262,7 +262,7 @@ function fltmng_getScheduleStateLabel(row) {
 }
 
 function fltmng_getStorageData() {
-    let keys = [];
+    let keys: string[] = [];
     aircraftData.forEach(function(value) {
         if (!value.aircraftId) {
             return;
@@ -271,27 +271,29 @@ function fltmng_getStorageData() {
         keys.push(key);
     });
     chrome.storage.local.get(keys, function(result) {
+        if (!fltmng_storageCallbackSucceeded()) return;
         AES.tryRun("content_fleetManagement", function() {
         for (let aircraftFlightData in result) {
-            if (!result[aircraftFlightData]) {
+            const summary: unknown = result[aircraftFlightData];
+            if (!AES.isRecord(summary) || !AES.isAircraftProfit(summary)) {
                 continue;
             }
             for (let i = 0; i < aircraftData.length; i++) {
-                if (aircraftData[i].aircraftId == result[aircraftFlightData].aircraftId) {
+                if (aircraftData[i].aircraftId == summary.aircraftId) {
                     aircraftData[i].profit = {
-                        date: result[aircraftFlightData].date,
-                        finishedFlights: result[aircraftFlightData].finishedFlights,
-                        hubDetected: result[aircraftFlightData].hubDetected,
-                        hubEffective: result[aircraftFlightData].hubEffective,
-                        hubOverride: result[aircraftFlightData].hubOverride,
-                        profit: result[aircraftFlightData].profit,
-                        profitFlights: result[aircraftFlightData].profitFlights,
-                        time: result[aircraftFlightData].time,
-                        totalFlights: result[aircraftFlightData].totalFlights,
+                        date: summary.date,
+                        finishedFlights: summary.finishedFlights,
+                        hubDetected: summary.hubDetected,
+                        hubEffective: summary.hubEffective,
+                        hubOverride: summary.hubOverride,
+                        profit: summary.profit,
+                        profitFlights: summary.profitFlights,
+                        time: summary.time,
+                        totalFlights: summary.totalFlights,
                     };
-                    aircraftData[i].hubOverride = result[aircraftFlightData].hubOverride || aircraftData[i].hubOverride || '';
-                    aircraftData[i].hubEffective = result[aircraftFlightData].hubEffective || aircraftData[i].hubEffective || result[aircraftFlightData].hubDetected || '';
-                    aircraftData[i].hubDetected = result[aircraftFlightData].hubDetected || aircraftData[i].hubDetected || '';
+                    aircraftData[i].hubOverride = summary.hubOverride || aircraftData[i].hubOverride || '';
+                    aircraftData[i].hubEffective = summary.hubEffective || aircraftData[i].hubEffective || summary.hubDetected || '';
+                    aircraftData[i].hubDetected = summary.hubDetected || aircraftData[i].hubDetected || '';
                 }
             }
         }
@@ -305,22 +307,23 @@ function fltmng_getStorageData() {
 function fltmng_getAircraftStorageFleetData() {
     aircraftFleetKey = server + airline.id + 'aircraftFleet';
     chrome.storage.local.get([aircraftFleetKey], function(result) {
+        if (!fltmng_storageCallbackSucceeded()) return;
         AES.tryRun("content_fleetManagement", function() {
-        fltmng_updateAircraftFleetStorageData(result[aircraftFleetKey]);
+        fltmng_updateAircraftFleetStorageData(AES.readFleetRecord(result[aircraftFleetKey]));
 
         fltmng_saveData();
         });
     });
 }
 
-function fltmng_updateAircraftFleetStorageData(data) {
+function fltmng_updateAircraftFleetStorageData(data: AESModel.FleetRecord | null) {
     aircraftFleetStorageData = {
         server: server,
         type: 'aircraftFleet',
         airline: airline,
         fleet: []
     }
-    let newfleet = [];
+    let newfleet: AESModel.FleetAircraft[] = [];
     //Push all new aircrafts
     aircraftData.forEach(function(newvalue) {
         let storedAircraft = fltmng_getStoredAircraft(data, newvalue);
@@ -379,7 +382,7 @@ function fltmng_updateAircraftFleetStorageData(data) {
     aircraftFleetStorageData.fleet = newfleet;
 }
 
-function fltmng_getStoredAircraft(data, aircraftId) {
+function fltmng_getStoredAircraft(data: AESModel.FleetRecord | null, aircraftId: AESModel.AircraftIdentity) {
     if (!data || !Array.isArray(data.fleet)) {
         return null;
     }
@@ -393,7 +396,7 @@ function fltmng_getStoredAircraft(data, aircraftId) {
     return null;
 }
 
-function fltmng_isSameAircraft(storedAircraft, aircraft) {
+function fltmng_isSameAircraft(storedAircraft: AESModel.AircraftIdentity | null, aircraft: AESModel.AircraftIdentity | string | number | null) {
     if (!storedAircraft || !aircraft) {
         return false;
     }
@@ -417,6 +420,7 @@ function fltmng_saveData() {
     //Remove profit
     chrome.storage.local.set({
         [aircraftFleetKey]: aircraftFleetStorageData }, function() {
+        if (!fltmng_storageCallbackSucceeded()) return;
         fltmng_display();
     });
 }
@@ -427,10 +431,10 @@ function fltmng_display() {
 
     let p = [];
     p.push($('<p></p>').html(fltmng_displaySavedAircrafts()));
-    p.push($('<p></p>').html(fltmng_displayNewUpdates()));
+    p.push($('<p></p>').append(fltmng_displayNewUpdates()));
     p.push(fltmng_buildFilterPanel());
 
-    let panel = $('<div class="as-panel"></div>').append(p);
+    let panel = $('<div class="as-panel"></div>').append(...p);
     //Header
     let h = $('<h3></h3>').text('AES Fleet Management');
     let div = $('<div id="aes-fleet-management-root"></div>').append(h, panel);
@@ -466,10 +470,10 @@ function fltmng_displayAircraftProfit() {
         $('<th rowspan="2" class="aes-fleet-extra-header">Extract date</th>')
     );
     //Body
-    $('tbody tr', table).each(function() {
+    $<HTMLTableRowElement>('tbody tr', table).each(function() {
         let id = fltmng_getAircraftIdFromRow(this);
 
-        let profit, date, time;
+        let profit = 0, date: string | undefined, time: string | undefined;
         if (id) {
             aircraftData.forEach(function(value) {
                 if (value.aircraftId == id) {
@@ -501,8 +505,8 @@ function fltmng_displayAircraftProfit() {
     AES.markOwnedElements($('.aes-fleet-extra-header, .aes-fleet-extra-cell', table));
 }
 
-function fltmng_syncTableRows(table) {
-    $('tbody tr', table).each(function() {
+function fltmng_syncTableRows(table: JQuery) {
+    $<HTMLTableRowElement>('tbody tr', table).each(function() {
         let row = this;
         let aircraftId = fltmng_getAircraftIdFromRow(row);
         let registration = $('td:eq(1) > span:eq(0)', row).text().trim();
@@ -550,8 +554,8 @@ function fltmng_watchFleetTable() {
     });
 }
 
-function fltmng_isFleetTableNode(node) {
-    if (!node || node.nodeType !== 1) {
+function fltmng_isFleetTableNode(node: Node) {
+    if (!(node instanceof Element)) {
         return false;
     }
 
@@ -560,6 +564,7 @@ function fltmng_isFleetTableNode(node) {
 }
 
 function fltmng_refreshFleetTableEnhancements() {
+    if (!AES.isPageOwner()) return;
     if (fltmngTableObserver) {
         fltmngTableObserver.disconnect();
     }
@@ -569,7 +574,7 @@ function fltmng_refreshFleetTableEnhancements() {
     fltmng_watchFleetTable();
 }
 
-function fltmng_getResolvedHub(aircraft) {
+function fltmng_getResolvedHub(aircraft: AESModel.FleetAircraft | AESModel.FleetPageAircraft | null) {
     if (!aircraft) {
         return '';
     }
@@ -583,14 +588,14 @@ function fltmng_getResolvedHub(aircraft) {
     if (aircraft.hubDetected) {
         return aircraft.hubDetected;
     }
-    if (aircraft.profit) {
+    if (AES.isAircraftProfit(aircraft.profit)) {
         return aircraft.profit.hubOverride || aircraft.profit.hubEffective || aircraft.profit.hubDetected || '';
     }
 
     return '';
 }
 
-function fltmng_getAircraftHubDisplay(aircraftId) {
+function fltmng_getAircraftHubDisplay(aircraftId: number | null) {
     if (!aircraftId) {
         return '--';
     }
@@ -683,7 +688,7 @@ function fltmng_buildFilterPanel() {
     function applyFilters() {
         let visibleCount = 0;
         let selectionStateChanged = false;
-        let refreshCheckbox = null;
+        let refreshCheckbox: HTMLInputElement | null = null;
         aircraftData.forEach(function(value) {
             let visible =
                 (!equipmentSelect.val() || value.equipment == equipmentSelect.val()) &&
@@ -695,7 +700,7 @@ function fltmng_buildFilterPanel() {
 
             $(value.row).toggle(visible);
             if (!visible) {
-                let rowCheckbox = $('input[type="checkbox"][name="aircraftsContainer"]', value.row).get(0);
+                let rowCheckbox = $<HTMLInputElement>('input[type="checkbox"][name="aircraftsContainer"]', value.row).get(0);
                 if (rowCheckbox && rowCheckbox.checked) {
                     rowCheckbox.checked = false;
                     selectionStateChanged = true;
@@ -714,7 +719,7 @@ function fltmng_buildFilterPanel() {
     }
 }
 
-function fltmng_refreshNativeSelectionState(checkbox) {
+function fltmng_refreshNativeSelectionState(checkbox: Element | null | undefined) {
     let target = checkbox || document.querySelector('.as-page-fleet-management input[type="checkbox"][name="aircraftsContainer"]');
     if (!target) {
         return;
@@ -726,7 +731,7 @@ function fltmng_refreshNativeSelectionState(checkbox) {
 }
 
 function fltmng_bindNativeSelectionLinks() {
-    let selectionLinks = document.querySelectorAll(
+    let selectionLinks = document.querySelectorAll<HTMLAnchorElement>(
         '.as-page-fleet-management a[href*="select~all"], ' +
         '.as-page-fleet-management a[href*="select~none"], ' +
         '.as-page-fleet-management a[href*="select~inverse"]'
@@ -739,7 +744,7 @@ function fltmng_bindNativeSelectionLinks() {
 
         link.dataset.aesFleetSelectionBound = '1';
         link.addEventListener('click', function(event) {
-            if (!fltmngFilterActive) {
+            if (!AES.isPageOwner() || !fltmngFilterActive) {
                 return;
             }
 
@@ -789,14 +794,14 @@ function fltmng_bindNativeSelectionLinks() {
     });
 }
 
-function fltmng_wrapFilterControl(label, control) {
+function fltmng_wrapFilterControl(label: string, control: JQuery) {
     return $('<div class="col-md-2 col-sm-4" style="margin-top: 8px;"></div>').append(
         $('<label class="control-label"></label>').text(label),
         control
     );
 }
 
-function fltmng_buildFilterSelect(placeholder, values) {
+function fltmng_buildFilterSelect(placeholder: string, values: Array<string | { value: string; label: string }>) {
     let select = $('<select class="form-control"></select>').append(
         $('<option value=""></option>').text(placeholder)
     );
@@ -810,7 +815,7 @@ function fltmng_buildFilterSelect(placeholder, values) {
     return select;
 }
 
-function fltmng_getUniqueAircraftValues(key) {
+function fltmng_getUniqueAircraftValues(key: 'equipment' | 'seatConfig') {
     let values = aircraftData.map(function(value) {
         return value[key];
     }).filter(function(value) {
@@ -837,3 +842,14 @@ function fltmng_getUniqueAircraftHubValues() {
     values.sort();
     return values;
 }
+
+function fltmng_storageCallbackSucceeded() {
+    const error = chrome.runtime.lastError;
+    if (!AES.isPageOwner()) return false;
+    if (error) {
+        AES.reportContentScriptError('content_fleetManagement', new Error(error.message));
+        return false;
+    }
+    return true;
+}
+})();

@@ -60,13 +60,32 @@ Sources: the [original forum thread](https://forums.airlinesim.aero/t/introducin
 
 These features make developing for AES easier.
 
+### Local development
+
+```sh
+npm ci
+npm run typecheck
+npm test
+npm run package
+```
+
+Load `build/extension` as the unpacked extension in Chrome or Edge. Run
+`npm run build` after editing TypeScript, then reload the extension and the
+AirlineSim page. The `extension/` directory contains TypeScript sources and static
+assets; generated JavaScript is written only to `build/extension`. Vendored jQuery
+remains JavaScript. Packaging uses the same source-free build directory.
+
+`npm test` builds first and tests the generated JavaScript. `npm run package`
+builds before creating `dist/AES-vX.X.X.zip`, whose root contains `manifest.json`.
+See [the migration progress](docs/typescript-migration.md) for remaining stages.
+
 ### Releases
 
 Release automation is documented in [docs/release-automation.md](docs/release-automation.md).
 
 ### Notifications
 
-AES comes with its own notification API. This uses AS’ notification style and location. The AES notification API consists of two components: `Notifications` and `Notification`.
+AES comes with its own notification API. This uses AS’ notification style and location. The AES notification API consists of two components: `Notifications` and `AESNotification`.
 
 #### Usage
 
@@ -91,7 +110,7 @@ notifications.add("The settings have been updated")
 By default, a new notification comes with the success styling (a checkmark icon and a green background). The style can be changed by passing an option object:
 
 ```
-notifications.new("Failed to save data", {type: "warning"})
+notifications.add("Failed to save data", {type: "warning"})
 ```
 
 The possible values for `type` are:

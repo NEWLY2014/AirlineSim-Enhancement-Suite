@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 'use strict';
+(() => {
 //Functions
 function setDefaultSettings() {
     //Add default settings
@@ -22,8 +23,8 @@ function setDefaultSettings() {
     //
 }
 
-function mergeDefaultSettings(settings, defaults) {
-    if (!settings || typeof settings !== 'object' || Array.isArray(settings)) {
+function mergeDefaultSettings(settings: unknown, defaults: Record<string, unknown>): Record<string, unknown> {
+    if (!isSettingsObject(settings)) {
         return cloneSettings(defaults);
     }
 
@@ -35,9 +36,7 @@ function mergeDefaultSettings(settings, defaults) {
         if (currentValue === undefined) {
             merged[key] = cloneSettings(defaultValue);
         } else if (
-            defaultValue &&
-            typeof defaultValue === 'object' &&
-            !Array.isArray(defaultValue)
+            isSettingsObject(defaultValue)
         ) {
             merged[key] = mergeDefaultSettings(currentValue, defaultValue);
         }
@@ -46,13 +45,19 @@ function mergeDefaultSettings(settings, defaults) {
     return merged;
 }
 
-function cloneSettings(value) {
+function isSettingsObject(value: unknown): value is Record<string, unknown> {
+    return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function cloneSettings(value: Record<string, unknown>): Record<string, unknown>;
+function cloneSettings(value: unknown): unknown;
+function cloneSettings(value: unknown): unknown {
     if (Array.isArray(value)) {
         return value.map(cloneSettings);
     }
 
-    if (value && typeof value === 'object') {
-        let clone = {};
+    if (isSettingsObject(value)) {
+        let clone: Record<string, unknown> = {};
         for (let key in value) {
             clone[key] = cloneSettings(value[key]);
         }
@@ -93,12 +98,17 @@ function setDefaultGeneralSettings() {
 
 function setDefaultInvPricingSettings() {
     //auto settings
-    let invPricing = {
+    let invPricing: AESModel.InventoryPricingSettings = {
         autoAnalysisSave: 1,
         autoPriceUpdate: 0,
         autoClose: 0,
         showReferenceRecommendation: 0,
-        recommendation: {},
+        recommendation: {
+            Y: { maxPrice: 200, minPrice: 60, steps: [] },
+            C: { maxPrice: 200, minPrice: 60, steps: [] },
+            F: { maxPrice: 200, minPrice: 60, steps: [] },
+            Cargo: { maxPrice: 200, minPrice: 60, steps: [] }
+        },
         historyTable: {
             showNow: 1,
             showOnlyPricing: 0,
@@ -150,7 +160,7 @@ function setDefaultInvPricingSettings() {
             step: 5
     }
   ];
-    let cmps = ['Y', 'C', 'F', 'Cargo'];
+    let cmps: AESModel.Cabin[] = ['Y', 'C', 'F', 'Cargo'];
     cmps.forEach(function(cmp) {
         invPricing.recommendation[cmp] = {
             maxPrice: 200,
@@ -161,7 +171,8 @@ function setDefaultInvPricingSettings() {
     return invPricing;
 }
 
-function isAllowedAESTabUrl(url) {
+function isAllowedAESTabUrl(url: unknown): url is string {
+    if (typeof url !== 'string') return false;
     try {
         const parsedUrl = new URL(url);
         return parsedUrl.protocol === 'https:' &&
@@ -173,8 +184,8 @@ function isAllowedAESTabUrl(url) {
     }
 }
 
-chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
-    if (!message || message.type !== 'AES_OPEN_TAB') {
+chrome.runtime.onMessage.addListener(function(message: unknown, sender, sendResponse) {
+    if (!isSettingsObject(message) || message.type !== 'AES_OPEN_TAB') {
         return false;
     }
 
@@ -219,3 +230,5 @@ chrome.runtime.onInstalled.addListener(function() {
     }]);
     });
 });
+
+})();

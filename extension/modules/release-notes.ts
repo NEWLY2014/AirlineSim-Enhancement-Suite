@@ -1,5 +1,5 @@
 const AES_RELEASE_NOTES_STORAGE_KEY = "aesReleaseNotesSeenVersion"
-const AES_RELEASE_NOTES = {
+const AES_RELEASE_NOTES: Record<string, AESModel.ReleaseNotes | undefined> = {
     "0.8.13": {
         "title": "Release Notes",
         "releaseDate": "2026-09-08",
@@ -810,26 +810,26 @@ Object.assign(AES_RELEASE_NOTES, {
             }
         ]
     }
-})
+} satisfies Record<string, AESModel.ReleaseNotes>)
 
 class ReleaseNotesDialog {
     #container
     #backdrop
-    #badge
-    #body
+    #badge = document.createElement("span")
+    #body = document.createElement("div")
     #closeButton
     #confirmButton
     #currentIndex
     #nextButton
     #pageIndicator
     #previousButton
-    #sections
+    #sections = document.createElement("div")
     #seenVersion
-    #title
-    #versionLabel
+    #title = document.createElement("h3")
+    #versionLabel = document.createElement("p")
     #versions
 
-    constructor(version) {
+    constructor(version: string) {
         this.#seenVersion = version
         this.#versions = Object.keys(AES_RELEASE_NOTES)
             .filter(function(candidate) {
@@ -852,6 +852,7 @@ class ReleaseNotesDialog {
         document.body.classList.add("modal-open")
         this.#bindEvents()
         this.#renderPage()
+        AES.whenPageOwnershipLost(() => this.destroy())
     }
 
     #createContainer() {
@@ -881,11 +882,8 @@ class ReleaseNotesDialog {
         logo.alt = "AES logo"
         const titleWrap = document.createElement("div")
         titleWrap.className = "aes-release-notes-title-wrap"
-        this.#title = document.createElement("h3")
         this.#title.className = "modal-title"
-        this.#versionLabel = document.createElement("p")
         this.#versionLabel.className = "aes-release-notes-version"
-        this.#badge = document.createElement("span")
         this.#badge.className = "aes-release-notes-badge"
         const productLabel = document.createElement("p")
         productLabel.className = "aes-release-notes-product"
@@ -896,9 +894,7 @@ class ReleaseNotesDialog {
         hero.append(this.#closeButton, heroBrand)
         header.append(hero)
 
-        this.#body = document.createElement("div")
         this.#body.className = "modal-body aes-release-notes-body"
-        this.#sections = document.createElement("div")
         this.#sections.className = "aes-release-notes-sections"
         this.#body.append(this.#sections)
 
@@ -947,7 +943,7 @@ class ReleaseNotesDialog {
         return button
     }
 
-    #createPageButton(text, ariaLabel) {
+    #createPageButton(text: string, ariaLabel: string) {
         const button = document.createElement("button")
         button.type = "button"
         button.className = "btn btn-default aes-release-notes-page-button"
@@ -1023,7 +1019,7 @@ class ReleaseNotesDialog {
         document.addEventListener("keydown", this.#onKeydown)
     }
 
-    #onKeydown = (event) => {
+    #onKeydown = (event: KeyboardEvent) => {
         if (event.key === "Escape") {
             this.dismiss()
         } else if (event.key === "ArrowLeft") {
@@ -1035,11 +1031,15 @@ class ReleaseNotesDialog {
 
     dismiss() {
         chrome.storage.local.set({ [AES_RELEASE_NOTES_STORAGE_KEY]: this.#seenVersion }, () => {
-            document.removeEventListener("keydown", this.#onKeydown)
-            this.#container.remove()
-            this.#backdrop.remove()
-            document.body.classList.remove("modal-open")
+            this.destroy()
         })
+    }
+
+    destroy() {
+        document.removeEventListener("keydown", this.#onKeydown)
+        this.#container.remove()
+        this.#backdrop.remove()
+        document.body.classList.remove("modal-open")
     }
 
     #getTheme() {
@@ -1073,7 +1073,7 @@ function maybeShowReleaseNotes() {
     })
 }
 
-function showReleaseNotesDialog(version) {
+function showReleaseNotesDialog(version: string) {
     if (!AES.isPageOwner()) {
         return
     }
@@ -1116,7 +1116,7 @@ function addReleaseNotesFooterLink() {
     return placeFooterVersionLink(wrapper, gameVersionAnchor)
 }
 
-function createFooterVersionLink(version, notes, wrapperTag) {
+function createFooterVersionLink(version: string, notes: AESModel.ReleaseNotes, wrapperTag: "div" | "span" = "span") {
     wrapperTag = wrapperTag || "span"
     const wrapper = document.createElement(wrapperTag)
     wrapper.id = "aes-footer-version"
@@ -1142,13 +1142,14 @@ function createFooterVersionLink(version, notes, wrapperTag) {
     return wrapper
 }
 
-function findGameVersionAnchor(footer) {
+function findGameVersionAnchor(footer: Element): AESModel.FooterVersionAnchor | null {
     const explicitVersion = footer.querySelector("#version")
     if (explicitVersion) {
         return createElementVersionAnchor(explicitVersion)
     }
 
-    const currentVersion = window.frontendSettings && window.frontendSettings.currentVersionNumber
+    const settings = AES.getFrontendSettings()
+    const currentVersion = typeof settings.currentVersionNumber === "string" ? settings.currentVersionNumber : undefined
     const versionCandidates = Array.from(footer.querySelectorAll("[data-version], .version, .as-footer-line-element, span, div"))
         .filter(function(element) {
             return element.id !== "aes-footer-version" && !element.closest("#aes-footer-version")
@@ -1173,7 +1174,8 @@ function findGameVersionAnchor(footer) {
     return textNodeAnchor || null
 }
 
-function createElementVersionAnchor(element) {
+function createElementVersionAnchor(element: Element): AESModel.FooterVersionAnchor | null {
+    if (!element.parentNode) return null
     return {
         parent: element.parentNode,
         beforeNode: element,
@@ -1181,7 +1183,7 @@ function createElementVersionAnchor(element) {
     }
 }
 
-function findGameVersionTextNodeAnchor(footer, currentVersion) {
+function findGameVersionTextNodeAnchor(footer: Element, currentVersion?: string): AESModel.FooterVersionAnchor | null {
     const walker = document.createTreeWalker(footer, NodeFilter.SHOW_TEXT, {
         acceptNode: function(node) {
             if (!node.nodeValue || !node.nodeValue.trim()) {
@@ -1197,7 +1199,7 @@ function findGameVersionTextNodeAnchor(footer, currentVersion) {
     })
 
     const textNode = walker.nextNode()
-    if (!textNode) {
+    if (!(textNode instanceof Text) || !textNode.parentNode) {
         return null
     }
 
@@ -1208,6 +1210,7 @@ function findGameVersionTextNodeAnchor(footer, currentVersion) {
         return createElementVersionAnchor(versionContainer)
     }
 
+    if (!versionTextNode.parentNode) return null
     return {
         parent: versionTextNode.parentNode,
         beforeNode: versionTextNode,
@@ -1215,7 +1218,7 @@ function findGameVersionTextNodeAnchor(footer, currentVersion) {
     }
 }
 
-function getOwnText(element) {
+function getOwnText(element: Element) {
     return Array.from(element.childNodes)
         .filter(function(node) {
             return node.nodeType === Node.TEXT_NODE
@@ -1227,7 +1230,7 @@ function getOwnText(element) {
         .trim()
 }
 
-function findClosestGameVersionContainer(element, currentVersion) {
+function findClosestGameVersionContainer(element: Element | null, currentVersion?: string): Element | null {
     while (element && !element.matches("#footer, nav.as-navbar-bottom")) {
         const dataVersion = element.getAttribute("data-version")
         if (dataVersion && (!currentVersion || dataVersion === currentVersion)) {
@@ -1244,7 +1247,7 @@ function findClosestGameVersionContainer(element, currentVersion) {
     return null
 }
 
-function isGameVersionText(text, currentVersion) {
+function isGameVersionText(text: string | null, currentVersion?: string) {
     if (!text) {
         return false
     }
@@ -1257,7 +1260,7 @@ function isGameVersionText(text, currentVersion) {
     return /^v?\d+\.\d+\.\d+$/.test(normalizedText)
 }
 
-function getGameVersionTokenIndex(text, currentVersion) {
+function getGameVersionTokenIndex(text: string | null, currentVersion?: string): number {
     if (!text) {
         return -1
     }
@@ -1272,10 +1275,10 @@ function getGameVersionTokenIndex(text, currentVersion) {
     }
 
     const match = text.match(/v?\d+\.\d+\.\d+/)
-    return match ? match.index : -1
+    return match?.index ?? -1
 }
 
-function placeFooterVersionLink(wrapper, gameVersionAnchor) {
+function placeFooterVersionLink(wrapper: HTMLElement, gameVersionAnchor: AESModel.FooterVersionAnchor) {
     if (wrapper.parentNode !== gameVersionAnchor.parent || wrapper.nextSibling !== gameVersionAnchor.beforeNode) {
         gameVersionAnchor.parent.insertBefore(wrapper, gameVersionAnchor.beforeNode)
     }
@@ -1293,6 +1296,7 @@ function watchReleaseNotesFooterLink() {
         }
     })
     observer.observe(document.body, { childList: true, subtree: true })
+    AES.whenPageOwnershipLost(() => observer.disconnect())
 }
 
 AES.runContentScript("module:release-notes", function() {

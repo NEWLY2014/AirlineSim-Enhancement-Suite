@@ -1,11 +1,13 @@
 "use strict";
-var aircraftFlightPlanState = {
-    airline: null,
-    aircraft: null,
+(() => {
+const aircraftFlightPlanState: AESModel.FlightPlanState = {
+    airline: { id: null, name: null, code: '', displayName: '' },
+    aircraft: { id: '', registration: '', model: '' },
     extracting: false,
     hubObserver: null,
-    hubSaveTimer: null,
+    hubSaveTimer: undefined,
     job: null,
+    jobInvalid: false,
     notifications: null,
     offsetDays: 1,
     processingJob: false,
@@ -15,6 +17,32 @@ var aircraftFlightPlanState = {
     template: null,
     templateStale: false,
 };
+class FlightPlanCancelled extends Error {}
+let activeRun: { job: AESModel.FlightPlanJob; cancelled: boolean } | null = null;
+let startingJob = false;
+
+function afp_assertPageOwner() {
+    if (!AES.isPageOwner()) throw new FlightPlanCancelled('Page ownership lost');
+}
+
+function afp_assertJobAction() {
+    afp_assertPageOwner();
+    if (activeRun && (activeRun.cancelled || activeRun.job !== aircraftFlightPlanState.job)) {
+        throw new FlightPlanCancelled('Scheduling stopped');
+    }
+}
+
+function afp_runAction(action: () => Promise<void>) {
+    action().catch(error => {
+        if (error instanceof FlightPlanCancelled) return;
+        const message = error instanceof Error ? error.message : 'Flight plan action failed.';
+        afp_notify(message, 'error');
+        afp_setRuntimeMessage(message, 'error');
+        AES.reportContentScriptError('content_aircraftFlightPlan', error);
+        afp_renderPanel();
+    });
+}
+
 const AIRCRAFT_FLIGHT_PLAN_TEMPLATE_VERSION = 6;
 const AIRCRAFT_FLIGHT_PLAN_SCRIPT_ENABLED = AES.runContentScript("content_aircraftFlightPlan", function() {
     AES.waitForElement(aircraftFlightPlanReadyTarget, function() {
@@ -26,12 +54,13 @@ const AIRCRAFT_FLIGHT_PLAN_SCRIPT_ENABLED = AES.runContentScript("content_aircra
 
 if (AIRCRAFT_FLIGHT_PLAN_SCRIPT_ENABLED) {
     AES.whenPageOwnershipLost(function() {
+        if (activeRun) activeRun.cancelled = true;
         if (aircraftFlightPlanState.hubObserver) {
             aircraftFlightPlanState.hubObserver.disconnect();
             aircraftFlightPlanState.hubObserver = null;
         }
         window.clearTimeout(aircraftFlightPlanState.hubSaveTimer);
-        aircraftFlightPlanState.hubSaveTimer = null;
+        aircraftFlightPlanState.hubSaveTimer = undefined;
         $('#aes-aircraft-flight-plan-panel').remove();
         aircraftFlightPlanState.processingJob = false;
     });
@@ -51,11 +80,17 @@ async function aircraftFlightPlanInit() {
 
     let result = await afp_storageGet([afp_getTemplateKey(), afp_getJobKey(), afp_getOffsetDaysKey()]);
     aircraftFlightPlanState.template = afp_normalizeTemplate(result[afp_getTemplateKey()] || null);
-    aircraftFlightPlanState.job = result[afp_getJobKey()] || null;
+    aircraftFlightPlanState.job = afp_normalizeJob(result[afp_getJobKey()]);
+    aircraftFlightPlanState.jobInvalid = result[afp_getJobKey()] != null && !aircraftFlightPlanState.job;
     aircraftFlightPlanState.offsetDays = afp_normalizeOffsetDays(result[afp_getOffsetDaysKey()] || (aircraftFlightPlanState.job && aircraftFlightPlanState.job.offsetDays));
     if (!aircraftFlightPlanState.template && result[afp_getTemplateKey()]) {
         aircraftFlightPlanState.templateStale = true;
-        await afp_storageRemove([afp_getTemplateKey()]);
+        // Retain corrupt current-version records for recovery; old schema versions
+        // still follow the existing re-extraction migration path.
+        const storedTemplate = result[afp_getTemplateKey()];
+        if (AES.isRecord(storedTemplate) && storedTemplate.schemaVersion !== AIRCRAFT_FLIGHT_PLAN_TEMPLATE_VERSION) {
+            await afp_storageRemove([afp_getTemplateKey()]);
+        }
     } else {
         aircraftFlightPlanState.templateStale = false;
     }
@@ -88,7 +123,7 @@ function afp_getHubKey() {
 }
 
 function afp_getFlightPlanHubStats() {
-    let counts = {};
+    let counts: Record<string, number> = {};
     afp_getVisualPlan().find('.block.location .inbound, .block.location .outbound').each(function() {
         let airport = String($(this).attr('title') || $(this).text() || '').trim().toUpperCase();
         if (!airport) {
@@ -128,6 +163,7 @@ async function afp_saveFlightPlanHubData() {
 }
 
 function afp_watchFlightPlanHubData() {
+    if (!AES.isPageOwner()) return;
     let visualPlan = afp_getVisualPlan();
     if (!visualPlan.length || typeof MutationObserver === 'undefined') {
         return;
@@ -150,50 +186,61 @@ function afp_watchFlightPlanHubData() {
     });
 }
 
-function afp_storageGet(keys) {
-    return new Promise(function(resolve) {
+function afp_storageGet(keys: string[]) {
+    return new Promise<Record<string, unknown>>(function(resolve, reject) {
+        afp_assertPageOwner();
         chrome.storage.local.get(keys, function(result) {
+            if (chrome.runtime.lastError) return reject(new Error(chrome.runtime.lastError.message));
+            if (!AES.isPageOwner()) return reject(new FlightPlanCancelled('Page ownership lost'));
             resolve(result || {});
         });
     });
 }
 
-function afp_storageSet(values) {
-    return new Promise(function(resolve) {
+function afp_storageSet(values: Record<string, unknown>) {
+    return new Promise<void>(function(resolve, reject) {
+        afp_assertPageOwner();
         chrome.storage.local.set(values, function() {
+            if (chrome.runtime.lastError) return reject(new Error(chrome.runtime.lastError.message));
+            if (!AES.isPageOwner()) return reject(new FlightPlanCancelled('Page ownership lost'));
             resolve();
         });
     });
 }
 
-function afp_storageRemove(keys) {
-    return new Promise(function(resolve) {
+function afp_storageRemove(keys: string[]) {
+    return new Promise<void>(function(resolve, reject) {
+        afp_assertPageOwner();
         chrome.storage.local.remove(keys, function() {
+            if (chrome.runtime.lastError) return reject(new Error(chrome.runtime.lastError.message));
+            if (!AES.isPageOwner()) return reject(new FlightPlanCancelled('Page ownership lost'));
             resolve();
         });
     });
 }
 
-function afp_normalizeOffsetDays(value) {
-    let offsetDays = parseInt(value, 10);
+function afp_normalizeOffsetDays(value: unknown) {
+    let offsetDays = parseInt(String(value), 10);
     if (offsetDays < 1 || offsetDays > 6 || isNaN(offsetDays)) {
         return 1;
     }
     return offsetDays;
 }
 
-async function afp_saveOffsetDays(offsetDays) {
-    aircraftFlightPlanState.offsetDays = afp_normalizeOffsetDays(offsetDays);
-    await afp_storageSet({ [afp_getOffsetDaysKey()]: aircraftFlightPlanState.offsetDays });
+async function afp_saveOffsetDays(offsetDays: number) {
+    const normalized = afp_normalizeOffsetDays(offsetDays);
+    await afp_storageSet({ [afp_getOffsetDaysKey()]: normalized });
+    aircraftFlightPlanState.offsetDays = normalized;
 }
 
-function afp_notify(message, type) {
-    if (aircraftFlightPlanState.notifications) {
+function afp_notify(message: string, type?: AESModel.NotificationType) {
+    if (AES.isPageOwner() && aircraftFlightPlanState.notifications) {
         aircraftFlightPlanState.notifications.add(message, { type: type || 'success' });
     }
 }
 
-function afp_setRuntimeMessage(message, type) {
+function afp_setRuntimeMessage(message: string, type?: AESModel.NotificationType) {
+    if (!AES.isPageOwner()) return;
     aircraftFlightPlanState.runtimeMessage = message || '';
     aircraftFlightPlanState.runtimeType = type || 'warning';
     $('#aes-aircraft-flight-plan-runtime')
@@ -287,6 +334,7 @@ function afp_getJobSummary() {
 }
 
 function afp_renderPanel() {
+    if (!AES.isPageOwner()) return;
     $('#aes-aircraft-flight-plan-panel').remove();
     if (aircraftFlightPlanState.offsetDays < 1 || aircraftFlightPlanState.offsetDays > 6) {
         aircraftFlightPlanState.offsetDays = 1;
@@ -296,16 +344,16 @@ function afp_renderPanel() {
     let job = aircraftFlightPlanState.job;
     let isEmpty = afp_isEmptyFlightPlan();
     let hasTemplate = !!(template && Array.isArray(template.flights) && template.flights.length);
-    let jobIsActive = !!(job && job.status !== 'done' && job.status !== 'error');
-    let jobOnCurrentAircraft = !!(jobIsActive && String(job.targetAircraftId) === String(aircraftFlightPlanState.aircraft.id));
-    let jobOnOtherAircraft = !!(jobIsActive && String(job.targetAircraftId) !== String(aircraftFlightPlanState.aircraft.id));
-    let canStart = hasTemplate && isEmpty && !aircraftFlightPlanState.extracting && !jobOnOtherAircraft && !jobOnCurrentAircraft;
+    let jobIsActive = job && job.status !== 'done' && job.status !== 'error';
+    let jobOnCurrentAircraft = !!(job && jobIsActive && String(job.targetAircraftId) === String(aircraftFlightPlanState.aircraft.id));
+    let jobOnOtherAircraft = !!(job && jobIsActive && String(job.targetAircraftId) !== String(aircraftFlightPlanState.aircraft.id));
+    let canStart = !aircraftFlightPlanState.jobInvalid && !startingJob && !aircraftFlightPlanState.processingJob && hasTemplate && isEmpty && !aircraftFlightPlanState.extracting && !jobOnOtherAircraft && !jobOnCurrentAircraft;
 
     let extractBtn = $('<button type="button" class="btn btn-default"></button>').text(aircraftFlightPlanState.extracting ? 'Extracting...' : 'Extract template').prop('disabled', aircraftFlightPlanState.extracting);
     let deleteBtn = $('<button type="button" class="btn btn-default"></button>').text('Delete saved template').prop('disabled', !hasTemplate || aircraftFlightPlanState.extracting);
     let scheduleBtn = $('<button type="button" class="btn btn-default"></button>')
-        .text(jobIsActive ? 'Stop scheduling' : 'Start scheduling')
-        .prop('disabled', jobIsActive ? false : !canStart);
+        .text(jobIsActive || aircraftFlightPlanState.jobInvalid ? 'Stop scheduling' : 'Start scheduling')
+        .prop('disabled', jobIsActive || aircraftFlightPlanState.jobInvalid ? false : !canStart);
     let offsetButtons = $('<div class="btn-group aes-aircraft-flight-plan-offset-group" role="group" aria-label="Offset days"></div>');
     let offsetButtonsDisabled = aircraftFlightPlanState.extracting || jobOnCurrentAircraft || jobOnOtherAircraft;
 
@@ -316,7 +364,8 @@ function afp_renderPanel() {
             .toggleClass('active', aircraftFlightPlanState.offsetDays === i)
             .prop('disabled', offsetButtonsDisabled);
         offsetBtn.on('click', function() {
-            afp_saveOffsetDays(i).then(function() {
+            afp_runAction(async () => {
+                await afp_saveOffsetDays(i);
                 afp_renderPanel();
             });
         });
@@ -324,21 +373,23 @@ function afp_renderPanel() {
     }
 
     extractBtn.on('click', function() {
-        afp_extractTemplate();
+        afp_runAction(afp_extractTemplate);
     });
     deleteBtn.on('click', function() {
-        afp_deleteTemplate();
+        afp_runAction(afp_deleteTemplate);
     });
     scheduleBtn.on('click', function() {
-        if (aircraftFlightPlanState.job && aircraftFlightPlanState.job.status !== 'done' && aircraftFlightPlanState.job.status !== 'error') {
-            afp_clearJob(true);
+        if (aircraftFlightPlanState.jobInvalid || (aircraftFlightPlanState.job && aircraftFlightPlanState.job.status !== 'done' && aircraftFlightPlanState.job.status !== 'error')) {
+            afp_runAction(() => afp_clearJob(true));
             return;
         }
-        afp_startScheduling(aircraftFlightPlanState.offsetDays || 1);
+        afp_runAction(() => afp_startScheduling(aircraftFlightPlanState.offsetDays || 1));
     });
 
     let hint = '';
-    if (aircraftFlightPlanState.templateStale) {
+    if (aircraftFlightPlanState.jobInvalid) {
+        hint = 'Saved scheduling job is invalid. Stop scheduling to clear it before starting again.';
+    } else if (aircraftFlightPlanState.templateStale) {
         hint = 'Saved template is outdated. Please extract a fresh template.';
     } else if (!hasTemplate) {
         hint = 'Extract a template from a planned aircraft first.';
@@ -372,7 +423,7 @@ function afp_renderPanel() {
                 scheduleBtn
             )
         ),
-        job ? $('<div class="aes-aircraft-flight-plan-job"></div>').text(afp_getJobSummary()) : null,
+        job ? $('<div class="aes-aircraft-flight-plan-job"></div>').text(afp_getJobSummary()) : $(),
         $('<div id="aes-aircraft-flight-plan-hint" class="aes-aircraft-flight-plan-hint"></div>').text(hint || ''),
         $('<div id="aes-aircraft-flight-plan-runtime" class="' + (aircraftFlightPlanState.runtimeMessage ? aircraftFlightPlanState.runtimeType : '') + '"></div>').text(aircraftFlightPlanState.runtimeMessage || '')
     );
@@ -391,7 +442,7 @@ function afp_renderPanel() {
 }
 
 function afp_getUniqueFlightEntries() {
-    let entries = {};
+    let entries: Record<string, AESModel.VisualFlightPlanEntry> = {};
 
     afp_getVisualPlan().find('.day').each(function(dayIndex) {
         $(this).find('.blocks .block.flight.started').each(function() {
@@ -449,7 +500,7 @@ function afp_getUniqueFlightEntries() {
             return a - b;
         });
 
-        entry._segments.forEach(function(segment) {
+        entry._segments?.forEach(function(segment) {
             let segmentDepartureMinutes = segment.dayIndex * 1440 +
                 (parseInt(segment.departure.hours, 10) || 0) * 60 +
                 (parseInt(segment.departure.minutes, 10) || 0);
@@ -480,31 +531,73 @@ function afp_getUniqueFlightEntries() {
     });
 }
 
-function afp_normalizeTemplate(template) {
-    if (!template || template.type !== 'aircraftFlightPlanTemplate') {
-        return null;
-    }
-    if (template.schemaVersion !== AIRCRAFT_FLIGHT_PLAN_TEMPLATE_VERSION) {
-        return null;
-    }
-    if (!Array.isArray(template.flights) || !template.flights.length) {
-        return null;
-    }
-    return template;
+function afp_isTime(value: unknown): value is AESModel.FlightPlanTime {
+    return AES.isRecord(value) &&
+        ['hours', 'minutes', 'value'].every(key => value[key] === undefined || typeof value[key] === 'string') &&
+        (value.dayOffset === undefined || (typeof value.dayOffset === 'number' && Number.isInteger(value.dayOffset)));
 }
 
-function afp_extractFlightNumberToken(text) {
+function afp_isDaySettings(value: unknown): value is AESModel.FlightPlanDay {
+    return AES.isRecord(value) &&
+        (value.departure === undefined || afp_isTime(value.departure)) &&
+        (value.arrival === undefined || afp_isTime(value.arrival)) &&
+        (value.segments === undefined || (AES.isRecord(value.segments) && Object.values(value.segments).every(segment =>
+            AES.isRecord(segment) && (segment.arrival === undefined || afp_isTime(segment.arrival)))));
+}
+
+function afp_isEntry(value: unknown): value is AESModel.FlightPlanEntry {
+    return AES.isRecord(value) &&
+        ['flightCode', 'flightNumberLabel', 'flightNumberToken', 'flightNumberValue'].every(key =>
+            value[key] === undefined || typeof value[key] === 'string') &&
+        ['flightCode', 'flightNumberLabel', 'flightNumberToken', 'flightNumberValue'].some(key =>
+            typeof value[key] === 'string' && value[key].trim() !== '') &&
+        Array.isArray(value.selectedDays) && value.selectedDays.length > 0 &&
+        value.selectedDays.every(day => Number.isInteger(day) && day >= 0 && day <= 6) &&
+        (value.daySettings === undefined || (AES.isRecord(value.daySettings) && Object.values(value.daySettings).every(afp_isDaySettings)));
+}
+
+function afp_normalizeTemplate(template: unknown): AESModel.FlightPlanTemplate | null {
+    if (!AES.isRecord(template) || template.type !== 'aircraftFlightPlanTemplate' ||
+        template.schemaVersion !== AIRCRAFT_FLIGHT_PLAN_TEMPLATE_VERSION ||
+        typeof template.sourceAircraftId !== 'string' || typeof template.sourceModel !== 'string' ||
+        typeof template.sourceRegistration !== 'string' || !Array.isArray(template.flights) ||
+        !template.flights.length || !template.flights.every(afp_isEntry)) return null;
+    return { ...template, type: template.type, schemaVersion: template.schemaVersion,
+        sourceAircraftId: template.sourceAircraftId, sourceModel: template.sourceModel,
+        sourceRegistration: template.sourceRegistration, flights: template.flights };
+}
+
+function afp_isJobStatus(value: unknown): value is AESModel.FlightPlanJobStatus {
+    return value === 'selecting' || value === 'waitForSelection' || value === 'applying' ||
+        value === 'waitForApply' || value === 'done' || value === 'error';
+}
+
+function afp_normalizeJob(value: unknown): AESModel.FlightPlanJob | null {
+    if (!AES.isRecord(value) || value.type !== 'aircraftFlightPlanSchedulingJob' ||
+        !afp_isJobStatus(value.status) || !Array.isArray(value.entries) || !value.entries.length ||
+        !value.entries.every(afp_isEntry) || typeof value.currentIndex !== 'number' ||
+        !Number.isInteger(value.currentIndex) || value.currentIndex < 0 || value.currentIndex > value.entries.length ||
+        typeof value.offsetDays !== 'number' || !Number.isInteger(value.offsetDays) || value.offsetDays < 1 || value.offsetDays > 6 ||
+        (typeof value.targetAircraftId !== 'string' && typeof value.targetAircraftId !== 'number') ||
+        (value.targetRegistration !== undefined && typeof value.targetRegistration !== 'string') ||
+        (value.errorMessage !== undefined && typeof value.errorMessage !== 'string')) return null;
+    return { ...value, type: value.type, status: value.status, entries: value.entries,
+        currentIndex: value.currentIndex, offsetDays: value.offsetDays, targetAircraftId: value.targetAircraftId,
+        targetRegistration: value.targetRegistration, errorMessage: value.errorMessage };
+}
+
+function afp_extractFlightNumberToken(text: string) {
     let match = String(text || '').match(/(\d+)(?!.*\d)/);
     return match ? match[1] : '';
 }
 
-function afp_getVisualBlockFlightNumberId(block) {
+function afp_getVisualBlockFlightNumberId(block: JQuery | HTMLElement) {
     let infoHref = $('a[title="View flight number"]', block).attr('href') || '';
     let valueMatch = infoHref.match(/\/numbers\/(\d+)/);
     return valueMatch ? valueMatch[1] : '';
 }
 
-function afp_parseVisualPlanTime(text) {
+function afp_parseVisualPlanTime(text: string) {
     let normalized = String(text || '').replace(/\D/g, '');
     if (normalized.length === 3) {
         normalized = '0' + normalized;
@@ -526,7 +619,7 @@ function afp_parseVisualPlanTime(text) {
     };
 }
 
-function afp_minutesToVisualTime(totalMinutes) {
+function afp_minutesToVisualTime(totalMinutes: number) {
     totalMinutes = ((totalMinutes % 1440) + 1440) % 1440;
     let hours = Math.floor(totalMinutes / 60);
     let minutes = totalMinutes % 60;
@@ -538,7 +631,7 @@ function afp_minutesToVisualTime(totalMinutes) {
     };
 }
 
-function afp_getVisualBlockGeometry(block) {
+function afp_getVisualBlockGeometry(block: JQuery | HTMLElement) {
     let style = String($(block).attr('style') || '');
     let marginMatch = style.match(/margin-left:\s*([\d.]+)%/);
     let widthMatch = style.match(/width:\s*([\d.]+)%/);
@@ -555,7 +648,7 @@ function afp_getVisualBlockGeometry(block) {
     };
 }
 
-function afp_getVisualBlockDepartureTime(block) {
+function afp_getVisualBlockDepartureTime(block: JQuery) {
     let startTime = afp_parseVisualPlanTime($('.times .start', block).first().text());
     if (startTime.value) {
         return startTime;
@@ -569,7 +662,7 @@ function afp_getVisualBlockDepartureTime(block) {
     return startTime;
 }
 
-function afp_parseVisualArrivalFromBlock(block) {
+function afp_parseVisualArrivalFromBlock(block: JQuery) {
     let endTime = afp_parseVisualPlanTime($('.times .end', block).first().text());
     if (endTime.value) {
         return endTime;
@@ -583,7 +676,7 @@ function afp_parseVisualArrivalFromBlock(block) {
     return endTime;
 }
 
-function afp_getVisualBlockArrivalTime(block, dayIndex) {
+function afp_getVisualBlockArrivalTime(block: JQuery, dayIndex: number) {
     let currentBlockArrival = afp_parseVisualArrivalFromBlock(block);
     if (!block.hasClass('started') || block.hasClass('ended')) {
         return currentBlockArrival;
@@ -609,7 +702,7 @@ function afp_getVisualBlockArrivalTime(block, dayIndex) {
         if (nextDayCode === code) {
             return true;
         }
-        return codeToken && afp_extractFlightNumberToken(nextDayCode) === codeToken;
+        return !!codeToken && afp_extractFlightNumberToken(nextDayCode) === codeToken;
     }).first();
 
     if (!nextDayEndedBlock.length) {
@@ -640,18 +733,19 @@ function afp_getSelectedExistingFlight() {
     }
 
     return {
-        value: option.val(),
+        value: String(option.val() || ''),
         text: option.text().trim(),
     };
 }
 
-function afp_waitFor(checkFn, timeoutMs, intervalMs) {
+function afp_waitFor(checkFn: () => unknown, timeoutMs = 5000, intervalMs = 100) {
     timeoutMs = timeoutMs || 5000;
     intervalMs = intervalMs || 100;
 
-    return new Promise(function(resolve) {
+    return new Promise<boolean>(function(resolve, reject) {
         let started = Date.now();
         let timer = window.setInterval(function() {
+            try { afp_assertJobAction(); } catch (error) { window.clearInterval(timer); reject(error); return; }
             let result = false;
             try {
                 result = !!checkFn();
@@ -674,7 +768,7 @@ function afp_waitFor(checkFn, timeoutMs, intervalMs) {
 }
 
 function afp_collectSegmentIndexes() {
-    let indexes = {};
+    let indexes: Record<string, boolean> = {};
     let plannerForm = afp_getPlannerForm();
 
     $('select, input', plannerForm).each(function() {
@@ -718,7 +812,7 @@ async function afp_extractTemplate() {
     afp_renderPanel();
 
     try {
-        let template = {
+        let template: AESModel.FlightPlanTemplate = {
             createdAt: Date.now(),
             date: AES.getServerDate().date,
             flights: entries,
@@ -729,14 +823,14 @@ async function afp_extractTemplate() {
             type: 'aircraftFlightPlanTemplate',
         };
 
+        await afp_storageSet({ [afp_getTemplateKey()]: template });
         aircraftFlightPlanState.template = template;
         aircraftFlightPlanState.templateStale = false;
-        await afp_storageSet({ [afp_getTemplateKey()]: template });
         afp_notify('Flight plan template extracted.', 'success');
         afp_setRuntimeMessage('Template extracted.', 'success');
     } catch (error) {
-        afp_notify(error.message || 'Template extraction failed.', 'error');
-        afp_setRuntimeMessage(error.message || 'Template extraction failed.', 'error');
+        afp_notify(error instanceof Error ? error.message : 'Template extraction failed.', 'error');
+        afp_setRuntimeMessage(error instanceof Error ? error.message : 'Template extraction failed.', 'error');
     } finally {
         aircraftFlightPlanState.extracting = false;
         afp_renderPanel();
@@ -751,47 +845,57 @@ async function afp_deleteTemplate() {
     afp_renderPanel();
 }
 
-async function afp_startScheduling(offsetDays) {
-    offsetDays = afp_normalizeOffsetDays(offsetDays);
-    await afp_saveOffsetDays(offsetDays);
+async function afp_startScheduling(offsetDays: number) {
+    if (aircraftFlightPlanState.jobInvalid || startingJob || aircraftFlightPlanState.processingJob) return;
+    if (aircraftFlightPlanState.job && !['done', 'error'].includes(aircraftFlightPlanState.job.status)) return;
+    startingJob = true;
+    try {
+        offsetDays = afp_normalizeOffsetDays(offsetDays);
+        await afp_saveOffsetDays(offsetDays);
 
-    if (!aircraftFlightPlanState.template || !aircraftFlightPlanState.template.flights || !aircraftFlightPlanState.template.flights.length) {
-        afp_notify('Extract a template first.', 'error');
-        afp_setRuntimeMessage('Extract a template first.', 'error');
-        return;
+        if (!aircraftFlightPlanState.template || !aircraftFlightPlanState.template.flights || !aircraftFlightPlanState.template.flights.length) {
+            afp_notify('Extract a template first.', 'error');
+            afp_setRuntimeMessage('Extract a template first.', 'error');
+            return;
+        }
+
+        if (!afp_isEmptyFlightPlan()) {
+            afp_notify('Target flight plan must be empty.', 'error');
+            afp_setRuntimeMessage('Target flight plan must be empty.', 'error');
+            return;
+        }
+
+        let job: AESModel.FlightPlanJob = {
+            createdAt: Date.now(),
+            currentIndex: 0,
+            entries: aircraftFlightPlanState.template.flights,
+            errorMessage: '',
+            offsetDays: offsetDays,
+            sourceAircraftId: aircraftFlightPlanState.template.sourceAircraftId,
+            sourceRegistration: aircraftFlightPlanState.template.sourceRegistration,
+            status: 'selecting',
+            targetAircraftId: aircraftFlightPlanState.aircraft.id,
+            targetModel: aircraftFlightPlanState.aircraft.model,
+            targetRegistration: aircraftFlightPlanState.aircraft.registration,
+            type: 'aircraftFlightPlanSchedulingJob',
+        };
+
+        await afp_storageSet({ [afp_getJobKey()]: job });
+        aircraftFlightPlanState.job = job;
+        afp_setRuntimeMessage('Scheduling started.', 'warning');
+        afp_renderPanel();
+        await afp_resumePendingJob();
+    } finally {
+        startingJob = false;
+        afp_renderPanel();
     }
-
-    if (!afp_isEmptyFlightPlan()) {
-        afp_notify('Target flight plan must be empty.', 'error');
-        afp_setRuntimeMessage('Target flight plan must be empty.', 'error');
-        return;
-    }
-
-    let job = {
-        createdAt: Date.now(),
-        currentIndex: 0,
-        entries: aircraftFlightPlanState.template.flights,
-        errorMessage: '',
-        offsetDays: offsetDays,
-        sourceAircraftId: aircraftFlightPlanState.template.sourceAircraftId,
-        sourceRegistration: aircraftFlightPlanState.template.sourceRegistration,
-        status: 'selecting',
-        targetAircraftId: aircraftFlightPlanState.aircraft.id,
-        targetModel: aircraftFlightPlanState.aircraft.model,
-        targetRegistration: aircraftFlightPlanState.aircraft.registration,
-        type: 'aircraftFlightPlanSchedulingJob',
-    };
-
-    aircraftFlightPlanState.job = job;
-    await afp_storageSet({ [afp_getJobKey()]: job });
-    afp_setRuntimeMessage('Scheduling started.', 'warning');
-    afp_renderPanel();
-    afp_resumePendingJob();
 }
 
-async function afp_clearJob(notifyUser) {
+async function afp_clearJob(notifyUser: boolean) {
+    if (activeRun && notifyUser) activeRun.cancelled = true;
     await afp_storageRemove([afp_getJobKey()]);
     aircraftFlightPlanState.job = null;
+    aircraftFlightPlanState.jobInvalid = false;
     if (notifyUser) {
         afp_notify('Scheduling job cleared.', 'success');
         afp_setRuntimeMessage('Scheduling job cleared.', 'success');
@@ -799,7 +903,7 @@ async function afp_clearJob(notifyUser) {
     afp_renderPanel();
 }
 
-function afp_getJobEntry(job) {
+function afp_getJobEntry(job: AESModel.FlightPlanJob | null) {
     if (!job || !Array.isArray(job.entries)) {
         return null;
     }
@@ -807,7 +911,7 @@ function afp_getJobEntry(job) {
     return job.entries[job.currentIndex] || null;
 }
 
-function afp_selectionMatchesEntry(selected, entry) {
+function afp_selectionMatchesEntry(selected: AESModel.ExistingFlightSelection | null, entry: AESModel.FlightPlanEntry | null) {
     if (!selected || !entry) {
         return false;
     }
@@ -824,6 +928,7 @@ function afp_selectionMatchesEntry(selected, entry) {
 }
 
 function afp_activateExistingTabIfNeeded() {
+    afp_assertJobAction();
     if (afp_getExistingSelect().length) {
         return false;
     }
@@ -840,7 +945,7 @@ function afp_activateExistingTabIfNeeded() {
     return true;
 }
 
-function afp_findMatchingOption(select, entry) {
+function afp_findMatchingOption(select: JQuery, entry: AESModel.FlightPlanEntry) {
     let options = $('option', select);
     let match = options.filter(function() {
         return $(this).val() === entry.flightNumberValue;
@@ -861,7 +966,8 @@ function afp_findMatchingOption(select, entry) {
     }).first();
 }
 
-function afp_selectExistingFlight(entry) {
+function afp_selectExistingFlight(entry: AESModel.FlightPlanEntry) {
+    afp_assertJobAction();
     let select = afp_getExistingSelect();
     if (!select.length) {
         throw new Error('Existing flight number selector is not available.');
@@ -872,12 +978,12 @@ function afp_selectExistingFlight(entry) {
         throw new Error('Could not match flight number ' + (entry.flightCode || entry.flightNumberLabel) + ' on target aircraft.');
     }
 
-    select.val(option.val());
+    select.val(String(option.val() || ''));
     let event = new Event('change', { bubbles: true });
     select[0].dispatchEvent(event);
 }
 
-function afp_setCheckboxValue(element, checked) {
+function afp_setCheckboxValue(element: JQuery, checked: boolean) {
     if (!element || !element.length) {
         return;
     }
@@ -904,7 +1010,7 @@ function afp_getPlannerForm() {
     return $(document.body);
 }
 
-function afp_getPlannerDayCheckbox(day) {
+function afp_getPlannerDayCheckbox(day: number) {
     return $('input[type="checkbox"][name="days:daySelection:' + day + ':ticked"]', afp_getPlannerForm()).first();
 }
 
@@ -912,7 +1018,8 @@ function afp_getPlannerNoneLink() {
     return $('a[href*="daySelection.none"]', afp_getPlannerForm()).first();
 }
 
-function afp_clickElement(element) {
+function afp_clickElement(element: JQuery) {
+    afp_assertJobAction();
     if (!element || !element.length || !element[0]) {
         return;
     }
@@ -949,7 +1056,7 @@ async function afp_clearPlannerDaySelection() {
     }
 }
 
-async function afp_setPlannerDaySelection(targetDays) {
+async function afp_setPlannerDaySelection(targetDays: AESModel.PlannerTargetDays) {
     for (let day = 0; day < 7; day++) {
         if (!targetDays[day]) {
             continue;
@@ -971,7 +1078,8 @@ async function afp_setPlannerDaySelection(targetDays) {
     }
 }
 
-function afp_setSelectValue(element, value) {
+function afp_setSelectValue(element: JQuery, value: string | number | null | undefined) {
+    afp_assertJobAction();
     if (!element || !element.length || value == null) {
         return false;
     }
@@ -998,18 +1106,18 @@ function afp_setSelectValue(element, value) {
     return true;
 }
 
-function afp_getArrivalSelects(plannerForm, segmentIndex, day) {
+function afp_getArrivalSelects(plannerForm: JQuery, segmentIndex: number, day: number) {
     return {
         hours: $('select[name="segmentsContainer:segments:' + segmentIndex + ':newArrivals:' + day + ':newArrival:hours"]', plannerForm),
         minutes: $('select[name="segmentsContainer:segments:' + segmentIndex + ':newArrivals:' + day + ':newArrival:minutes"]', plannerForm),
     };
 }
 
-function afp_getFixedArrivalCheckbox(plannerForm, segmentIndex, day) {
+function afp_getFixedArrivalCheckbox(plannerForm: JQuery, segmentIndex: number, day: number) {
     return $('input[name="segmentsContainer:segments:' + segmentIndex + ':fixedArrivalSelection:' + day + ':fixedArrival"]', plannerForm);
 }
 
-function afp_getArrivalValueSnapshot(segmentIndex, day) {
+function afp_getArrivalValueSnapshot(segmentIndex: number, day: number) {
     let plannerForm = afp_getPlannerForm();
     let arrivalSelects = afp_getArrivalSelects(plannerForm, segmentIndex, day);
     return {
@@ -1018,9 +1126,9 @@ function afp_getArrivalValueSnapshot(segmentIndex, day) {
     };
 }
 
-function afp_waitForPlannerMutation(timeoutMs) {
+function afp_waitForPlannerMutation(timeoutMs = 1500) {
     timeoutMs = timeoutMs || 1500;
-    return new Promise(function(resolve) {
+    return new Promise<boolean>(function(resolve) {
         let plannerForm = afp_getPlannerForm();
         if (!plannerForm.length || !plannerForm[0] || typeof MutationObserver === 'undefined') {
             window.setTimeout(function() {
@@ -1056,7 +1164,7 @@ function afp_waitForPlannerMutation(timeoutMs) {
     });
 }
 
-async function afp_waitForArrivalSelectValue(segmentIndex, day, part, value) {
+async function afp_waitForArrivalSelectValue(segmentIndex: number, day: number, part: 'hours' | 'minutes', value: string) {
     let normalizedValue = String(value || '');
     return afp_waitFor(function() {
         let plannerForm = afp_getPlannerForm();
@@ -1075,7 +1183,7 @@ async function afp_waitForArrivalSelectValue(segmentIndex, day, part, value) {
     }, 1200, 80);
 }
 
-async function afp_setPlannerArrivalSelect(segmentIndex, day, part, value) {
+async function afp_setPlannerArrivalSelect(segmentIndex: number, day: number, part: 'hours' | 'minutes', value: string) {
     if (value == null || value === '') {
         return;
     }
@@ -1103,7 +1211,7 @@ async function afp_setPlannerArrivalSelect(segmentIndex, day, part, value) {
     }
 }
 
-async function afp_syncPlannerArrivalTime(plannerForm, segmentIndex, day, daySettings) {
+async function afp_syncPlannerArrivalTime(plannerForm: JQuery, segmentIndex: number, day: number, daySettings: AESModel.PlannerArrival) {
     let arrivalSelects = afp_getArrivalSelects(plannerForm, segmentIndex, day);
     if (!arrivalSelects.hours.length || !arrivalSelects.minutes.length) {
         return;
@@ -1136,15 +1244,15 @@ async function afp_syncPlannerArrivalTime(plannerForm, segmentIndex, day, daySet
     }
 }
 
-function afp_getPlannerSourceDaySettings(entry) {
+function afp_getPlannerSourceDaySettings(entry: AESModel.FlightPlanEntry) {
     return afp_collectSegmentIndexes().map(function(segmentIndex) {
-        let days = {};
+        let days: Record<number, AESModel.PlannerArrival> = {};
         entry.selectedDays.forEach(function(sourceDay) {
-            let daySetting = entry.daySettings && entry.daySettings[sourceDay] ? entry.daySettings[sourceDay] : {};
+            let daySetting: AESModel.FlightPlanDay = entry.daySettings?.[sourceDay] || {};
             let segmentSetting = daySetting.segments && daySetting.segments[segmentIndex] ? daySetting.segments[segmentIndex] : {};
-            let arrival = segmentSetting.arrival || daySetting.arrival || {};
+            let arrival: AESModel.FlightPlanTime = segmentSetting.arrival || daySetting.arrival || {};
             days[sourceDay] = {
-                arrivalDayOffset: parseInt(arrival.dayOffset || 0, 10) || 0,
+                arrivalDayOffset: parseInt(String(arrival.dayOffset || 0), 10) || 0,
                 arrivalHours: String(arrival.hours || ''),
                 arrivalMinutes: String(arrival.minutes || ''),
             };
@@ -1157,7 +1265,7 @@ function afp_getPlannerSourceDaySettings(entry) {
     });
 }
 
-async function afp_applyFlightEntryToPlanner(entry, offsetDays) {
+async function afp_applyFlightEntryToPlanner(entry: AESModel.FlightPlanEntry, offsetDays: number) {
     let selected = afp_getSelectedExistingFlight();
     if (!afp_selectionMatchesEntry(selected, entry)) {
         throw new Error('Planner is not loaded for the expected flight number.');
@@ -1168,7 +1276,7 @@ async function afp_applyFlightEntryToPlanner(entry, offsetDays) {
         throw new Error('Could not find planner segments for ' + (entry.flightCode || entry.flightNumberLabel) + '.');
     }
 
-    let targetDays = {};
+    let targetDays: AESModel.PlannerTargetDays = {};
     entry.selectedDays.forEach(function(sourceDay) {
         let dayData = { sourceDay: sourceDay, targetDay: (sourceDay + offsetDays) % 7 };
         targetDays[dayData.targetDay] = dayData;
@@ -1192,7 +1300,7 @@ async function afp_applyFlightEntryToPlanner(entry, offsetDays) {
     }
 }
 
-function afp_entryAppearsInVisualPlan(entry, offsetDays) {
+function afp_entryAppearsInVisualPlan(entry: AESModel.FlightPlanEntry, offsetDays: number) {
     let visualPlan = afp_getVisualPlan();
     if (!visualPlan.length) {
         return false;
@@ -1223,6 +1331,7 @@ function afp_entryAppearsInVisualPlan(entry, offsetDays) {
 }
 
 function afp_submitPlanner() {
+    afp_assertJobAction();
     let submitBtn = $('input[type="submit"][name="button-submit"]').first();
     if (!submitBtn.length) {
         throw new Error('Apply schedule settings button is not available.');
@@ -1231,6 +1340,7 @@ function afp_submitPlanner() {
 }
 
 async function afp_saveJob() {
+    afp_assertJobAction();
     if (!aircraftFlightPlanState.job) {
         return;
     }
@@ -1238,13 +1348,14 @@ async function afp_saveJob() {
 }
 
 async function afp_completeJob() {
+    await afp_clearJob(false);
     afp_notify('Flight plan scheduling completed.', 'success');
     afp_setRuntimeMessage('Flight plan scheduling completed.', 'success');
-    await afp_clearJob(false);
     afp_renderPanel();
 }
 
-async function afp_failJob(message) {
+async function afp_failJob(message: string) {
+    afp_assertJobAction();
     if (aircraftFlightPlanState.job) {
         aircraftFlightPlanState.job.status = 'error';
         aircraftFlightPlanState.job.errorMessage = message;
@@ -1258,6 +1369,7 @@ async function afp_failJob(message) {
 async function afp_processJob() {
     let guard = 0;
     while (aircraftFlightPlanState.job && guard < 20) {
+        afp_assertJobAction();
         guard++;
         let job = aircraftFlightPlanState.job;
 
@@ -1290,13 +1402,13 @@ async function afp_processJob() {
 
             let selected = afp_getSelectedExistingFlight();
             if (afp_selectionMatchesEntry(selected, entry)) {
-                aircraftFlightPlanState.job.status = 'applying';
+                job.status = 'applying';
                 await afp_saveJob();
                 afp_renderPanel();
                 continue;
             }
 
-            aircraftFlightPlanState.job.status = 'waitForSelection';
+            job.status = 'waitForSelection';
             await afp_saveJob();
             afp_renderPanel();
             afp_setRuntimeMessage('Loading ' + entry.flightCode + '...', 'warning');
@@ -1307,7 +1419,8 @@ async function afp_processJob() {
         if (job.status === 'applying') {
             afp_setRuntimeMessage('Applying ' + entry.flightCode + '...', 'warning');
             await afp_applyFlightEntryToPlanner(entry, job.offsetDays);
-            aircraftFlightPlanState.job.status = 'waitForApply';
+            afp_assertJobAction();
+            job.status = 'waitForApply';
             await afp_saveJob();
             afp_renderPanel();
             afp_submitPlanner();
@@ -1320,8 +1433,8 @@ async function afp_processJob() {
                 return;
             }
 
-            aircraftFlightPlanState.job.currentIndex++;
-            aircraftFlightPlanState.job.status = 'selecting';
+            job.currentIndex++;
+            job.status = 'selecting';
             await afp_saveJob();
             afp_renderPanel();
             continue;
@@ -1338,7 +1451,7 @@ async function afp_processJob() {
 
 async function afp_resumePendingJob() {
     let job = aircraftFlightPlanState.job;
-    if (!job || aircraftFlightPlanState.processingJob) {
+    if (!AES.isPageOwner() || !job || aircraftFlightPlanState.processingJob) {
         return;
     }
 
@@ -1352,11 +1465,25 @@ async function afp_resumePendingJob() {
     }
 
     aircraftFlightPlanState.processingJob = true;
+    activeRun = { job, cancelled: false };
     try {
         await afp_processJob();
     } catch (error) {
-        await afp_failJob(error.message || 'Scheduling failed.');
+        if (!(error instanceof FlightPlanCancelled)) {
+            try {
+                await afp_failJob(error instanceof Error ? error.message : 'Scheduling failed.');
+            } catch (saveError) {
+                if (!(saveError instanceof FlightPlanCancelled)) {
+                    afp_setRuntimeMessage('Scheduling stopped: could not save job status. Please reload before retrying.', 'error');
+                    AES.reportContentScriptError('content_aircraftFlightPlan', saveError);
+                }
+            }
+        }
     } finally {
+        activeRun = null;
         aircraftFlightPlanState.processingJob = false;
+        afp_renderPanel();
     }
 }
+
+})();

@@ -1,12 +1,13 @@
 "use strict";
+(() => {
 //MAIN
-var settings;
+var settings: Record<string, unknown>;
 const SETTINGS_SCRIPT_ENABLED = AES.runContentScript("content_settings", function() {
     chrome.storage.local.get(['settings'], function(result) {
         AES.waitForElement(function() {
-            return $(AES.getPageContainer());
+            return $(AES.getPageContainer() || []);
         }, function() {
-            settings = result.settings || {};
+            settings = AES.isRecord(result.settings) ? result.settings : {};
             displaySettings();
             AES.markOwnedElements($("#aes-settings-root"));
             settingDisplayHandle('Inventory Pricing')
@@ -25,7 +26,7 @@ if (SETTINGS_SCRIPT_ENABLED) {
 
 //FUNCTIONS MAIN
 //Display settings
-function settingDisplayHandle(value) {
+function settingDisplayHandle(value: string) {
     switch (value) {
         case 'Inventory Pricing':
             displayInvPricingSettings();
@@ -40,10 +41,10 @@ function settingDisplayHandle(value) {
 
 function displaySettings() {
     let settingChoice = ['Inventory Pricing', 'Flight Info'];
-    let rows = [];
+    let rows: JQuery[] = [];
     settingChoice.forEach(function(value, index) {
         let span = $('<span></span>').text(value);
-        let a = $('<a href="#"></a>').html(span);
+        let a = $('<a href="#"></a>').append(span);
         let span1 = $('<span></span>');
         if (!index) {
             span1.addClass("fa fa-play")
@@ -65,7 +66,7 @@ function displaySettings() {
     let divmd10 = $('<div id="aes-div-settingArea" class="col-md-10"></div>');
     let rowDiv = $('<div class="row"></div>').append(divmd2, divmd10);
     let h = $('<h2>AirlineSim Enhancement Suite Settings</h2>');
-    let mainDiv = $(AES.getPageContainer());
+    let mainDiv = $(AES.getPageContainer() || []);
     if (!mainDiv.length) {
         throw new Error("Settings insertion target page content container was not found");
     }
@@ -74,20 +75,14 @@ function displaySettings() {
 }
 //FLight Info
 function displayFlightInfoSettings() {
-    if (!settings.flightInfo) {
-        settings.flightInfo = { autoClose: 0 };
-    }
-    let input = $('<input type="checkbox">');
-    if (settings.flightInfo.autoClose) {
+    let input = $<HTMLInputElement>('<input type="checkbox">');
+    if (getSettingsSection(settings, "flightInfo").autoClose) {
         input.prop('checked', true);
     }
     $(input).click(function() {
         let autoClose = this.checked ? 1 : 0;
         AES.updateSettings(function(currentSettings) {
-            if (!currentSettings.flightInfo) {
-                currentSettings.flightInfo = {};
-            }
-            currentSettings.flightInfo.autoClose = autoClose;
+            getSettingsSection(currentSettings, "flightInfo").autoClose = autoClose;
         }, function(updatedSettings) {
             settings = updatedSettings;
         });
@@ -157,47 +152,47 @@ function displayInvPricingSettings() {
 //Pricing sub functions
 function invPricingAutoPricingHandle() {
     //Set autoprice toggle
-    if (settings.invPricing.autoAnalysisSave) {
+    if (getSettingsSection(settings, "invPricing").autoAnalysisSave) {
         $("#aes-input-inventory-automateSnapshotSave").prop("checked", true);
     }
-    if (settings.invPricing.autoPriceUpdate) {
+    if (getSettingsSection(settings, "invPricing").autoPriceUpdate) {
         $("#aes-input-automateInvPricing").prop("checked", true);
     }
-    if (settings.invPricing.autoClose) {
+    if (getSettingsSection(settings, "invPricing").autoClose) {
         $("#aes-input-inventory-automateCloseTab").prop("checked", true);
     }
-    if (settings.invPricing.showReferenceRecommendation) {
+    if (getSettingsSection(settings, "invPricing").showReferenceRecommendation) {
         $("#aes-input-inventory-showReferenceRecommendation").prop("checked", true);
     }
     //Add click event to auto price
-    $("#aes-input-inventory-automateSnapshotSave").click(function() {
+    $<HTMLInputElement>("#aes-input-inventory-automateSnapshotSave").click(function() {
         let autoAnalysisSave = this.checked ? 1 : 0;
         AES.updateSettings(function(currentSettings) {
-            currentSettings.invPricing.autoAnalysisSave = autoAnalysisSave;
+            getSettingsSection(currentSettings, "invPricing").autoAnalysisSave = autoAnalysisSave;
         }, function(updatedSettings) {
             settings = updatedSettings;
         });
     });
-    $("#aes-input-automateInvPricing").click(function() {
+    $<HTMLInputElement>("#aes-input-automateInvPricing").click(function() {
         let autoPriceUpdate = this.checked ? 1 : 0;
         AES.updateSettings(function(currentSettings) {
-            currentSettings.invPricing.autoPriceUpdate = autoPriceUpdate;
+            getSettingsSection(currentSettings, "invPricing").autoPriceUpdate = autoPriceUpdate;
         }, function(updatedSettings) {
             settings = updatedSettings;
         });
     });
-    $("#aes-input-inventory-automateCloseTab").click(function() {
+    $<HTMLInputElement>("#aes-input-inventory-automateCloseTab").click(function() {
         let autoClose = this.checked ? 1 : 0;
         AES.updateSettings(function(currentSettings) {
-            currentSettings.invPricing.autoClose = autoClose;
+            getSettingsSection(currentSettings, "invPricing").autoClose = autoClose;
         }, function(updatedSettings) {
             settings = updatedSettings;
         });
     });
-    $("#aes-input-inventory-showReferenceRecommendation").click(function() {
+    $<HTMLInputElement>("#aes-input-inventory-showReferenceRecommendation").click(function() {
         let showReferenceRecommendation = this.checked ? 1 : 0;
         AES.updateSettings(function(currentSettings) {
-            currentSettings.invPricing.showReferenceRecommendation = showReferenceRecommendation;
+            getSettingsSection(currentSettings, "invPricing").showReferenceRecommendation = showReferenceRecommendation;
         }, function(updatedSettings) {
             settings = updatedSettings;
         });
@@ -207,7 +202,9 @@ function invPricingAutoPricingHandle() {
 }
 
 function invPricingRecStepHandle() {
-    let cmp = $("#aes-select-invPricing-cmp").val();
+    const selectedCabin = $("#aes-select-invPricing-cmp").val();
+    if (selectedCabin !== "Y" && selectedCabin !== "C" && selectedCabin !== "F" && selectedCabin !== "Cargo") return;
+    const cmp = selectedCabin;
     $('#aes-div-recSettings').empty().append(
         $('<h3></h3>').text(cmp + ' Compartment Pricing Settings')
     );
@@ -223,7 +220,7 @@ function invPricingRecStepHandle() {
     thead.append(headRow);
     //table body
     let tbody = $('<tbody></tbody>');
-    settings.invPricing.recommendation[cmp].steps.forEach(function(value) {
+    getSettingsRecommendation(cmp).steps.forEach(function(value) {
         let row = $('<tr></tr>');
         row.append('<td><input type="text" class="form-control" value="' + value.name + '"></td>');
         row.append('<td><div class="input-group"><input type="text" class="form-control number" value="' + value.min + '" style="min-width: 50px;"><span class="input-group-addon">%</span></div></td>');
@@ -268,7 +265,7 @@ function invPricingRecStepHandle() {
             <span for="aes-input-invPricing-max-price">Maximum Price (% compared to default price)</span>
         </label>
         <div class="input-group">
-        <input type="text" class="form-control number" id="aes-input-invPricing-max-price" value=` + settings.invPricing.recommendation[cmp].maxPrice + `>
+        <input type="text" class="form-control number" id="aes-input-invPricing-max-price" value=` + getSettingsRecommendation(cmp).maxPrice + `>
         <span class="input-group-addon">%</span>
         </div>
       </div>
@@ -277,7 +274,7 @@ function invPricingRecStepHandle() {
             <span for="aes-input-invPricing-min-price">Minimum Price (% compared to default price)</span>
         </label>
         <div class="input-group">
-        <input type="text" class="form-control number" id="aes-input-invPricing-min-price" value=` + settings.invPricing.recommendation[cmp].minPrice + `>
+        <input type="text" class="form-control number" id="aes-input-invPricing-min-price" value=` + getSettingsRecommendation(cmp).minPrice + `>
         <span class="input-group-addon">%</span>
         </div>
       </div>
@@ -294,18 +291,18 @@ function invPricingRecStepHandle() {
         let span = $('<span id="aes-span-invPricing" class="warning">Updating...</span>');
         $("#aes-fieldset-invPricing").append(span);
 
-        let newSteps = [];
+        let newSteps: AESModel.PricingStep[] = [];
         let newCmpSettings = {
-            maxPrice: parseInt($("#aes-input-invPricing-max-price").val(), 10),
-            minPrice: parseInt($("#aes-input-invPricing-min-price").val(), 10),
+            maxPrice: parseInt(String($("#aes-input-invPricing-max-price").val() ?? ""), 10),
+            minPrice: parseInt(String($("#aes-input-invPricing-min-price").val() ?? ""), 10),
             steps: newSteps
         }
         $("#aes-table-invPricing tbody tr").each(function() {
             newSteps.push({
-                max: parseInt($(this).find("input:eq(2)").val(), 10),
-                min: parseInt($(this).find("input:eq(1)").val(), 10),
-                name: $(this).find("input:eq(0)").val(),
-                step: parseInt($(this).find("input:eq(3)").val(), 10),
+                max: parseInt(String($(this).find("input:eq(2)").val() ?? ""), 10),
+                min: parseInt(String($(this).find("input:eq(1)").val() ?? ""), 10),
+                name: String($(this).find("input:eq(0)").val() ?? ""),
+                step: parseInt(String($(this).find("input:eq(3)").val() ?? ""), 10),
             });
         });
 
@@ -316,9 +313,9 @@ function invPricingRecStepHandle() {
 
         //Validate Steps
         if (validInvPriSteps(newCmpSettings)) {
-            settings.invPricing.recommendation[cmp] = newCmpSettings;
+            getSettingsSection(getSettingsSection(settings, "invPricing"), "recommendation")[cmp] = newCmpSettings;
             AES.updateSettings(function(currentSettings) {
-                currentSettings.invPricing.recommendation[cmp] = newCmpSettings;
+                getSettingsSection(getSettingsSection(currentSettings, "invPricing"), "recommendation")[cmp] = newCmpSettings;
             }, function(updatedSettings) {
                 settings = updatedSettings;
                 $("#aes-span-invPricing").removeClass().addClass("good").text('Inventory pricing settings for ' + cmp + ' saved!')
@@ -327,7 +324,7 @@ function invPricingRecStepHandle() {
     });
 }
 
-function validInvPriSteps(newCmpSettings) {
+function validInvPriSteps(newCmpSettings: AESModel.PricingRecommendation) {
     let steps = newCmpSettings.steps;
     //Check min max price
     if (!Number.isInteger(newCmpSettings.minPrice)) {
@@ -383,17 +380,41 @@ function validInvPriSteps(newCmpSettings) {
             }
         } else {
             if (steps[i].min != 0) {
-                $("#aes-span-invPricing").removeClass().addClass("bad").text('Save Failed! For row with name "' + steps[i].name + '" From value must start at 0%"' + steps[i - 1].name + '" !');
+                $("#aes-span-invPricing").removeClass().addClass("bad").text('Save Failed! For row with name "' + steps[i].name + '" From value must start at 0%!');
                 return 0;
             }
         }
         if (i == (steps.length - 1)) {
             //Last row
             if (steps[i].max != 100) {
-                $("#aes-span-invPricing").removeClass().addClass("bad").text('Save Failed! For row with name "' + steps[i].name + '" To value must end at 100%"' + steps[i - 1].name + '" !');
+                $("#aes-span-invPricing").removeClass().addClass("bad").text('Save Failed! For row with name "' + steps[i].name + '" To value must end at 100%!');
                 return 0;
             }
         }
     }
     return 1;
 }
+
+
+function getSettingsSection(target: Record<string, unknown>, key: string): Record<string, unknown> {
+    const existing = target[key];
+    if (AES.isRecord(existing)) return existing;
+    const section: Record<string, unknown> = {};
+    target[key] = section;
+    return section;
+}
+
+function getSettingsRecommendation(cabin: AESModel.Cabin): AESModel.PricingRecommendation {
+    const value = getSettingsSection(getSettingsSection(settings, "invPricing"), "recommendation")[cabin];
+    if (isSettingsRecommendation(value)) return value;
+    // Rendering a missing compartment must not overwrite any stored preference.
+    return { minPrice: 60, maxPrice: 200, steps: [] };
+}
+
+function isSettingsRecommendation(value: unknown): value is AESModel.PricingRecommendation {
+    return AES.isRecord(value) && typeof value.minPrice === "number" && typeof value.maxPrice === "number" &&
+        Array.isArray(value.steps) && value.steps.every((step: unknown) => AES.isRecord(step) &&
+            typeof step.name === "string" && typeof step.min === "number" && typeof step.max === "number" && typeof step.step === "number");
+}
+
+})();

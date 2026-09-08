@@ -1,13 +1,14 @@
 "use strict";
+(() => {
 //MAIN
 //Global vars
-var aircraftFlightData;
-var aircraftFlightAirline;
-var aircraftFleetKey;
-var aircraftFlightNotifications;
-var aircraftFlightsTableLayoutObserver = null;
-var aircraftFlightsTableLayoutTimer = null;
-var aircraftFlightExtractionState = {
+let aircraftFlightData: AESModel.AircraftFlightData;
+let aircraftFlightAirline: AESModel.Airline;
+let aircraftFleetKey: string;
+let aircraftFlightNotifications: Notifications | null;
+let aircraftFlightsTableLayoutObserver: MutationObserver | null = null;
+let aircraftFlightsTableLayoutTimer: number | undefined;
+let aircraftFlightExtractionState: AESModel.FlightExtractionState = {
     failed: 0,
     message: '',
     opened: 0,
@@ -28,8 +29,6 @@ function initializeAircraftFlights() {
     aircraftFlightAirline = currentAirline && currentAirline.id ? currentAirline : AES.getAirline();
     aircraftFleetKey = aircraftFlightData.server + aircraftFlightAirline.id + 'aircraftFleet';
     aircraftFlightNotifications = typeof Notifications === 'function' ? new Notifications() : null;
-    persistAircraftFlightSummary();
-    syncFleetHubData(function() {});
 
     //Async start
     getStorageData();
@@ -46,7 +45,7 @@ if (AIRCRAFT_FLIGHTS_SCRIPT_ENABLED) {
             aircraftFlightsTableLayoutObserver = null;
         }
         clearTimeout(aircraftFlightsTableLayoutTimer);
-        aircraftFlightsTableLayoutTimer = null;
+        aircraftFlightsTableLayoutTimer = undefined;
         $('.aes-aircraft-flights-block').remove();
         $('.aes-aircraft-flights-extra-header, .aes-aircraft-flights-extra-cell').remove();
         clearFlightSequenceHighlights();
@@ -62,26 +61,30 @@ function getStorageData() {
     let flightPlanHubKey = aircraftFlightData.server + aircraftFlightAirline.id + 'aircraftFlightPlanHub' + aircraftFlightData.aircraftId;
     keys.push(flightPlanHubKey);
     chrome.storage.local.get(keys, function(result) {
+        if (!storageCallbackSucceeded()) return;
         AES.tryRun("content_aircraftFlights", function() {
-        let flightPlanHubData = result[flightPlanHubKey];
+        const flightPlanHubData: unknown = result[flightPlanHubKey];
         if (
-            flightPlanHubData &&
+            AES.isRecord(flightPlanHubData) &&
             flightPlanHubData.type === 'aircraftFlightPlanHub' &&
             String(flightPlanHubData.aircraftId) === String(aircraftFlightData.aircraftId) &&
-            flightPlanHubData.hub
+            typeof flightPlanHubData.hub === 'string' && flightPlanHubData.hub
         ) {
-            aircraftFlightData.hubCounts = flightPlanHubData.counts || {};
+            aircraftFlightData.hubCounts = AES.isRecord(flightPlanHubData.counts) ? Object.fromEntries(Object.entries(flightPlanHubData.counts).filter((entry): entry is [string, number] => typeof entry[1] === 'number' && Number.isFinite(entry[1]))) : {};
             aircraftFlightData.hubDetected = flightPlanHubData.hub;
             aircraftFlightData.hubEffective = flightPlanHubData.hub;
             aircraftFlightData.hubDetectionSource = 'flightPlan';
         }
         for (let flightInfo in result) {
-            if (!result[flightInfo]) {
+            const stored: unknown = result[flightInfo];
+            if (!AES.isRecord(stored) || !AES.isRecord(stored.money) ||
+                !AES.isRecord(stored.money.CM5) || typeof stored.money.CM5.Total !== 'number' ||
+                !Number.isFinite(stored.money.CM5.Total) || typeof stored.date !== 'string' || typeof stored.time !== 'string') {
                 continue;
             }
             for (let i = 0; i < aircraftFlightData.flights.length; i++) {
-                if (aircraftFlightData.flights[i].id == result[flightInfo].flightId) {
-                    aircraftFlightData.flights[i].data = result[flightInfo];
+                if (aircraftFlightData.flights[i].id == stored.flightId) {
+                    aircraftFlightData.flights[i].data = { money: { CM5: { Total: stored.money.CM5.Total } }, date: stored.date, time: stored.time };
                 }
             }
         }
@@ -111,12 +114,10 @@ function getTotalProfit() {
 }
 
 function saveData() {
-    persistAircraftFlightSummary(function() {
-        syncFleetHubData(display);
-    });
+    syncFleetHubData(display);
 }
 
-function persistAircraftFlightSummary(callback) {
+function persistAircraftFlightSummary(callback?: () => void) {
     let key = aircraftFlightData.server + aircraftFlightData.type + aircraftFlightData.aircraftId;
     let saveData = {
         aircraftId: aircraftFlightData.aircraftId,
@@ -138,6 +139,7 @@ function persistAircraftFlightSummary(callback) {
     }
     chrome.storage.local.set({
         [key]: saveData }, function() {
+        if (!storageCallbackSucceeded()) return;
         if (callback) {
             callback();
         }
@@ -145,6 +147,7 @@ function persistAircraftFlightSummary(callback) {
 }
 
 function display() {
+    if (!AES.isPageOwner()) return;
     displayFlightProfit();
     let sequenceValidation = validateFlightSequence(aircraftFlightData.flights);
     highlightSequenceIssueFlights(sequenceValidation.issues);
@@ -179,7 +182,7 @@ function display() {
         startFlightProfitExtraction('finished');
     });
     saveOverrideBtn.click(function() {
-        let override = hubInput.val().trim().toUpperCase().slice(0, 3);
+        let override = String(hubInput.val() || '').trim().toUpperCase().slice(0, 3);
         if (!override) {
             showAircraftFlightsNotification('Enter a HUB code first', 'error');
             return;
@@ -187,7 +190,7 @@ function display() {
         updateHubOverride(override);
     });
     hubInput.on('input', function() {
-        hubInput.val(hubInput.val().trim().toUpperCase().slice(0, 3));
+        hubInput.val(String(hubInput.val() || '').trim().toUpperCase().slice(0, 3));
     });
     resetOverrideBtn.click(function() {
         hubInput.val('');
@@ -215,7 +218,7 @@ function display() {
     updateFlightExtractionDisplay();
 }
 
-async function startFlightProfitExtraction(type) {
+async function startFlightProfitExtraction(type: 'all' | 'finished') {
     if (aircraftFlightExtractionState.running) {
         return;
     }
@@ -291,12 +294,13 @@ async function startFlightProfitExtraction(type) {
     }
 }
 
-function setFlightExtractionState(nextState) {
+function setFlightExtractionState(nextState: Partial<AESModel.FlightExtractionState>) {
     aircraftFlightExtractionState = Object.assign({}, aircraftFlightExtractionState, nextState);
     updateFlightExtractionDisplay();
 }
 
 function updateFlightExtractionDisplay() {
+    if (!AES.isPageOwner()) return;
     $('.aes-aircraft-flights-extract-btn').prop('disabled', aircraftFlightExtractionState.running);
     $('.aes-aircraft-flights-extract-status')
         .removeClass('good bad warning')
@@ -304,7 +308,7 @@ function updateFlightExtractionDisplay() {
         .text(aircraftFlightExtractionState.message || '');
 }
 
-function getFlightsForProfitExtraction(type) {
+function getFlightsForProfitExtraction(type: 'all' | 'finished') {
     return aircraftFlightData.flights.filter(function(value) {
         if (type !== 'finished') {
             return true;
@@ -313,13 +317,14 @@ function getFlightsForProfitExtraction(type) {
     });
 }
 
-async function extractAllFlightProfit(type, progressCallback) {
+async function extractAllFlightProfit(type: 'all' | 'finished', progressCallback?: (progress: AESModel.FlightExtractionProgress) => void) {
     const flights = getFlightsForProfitExtraction(type);
     let failed = 0;
     let lastError = '';
     let opened = 0;
 
     for (let i = 0; i < flights.length; i++) {
+        if (!AES.isPageOwner()) throw new Error('Page ownership lost');
         const url = getFlightInfoUrl(flights[i]);
         const result = await openFlightInfoPage(url);
 
@@ -352,16 +357,17 @@ async function extractAllFlightProfit(type, progressCallback) {
     };
 }
 
-function getFlightInfoUrl(flight) {
+function getFlightInfoUrl(flight: AESModel.AircraftFlight) {
     return 'https://' + aircraftFlightData.server + '.airlinesim.aero/action/info/flight?id=' + flight.id;
 }
 
-async function openFlightInfoPage(url) {
+async function openFlightInfoPage(url: string) {
     const backgroundResult = await requestBackgroundTabOpen(url);
     if (backgroundResult.ok) {
         return backgroundResult;
     }
 
+    if (!AES.isPageOwner()) return { ok: false, error: 'Page ownership lost' };
     const openedWindow = window.open(url, '_blank');
     if (openedWindow) {
         return { ok: true, method: 'window.open' };
@@ -373,8 +379,8 @@ async function openFlightInfoPage(url) {
     };
 }
 
-function requestBackgroundTabOpen(url) {
-    return new Promise(function(resolve) {
+function requestBackgroundTabOpen(url: string) {
+    return new Promise<AESModel.TabOpenResult>(function(resolve) {
         if (typeof chrome === 'undefined' || !chrome.runtime || typeof chrome.runtime.sendMessage !== 'function') {
             resolve({
                 error: 'Extension runtime is unavailable.',
@@ -396,10 +402,9 @@ function requestBackgroundTabOpen(url) {
                 return;
             }
 
-            resolve(response || {
-                error: 'No tab open response.',
-                ok: false,
-            });
+            resolve(AES.isRecord(response) && typeof response.ok === 'boolean'
+                ? { ok: response.ok, error: typeof response.error === 'string' ? response.error : undefined }
+                : { error: 'No tab open response.', ok: false });
         });
     });
 }
@@ -411,7 +416,7 @@ function displayFlightProfit() {
     $('.aes-aircraft-flights-extra-header, .aes-aircraft-flights-extra-cell', table).remove();
     let th = ['<th class="aes-aircraft-flights-extra-header">Profit/Loss</th>', '<th class="aes-aircraft-flights-extra-header">Extract date</th>'];
     let headerAnchor = $('thead tr', table).first().children('th').last();
-    headerAnchor.before(th);
+    headerAnchor.before(...th);
     //body
     aircraftFlightData.flights.forEach(function(value) {
         let td = [];
@@ -426,7 +431,7 @@ function displayFlightProfit() {
 
         let detailsCell = $('a[href*="action/info/flight"]', value.row).closest('td').first();
         if (detailsCell.length) {
-            detailsCell.before(td);
+            detailsCell.before(...td);
         }
     });
     $('tbody tr', table).each(function() {
@@ -448,13 +453,14 @@ function displayFlightProfit() {
     watchAircraftFlightsTableLayout();
 }
 
-function getAircraftFlightsLogicalColumnCount(row) {
-    return $(row).children('th, td').toArray().reduce(function(total, cell) {
-        return total + (parseInt(cell.colSpan, 10) || 1);
+function getAircraftFlightsLogicalColumnCount(row: HTMLElement) {
+    return $(row).children<HTMLTableCellElement>('th, td').toArray().reduce(function(total, cell) {
+        return total + (cell.colSpan || 1);
     }, 0);
 }
 
 function reconcileAircraftFlightsTableLayout() {
+    if (!AES.isPageOwner()) return;
     let table = $('#aircraft-flight-instances-table');
     if (!table.length) {
         return;
@@ -513,7 +519,7 @@ function watchAircraftFlightsTableLayout() {
     });
 }
 
-function buildTable(sequenceValidation) {
+function buildTable(sequenceValidation: AESModel.FlightSequenceValidation) {
     let totalProfitCell = $(formatMoney(aircraftFlightData.profit));
     let row = [];
     row.push($('<tr></tr>').append(
@@ -547,11 +553,11 @@ function buildTable(sequenceValidation) {
         $('<td></td>').text(AES.formatDateString(aircraftFlightData.date) + ' ' + aircraftFlightData.time)
     ));
 
-    let tbody = $('<tbody></tbody>').append(row);
+    let tbody = $('<tbody></tbody>').append(...row);
     return $('<table class="table table-bordered table-striped table-hover"></table>').append(tbody);
 }
 
-function buildSequenceValidationCell(validation) {
+function buildSequenceValidationCell(validation: AESModel.FlightSequenceValidation) {
     const statusClass = validation.issueCount ? 'bad' : (validation.checkedCount ? 'good' : 'warning');
     const statusText = validation.issueCount
         ? validation.issueCount + ' issue' + (validation.issueCount === 1 ? '' : 's') + ' found'
@@ -569,7 +575,7 @@ function buildSequenceValidationCell(validation) {
     return cell;
 }
 
-function buildSequenceIssueList(issues) {
+function buildSequenceIssueList(issues: AESModel.FlightSequenceIssue[]) {
     const list = $('<ol class="aes-aircraft-flights-sequence-list"></ol>');
     const maxVisibleIssues = 10;
     issues.slice(0, maxVisibleIssues).forEach(function(issue) {
@@ -581,8 +587,8 @@ function buildSequenceIssueList(issues) {
     return list;
 }
 
-function validateFlightSequence(flights) {
-    const issues = [];
+function validateFlightSequence(flights: AESModel.AircraftFlight[]) {
+    const issues: AESModel.FlightSequenceIssue[] = [];
     const checkedFlights = flights.filter(function(flight) {
         return !isCancelledFlight(flight);
     });
@@ -608,7 +614,7 @@ function validateFlightSequence(flights) {
     const sortedFlights = checkedFlights.slice().filter(function(flight) {
         return flight.departureTime !== null && flight.arrivalTime !== null;
     }).sort(function(a, b) {
-        return a.departureTime - b.departureTime;
+        return (a.departureTime ?? 0) - (b.departureTime ?? 0);
     });
 
     for (let i = 1; i < sortedFlights.length; i++) {
@@ -619,7 +625,7 @@ function validateFlightSequence(flights) {
             issues.push(createFlightSequenceIssue(previousFlight, currentFlight, 'Next departure airport ' + currentFlight.origin + ' does not match previous arrival airport ' + previousFlight.destination + '.'));
         }
 
-        if (currentFlight.departureTime <= previousFlight.arrivalTime) {
+        if (currentFlight.departureTime !== null && previousFlight.arrivalTime !== null && currentFlight.departureTime <= previousFlight.arrivalTime) {
             issues.push(createFlightSequenceIssue(previousFlight, currentFlight, 'Next flight does not depart after the previous flight arrives.'));
         }
     }
@@ -631,7 +637,7 @@ function validateFlightSequence(flights) {
     };
 }
 
-function createFlightSequenceIssue(previousFlight, currentFlight, message) {
+function createFlightSequenceIssue(previousFlight: AESModel.AircraftFlight, currentFlight: AESModel.AircraftFlight | null, message: string) {
     let label = getFlightSequenceLabel(previousFlight);
     let issueFlights = [];
     if (previousFlight) {
@@ -647,7 +653,7 @@ function createFlightSequenceIssue(previousFlight, currentFlight, message) {
     };
 }
 
-function isCancelledFlight(flight) {
+function isCancelledFlight(flight: AESModel.AircraftFlight) {
     const status = String(flight && flight.status ? flight.status : '').trim().toLowerCase();
     return status === 'cancelled' || status === 'canceled';
 }
@@ -656,7 +662,7 @@ function clearFlightSequenceHighlights() {
     $('.aes-aircraft-flights-sequence-issue-row').removeClass('aes-aircraft-flights-sequence-issue-row');
 }
 
-function highlightSequenceIssueFlights(issues) {
+function highlightSequenceIssueFlights(issues: AESModel.FlightSequenceIssue[]) {
     clearFlightSequenceHighlights();
     issues.forEach(function(issue) {
         (issue.flights || []).forEach(function(flight) {
@@ -667,14 +673,14 @@ function highlightSequenceIssueFlights(issues) {
     });
 }
 
-function getFlightSequenceLabel(flight) {
+function getFlightSequenceLabel(flight: AESModel.AircraftFlight) {
     if (!flight) {
         return 'Unknown flight';
     }
     return (flight.flightNumber || ('Flight ' + flight.id)) + ' (' + (flight.departureText || '?') + ' ' + (flight.origin || '?') + ' -> ' + (flight.arrivalText || '?') + ' ' + (flight.destination || '?') + ')';
 }
 
-function getData() {
+function getData(): AESModel.AircraftFlightData {
     //Aircraft ID
     let aircraftId = getAircraftId();
     let aircraftInfo = getAircraftInfo();
@@ -704,9 +710,8 @@ function getData() {
     }
 }
 
-function getFlightsStats(flights) {
-    let finished, total;
-    finished = total = 0;
+function getFlightsStats(flights: AESModel.AircraftFlight[]) {
+    let finished = 0, total = 0;
     flights.forEach(function(value) {
         if (value.status == 'finished' || value.status == 'inflight') {
             finished++;
@@ -724,41 +729,35 @@ function getFlightsStats(flights) {
  * @param {string} serverDate
  * @returns {array} flights
  */
-function getFlights(serverDate) {
+function getFlights(serverDate: string) {
     const table = document.querySelector("#aircraft-flight-instances-table")
     if (!table) {
         throw new Error("Aircraft flights table #aircraft-flight-instances-table was not found")
     }
-    const rows = table.querySelectorAll("tbody tr")
-    const flights = []
+    const rows = table.querySelectorAll<HTMLTableRowElement>("tbody tr")
+    const flights: AESModel.AircraftFlight[] = []
 
     for (const row of rows) {
-        const flight = {
-            arrivalTime: null,
-            arrivalText: '',
-            departureTime: null,
-            departureText: '',
-            destination: null,
-            flightNumber: '',
-            origin: null,
-            status: null,
-            id: null,
-            row: null
-        }
-        const flightNumber = row.querySelector("td:nth-child(2)")?.innerText.trim()
+        const flightNumber = row.querySelector<HTMLElement>("td:nth-child(2)")?.innerText.trim()
         if (flightNumber === "XFER" || flightNumber === undefined) {
             continue
         }
-        const url = row.querySelector(`[href*="action/info/flight"]`)?.href
+        const url = row.querySelector<HTMLAnchorElement>(`[href*="action/info/flight"]`)?.href
         if (!url) {
             continue
         }
 
-        flight.status = row.querySelector(".flightStatusPanel")?.innerText.trim()
-        flight.id = parseInt(url.match(/id=(\d+)/)[1], 10)
+        const idMatch = url.match(/[?&]id=(\d+)(?:[&#]|$)/);
+        if (!idMatch) continue;
+        const flight: AESModel.AircraftFlight = {
+            arrivalTime: null, arrivalText: '', departureTime: null, departureText: '',
+            destination: '', origin: '', flightNumber, status: '',
+            id: parseInt(idMatch[1], 10), row: $(row)
+        };
+        flight.status = row.querySelector<HTMLElement>(".flightStatusPanel")?.innerText.trim() || ''
         flight.flightNumber = flightNumber
-        flight.origin = row.querySelector("td:nth-child(3) span:last-child")?.innerText.trim() || ''
-        flight.destination = row.querySelector("td:nth-child(5) span:last-child")?.innerText.trim() || ''
+        flight.origin = row.querySelector<HTMLElement>("td:nth-child(3) span:last-child")?.innerText.trim() || ''
+        flight.destination = row.querySelector<HTMLElement>("td:nth-child(5) span:last-child")?.innerText.trim() || ''
         flight.departureText = getFlightTimeText(row, 4)
         flight.arrivalText = getFlightTimeText(row, 6)
         flight.departureTime = parseAircraftFlightUtcTime(flight.departureText, serverDate)
@@ -770,7 +769,7 @@ function getFlights(serverDate) {
     return flights
 }
 
-function getFlightTimeText(row, cellIndex) {
+function getFlightTimeText(row: HTMLTableRowElement, cellIndex: number) {
     const cell = row.querySelector("td:nth-child(" + cellIndex + ")")
     const span = cell ? cell.querySelector("span") : null
     if (!span) {
@@ -786,7 +785,7 @@ function getFlightTimeText(row, cellIndex) {
     return titleUtc || span.innerText.trim()
 }
 
-function parseAircraftFlightUtcTime(value, serverDate) {
+function parseAircraftFlightUtcTime(value: string, serverDate: string) {
     const match = String(value || '').match(/(\d{1,2})\.(\d{1,2})\.\s+(\d{1,2}):(\d{2})\s+UTC/i)
     if (!match || !serverDate) {
         return null
@@ -826,8 +825,8 @@ function parseAircraftFlightUtcTime(value, serverDate) {
     return parsed
 }
 
-function getHubStats(flights) {
-    let counts = {};
+function getHubStats(flights: AESModel.AircraftFlight[]) {
+    let counts: Record<string, number> = {};
     flights.forEach(function(flight) {
         [flight.origin, flight.destination].forEach(function(airport) {
             if (!airport) {
@@ -857,7 +856,7 @@ function getHubStats(flights) {
     };
 }
 
-function syncFleetHubData(callback) {
+function syncFleetHubData(callback: () => void) {
     resolveAircraftFleetMatches(function(matches) {
         let changed = false;
 
@@ -892,6 +891,7 @@ function syncFleetHubData(callback) {
             let pending = matches.length;
             matches.forEach(function(match) {
                 chrome.storage.local.set({ [match.key]: match.fleetData }, function() {
+                    if (!storageCallbackSucceeded()) return;
                     pending--;
                     if (!pending) {
                         finish();
@@ -905,7 +905,7 @@ function syncFleetHubData(callback) {
     });
 }
 
-function updateHubOverride(override) {
+function updateHubOverride(override: string) {
     resolveAircraftFleetMatches(function(matches) {
         if (!matches.length) {
             showAircraftFlightsNotification('Extract fleet data first', 'error');
@@ -917,6 +917,7 @@ function updateHubOverride(override) {
             match.aircraft.hubOverride = override;
             match.aircraft.hubEffective = override;
             chrome.storage.local.set({ [match.key]: match.fleetData }, function() {
+                if (!storageCallbackSucceeded()) return;
                 pending--;
                 if (!pending) {
                     aircraftFlightData.hubOverride = override;
@@ -943,6 +944,7 @@ function resetHubOverride() {
             match.aircraft.hubOverride = '';
             match.aircraft.hubEffective = match.aircraft.hubDetected || aircraftFlightData.hubDetected || '';
             chrome.storage.local.set({ [match.key]: match.fleetData }, function() {
+                if (!storageCallbackSucceeded()) return;
                 pending--;
                 if (!pending) {
                     aircraftFlightData.hubOverride = '';
@@ -957,8 +959,8 @@ function resetHubOverride() {
     });
 }
 
-function showAircraftFlightsNotification(message, type) {
-    if (aircraftFlightNotifications) {
+function showAircraftFlightsNotification(message: string, type: AESModel.NotificationType) {
+    if (AES.isPageOwner() && aircraftFlightNotifications) {
         aircraftFlightNotifications.add(message, { type: type });
     }
 }
@@ -969,10 +971,11 @@ function refreshHubSummary() {
     $('#aes-aircraft-hub-effective').text(aircraftFlightData.hubEffective || aircraftFlightData.hubDetected || '--');
 }
 
-function resolveAircraftFleetMatches(callback) {
+function resolveAircraftFleetMatches(callback: (matches: AESModel.AircraftFleetMatch[]) => void) {
     chrome.storage.local.get([aircraftFleetKey], function(result) {
-        let matches = [];
-        let fleetData = result[aircraftFleetKey];
+        if (!storageCallbackSucceeded()) return;
+        let matches: AESModel.AircraftFleetMatch[] = [];
+        let fleetData = AES.readFleetRecord(result[aircraftFleetKey]);
         if (fleetData && Array.isArray(fleetData.fleet)) {
             let aircraft = fleetData.fleet.find(function(item) {
                 return item.aircraftId == aircraftFlightData.aircraftId;
@@ -1003,7 +1006,7 @@ function getAircraftId() {
     return parseInt(a[a.length - 2], 10);
 }
 
-function formatMoney(value) {
+function formatMoney(value: number) {
     let container = document.createElement("td")
     let formattedValue = Intl.NumberFormat().format(value)
     let indicatorEl = document.createElement("span")
@@ -1029,3 +1032,15 @@ function formatMoney(value) {
 
     return container
 }
+
+function storageCallbackSucceeded() {
+    const error = chrome.runtime.lastError;
+    if (!AES.isPageOwner()) return false;
+    if (error) {
+        AES.reportContentScriptError('content_aircraftFlights', new Error(error.message));
+        showAircraftFlightsNotification('Aircraft data could not be read or saved. Please retry or reload.', 'error');
+        return false;
+    }
+    return true;
+}
+})();

@@ -1,6 +1,20 @@
 "use strict";
 //Main
-var allStorageData = {};
+var allStorageData: AESModel.StorageSnapshot = {};
+const optionsStatusTimers = new WeakMap<HTMLElement, number>();
+
+// The options page runs without helpers.js; keep its external-data boundary local.
+function isOptionsRecord(value: unknown): value is Record<string, unknown> {
+    return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function isBackupType(value: unknown): value is AESModel.BackupType {
+    return typeof value === "string" && ["all", "settings", "schedule", "pricing", "competitorMonitoring", "flightInfo", "aircraftData", "logs"].includes(value);
+}
+
+function isBackupEnvelope(value: unknown): value is AESModel.BackupEnvelope {
+    return isOptionsRecord(value) && isOptionsRecord(value.metadata) && isOptionsRecord(value.data);
+}
 
 $(function () {
     //Get saved data
@@ -32,8 +46,8 @@ function initializeBackupRestore() {
     });
 
     // Restore file input change handler
-    $("#aes-restore-file").change(function (event) {
-        const file = event.target.files[0];
+    $<HTMLInputElement>("#aes-restore-file").change(function (event) {
+        const file = event.target.files?.[0];
         if (file) {
             $("#aes-restore-btn").prop("disabled", false);
             $("#aes-selected-file-name").text(file.name);
@@ -119,7 +133,7 @@ function displayDataStatistics() {
     $("#aes-stats-content").html(statsHtml);
 }
 
-function buildStatItem(label, value) {
+function buildStatItem(label: string, value: string | number) {
     return `
         <div class="aes-stat">
             <span class="aes-stat-label">${label}</span>
@@ -128,7 +142,7 @@ function buildStatItem(label, value) {
     `;
 }
 
-function analyzeStorageData(data) {
+function analyzeStorageData(data: AESModel.StorageSnapshot) {
     const stats = {
         totalItems: 0,
         settings: 0,
@@ -145,14 +159,14 @@ function analyzeStorageData(data) {
     for (let key in data) {
         stats.totalItems++;
         const item = data[key];
-        const jsonSize = JSON.stringify(item).length;
+        const jsonSize = (JSON.stringify(item)?.length || 0);
         stats.estimatedSize += jsonSize;
 
         if (key === "settings") {
             stats.settings++;
         } else if (isLogStorageItem(key, item)) {
             stats.logs++;
-        } else if (item && item.type) {
+        } else if (isOptionsRecord(item) && item.type) {
             switch (item.type) {
                 case "schedule":
                     stats.schedule++;
@@ -183,10 +197,18 @@ function analyzeStorageData(data) {
 
 function createBackup() {
     const backupType = $("#aes-backup-type").val();
+    if (!isBackupType(backupType)) {
+        showStatusMessage("Please select a backup type.", "error");
+        return;
+    }
     showStatusMessage("Creating backup...", "info");
 
     chrome.storage.local.get(null, function (items) {
-        let backupData = {};
+        if (chrome.runtime.lastError) {
+            showStatusMessage("Error reading data: " + chrome.runtime.lastError.message, "error");
+            return;
+        }
+        let backupData: AESModel.StorageSnapshot = {};
 
         if (backupType === "all") {
             backupData = items;
@@ -202,17 +224,17 @@ function createBackup() {
                         }
                         break;
                     case "schedule":
-                        if (item && item.type === "schedule") {
+                        if (isOptionsRecord(item) && item.type === "schedule") {
                             backupData[key] = item;
                         }
                         break;
                     case "pricing":
-                        if (item && item.type === "pricing") {
+                        if (isOptionsRecord(item) && item.type === "pricing") {
                             backupData[key] = item;
                         }
                         break;
                     case "competitorMonitoring":
-                        if (item && item.type === "competitorMonitoring") {
+                        if (isOptionsRecord(item) && item.type === "competitorMonitoring") {
                             backupData[key] = item;
                         }
                         break;
@@ -240,7 +262,7 @@ function createBackup() {
 
         // Create backup object with metadata
         const manifest = chrome.runtime.getManifest()
-        const backup = {
+        const backup: AESModel.ExportBackup = {
             metadata: {
                 version: manifest.version_name,
                 created: new Date().toISOString(),
@@ -259,14 +281,14 @@ function createBackup() {
     });
 }
 
-function downloadBackup(backup, type) {
+function downloadBackup(backup: AESModel.ExportBackup, type: AESModel.BackupType) {
     const filename = `aes-backup-${type}-${
         new Date().toISOString().split("T")[0]
     }.json`;
     downloadJsonFile(filename, backup);
 }
 
-function downloadJsonFile(filename, data) {
+function downloadJsonFile(filename: string, data: unknown) {
     const dataStr = JSON.stringify(data, null, 2);
     const dataBlob = new Blob([dataStr], { type: "application/json" });
 
@@ -280,7 +302,7 @@ function downloadJsonFile(filename, data) {
 }
 
 function restoreData() {
-    const file = $("#aes-restore-file")[0].files[0];
+    const file = $<HTMLInputElement>("#aes-restore-file").get(0)?.files?.[0];
     const restoreMode = $("#aes-restore-mode").val();
 
     if (!file) {
@@ -291,23 +313,28 @@ function restoreData() {
     showStatusMessage("Reading backup file...", "info");
 
     const reader = new FileReader();
-    reader.onload = function (e) {
+    reader.onload = function () {
         try {
-            const backup = JSON.parse(e.target.result);
+            if (typeof reader.result !== "string") throw new Error("Unable to read backup text");
+            const backup: unknown = JSON.parse(reader.result);
 
             // Validate backup format
-            if (!backup.metadata || !backup.data) {
+            if (!isBackupEnvelope(backup)) {
                 throw new Error("Invalid backup file format");
             }
 
             showStatusMessage(
-                `Restoring ${backup.metadata.itemCount} items...`,
+                `Restoring ${Object.keys(backup.data).length} items...`,
                 "info"
             );
 
             if (restoreMode === "replace") {
                 // Clear existing data first
                 chrome.storage.local.clear(function () {
+                    if (chrome.runtime.lastError) {
+                        showStatusMessage("Error clearing data: " + chrome.runtime.lastError.message, "error");
+                        return;
+                    }
                     chrome.storage.local.set(backup.data, function () {
                         if (chrome.runtime.lastError) {
                             showStatusMessage(
@@ -344,12 +371,15 @@ function restoreData() {
             }
         } catch (error) {
             showStatusMessage(
-                "Error reading backup file: " + error.message,
+                "Error reading backup file: " + (error instanceof Error ? error.message : String(error)),
                 "error"
             );
         }
     };
 
+    reader.onerror = function () {
+        showStatusMessage("Error reading backup file: " + (reader.error?.message || "Unable to read file"), "error");
+    };
     reader.readAsText(file);
 }
 
@@ -357,11 +387,15 @@ function clearOldData() {
     showStatusMessage("Clearing old data...", "info");
 
     chrome.storage.local.get(null, function (items) {
+        if (chrome.runtime.lastError) {
+            showStatusMessage("Error reading data: " + chrome.runtime.lastError.message, "error");
+            return;
+        }
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
         const cutoffDate = thirtyDaysAgo.getTime();
 
-        const keysToRemove = [];
+        const keysToRemove: string[] = [];
 
         for (let key in items) {
             const item = items[key];
@@ -371,7 +405,7 @@ function clearOldData() {
 
             if (isLogStorageItem(key, item)) {
                 const itemDate = parseStorageDateKey(
-                    item.date || key.replace(/^aesLog_/, "")
+                    (isOptionsRecord(item) && item.date) || key.replace(/^aesLog_/, "")
                 );
                 if (itemDate && itemDate.getTime() < cutoffDate) {
                     keysToRemove.push(key);
@@ -380,7 +414,7 @@ function clearOldData() {
             }
 
             // Check if item has date information
-            if (item && item.date) {
+            if (isOptionsRecord(item) && isOptionsRecord(item.date)) {
                 // For items with date objects (like schedule data)
                 let hasRecentData = false;
                 for (let dateKey in item.date) {
@@ -397,7 +431,7 @@ function clearOldData() {
                 if (!hasRecentData) {
                     keysToRemove.push(key);
                 }
-            } else if (item && item.updateTime) {
+            } else if (isOptionsRecord(item) && !item.date && (typeof item.updateTime === "string" || typeof item.updateTime === "number")) {
                 // For items with updateTime
                 const itemDate = new Date(item.updateTime);
                 if (itemDate.getTime() < cutoffDate) {
@@ -408,6 +442,10 @@ function clearOldData() {
 
         if (keysToRemove.length > 0) {
             chrome.storage.local.remove(keysToRemove, function () {
+                if (chrome.runtime.lastError) {
+                    showStatusMessage("Error clearing old data: " + chrome.runtime.lastError.message, "error");
+                    return;
+                }
                 showStatusMessage(
                     `Cleared ${keysToRemove.length} old data items.`,
                     "success"
@@ -420,7 +458,7 @@ function clearOldData() {
     });
 }
 
-function parseStorageDateKey(dateKey) {
+function parseStorageDateKey(dateKey: unknown) {
     const value = String(dateKey);
 
     if (/^\d{8}$/.test(value)) {
@@ -462,14 +500,14 @@ function displayLogFiles() {
 
 function downloadSelectedLog() {
     const key = $("#aes-log-file-select").val();
-    if (!key || !allStorageData[key]) {
+    if (typeof key !== "string" || !key || !allStorageData[key]) {
         showStatusMessage("Please select a log file first.", "error");
         return;
     }
 
     const logData = allStorageData[key];
-    const logDate = logData.date || key.replace(/^aesLog_/, "");
-    const backup = {
+    const logDate = (isOptionsRecord(logData) && logData.date) || key.replace(/^aesLog_/, "");
+    const backup: AESModel.ExportBackup = {
         metadata: {
             version: chrome.runtime.getManifest().version_name,
             created: new Date().toISOString(),
@@ -514,8 +552,8 @@ function clearLogData() {
     });
 }
 
-function getLogStorageItems(data) {
-    const logs = [];
+function getLogStorageItems(data: AESModel.StorageSnapshot): AESModel.LogFileSummary[] {
+    const logs: AESModel.LogFileSummary[] = [];
     for (let key in data) {
         const item = data[key];
         if (!isLogStorageItem(key, item)) {
@@ -524,9 +562,9 @@ function getLogStorageItems(data) {
 
         logs.push({
             key: key,
-            date: item.date || key.replace(/^aesLog_/, ""),
-            entryCount: Array.isArray(item.entries) ? item.entries.length : 0,
-            size: JSON.stringify(item).length,
+            date: (isOptionsRecord(item) && item.date) || key.replace(/^aesLog_/, ""),
+            entryCount: isOptionsRecord(item) && Array.isArray(item.entries) ? item.entries.length : 0,
+            size: (JSON.stringify(item)?.length || 0),
         });
     }
 
@@ -535,11 +573,11 @@ function getLogStorageItems(data) {
     });
 }
 
-function isLogStorageItem(key, item) {
-    return /^aesLog_\d{8}$/.test(key) || (item && item.type === "log");
+function isLogStorageItem(key: string, item: unknown): boolean {
+    return /^aesLog_\d{8}$/.test(key) || (isOptionsRecord(item) && item.type === "log");
 }
 
-function formatLogDateLabel(date) {
+function formatLogDateLabel(date: unknown) {
     const value = String(date || "");
     if (/^\d{8}$/.test(value)) {
         return `${value.substring(0, 4)}-${value.substring(4, 6)}-${value.substring(6, 8)}`;
@@ -547,7 +585,7 @@ function formatLogDateLabel(date) {
     return value || "Unknown date";
 }
 
-function formatLogDateForFilename(date) {
+function formatLogDateForFilename(date: unknown) {
     return formatLogDateLabel(date).replace(/[^0-9-]/g, "");
 }
 
@@ -567,16 +605,17 @@ function clearAllData() {
     });
 }
 
-function showStatusMessage(message, type) {
+function showStatusMessage(message: string, type: AESModel.NotificationType | "info") {
     const statusDiv = $("#aes-status-message");
     const statusEl = statusDiv.get(0);
     if (!statusEl) {
         return;
     }
 
-    if (statusEl.aesHideTimer) {
-        window.clearTimeout(statusEl.aesHideTimer);
-        statusEl.aesHideTimer = null;
+    const previousTimer = optionsStatusTimers.get(statusEl);
+    if (previousTimer !== undefined) {
+        window.clearTimeout(previousTimer);
+        optionsStatusTimers.delete(statusEl);
     }
     statusDiv.removeClass(
         "status-success status-error status-warning status-info"
@@ -603,14 +642,14 @@ function showStatusMessage(message, type) {
 
     // Auto-hide after 5 seconds for success/info messages
     if (type === "success" || type === "info") {
-        statusEl.aesHideTimer = window.setTimeout(() => {
+        optionsStatusTimers.set(statusEl, window.setTimeout(() => {
             statusDiv.hide();
-            statusEl.aesHideTimer = null;
-        }, 5000);
+            optionsStatusTimers.delete(statusEl);
+        }, 5000));
     }
 }
 
-function formatBytes(bytes) {
+function formatBytes(bytes: number) {
     if (bytes === 0) return "0 Bytes";
 
     const k = 1024;

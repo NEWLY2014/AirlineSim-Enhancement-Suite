@@ -6,10 +6,12 @@ VERSION=$(sed -n 's/.*"version": "\(.*\)",/\1/p' "$ROOT_DIR/extension/manifest.j
 OUT_DIR="$ROOT_DIR/dist"
 OUT_FILE="$OUT_DIR/AES-v$VERSION.zip"
 
+npm --prefix "$ROOT_DIR" run build
+
 mkdir -p "$OUT_DIR"
 rm -f "$OUT_FILE"
 
-cd "$ROOT_DIR/extension"
+cd "$ROOT_DIR/build/extension"
 zip -r "$OUT_FILE" . \
     -x '*.DS_Store' \
     -x '.Rhistory' \

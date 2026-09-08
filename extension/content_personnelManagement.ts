@@ -1,13 +1,17 @@
 "use strict";
+(() => {
 //MAIN
 //Global vars
-var settings, server, airline, personnelNotifications;
+var settings: Record<string, unknown>;
+var server: string;
+var airline: AESModel.Airline;
+var personnelNotifications: Notifications | undefined;
 const PERSONNEL_MANAGEMENT_SCRIPT_ENABLED = AES.runContentScript("content_personnelManagement", function() {
     chrome.storage.local.get(['settings'], function(result) {
         AES.tryRun("content_personnelManagement", function() {
             server = AES.getServerName();
             airline = AES.getAirline();
-            settings = result.settings || {};
+            settings = AES.isRecord(result.settings) ? result.settings : {};
             ensurePersonnelManagementSettings(settings);
             AES.updateSettings(function(currentSettings) {
                 ensurePersonnelManagementSettings(currentSettings);
@@ -31,13 +35,13 @@ if (PERSONNEL_MANAGEMENT_SCRIPT_ENABLED) {
 }
 
 function displayPersonnelManagement() {
-    let input = $('<input type="text" id="aes-input-personnelManagement-value" class="form-control number aes-personnel-management-value" inputmode="numeric">').val(settings.personnelManagement.value);
+    let input = $('<input type="text" id="aes-input-personnelManagement-value" class="form-control number aes-personnel-management-value" inputmode="numeric">').val(ensurePersonnelManagementSettings(settings).value);
 
     let option = [];
     option.push('<option value="absolute">AS$</option>');
     option.push('<option value="perc">%</option>');
-    let select = $('<select id="aes-select-personnelManagement-type" class="form-control aes-personnel-management-type"></select>').append(option);
-    select.val(settings.personnelManagement.type);
+    let select = $('<select id="aes-select-personnelManagement-type" class="form-control aes-personnel-management-type"></select>').append(...option);
+    select.val(ensurePersonnelManagementSettings(settings).type);
 
     let btn = $('<button type="button" class="btn btn-default aes-personnel-management-apply">Apply salaries</button>');
     let lastUpdate = $('<span id="aes-personnel-management-last-update" class="aes-personnel-management-last-update"></span>').text('No previous update');
@@ -67,34 +71,34 @@ function displayPersonnelManagement() {
 
     //actions
     select.change(function() {
-        settings.personnelManagement.type = select.val();
+        ensurePersonnelManagementSettings(settings).type = select.val() === "perc" ? "perc" : "absolute";
         AES.updateSettings(function(currentSettings) {
-            ensurePersonnelManagementSettings(currentSettings).type = settings.personnelManagement.type;
+            ensurePersonnelManagementSettings(currentSettings).type = ensurePersonnelManagementSettings(settings).type;
         }, function(updatedSettings) {
             settings = updatedSettings;
         });
     });
     input.on('input change', function() {
-        settings.personnelManagement.value = AES.cleanInteger(input.val());
+        ensurePersonnelManagementSettings(settings).value = AES.cleanInteger(input.val());
     });
     input.blur(function() {
-        input.val(settings.personnelManagement.value);
+        input.val(ensurePersonnelManagementSettings(settings).value);
         AES.updateSettings(function(currentSettings) {
-            ensurePersonnelManagementSettings(currentSettings).value = settings.personnelManagement.value;
+            ensurePersonnelManagementSettings(currentSettings).value = ensurePersonnelManagementSettings(settings).value;
         }, function(updatedSettings) {
             settings = updatedSettings;
         });
     });
 
     btn.click(function() {
-        settings.personnelManagement.type = select.val();
-        settings.personnelManagement.value = AES.cleanInteger(input.val());
-        input.val(settings.personnelManagement.value);
+        ensurePersonnelManagementSettings(settings).type = select.val() === "perc" ? "perc" : "absolute";
+        ensurePersonnelManagementSettings(settings).value = AES.cleanInteger(input.val());
+        input.val(ensurePersonnelManagementSettings(settings).value);
         setPersonnelManagementBusy(btn, true);
         AES.updateSettings(function(currentSettings) {
             let personnelSettings = ensurePersonnelManagementSettings(currentSettings);
-            personnelSettings.type = settings.personnelManagement.type;
-            personnelSettings.value = settings.personnelManagement.value;
+            personnelSettings.type = ensurePersonnelManagementSettings(settings).type;
+            personnelSettings.value = ensurePersonnelManagementSettings(settings).value;
             personnelSettings.auto = 1;
             personnelSettings.alreadyUpdated = [];
         }, function(updatedSettings) {
@@ -104,7 +108,7 @@ function displayPersonnelManagement() {
     });
 
     //Automation
-    if (settings.personnelManagement.auto) {
+    if (ensurePersonnelManagementSettings(settings).auto) {
         setPersonnelManagementBusy(btn, true);
         salaryUpdate({ actionButton: btn });
     }
@@ -120,7 +124,7 @@ function displayPersonnelManagement() {
     });
 }
 
-function salaryUpdate(options) {
+function salaryUpdate(options: AESModel.SalaryUpdateOptions = {}) {
     options = options || {};
     AES.updateSettings(function(currentSettings) {
         let personnelSettings = ensurePersonnelManagementSettings(currentSettings);
@@ -128,10 +132,10 @@ function salaryUpdate(options) {
         personnelSettings.alreadyUpdated = [];
     }, function(updatedSettings) {
         settings = updatedSettings;
-        let value = settings.personnelManagement.value;
-        let type = settings.personnelManagement.type;
+        let value = ensurePersonnelManagementSettings(settings).value;
+        let type = ensurePersonnelManagementSettings(settings).type;
         let updatedRows = 0;
-        let salaryButtons = [];
+        let salaryButtons: JQuery[] = [];
         const staffTableInfo = getStaffSalaryTableInfo();
 
         if (!staffTableInfo) {
@@ -194,7 +198,7 @@ function salaryUpdate(options) {
     });
 }
 
-function submitSalaryChanges(salaryButtons, salaryForms) {
+function submitSalaryChanges(salaryButtons: JQuery[], salaryForms: HTMLElement[]) {
     if (!salaryButtons.length) {
         return;
     }
@@ -231,8 +235,8 @@ function getStaffSalaryTableInfo() {
 }
 
 function getStaffSalaryTableCandidates() {
-    const tables = [];
-    const addTable = function(table) {
+    const tables: HTMLElement[] = [];
+    const addTable = function(table: HTMLElement | undefined) {
         if (table && tables.indexOf(table) === -1) {
             tables.push(table);
         }
@@ -251,9 +255,9 @@ function getStaffSalaryTableCandidates() {
     });
 }
 
-function getTableHeaderIndexes(table) {
-    const indexes = {};
-    const grid = [];
+function getTableHeaderIndexes(table: JQuery): AESModel.SalaryColumnIndexes {
+    const indexes: AESModel.SalaryColumnIndexes = {};
+    const grid: Array<Array<string | boolean>> = [];
 
     table.find('thead tr').each(function(rowIndex) {
         grid[rowIndex] = grid[rowIndex] || [];
@@ -290,7 +294,7 @@ function getTableHeaderIndexes(table) {
     return indexes;
 }
 
-function completeStaffSalaryTableInfo(table, tableInfo) {
+function completeStaffSalaryTableInfo(table: JQuery, tableInfo: AESModel.SalaryColumnIndexes) {
     tableInfo = tableInfo || {};
     const salaryForm = table.find('form input[name="action"][value="salary"]').closest('form').first();
     const salaryCell = salaryForm.closest('td, th');
@@ -311,7 +315,7 @@ function completeStaffSalaryTableInfo(table, tableInfo) {
     return tableInfo;
 }
 
-function normalizePersonnelHeaderText(text) {
+function normalizePersonnelHeaderText(text: unknown) {
     return String(text || '')
         .replace(/[’`´]/g, "'")
         .replace(/\s+/g, ' ')
@@ -319,20 +323,20 @@ function normalizePersonnelHeaderText(text) {
         .toLowerCase();
 }
 
-function normalizePersonnelHeaderKey(text) {
+function normalizePersonnelHeaderKey(text: unknown) {
     return normalizePersonnelHeaderText(text).replace(/[^a-z]+/g, ' ').trim();
 }
 
-function isSalaryInputHeader(text) {
+function isSalaryInputHeader(text: unknown) {
     const key = normalizePersonnelHeaderKey(text);
     return key === 'next week s salary' || key === 'next weeks salary';
 }
 
-function isCountryAverageHeader(text) {
+function isCountryAverageHeader(text: unknown) {
     return normalizePersonnelHeaderKey(text) === 'country average';
 }
 
-function isLikelyCountryAverageCell(cell) {
+function isLikelyCountryAverageCell(cell: JQuery) {
     const text = cell.text().trim();
     return !!text && /\d/.test(text) && /AS\$/i.test(text) && !cell.find('form').length;
 }
@@ -355,7 +359,7 @@ function getPersonnelManagementContentRoot() {
     return root.length ? root : $('.container-fluid:eq(2)');
 }
 
-function getPersonnelManagementInsertionTarget(heading) {
+function getPersonnelManagementInsertionTarget(heading: JQuery) {
     const feedbackPanel = heading.nextAll('.feedbackPanel').first();
     const firstNativePanel = heading.nextAll('.as-panel').first();
 
@@ -373,7 +377,7 @@ function getPersonnelNotifications() {
     return personnelNotifications;
 }
 
-function showPersonnelNotification(message, type, duration) {
+function showPersonnelNotification(message: string, type?: AESModel.NotificationType, duration?: number) {
     const notifications = getPersonnelNotifications();
     if (notifications) {
         notifications.add(message, { type: type || 'success', duration: duration });
@@ -388,29 +392,29 @@ function showPersonnelNotification(message, type, duration) {
     console.info('[AES Personnel Management] ' + message);
 }
 
-function setPersonnelManagementBusy(button, busy) {
+function setPersonnelManagementBusy(button: JQuery | undefined, busy: boolean) {
     if (button && button.length) {
         button.prop('disabled', !!busy);
     }
 }
 
-function setPersonnelLastUpdateText(target, data) {
+function setPersonnelLastUpdateText(target: JQuery, data: unknown) {
     target.text(formatPersonnelLastUpdate(data));
 }
 
-function updatePersonnelLastUpdate(data) {
+function updatePersonnelLastUpdate(data: unknown) {
     setPersonnelLastUpdateText($('#aes-personnel-management-last-update'), data);
 }
 
-function formatPersonnelLastUpdate(data) {
-    if (!data || !data.date) {
+function formatPersonnelLastUpdate(data: unknown) {
+    if (!AES.isRecord(data) || typeof data.date !== "string" || !data.date) {
         return 'No previous update';
     }
 
     return 'Last update: ' + AES.formatDateString(data.date) + (data.time ? ' ' + data.time : '');
 }
 
-function failSalaryUpdate(message, options) {
+function failSalaryUpdate(message: string, options: AESModel.SalaryUpdateOptions = {}) {
     options = options || {};
     AES.updateSettings(function(currentSettings) {
         ensurePersonnelManagementSettings(currentSettings).auto = 0;
@@ -421,7 +425,7 @@ function failSalaryUpdate(message, options) {
     });
 }
 
-function finishSalaryUpdate(message, options, callback) {
+function finishSalaryUpdate(message: string | null, options: AESModel.SalaryUpdateOptions = {}, callback?: () => void) {
     options = options || {};
     AES.updateSettings(function(currentSettings) {
         ensurePersonnelManagementSettings(currentSettings).auto = 0;
@@ -449,7 +453,7 @@ function finishSalaryUpdate(message, options, callback) {
     });
 }
 
-function getDefaultPersonnelManagementSettings() {
+function getDefaultPersonnelManagementSettings(): AESModel.PersonnelSettings {
     return {
         value: 0,
         type: 'absolute',
@@ -458,26 +462,26 @@ function getDefaultPersonnelManagementSettings() {
     };
 }
 
-function ensurePersonnelManagementSettings(targetSettings) {
-    if (!targetSettings || typeof targetSettings !== 'object') {
-        return getDefaultPersonnelManagementSettings();
-    }
-
-    if (
-        !targetSettings.personnelManagement ||
-        typeof targetSettings.personnelManagement !== 'object' ||
-        Array.isArray(targetSettings.personnelManagement)
-    ) {
-        targetSettings.personnelManagement = getDefaultPersonnelManagementSettings();
-        return targetSettings.personnelManagement;
-    }
-
-    const defaults = getDefaultPersonnelManagementSettings();
-    Object.keys(defaults).forEach(function(key) {
-        if (targetSettings.personnelManagement[key] === undefined) {
-            targetSettings.personnelManagement[key] = defaults[key];
-        }
-    });
-
-    return targetSettings.personnelManagement;
+function isPersonnelSettings(value: unknown): value is AESModel.PersonnelSettings {
+    return AES.isRecord(value) && typeof value.value === "number" && Number.isFinite(value.value) &&
+        (value.type === "absolute" || value.type === "perc") &&
+        (typeof value.auto === "number" || typeof value.auto === "boolean") && Array.isArray(value.alreadyUpdated);
 }
+
+function ensurePersonnelManagementSettings(targetSettings: Record<string, unknown>): AESModel.PersonnelSettings {
+    const value = targetSettings.personnelManagement;
+    if (isPersonnelSettings(value)) return value;
+    const defaults = getDefaultPersonnelManagementSettings();
+    const old = AES.isRecord(value) ? value : {};
+    const normalized: AESModel.PersonnelSettings = {
+        ...old,
+        value: typeof old.value === "number" && Number.isFinite(old.value) ? old.value : AES.cleanInteger(old.value ?? defaults.value),
+        type: old.type === "perc" ? "perc" : defaults.type,
+        auto: typeof old.auto === "number" || typeof old.auto === "boolean" ? old.auto : defaults.auto,
+        alreadyUpdated: Array.isArray(old.alreadyUpdated) ? old.alreadyUpdated : defaults.alreadyUpdated
+    };
+    targetSettings.personnelManagement = normalized;
+    return normalized;
+}
+
+})();

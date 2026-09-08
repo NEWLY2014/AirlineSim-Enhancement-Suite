@@ -2,10 +2,15 @@
   "name": "airlinesim-enhancement-suite",
   "version": "0.8.13",
   "scripts": {
-    "package": "scripts/package-extension.sh",
-    "test": "node test/helpers.test.js"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "build": "node scripts/build-extension.cjs",
+    "test": "npm run build && node --test test/*.test.js",
+    "package": "scripts/package-extension.sh"
   },
   "devDependencies": {
-    "jsdom": "^30.0.1"
+    "@types/chrome": "^0.2.9",
+    "@types/jquery": "^3.5.34",
+    "jsdom": "^30.0.1",
+    "typescript": "^7.0.2"
   }
 }
