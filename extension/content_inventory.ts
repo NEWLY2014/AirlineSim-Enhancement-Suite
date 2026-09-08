@@ -11,6 +11,8 @@ var inventoryRefreshTimer = 0;
 var inventoryRenderSignature = "";
 let inventoryRevision = 0;
 let inventoryActionPending = false;
+let authorizedPriceSubmit = false;
+const watchedPriceForms = new WeakSet<HTMLFormElement>();
 const inventoryNodeIds = new WeakMap<Node, number>();
 let inventoryNextNodeId = 0;
 const INVENTORY_SCRIPT_ENABLED = AES.runContentScript("content_inventory", function() {
@@ -58,6 +60,7 @@ async function rerenderInventoryModule(force: boolean) {
         return
     }
 
+    watchNativePriceSubmission();
     const nextSignature = getInventorySignature()
     if (!force && nextSignature === inventoryRenderSignature) {
         return
@@ -1105,25 +1108,73 @@ function getTargetPricingUpdates(prices: AESModel.InventoryPrices, useReferenceP
     return targetPrices;
 }
 
+function priceFormSignature(form: HTMLFormElement) {
+    return JSON.stringify([form.action, form.method, form.target]) + Array.from(form.querySelectorAll('input, select, textarea')).map(el => {
+        if (el instanceof HTMLInputElement) return [el.name, el.value, el.checked];
+        if (el instanceof HTMLSelectElement || el instanceof HTMLTextAreaElement) return [el.name, el.value];
+        return [];
+    }).map(x => JSON.stringify(x)).join('|');
+}
+
+function watchNativePriceSubmission() {
+    const form = document.querySelector('.pricing [name="submit-prices"]')?.closest('form');
+    if (!(form instanceof HTMLFormElement) || watchedPriceForms.has(form)) return;
+    watchedPriceForms.add(form);
+    form.addEventListener('submit', event => {
+        if (authorizedPriceSubmit) return;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        if (inventoryActionPending) return;
+        const submitter = event.submitter;
+        const revision = inventoryRevision;
+        let status = $('#aes-price-queue-status');
+        if (!status.length) status = $('<span id="aes-price-queue-status" role="status"></span>').insertBefore(form);
+        void runInventoryAction(async () => {
+            const signature = priceFormSignature(form);
+            const current = () => isInventoryCurrent(revision) && form.isConnected && signature === priceFormSignature(form);
+            status.text('Waiting in the page queue to submit prices...');
+            const slot = await AES.queuePage(location.href, 'price', current);
+            try {
+                if (!current() || Date.now() >= (slot.expires || 0)) throw new Error('Prices or page changed while waiting. Please review and retry.');
+                authorizedPriceSubmit = true;
+                try { form.requestSubmit(submitter instanceof HTMLButtonElement || submitter instanceof HTMLInputElement ? submitter : undefined); }
+                finally { authorizedPriceSubmit = false; }
+                status.text('Price submission dispatched.');
+            } catch (error) { await slot.cancel(); throw error; }
+        }, status, revision);
+    }, true);
+}
+
 async function submitPendingPricingUpdate(targetPrices: Partial<Record<AESModel.Cabin, number>>, status: JQuery, revision: number) {
     if (!Object.keys(targetPrices).length) throw new Error('No valid target prices were found. Prices were not submitted.');
-    const dates = {...pricingData.date};
-    for (const [date, value] of Object.entries(dates)) {
-        if (AES.isRecord(value)) {
-            const copy = {...value};
-            delete copy.pricingUpdatePending;
-            dates[date] = copy;
+    const submitter = document.querySelector<HTMLButtonElement>('.pricing [name="submit-prices"]');
+    const form = submitter?.closest('form');
+    if (!submitter || !form) throw new Error('Price submission form is unavailable.');
+    const signature = priceFormSignature(form);
+    const current = () => isInventoryCurrent(revision) && form.isConnected && signature === priceFormSignature(form);
+    status.text('Waiting in the page queue to submit prices...');
+    const slot = await AES.queuePage(location.href, 'price', current);
+    try {
+        if (!current()) throw new Error('Prices changed while waiting. Please review and retry.');
+        const dates = {...pricingData.date};
+        for (const [date, value] of Object.entries(dates)) {
+            if (AES.isRecord(value)) {
+                const copy = {...value};
+                delete copy.pricingUpdatePending;
+                dates[date] = copy;
+            }
         }
-    }
-    const snapshot = makeInventorySnapshot(analysis);
-    snapshot.pricingUpdatePending = {targetPrices, updateTime: snapshot.updateTime || ''};
-    dates[todayDate] = snapshot;
-    const next = {...pricingData, date: dates};
-    await chrome.storage.local.set({[next.key]: next});
-    if (!isInventoryCurrent(revision)) return;
-    pricingData = next;
-    $('.pricing [name="submit-prices"]').trigger('click');
-    status.removeClass().addClass('warning').text('Price update submitted but not confirmed.');
+        const snapshot = makeInventorySnapshot(analysis);
+        snapshot.pricingUpdatePending = {targetPrices, updateTime: snapshot.updateTime || ''};
+        dates[todayDate] = snapshot;
+        const next = {...pricingData, date: dates};
+        await chrome.storage.local.set({[next.key]: next});
+        if (!current() || Date.now() >= (slot.expires || 0)) throw new Error('Prices or page changed while saving. Please review and retry.');
+        pricingData = next;
+        authorizedPriceSubmit = true;
+        try { $(submitter).trigger('click'); } finally { authorizedPriceSubmit = false; }
+        status.removeClass().addClass('warning').text('Price update submitted but not confirmed.');
+    } catch (error) { await slot.cancel(); throw error; }
 }
 
 function makeInventorySnapshot(value: AESModel.InventoryAnalysis): AESModel.InventorySnapshot {

@@ -14,7 +14,7 @@ function inventory(t,{rows=row(),current=100,data={},grouped=false}={}) {
     // Resolve the controlled airline without relying on unrelated enterprise-page markup.
     p.run('AES.getAirline = AES.getCurrentAirline');
     p.submissions=[];p.closed=0;p.w.close = (() => { const close=p.w.close.bind(p.w); t.after(close); return () => {p.closed++;};})();
-    p.w.document.querySelector('form').addEventListener('submit',event=>{event.preventDefault();p.submissions.push(JSON.parse(JSON.stringify(p.saved[key])));});
+    p.w.document.querySelector('form').addEventListener('submit',event=>{event.preventDefault();p.submissions.push(p.saved[key] === undefined ? undefined : JSON.parse(JSON.stringify(p.saved[key])));});
     const get = p.w.chrome.storage.local.get;
     p.w.chrome.storage.local.get = (keys,callback) => callback ? get(keys,callback) : new Promise(resolve=>setTimeout(resolve,10)).then(()=>get(keys));
     p.load('modules/inventory/validation.js');
@@ -171,4 +171,37 @@ test('zero minimum price remains compatible with the settings editor',async t=>{
     const p=inventory(t,{data:{settings:config}});await load(p);
     assert.equal(p.w.document.querySelector('.pricing input').value,'110');
     assert.equal(p.errors.length,0);
+});
+
+test('queued price update waits before saving or submitting and rejects changed inputs',async t=>{
+    const p=inventory(t);await load(p);let grant;
+    p.w.chrome.runtime.sendMessage=(message,callback)=>message.op==='poll'?(grant=callback):callback({ok:true,state:'queued'});
+    click(p,'#aes-btn-invPricing-apply-new-prices');await until(()=>grant);
+    assert.equal(p.submissions.length,0);assert.equal(p.saved[key],undefined);
+    p.w.document.querySelector('.pricing input').value='115';grant({ok:true,state:'running',expires:Date.now()+10000});
+    await until(()=>!p.w.document.querySelector('#aes-btn-invPricing-apply-new-prices').disabled);
+    assert.equal(p.submissions.length,0);assert.equal(p.saved[key],undefined);
+});
+test('native price submit uses the same queue and ignores repeated clicks while waiting',async t=>{
+    const p=inventory(t);await load(p);let grant;let enqueues=0;
+    p.w.chrome.runtime.sendMessage=(message,callback)=>{
+        if(message.op==='enqueue')enqueues++;
+        if(message.op==='poll')grant=callback;else callback({ok:true,state:'queued'});
+    };
+    click(p,'.pricing [name="submit-prices"]');click(p,'.pricing [name="submit-prices"]');await until(()=>grant);
+    assert.equal(enqueues,1);assert.equal(p.submissions.length,0);
+    grant({ok:true,state:'running',expires:Date.now()+10000});await until(()=>p.submissions.length===1);
+    assert.equal(p.saved[key],undefined);
+});
+test('queue failure never falls back to immediate price submission',async t=>{
+    const p=inventory(t);await load(p);
+    p.w.chrome.runtime.sendMessage=(message,callback)=>callback({ok:false,error:'Queue unavailable'});
+    click(p,'#aes-btn-invPricing-apply-new-prices');await until(()=>/Queue unavailable/.test(p.w.document.body.textContent));
+    assert.equal(p.submissions.length,0);assert.equal(p.saved[key],undefined);
+});
+test('an expired queue permit cannot submit prices',async t=>{
+    const p=inventory(t);await load(p);
+    p.w.chrome.runtime.sendMessage=(message,callback)=>callback({ok:true,state:'running',expires:Date.now()-1});
+    click(p,'#aes-btn-invPricing-apply-new-prices');await until(()=>/expired/.test(p.w.document.body.textContent));
+    assert.equal(p.submissions.length,0);assert.equal(p.saved[key],undefined);
 });

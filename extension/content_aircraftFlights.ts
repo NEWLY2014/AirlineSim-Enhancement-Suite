@@ -261,7 +261,7 @@ async function startFlightProfitExtraction(type: 'all' | 'finished') {
         if (result.failed) {
             setFlightExtractionState({
                 failed: result.failed,
-                message: 'Opened ' + result.opened + '/' + result.total + ' flight data pages. Allow pop-ups and try again if any are missing.',
+                message: 'Opened ' + result.opened + '/' + result.total + ' flight data pages. Check the queue error and retry missing pages.',
                 opened: result.opened,
                 running: false,
                 tone: 'warning',
@@ -344,9 +344,6 @@ async function extractAllFlightProfit(type: 'all' | 'finished', progressCallback
             });
         }
 
-        if (i < flights.length - 1) {
-            await AES.sleep(30 + Math.floor(Math.random() * 41));
-        }
     }
 
     return {
@@ -361,52 +358,13 @@ function getFlightInfoUrl(flight: AESModel.AircraftFlight) {
     return 'https://' + aircraftFlightData.server + '.airlinesim.aero/action/info/flight?id=' + flight.id;
 }
 
-async function openFlightInfoPage(url: string) {
-    const backgroundResult = await requestBackgroundTabOpen(url);
-    if (backgroundResult.ok) {
-        return backgroundResult;
+async function openFlightInfoPage(url: string): Promise<AESModel.TabOpenResult> {
+    try {
+        await AES.queuePage(url);
+        return {ok: true};
+    } catch (error) {
+        return {ok: false, error: error instanceof Error ? error.message : String(error)};
     }
-
-    if (!AES.isPageOwner()) return { ok: false, error: 'Page ownership lost' };
-    const openedWindow = window.open(url, '_blank');
-    if (openedWindow) {
-        return { ok: true, method: 'window.open' };
-    }
-
-    return {
-        error: backgroundResult.error || 'The browser blocked the new tab.',
-        ok: false,
-    };
-}
-
-function requestBackgroundTabOpen(url: string) {
-    return new Promise<AESModel.TabOpenResult>(function(resolve) {
-        if (typeof chrome === 'undefined' || !chrome.runtime || typeof chrome.runtime.sendMessage !== 'function') {
-            resolve({
-                error: 'Extension runtime is unavailable.',
-                ok: false,
-            });
-            return;
-        }
-
-        chrome.runtime.sendMessage({
-            active: false,
-            type: 'AES_OPEN_TAB',
-            url: url,
-        }, function(response) {
-            if (chrome.runtime.lastError) {
-                resolve({
-                    error: chrome.runtime.lastError.message,
-                    ok: false,
-                });
-                return;
-            }
-
-            resolve(AES.isRecord(response) && typeof response.ok === 'boolean'
-                ? { ok: response.ok, error: typeof response.error === 'string' ? response.error : undefined }
-                : { error: 'No tab open response.', ok: false });
-        });
-    });
 }
 
 function displayFlightProfit() {

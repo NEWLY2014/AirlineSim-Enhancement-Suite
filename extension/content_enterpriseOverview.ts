@@ -145,7 +145,7 @@ function displayAutomation(actionBar: JQuery) {
             } else {
                 saveCompetitorRecord(function() {
                     btn.remove();
-                    window.open('./' + airline.id + '?tab=0', '_self');
+                    void AES.queuePage('./' + airline.id + '?tab=0', 'navigate').catch(error => AES.reportContentScriptError('page_queue', error));
                 }, function(error) {
                     compData.autoExtract = previousAutoExtract;
                     btn.prop('disabled', false);
@@ -203,7 +203,7 @@ function displayTab0(actionBar: JQuery) {
         saveCompetitorRecord(function() {
             btnSave.remove();
             span.removeClass().addClass("good").text("Overview Tab data Saved!");
-            if (compData.autoExtract) window.open('./' + airline.id + '?tab=2', '_self');
+            if (compData.autoExtract) void AES.queuePage('./' + airline.id + '?tab=2', 'navigate').catch(error => AES.reportContentScriptError('page_queue', error));
         }, function(error) {
             if (previous === undefined) delete compData.tab0[time.date];
             else compData.tab0[time.date] = previous;
@@ -251,7 +251,7 @@ function displayTab2(actionBar: JQuery) {
             saveCompetitorRecord(function() {
                 btnSave.remove();
                 span.removeClass().addClass("good").text("Fact and figures Tab data Saved!");
-                if (compData.autoExtract) window.open('./' + airline.id + '?tab=3', '_self');
+                if (compData.autoExtract) void AES.queuePage('./' + airline.id + '?tab=3', 'navigate').catch(error => AES.reportContentScriptError('page_queue', error));
             }, function(error) {
                 if (previous === undefined) delete compData.tab2[time.date];
                 else compData.tab2[time.date] = previous;
@@ -273,7 +273,7 @@ function displayTab2(actionBar: JQuery) {
         if (update) {
             btnSave.click();
         } else {
-            window.open('./' + airline.id + '?tab=3', '_self');
+            void AES.queuePage('./' + airline.id + '?tab=3', 'navigate').catch(error => AES.reportContentScriptError('page_queue', error));
         }
     }
 }

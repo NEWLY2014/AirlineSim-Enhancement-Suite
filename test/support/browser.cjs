@@ -50,6 +50,14 @@ function browser(t, { html = '', path = '/app/info/ors', data = {}, helpers = tr
             }
         } }
     };
+    const queueJobs = new Map();
+    w.chrome.runtime.sendMessage = (message, callback) => {
+        if (message.op === 'enqueue') {
+            queueJobs.set(message.id, message);
+            if (message.kind !== 'price') w.open(message.url, message.kind === 'navigate' ? '_self' : '_blank');
+        }
+        callback({ok:true,state:'running',expires:Date.now()+10000});
+    };
     const run = code => runInContext(code, dom.getInternalVMContext());
     const load = file => run(source(file));
     load('js/vendor/jquery-4.0.0.min.js');

@@ -24,7 +24,7 @@ function background(settings) {
             PageStateMatcher: function() {}, ShowAction: function() {}
         }
     };
-    runInNewContext(source, { chrome, URL });
+    runInNewContext(source, { chrome, URL, importScripts() {} });
     const message = value => {
         let response;
         const pending = listeners.message(value, {}, result => { response = snapshot(result); });
@@ -66,32 +66,4 @@ test('installation recovers missing or malformed settings containers', () => {
     const b = background({ invPricing: { recommendation: [] } });
     b.install();
     assert.equal(b.saved.settings.invPricing.recommendation.F.maxPrice, 200);
-});
-
-test('background opens only supported flight URLs and preserves active-tab behavior', () => {
-    const b = background();
-    const url = 'https://paine.airlinesim.aero/action/info/flight?id=123';
-    assert.deepEqual(b.message({ type: 'AES_OPEN_TAB', url, active: true }), {
-        pending: true, response: { ok: true, tabId: 42 }
-    });
-    assert.deepEqual(snapshot(b.opened[0]), { active: true, url });
-    b.message({ type: 'AES_OPEN_TAB', url, active: 'true' });
-    assert.equal(b.opened[1].active, false);
-    for (const invalid of [null, 123, {}, 'http://paine.airlinesim.aero/action/info/flight?id=1',
-        'https://paine.airlinesim.aero.evil.test/action/info/flight?id=1',
-        'https://paine.airlinesim.aero/app/fleets', 'https://paine.airlinesim.aero/action/info/flight']) {
-        const result = b.message({ type: 'AES_OPEN_TAB', url: invalid });
-        assert.equal(result.pending, false);
-        assert.equal(result.response.ok, false);
-    }
-    assert.equal(b.opened.length, 2);
-    assert.deepEqual(b.message(null), { pending: false, response: undefined });
-    assert.deepEqual(b.message({ type: 'other' }), { pending: false, response: undefined });
-});
-
-test('background reports Chrome tab creation errors', () => {
-    const b = background();
-    b.chrome.runtime.lastError = { message: 'Tab unavailable' };
-    assert.deepEqual(b.message({ type: 'AES_OPEN_TAB', url: 'https://paine.airlinesim.aero/action/info/flight?id=1' }).response,
-        { ok: false, error: 'Tab unavailable' });
 });

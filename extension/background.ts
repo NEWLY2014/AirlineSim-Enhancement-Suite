@@ -3,6 +3,8 @@
 // found in the LICENSE file.
 
 'use strict';
+declare function importScripts(...urls: string[]): void;
+importScripts('modules/page-queue.js');
 (() => {
 //Functions
 function setDefaultSettings() {
@@ -170,53 +172,6 @@ function setDefaultInvPricingSettings() {
     });
     return invPricing;
 }
-
-function isAllowedAESTabUrl(url: unknown): url is string {
-    if (typeof url !== 'string') return false;
-    try {
-        const parsedUrl = new URL(url);
-        return parsedUrl.protocol === 'https:' &&
-            /\.airlinesim\.aero$/.test(parsedUrl.hostname) &&
-            parsedUrl.pathname === '/action/info/flight' &&
-            parsedUrl.searchParams.has('id');
-    } catch (error) {
-        return false;
-    }
-}
-
-chrome.runtime.onMessage.addListener(function(message: unknown, sender, sendResponse) {
-    if (!isSettingsObject(message) || message.type !== 'AES_OPEN_TAB') {
-        return false;
-    }
-
-    if (!isAllowedAESTabUrl(message.url)) {
-        sendResponse({
-            error: 'Blocked unsupported tab URL.',
-            ok: false,
-        });
-        return false;
-    }
-
-    chrome.tabs.create({
-        active: message.active === true,
-        url: message.url,
-    }, function(tab) {
-        if (chrome.runtime.lastError) {
-            sendResponse({
-                error: chrome.runtime.lastError.message,
-                ok: false,
-            });
-            return;
-        }
-
-        sendResponse({
-            ok: true,
-            tabId: tab && tab.id,
-        });
-    });
-
-    return true;
-});
 
 //MAIN
 chrome.runtime.onInstalled.addListener(function() {

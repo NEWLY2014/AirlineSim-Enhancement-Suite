@@ -813,31 +813,26 @@ function buildGeneratedDashboardActions(tableOptionsRule: AESModel.DashboardGene
 
 function buildGeneratedDashboardAction(value: string, tableOptionsRule: AESModel.DashboardGeneratedTableOptions, table: JQuery) {
     switch (value) {
-        case 'selectFirstSix':
-            return $('<button type="button" class="btn btn-default">Select first 6</button>').click(function() {
-                setVisibleDashboardRowsChecked(table, true, 6);
+        case 'selectFirstTen':
+            return $('<button type="button" class="btn btn-default">Select first 10</button>').click(function() {
+                setVisibleDashboardRowsChecked(table, true, 10);
             });
         case 'openAircraft':
-            return $('<button type="button" class="btn btn-default">Open aircraft (max 6)</button>').click(function() {
+            return $('<button type="button" class="btn btn-default">Open aircraft (max 10)</button>').click(function() {
                 let btn = $(this);
                 let urls = getSelectedDashboardRows(table).filter(function(rowData) {
                     return !!rowData.aircraftId;
-                }).slice(0, 6).map(function(rowData) {
+                }).slice(0, 10).map(function(rowData) {
                     return 'https://' + server + '.airlinesim.aero/app/fleets/aircraft/' + rowData.aircraftId + '/1';
                 });
                 if (!urls.length) {
                     btn.removeClass('btn-warning').addClass('btn-default').text('No delivered aircraft selected').delay(900).queue(function(next) {
-                        $(this).text('Open aircraft (max 6)');
+                        $(this).text('Open aircraft (max 10)');
                         next();
                     });
                     return;
                 }
-                for (let i = 0; i < urls.length; i++) {
-                    window.open(urls[i], '_blank');
-                    if (i == 5) {
-                        break;
-                    }
-                }
+                queueDashboardPages(urls, btn[0]);
             });
         case 'reloadTableAircraftProfit':
             return $('<button type="button" class="btn btn-default">Reload table</button>').click(function() {
@@ -1289,8 +1284,8 @@ function ensureRouteManagementSettings() {
 function buildRouteManagementActions() {
     const actionDefinitions = [
         {
-            key: 'selectFirstSix',
-            label: 'Select first 6',
+            key: 'selectFirstTen',
+            label: 'Select first 10',
             handler: selectFirstRouteManagementRows
         },
         {
@@ -1300,7 +1295,7 @@ function buildRouteManagementActions() {
         },
         {
             key: 'openInventory',
-            label: 'Open inventory (max 6)',
+            label: 'Open inventory (max 10)',
             handler: openSelectedRouteManagementInventories
         },
         {
@@ -1325,20 +1320,40 @@ function buildRouteManagementActions() {
 }
 
 function selectFirstRouteManagementRows() {
-    setVisibleDashboardRowsChecked($('#aes-table-routeManagement'), true, 6);
+    setVisibleDashboardRowsChecked($('#aes-table-routeManagement'), true, 10);
 }
 
 function hideSelectedRouteManagementRows() {
     removeCheckedDashboardRows($('#aes-table-routeManagement'));
 }
 
-function openSelectedRouteManagementInventories() {
-    getSelectedDashboardRows($('#aes-table-routeManagement')).slice(0, 6).forEach(function(rowData) {
-        if (!rowData || !rowData.rowId) {
-            return;
+function queueDashboardPages(urls: string[], button?: HTMLElement) {
+    if (button instanceof HTMLButtonElement && button.disabled) return;
+    if (button instanceof HTMLButtonElement) button.disabled = true;
+    const revision = dashboardRevision;
+    const progress = $('<span class="aes-page-queue-status" role="status"></span>');
+    if (button) { $(button).siblings('.aes-page-queue-status').remove(); progress.insertAfter(button); }
+    void (async () => {
+        try {
+            let opened = 0;
+            for (const url of urls) {
+                progress.text(' Waiting to open ' + (opened + 1) + '/' + urls.length + '...');
+                await AES.queuePage(url, 'open', () => AES.isPageOwner() && revision === dashboardRevision);
+                opened++;
+            }
+            progress.text(' Opened ' + opened + ' pages.');
+        } catch (error) {
+            progress.text(' Page opening stopped.');
+            if (AES.isPageOwner()) AES.reportContentScriptError('page_queue', error);
         }
-        window.open('https://' + server + '.airlinesim.aero/app/com/inventory/' + rowData.rowId, '_blank');
-    });
+        finally { if (button instanceof HTMLButtonElement) button.disabled = false; }
+    })();
+}
+
+function openSelectedRouteManagementInventories(event?: JQuery.ClickEvent) {
+    const urls = getSelectedDashboardRows($('#aes-table-routeManagement')).slice(0, 10)
+        .filter(row => !!row.rowId).map(row => 'https://' + server + '.airlinesim.aero/app/com/inventory/' + row.rowId);
+    queueDashboardPages(urls, event?.currentTarget);
 }
 
 function routeManagementApplyFilter() {
@@ -2492,9 +2507,7 @@ function displayCompetitorMonitoringAirlinesTableOptions(table?: JQuery, compAir
         if (!table) {
             return;
         }
-        getSelectedCompetitorRows(table).slice(0, 6).forEach(function(rowData) {
-            window.open('/app/info/enterprises/' + rowData.airlineId, '_blank');
-        });
+        queueDashboardPages(getSelectedCompetitorRows(table).slice(0, 10).map(row => '/app/info/enterprises/' + row.airlineId), openAirlineBtn[0]);
     });
 
     showScheduleBtn.click(function() {
@@ -3241,7 +3254,7 @@ function displayAircraftProfitability() {
                             data: data,
                             columnPrefix: 'aes-aircraftProfit-',
                             tableSettings: 1,
-                            options: ['selectFirstSix', 'hideSelected', 'openAircraft', 'reloadTableAircraftProfit', 'removeAircraft'],
+                            options: ['selectFirstTen', 'hideSelected', 'openAircraft', 'reloadTableAircraftProfit', 'removeAircraft'],
                             filter: settings.aircraftProfitability.filter,
                             hideColumn: settings.aircraftProfitability.hideColumn,
                             tableSettingStorage: 'aircraftProfitability',

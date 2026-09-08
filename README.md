@@ -130,6 +130,23 @@ The possible values for `type` are:
 
 After installing dependencies, run `npx playwright install chromium` once, then
 `npm run test:browser`. This loads the generated extension in an isolated Chromium
-profile, checks its service worker, storage backup, options opening and dashboard
-injection. Game requests are fulfilled with local fixtures. The profile is removed
-after testing; live-game pricing and scheduling still require separate validation.
+profile, checks its service worker, storage backup, options opening, dashboard
+injection and paced batch navigation/price submissions. Test hostnames resolve to
+a local HTTPS fixture server, including tabs opened by the extension. The test
+requires OpenSSL to create a temporary certificate and removes its profile after
+completion; live-game acceptance still requires separate validation.
+
+### Shared page queue
+
+AES batch navigation and Inventory price submissions share one queue across tabs.
+Dashboard batches accept up to 10 selections. The queue starts one page operation
+at a time, waits for loading to finish, and leaves at least two seconds between
+operations. A stalled operation releases its slot after 30 seconds without an
+automatic retry. Pending price submissions are cancelled if the page or inputs
+change while waiting. Browser session storage preserves queue state across
+background-worker restarts; closing the browser clears the session.
+
+This paces AES-triggered operations, including native Inventory form submissions
+intercepted on initialized pages. It does not intercept unrelated manual browser
+navigation, game resource requests, or requests from a separate installed AES copy.
+The interval is a conservative default, not a verified game firewall limit.

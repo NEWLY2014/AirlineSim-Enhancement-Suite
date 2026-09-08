@@ -193,7 +193,7 @@ function extractSchedule() {
                     }
                     competitor.autoExtract = 0;
                     complete();
-                    window.open('./' + airline.id + '?tab=0', '_self');
+                    void AES.queuePage('./' + airline.id + '?tab=0', 'navigate').catch(error => AES.reportContentScriptError('page_queue', error));
                 });
             } else complete();
         });

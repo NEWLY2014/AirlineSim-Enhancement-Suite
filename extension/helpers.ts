@@ -659,13 +659,40 @@ class AES {
         return true;
     }
 
-    // Open pages with delay
+    static async pageQueueMessage(message: Record<string, unknown>): Promise<Record<string, unknown>> {
+        return new Promise((resolve, reject) => {
+            chrome.runtime.sendMessage({type: 'AES_PAGE_QUEUE', ...message}, (response: unknown) => {
+                if (chrome.runtime.lastError) { reject(new Error(chrome.runtime.lastError.message)); return; }
+                if (!AES.isRecord(response) || response.ok !== true) { reject(new Error(AES.isRecord(response) ? String(response.error || 'Page queue failed.') : 'No queue response.')); return; }
+                resolve(response);
+            });
+        });
+    }
+
+    static async queuePage(url: string, kind: 'open' | 'price' | 'navigate' = 'open', current: () => boolean = () => AES.isPageOwner()): Promise<{cancel: () => Promise<void>; expires?: number}> {
+        const sourceUrl = location.href;
+        const valid = () => current() && location.href === sourceUrl;
+        if (!valid()) throw new Error('The requesting page is no longer current.');
+        const id = crypto.randomUUID();
+        const cancel = async () => { try { await AES.pageQueueMessage({op:'cancel', id}); } catch {} };
+        try {
+            await AES.pageQueueMessage({op:'enqueue', id, url:new URL(url, location.href).href, kind});
+            while (valid()) {
+                const result = await AES.pageQueueMessage({op:'poll', id});
+                if (!valid()) break;
+                if (kind === 'price' && result.state === 'running') {
+                    if (typeof result.expires !== 'number' || Date.now() >= result.expires) throw new Error('The price submission slot expired. Please retry.');
+                    return {cancel, expires: result.expires};
+                }
+                if (result.state === 'done' || (kind !== 'price' && result.state === 'running')) return {cancel};
+                await AES.sleep(500);
+            }
+            throw new Error('Page changed while waiting in the queue.');
+        } catch (error) { await cancel(); throw error; }
+    }
+
     static async openPagesWithDelay(pages: string[]) {
-        for (let i = 0; i < pages.length; i++) {
-            if (i >= 20) break;
-            window.open(pages[i], '_blank');
-            await AES.sleep(200);  // 改成非零
-        }
+        for (const url of pages) await AES.queuePage(url);
     }
 
     /**

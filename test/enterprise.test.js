@@ -54,7 +54,8 @@ test('facts automation keeps previous history and navigates to the schedule tab'
     await until(() => p.navigations.length > 0);
     assert.deepEqual(p.saved[key].tab2['20260908'], { week: 362026, airportsServed: 3, operatedFlights: 28, seatsOffered: 2800, sko: 500000, cargoOffered: 400, fko: 60000, tab2data: 2, updateTime: '00:00 UTC', date: '20260908' });
     assert.deepEqual(p.saved[key].tab2['20260901'], { week: 352026 });
-    assert.deepEqual(p.navigations, [['./99?tab=3', '_self']]);
+    await new Promise(resolve => setImmediate(resolve)); // Let queued navigation callbacks settle.
+    assert.deepEqual(p.navigations, [['https://paine.airlinesim.aero/app/info/enterprises/99?tab=3', '_self']]);
 });
 
 test('same-week facts are not overwritten during automation', async t => {
@@ -62,7 +63,8 @@ test('same-week facts are not overwritten during automation', async t => {
     p.load('content_enterpriseOverview.js');
     await until(() => p.navigations.length > 0);
     assert.deepEqual(p.saved[key].tab2, { '20260907': { week: 362026, extra: 'keep' } });
-    assert.deepEqual(p.navigations, [['./99?tab=3', '_self']]);
+    await new Promise(resolve => setImmediate(resolve)); // Let queued navigation callbacks settle.
+    assert.deepEqual(p.navigations, [['https://paine.airlinesim.aero/app/info/enterprises/99?tab=3', '_self']]);
 });
 
 test('schedule extraction preserves segment splitting, frequencies and old snapshots', async t => {
@@ -94,7 +96,8 @@ test('legacy competitor automation finishes under the owner key without deleting
     assert.equal(p.saved[key].autoExtract, 0);
     assert.equal(p.saved[key].ownerId, '42');
     assert.deepEqual(p.saved[legacyKey], record);
-    assert.deepEqual(p.navigations, [['./99?tab=0','_self']]);
+    await new Promise(resolve => setImmediate(resolve)); // Let queued navigation callbacks settle.
+    assert.deepEqual(p.navigations, [['https://paine.airlinesim.aero/app/info/enterprises/99?tab=0','_self']]);
 });
 
 test('settings-triggered extraction resets only its flag and preserves other preferences', async t => {
@@ -102,6 +105,7 @@ test('settings-triggered extraction resets only its flag and preserves other pre
     p.load('content_flightSchedule.js');
     await until(() => p.saved.paine99schedule);
     assert.deepEqual(p.saved.settings, { schedule: { autoExtract: 0, extra: true }, keep: 42 });
+    await new Promise(resolve => setImmediate(resolve)); // Let queued navigation callbacks settle.
     assert.equal(p.navigations.length, 0);
 });
 
@@ -120,6 +124,7 @@ test('delayed competitor reads cannot resurrect completed automation in either c
         if (reverse) pending.reverse();
         pending.forEach(finish => finish());
         assert.equal(p.saved[key].autoExtract, 0);
+    await new Promise(resolve => setImmediate(resolve)); // Let queued navigation callbacks settle.
         assert.equal(p.navigations.length, 1);
         assert.ok(p.saved.paine99schedule.date['20260908']);
         assert.equal(p.errors.length, 0);
@@ -146,12 +151,14 @@ test('failed schedule writes do not complete automation or navigate, and can be 
     p.load('content_flightSchedule.js');
     await until(() => p.w.document.querySelector('#aes-schedule-status')?.textContent.includes('Write failed'));
     assert.equal(p.saved[key].autoExtract, 1);
+    await new Promise(resolve => setImmediate(resolve)); // Let queued navigation callbacks settle.
     assert.equal(p.navigations.length, 0);
     assert.equal(p.saved.paine99schedule, undefined);
     delete p.failures.set;
     p.w.document.querySelector('#aes-extractSchedule-btn').click();
     assert.ok(p.saved.paine99schedule);
     assert.equal(p.saved[key].autoExtract, 0);
+    await new Promise(resolve => setImmediate(resolve)); // Let queued navigation callbacks settle.
     assert.equal(p.navigations.length, 1);
 });
 
@@ -176,6 +183,7 @@ test('overview automation does not navigate after its history write fails', asyn
     };
     p.load('content_enterpriseOverview.js');
     await until(() => p.calls.some(c => c.values?.[key]?.tab0?.['20260908']));
+    await new Promise(resolve => setImmediate(resolve)); // Let queued navigation callbacks settle.
     assert.equal(p.navigations.length, 0);
     assert.equal(p.saved[key].tab0['20260908'], undefined);
 });
@@ -187,7 +195,8 @@ test('starting all-tab extraction on the facts tab persists the flag before navi
     const button = Array.from(p.w.document.querySelectorAll('button')).find(b => b.textContent === 'save all tab data');
     button.click();
     assert.equal(p.saved[key].autoExtract, 1);
-    assert.deepEqual(p.navigations, [['./99?tab=0', '_self']]);
+    await new Promise(resolve => setImmediate(resolve)); // Let queued navigation callbacks settle.
+    assert.deepEqual(p.navigations, [['https://paine.airlinesim.aero/app/info/enterprises/99?tab=0', '_self']]);
 });
 
 test('failed tracking writes restore the checkbox and leave the index unchanged', async t => {
@@ -214,11 +223,13 @@ test('schedule completion failure retains the automation flag and supports retry
     await until(() => p.w.document.querySelector('#aes-schedule-status')?.textContent.includes('Flag write failed'));
     assert.ok(p.saved.paine99schedule);
     assert.equal(p.saved[key].autoExtract, 1);
+    await new Promise(resolve => setImmediate(resolve)); // Let queued navigation callbacks settle.
     assert.equal(p.navigations.length, 0);
     p.w.chrome.storage.local.set = set;
     delete p.failures.set;
     p.w.document.querySelector('#aes-extractSchedule-btn').click();
     assert.equal(p.saved[key].autoExtract, 0);
+    await new Promise(resolve => setImmediate(resolve)); // Let queued navigation callbacks settle.
     assert.equal(p.navigations.length, 1);
 });
 
@@ -234,6 +245,7 @@ test('ownership loss prevents a pending schedule read from saving or navigating'
     await until(() => !p.run('AES.isPageOwner()'));
     finish();
     assert.equal(p.saved.paine99schedule, undefined);
+    await new Promise(resolve => setImmediate(resolve)); // Let queued navigation callbacks settle.
     assert.equal(p.navigations.length, 0);
 });
 

@@ -15,8 +15,9 @@ const button=(p,text)=>[...p.w.document.querySelectorAll('#aes-dashboard-root bu
 test('dashboard route totals and selected inventory action retain route identity',async t=>{
     const p=dashboard(t,'routeManagement',{paine42schedule:schedule()});await load(p,'#aes-table-routeManagement tbody tr');
     const row=p.w.document.querySelector('#aes-row-AAABBB');assert.equal(row.querySelector('.aes-paxFreq').textContent,'7');assert.equal(row.querySelector('.aes-totalFreq').textContent,'9');
-    row.querySelector('input').click();button(p,'Open inventory (max 6)').click();
+    row.querySelector('input').click();button(p,'Open inventory (max 10)').click();
     assert.deepEqual(p.opened,[['https://paine.airlinesim.aero/app/com/inventory/AAABBB','_blank']]);
+    await until(()=>!button(p,'Open inventory (max 10)').disabled);
 });
 
 test('aircraft dashboard footer averages visible rows and hide checked retains stored data',async t=>{
@@ -60,7 +61,7 @@ test('numeric filters preserve inclusive thresholds and selection ignores hidden
     const routes=schedule();routes.date['20260908'].schedule.push({...route,origin:'AAA',destination:'CCC',od:'AAACCC',flightNumber:{200:{paxFreq:8,cargoFreq:0}}});
     const p=dashboard(t,'routeManagement',{settings:{general:{defaultDashboard:'routeManagement'},routeManagement:{filter:[{filterValue:'aes-paxFreq',operation:'>',value:'8'}]}},paine42schedule:routes});await load(p,'#aes-table-routeManagement tbody tr');
     assert.equal(p.w.document.querySelector('#aes-row-AAABBB').style.display,'none');assert.equal(p.w.document.querySelector('#aes-row-AAACCC').style.display,'');
-    button(p,'Select first 6').click();button(p,'Open inventory (max 6)').click();assert.deepEqual(p.opened,[['https://paine.airlinesim.aero/app/com/inventory/AAACCC','_blank']]);
+    button(p,'Select first 10').click();button(p,'Open inventory (max 10)').click();assert.deepEqual(p.opened,[['https://paine.airlinesim.aero/app/com/inventory/AAACCC','_blank']]);await until(()=>!button(p,'Open inventory (max 10)').disabled);
 });
 
 test('column preferences survive regeneration without changing route data',async t=>{
@@ -126,7 +127,7 @@ test('aircraft removal preserves unrecognized records added after rendering',asy
 });
 
 for (const [label, message] of [
-    ['Open aircraft (max 6)', 'No delivered aircraft selected'],
+    ['Open aircraft (max 10)', 'No delivered aircraft selected'],
     ['Remove aircraft', 'Select aircraft first'],
 ]) {
     test('empty selection restores dashboard button: ' + label, {timeout:5000}, async t => {
@@ -152,4 +153,18 @@ test('empty competitor selection restores removal button without changing storag
     await new Promise(resolve=>control.promise().done(resolve));
     assert.equal(control.text(),'Remove airline');
     assert.equal(JSON.stringify(p.saved),before);
+});
+
+test('dashboard queues at most ten routes and suppresses duplicate batch clicks',async t=>{
+    const routes=schedule();routes.date['20260908'].schedule=Array.from({length:12},(_,i)=>({...route,origin:'AAA',destination:'B'+i,od:'AAAB'+i}));
+    const p=dashboard(t,'routeManagement',{paine42schedule:routes});await load(p,'#aes-table-routeManagement tbody tr');
+    p.w.document.querySelectorAll('#aes-table-routeManagement tbody input').forEach(input=>input.click());
+    const control=button(p,'Open inventory (max 10)');control.click();control.click();
+    await until(()=>!control.disabled);assert.equal(p.opened.length,10);assert.equal(new Set(p.opened.map(x=>x[0])).size,10);
+});
+test('blocked background queue never falls back to window.open',async t=>{
+    const p=dashboard(t,'routeManagement',{paine42schedule:schedule()});await load(p,'#aes-table-routeManagement tbody tr');
+    p.w.chrome.runtime.sendMessage=(message,callback)=>callback({ok:false,error:'Queue unavailable'});
+    p.w.document.querySelector('#aes-row-AAABBB input').click();button(p,'Open inventory (max 10)').click();
+    await until(()=>!button(p,'Open inventory (max 10)').disabled);assert.equal(p.opened.length,0);assert.ok(p.errors.length);
 });

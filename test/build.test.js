@@ -11,7 +11,7 @@ test('built manifest and HTML reference existing assets and classic JavaScript',
     const manifest = JSON.parse(read('manifest.json'));
     const sourceManifest = JSON.parse(readFileSync(join(__dirname, '..', 'extension', 'manifest.json'), 'utf8'));
     assert.deepEqual(manifest, sourceManifest);
-    const scripts = [manifest.background.service_worker];
+    const scripts = [manifest.background.service_worker, 'modules/page-queue.js'];
     const assets = [...Object.values(manifest.icons), manifest.options_page];
     for (const group of manifest.content_scripts) {
         scripts.push(...group.js || []);
