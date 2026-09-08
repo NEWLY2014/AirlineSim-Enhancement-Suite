@@ -39,6 +39,8 @@ The Chrome Web Store extension IDs are public and are set in the workflow:
    git push origin v0.8.8
    ```
 
+The workflow installs dependencies, runs type checking (when available for the release tag), and runs tests before packaging. Tests build and exercise the generated JavaScript. The package command rebuilds `build/extension/` and places its contents at the ZIP root; source `.ts` files are not shipped.
+
 The `Release extension` workflow packages the extension with `npm run package` and then follows the selected channel:
 
 - Beta tags upload and submit only to the Chrome Web Store beta listing. Its existing trusted-tester visibility is retained.

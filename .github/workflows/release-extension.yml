@@ -88,10 +88,11 @@ jobs:
           echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
           echo "channel=$CHANNEL" >> "$GITHUB_OUTPUT"
 
-      - name: Run tests when present
+      - name: Validate source when present
         run: |
           if [ -f release-source/test/helpers.test.js ]; then
             npm --prefix release-source ci
+            npm --prefix release-source run typecheck --if-present
             npm --prefix release-source test
           else
             echo "No test suite found; skipping npm test."
