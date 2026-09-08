@@ -1,5 +1,6 @@
 class AESMenu {
     #container
+    #legacy
     #button
     #menu
     #onOutsideClick
@@ -10,13 +11,15 @@ class AESMenu {
             return
         }
 
-        this.#container = this.#createContainer(target.tagName === "LI")
+        this.#legacy = target.tagName === "LI"
+        this.#container = this.#createContainer(this.#legacy)
         this.#button = this.#createButton()
         this.#menu = this.#createMenu()
         this.#container.append(this.#button, this.#menu)
 
         target.after(this.#container);
         this.#button.addEventListener('click', event => {
+            event.preventDefault();
             event.stopPropagation();
             this.#setOpen(this.#menu.hidden);
         });
@@ -42,7 +45,7 @@ class AESMenu {
     #createContainer(legacy) {
         const container = document.createElement(legacy ? "li" : "div")
         container.id = "aes-menu"
-        container.className = "aes-navigation"
+        container.className = legacy ? "dropdown aes-navigation-legacy" : "aes-navigation"
         return container
     }
 
@@ -51,13 +54,24 @@ class AESMenu {
      * @returns {HTMLElement} button
      */
     #createButton() {
-        const button = document.createElement("button")
-        button.type = "button"
+        const button = document.createElement(this.#legacy ? "a" : "button")
+        if (this.#legacy) {
+            button.href = "#"
+            button.setAttribute("role", "button")
+            button.addEventListener("keydown", event => {
+                if (event.key === " ") {
+                    event.preventDefault()
+                    button.click()
+                }
+            })
+        } else {
+            button.type = "button"
+        }
         button.setAttribute("tabindex", "0")
         button.setAttribute("aria-expanded", "false")
         button.setAttribute("aria-controls", "aes-menu-items")
         button.className = "dropdown-toggle"
-        button.innerHTML = `
+        button.innerHTML = this.#legacy ? 'AES <span class="caret"></span>' : `
             <svg class="aes-menu-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <rect x="3" y="3" width="7" height="7" rx="1"/>
                 <rect x="14" y="3" width="7" height="7" rx="1"/>
@@ -77,7 +91,7 @@ class AESMenu {
      */
     #createMenu() {
         const menu = document.createElement("ul")
-        menu.className = "aes-menu-items"
+        menu.className = this.#legacy ? "aes-menu-items dropdown-menu" : "aes-menu-items"
         menu.id = "aes-menu-items"
         menu.hidden = true
         const menuItems = []
@@ -159,15 +173,21 @@ class AESMenu {
             icon.className = `fa ${content.icon.className}`
         }
         if (content.data?.toggle) {
-            const button = document.createElement("button")
-            button.type = "button"
+            const button = document.createElement(this.#legacy ? "a" : "button")
+            if (this.#legacy) {
+                button.href = "#"
+                button.setAttribute("role", "button")
+            } else {
+                button.type = "button"
+            }
             button.setAttribute("tabindex", "0")
             button.style = "cursor: pointer"
             if (icon) {
                 button.append(icon)
             }
             button.append(content.label)
-            button.addEventListener('click', () => {
+            button.addEventListener('click', event => {
+                event.preventDefault();
                 document.dispatchEvent(new CustomEvent('aes:show-about'));
             });
             menuItemContent = button
@@ -194,6 +214,7 @@ class AESMenu {
 
     #setOpen(open) {
         this.#menu.hidden = !open;
+        this.#container.classList.toggle("open", open);
         this.#button.setAttribute('aria-expanded', String(open));
     }
 

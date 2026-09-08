@@ -113,7 +113,12 @@ test('menu remains valid inside legacy navbar lists', () => {
     const p = page('<nav class="as-navbar-main"><ul class="navbar-nav"><li>Database</li></ul></nav>');
     p.load('modules/aes-menu.js');
     assert.equal(p.w.document.querySelector('#aes-menu').tagName, 'LI');
-    p.w.document.querySelector('#aes-menu > button').click();
+    assert.ok(p.w.document.querySelector('#aes-menu').classList.contains('dropdown'));
+    assert.ok(p.w.document.querySelector('#aes-menu-items').classList.contains('dropdown-menu'));
+    assert.ok(p.w.document.querySelector('#aes-menu > a .caret'));
+    assert.equal(p.w.document.querySelector('#aes-menu .aes-menu-icon'), null);
+    p.w.document.querySelector('#aes-menu > a').click();
+    assert.ok(p.w.document.querySelector('#aes-menu').classList.contains('open'));
     assert.equal(p.w.document.querySelector('#aes-menu-items').hidden, false);
     p.close();
 });
