@@ -329,8 +329,24 @@ convert runtime entries to ES modules. Cross-tab storage transaction locking and
 business algorithm redesign remain outside its scope. Changes are not published
 or released by the local migration checks.
 
+## Chromium validation follow-up
+
+A real headless Chromium smoke test now passes using the compiled extension and
+a temporary profile. It verifies service-worker startup, a download backed by real
+Chrome extension storage, opening options from the popup, dashboard injection and
+tab switching. HTTPS page requests use local fixtures; no game account is accessed.
+The test closes Chromium and removes its profile on completion.
+
+Run `npx playwright install chromium` followed by `npm run test:browser`. The
+validation workflow installs Chromium with its Linux dependencies and runs this
+check before packaging. GitHub execution itself remains pending. This complements
+the 130 existing tests and does not replace live-game acceptance of pricing,
+scheduling, extraction or compatibility with actual page markup.
+
 ## Current loading workflow
 
 The final choice is to load `build/extension`. The temporary direct-source-loading
 behavior has been removed, including its 21 generated source-directory scripts.
-Builds never publish JavaScript beside TypeScript sources. Build tests reject first-party JavaScript in `extension/`. Run `npm run build` after source edits and reload the extension.
+Builds never publish JavaScript beside TypeScript sources. The Chromium smoke
+test loads the build directory, and build tests reject first-party JavaScript in
+`extension/`. Run `npm run build` after source edits and reload the extension.

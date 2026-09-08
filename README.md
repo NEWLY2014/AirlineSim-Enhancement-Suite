@@ -125,3 +125,11 @@ The possible values for `type` are:
 - Robert73 for the updated manifest file
 - Zoë Bijl for the continued development, and Robert Fridolin for the assistance
 - NEWLY2014 for the continued development
+
+### Browser smoke test
+
+After installing dependencies, run `npx playwright install chromium` once, then
+`npm run test:browser`. This loads the generated extension in an isolated Chromium
+profile, checks its service worker, storage backup, options opening and dashboard
+injection. Game requests are fulfilled with local fixtures. The profile is removed
+after testing; live-game pricing and scheduling still require separate validation.

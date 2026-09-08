@@ -5,9 +5,11 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "build": "node scripts/build-extension.cjs",
     "test": "npm run build && node --test test/*.test.js",
-    "package": "scripts/package-extension.sh"
+    "package": "scripts/package-extension.sh",
+    "test:browser": "npm run build && node --test test/browser/*.test.cjs"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@types/chrome": "^0.2.9",
     "@types/jquery": "^3.5.34",
     "jsdom": "^30.0.1",
