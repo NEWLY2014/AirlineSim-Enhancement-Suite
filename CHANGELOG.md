@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Give Release Notes section headings an explicit line height and spacing isolated from game heading styles.
+
 ### Changed
 
 - Share one paced page queue across dashboard batches, flight-data extraction and competitor extraction continuations. Dashboard batches now accept up to 10 selections. Dispatches use randomized 30–70 ms gaps without waiting for page loads.

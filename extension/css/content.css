@@ -573,10 +573,11 @@
     padding: 16px 18px;
 }
 
-.aes-release-notes-card-title {
+#aes-release-notes-dialog .aes-release-notes-card-title {
     font-size: 18px;
     font-weight: 700;
-    margin: 0 0 10px;
+    line-height: 1.4;
+    margin: 0 0 12px;
 }
 
 .aes-release-notes-list {
