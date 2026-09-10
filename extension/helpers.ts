@@ -116,13 +116,20 @@ class AES {
      * @param {function(object): void} mutator
      * @param {function(object): void} callback
      */
-    static updateSettings(mutator: (settings: Record<string, unknown>) => void, callback?: (settings: Record<string, unknown>) => void) {
+    static updateSettings(mutator: (settings: Record<string, unknown>) => void, callback?: (settings: Record<string, unknown>) => void, onError?: (error: Error) => void) {
+        const fail = (message: string) => {
+            const error = new Error(message);
+            AES.reportContentScriptError('settings', error);
+            onError?.(error);
+        };
         chrome.storage.local.get(['settings'], function(result) {
+            if (chrome.runtime.lastError) { fail(chrome.runtime.lastError.message || 'Unable to read settings.'); return; }
             let currentSettings = AES.isRecord(result.settings) ? result.settings : {};
             if (typeof mutator === 'function') {
                 mutator(currentSettings);
             }
             chrome.storage.local.set({ settings: currentSettings }, function() {
+                if (chrome.runtime.lastError) { fail(chrome.runtime.lastError.message || 'Unable to write settings.'); return; }
                 if (typeof callback === 'function') {
                     callback(currentSettings);
                 }

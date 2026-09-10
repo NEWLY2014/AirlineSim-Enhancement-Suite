@@ -55,7 +55,16 @@ test('F06: replace restore write failure retains previous data', async t => {
 });
 
 
-
+test('F10: settings helper stops on read failure', t => {
+    const p=browser(t,{data:{settings:{important:'keep'}}});
+    p.w.chrome.storage.local.get=(keys,callback)=>{
+        p.w.chrome.runtime.lastError={message:'Read failed'};
+        callback({});delete p.w.chrome.runtime.lastError;
+    };
+    p.run('AES.updateSettings(s=>s.newPreference=1,()=>window.auditReportedSuccess=true)');
+    assert.deepEqual(p.saved.settings,{important:'keep'});assert.equal(p.w.auditReportedSuccess,undefined);
+    assert.equal(p.calls.length,0);
+});
 
 
 const entry={flightCode:'AA 100',flightNumberValue:'10',flightNumberToken:'100',selectedDays:[6],daySettings:{6:{segments:{0:{arrival:{hours:'9',minutes:'30'}}}}}};
@@ -106,7 +115,11 @@ test('F06: interrupted restore copy is retained if recovery writes fail', async 
     assert.deepEqual(p.saved.settings,{a:2});
 });
 
-
+test('F10: failed settings write neither reports success nor changes preferences', t => {
+    const p=browser(t,{data:{settings:{a:1}}});p.failures.set='Write unavailable';
+    p.run('AES.updateSettings(s=>s.a=2,()=>window.success=true)');
+    assert.equal(p.w.success,undefined);assert.deepEqual(p.saved.settings,{a:1});assert.ok(p.errors.length);
+});
 
 test('F02: final validation catches arrival controls removed while saving', async t => {
     const p=await planner(t,'123','9');const originalSet=p.w.chrome.storage.local.set;
