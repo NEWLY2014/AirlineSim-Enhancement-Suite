@@ -3484,23 +3484,23 @@ function generalAddScheduleRow(tbody: JQuery) {
 
 function generalUpdateScheduleAction(td3: JQuery) {
     let btn = $('<button type="button" class="btn btn-default">Extract schedule data</button>');
+    const statusCell = td3.closest('tr').children('td').eq(1);
     const status = $('<span role="status"></span>');
     btn.on('click', async function() {
         if (btn.prop('disabled') || !AES.isPageOwner()) return;
         const revision = dashboardRevision, context = AESRead.context();
         const current = () => context() && revision === dashboardRevision;
+        statusCell.empty().append(status);
         btn.prop('disabled',true);status.removeClass().addClass('warning').text('Fetching schedule...');
         try {
             await AESRead.collectSchedule(airline, message => {if(current())status.text(message);},current);
             if (current()) {
                 status.removeClass().addClass('good').text('Schedule saved.');
-                td3.closest('tr').children('td').eq(1).text('Schedule updated just now.');
             }
         } catch (error) {
             if(current())status.removeClass().addClass('bad').text(String(error instanceof Error ? error.message : error));
         } finally {if(current())btn.prop('disabled',false);}
     });
-    td3.append(status);
     td3.append(btn);
 }
 
