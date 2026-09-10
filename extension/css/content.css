@@ -897,3 +897,24 @@
 /* Backdrop is outside the game's scoped .bootstrap tree. */
 .aes-release-notes-backdrop { position: fixed; inset: 0; z-index: 1040; background: #0008; }
 #aes-release-notes-dialog { position: fixed; inset: 0; z-index: 1050; overflow: auto; }
+
+/* Reserve one line for collection feedback; details open outside document flow. */
+.aes-read-feedback {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 28px;
+    min-width: 0;
+    width: 100%;
+    overflow: hidden;
+}
+.aes-read-feedback > [role="status"] {
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.aes-read-feedback > button { flex: none; padding: 1px 6px; }
+.aes-read-details { max-width: min(600px, 90vw); max-height: 70vh; }
+.aes-read-details pre { white-space: pre-wrap; overflow-wrap: anywhere; }

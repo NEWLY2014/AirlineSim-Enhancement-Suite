@@ -380,6 +380,7 @@ function sortDashboardTable(table: JQuery, columnClass: string, number: boolean 
             sorted.reverse();
         }
     }
+    table.data('aesSort', {columnClass, number:!!number, ascending: same ? !!number : !number});
     for (let i = 0; i < sorted.length; i++) {
         for (let j = tableRows.length - 1; j >= 0; j--) {
             let value = number ? parseDashboardNumber($(tableRows[j]).find("." + columnClass).text()) : $(tableRows[j]).find("." + columnClass).text();
@@ -1897,81 +1898,8 @@ function getLatestDateKeys(data: object | null, limit: number) {
     return latest;
 }
 
-function displayCompetitorMonitoringAirlinesTable(div: JQuery) {
-    let compAirlines: AESModel.DashboardCompetitor[] = [];
-    let compAirlinesSchedule: Record<string, AESModel.DashboardSchedule> = {};
-    let indexKey = AES.getCompetitorMonitoringIndexKey(server, airline.id);
-    let migrationFlagKey = server + ':' + airline.id + ':ownerIndexV1';
-    $('#aes-div-dashboard').off('.aesCompetitorMonitoring');
-
-    let deduplicateCompetitorAirlines = function() {
-        let seen: Record<string, boolean> = {};
-        compAirlines = compAirlines.filter(function(compAirline) {
-            if (!compAirline || !compAirline.id) {
-                return false;
-            }
-            let id = String(compAirline.id);
-            if (seen[id]) {
-                return false;
-            }
-            seen[id] = true;
-            return true;
-        });
-    };
-
-    let saveCompetitorMonitoringIndex = function() {
-        deduplicateCompetitorAirlines();
-        let competitorIds = compAirlines.map(function(compAirline) {
-            return String(compAirline.id);
-        }).filter(function(id, position, ids) {
-            return ids.indexOf(id) == position;
-        });
-        dashboardStorage.set({ [indexKey]: competitorIds }, function() {});
-    };
-
-    let removeCompetitorFromIndex = function(competitorId: string) {
-        dashboardStorage.get({ [indexKey]: [] }, function(result) {
-            let competitorIds = Array.isArray(result[indexKey]) ? result[indexKey].map(String) : [];
-            competitorIds = competitorIds.filter(function(id) {
-                return id != String(competitorId);
-            });
-            dashboardStorage.set({ [indexKey]: competitorIds }, function() {});
-        });
-    };
-
-    let renderCompetitorMonitoringError = function(message: string, error: unknown) {
-        if (error) {
-            console.error('[AES] Unable to render competitor monitoring dashboard.', error);
-        }
-        div.empty().append($('<p class="warning"></p>').text(message));
-    };
-
-    let getStoredDateRecord = function<T>(data: Record<string, T>, date: string): T | null {
-        return data && date && data[date] ? data[date] : null;
-    };
-
-    let loadSchedulesAndDisplayTable = function() {
-        deduplicateCompetitorAirlines();
-        let scheduleKeys = compAirlines.map(function(compAirline) {
-            return server + compAirline.id + 'schedule';
-        });
-
-        let displayTable = function(scheduleItems: Record<string, unknown>) {
-            try {
-                div.empty();
-                for (let key in scheduleItems) {
-                    const schedule = readDashboardSchedule(scheduleItems[key]);
-                    if (schedule && schedule.type === 'schedule' && schedule.server === server) {
-                        compAirlinesSchedule[schedule.airline.id] = schedule;
-                    }
-                }
-
-                let tableData: AESModel.DashboardRow[] = [];
-                if (compAirlines.length) {
-                    compAirlines.forEach(function myFunction(value) {
-                if (!value || !value.id) {
-                    return;
-                }
+function buildCompetitorRow(value: AESModel.DashboardCompetitor, compAirlinesSchedule: Record<string, AESModel.DashboardSchedule>): AESModel.DashboardRow {
+    const getStoredDateRecord = <T>(data: Record<string,T>, date: string): T | null => data && date && data[date] ? data[date] : null;
                 let data: AESModel.DashboardRow = {};
                 //Airline
                 data.airlineId = value.id;
@@ -2116,6 +2044,85 @@ function displayCompetitorMonitoringAirlinesTable(div: JQuery) {
                         }
                     }
                 }
+    return data;
+}
+
+function displayCompetitorMonitoringAirlinesTable(div: JQuery) {
+    let compAirlines: AESModel.DashboardCompetitor[] = [];
+    let compAirlinesSchedule: Record<string, AESModel.DashboardSchedule> = {};
+    let indexKey = AES.getCompetitorMonitoringIndexKey(server, airline.id);
+    let migrationFlagKey = server + ':' + airline.id + ':ownerIndexV1';
+    $('#aes-div-dashboard').off('.aesCompetitorMonitoring');
+
+    let deduplicateCompetitorAirlines = function() {
+        let seen: Record<string, boolean> = {};
+        compAirlines = compAirlines.filter(function(compAirline) {
+            if (!compAirline || !compAirline.id) {
+                return false;
+            }
+            let id = String(compAirline.id);
+            if (seen[id]) {
+                return false;
+            }
+            seen[id] = true;
+            return true;
+        });
+    };
+
+    let saveCompetitorMonitoringIndex = function() {
+        deduplicateCompetitorAirlines();
+        let competitorIds = compAirlines.map(function(compAirline) {
+            return String(compAirline.id);
+        }).filter(function(id, position, ids) {
+            return ids.indexOf(id) == position;
+        });
+        dashboardStorage.set({ [indexKey]: competitorIds }, function() {});
+    };
+
+    let removeCompetitorFromIndex = function(competitorId: string) {
+        dashboardStorage.get({ [indexKey]: [] }, function(result) {
+            let competitorIds = Array.isArray(result[indexKey]) ? result[indexKey].map(String) : [];
+            competitorIds = competitorIds.filter(function(id) {
+                return id != String(competitorId);
+            });
+            dashboardStorage.set({ [indexKey]: competitorIds }, function() {});
+        });
+    };
+
+    let renderCompetitorMonitoringError = function(message: string, error: unknown) {
+        if (error) {
+            console.error('[AES] Unable to render competitor monitoring dashboard.', error);
+        }
+        div.empty().append($('<p class="warning"></p>').text(message));
+    };
+
+    let getStoredDateRecord = function<T>(data: Record<string, T>, date: string): T | null {
+        return data && date && data[date] ? data[date] : null;
+    };
+
+    let loadSchedulesAndDisplayTable = function() {
+        deduplicateCompetitorAirlines();
+        let scheduleKeys = compAirlines.map(function(compAirline) {
+            return server + compAirline.id + 'schedule';
+        });
+
+        let displayTable = function(scheduleItems: Record<string, unknown>) {
+            try {
+                div.empty();
+                for (let key in scheduleItems) {
+                    const schedule = readDashboardSchedule(scheduleItems[key]);
+                    if (schedule && schedule.type === 'schedule' && schedule.server === server) {
+                        compAirlinesSchedule[schedule.airline.id] = schedule;
+                    }
+                }
+
+                let tableData: AESModel.DashboardRow[] = [];
+                if (compAirlines.length) {
+                    compAirlines.forEach(function myFunction(value) {
+                if (!value || !value.id) {
+                    return;
+                }
+                const data = buildCompetitorRow(value,compAirlinesSchedule);
                 tableData.push(data);
 
             });
@@ -2159,7 +2166,7 @@ function displayCompetitorMonitoringAirlinesTable(div: JQuery) {
             settings.competitorMonitoring.filter = normalizeDashboardFilters(settings.competitorMonitoring.filter || [], tableColumns, 'data', 'title');
             applyDashboardTableFilters(table.table, settings.competitorMonitoring.filter || [], tableColumns, 'data');
             let divRow = $('<div class="row aes-dashboard-controls"></div>').append(
-                displayCompetitorMonitoringAirlinesTableOptions(table.table, compAirlinesSchedule, div, removeCompetitorFromIndex),
+                displayCompetitorMonitoringAirlinesTableOptions(table.table, compAirlinesSchedule, div, removeCompetitorFromIndex, tableColumns),
                 displayCompetitorMonitoringAirlinesTableFilters(table.table, tableColumns),
                 displayCompetitorMonitoringAirlinesTableColumns()
             );
@@ -2491,32 +2498,70 @@ function displayCompetitorMonitoringAirlinesTableFilters(table: JQuery | null, c
     return div;
 }
 
-function displayCompetitorMonitoringAirlinesTableOptions(table?: JQuery, compAirlinesSchedule: Record<string, AESModel.DashboardSchedule> = {}, mainDiv: JQuery = $(), removeCompetitorFromIndex: (id: string) => void = () => {}) {
+function displayCompetitorMonitoringAirlinesTableOptions(table?: JQuery, compAirlinesSchedule: Record<string, AESModel.DashboardSchedule> = {}, mainDiv: JQuery = $(), removeCompetitorFromIndex: (id: string) => void = () => {}, columns: AESModel.DashboardColumn[] = []) {
     let actions = $('<div class="btn-group aes-dashboard-control-actions"></div>');
     let openAirlineBtn = $('<button type="button" class="btn btn-default">Open airline page</button>');
     let showScheduleBtn = $('<button type="button" class="btn btn-default">Show airline schedule</button>');
     let removeBtn = $('<button type="button" class="btn btn-default aes-dashboard-confirm-action">Remove airline</button>');
     let reloadBtn = $('<button type="button" class="btn btn-default">Reload table</button>');
     const refreshBtn = $('<button type="button" class="btn btn-default">Refresh selected data</button>');
-    const refreshStatus = $('<span role="status"></span>');
-    actions.append(openAirlineBtn,refreshBtn,showScheduleBtn,removeBtn,reloadBtn,refreshStatus);
+    const actionContent = $('<div></div>').append(actions);
+    const feedback = AESRead.feedback(actionContent);
+    actions.append(openAirlineBtn,refreshBtn,showScheduleBtn,removeBtn,reloadBtn);
     refreshBtn.prop('disabled',!table);
     refreshBtn.on('click',async () => {
         if (!table || refreshBtn.prop('disabled')) return;
         const rows=getSelectedCompetitorRows(table);
-        if (!rows.length){refreshStatus.text('Select airlines first.');return;}
+        if (!rows.length){feedback.show('Select airlines first.','warning');return;}
         const revision=dashboardRevision, context=AESRead.context();
         const current=()=>context() && revision===dashboardRevision;
-        refreshBtn.prop('disabled',true);let complete=0,failed=0;
+        const controls = actions.find('button').toArray();
+        const disabled = controls.map(control=>$(control).prop('disabled'));
+        controls.forEach(control=>$(control).prop('disabled',true));
+        let complete=0,failed=0;
+        const errors: string[] = [];
         for (const row of rows) {
             if (!current()) break;
             try {
                 await AESRead.collectCompetitor({id:String(row.airlineId),name:'',displayName:String(row.airlineName || ''),code:String(row.airlineCode || '')},
-                    message=>{if(current())refreshStatus.text((complete+failed+1)+'/'+rows.length+': '+message);},current);
+                    message=>{if(current())feedback.show((complete+failed+1)+'/'+rows.length+': '+message,'warning');},current);
+                await refreshRow(row);
                 complete++;
-            } catch {failed++;}
+            } catch (error) {failed++;errors.push(String(row.airlineName || row.airlineId)+': '+String(error instanceof Error ? error.message : error));}
         }
-        if(current()){refreshStatus.text('Saved '+complete+', failed '+failed+'. Reload table to view updated data.');refreshBtn.prop('disabled',false);}
+        if(current()){
+            controls.forEach((control,i)=>$(control).prop('disabled',disabled[i]));
+            feedback.show('Updated '+complete+', failed '+failed+'.',failed ? 'warning' : 'good',errors.join('\n'));
+            if(!failed) feedback.settle('Data updated just now.',current);
+        }
+        async function refreshRow(row: AESModel.DashboardRow) {
+            const id=String(row.airlineId), key=String(row.competitorMonitoringKey), scheduleKey=server+id+'schedule';
+            const stored=await chrome.storage.local.get([key,scheduleKey]);
+            if(!current()) return;
+            const competitor=readDashboardCompetitor(stored[key]);
+            if(!competitor) throw new Error('Saved data could not be refreshed. Retry collection.');
+            const schedule=readDashboardSchedule(stored[scheduleKey]);
+            if(schedule) compAirlinesSchedule[id]=schedule;
+            const data=buildCompetitorRow(competitor,compAirlinesSchedule);
+            const element=$('#aes-compMon-row-'+id,table);
+            if(!element.length) return;
+            dashboardRows.set(element[0],data);
+            columns.filter(column=>column.visible).forEach(column=>{
+                element.children('.'+getDashboardColumnClass('',column)).text(String(data[column.data] ?? ''));
+            });
+            applyDashboardTableFilters(table!,settings.competitorMonitoring.filter || [],columns,'data');
+            const sort = table!.data('aesSort');
+            if(sort) {
+                const rows = table!.find('tbody tr').toArray();
+                rows.sort((a,b)=>{
+                    const rawA=$(a).children('.'+sort.columnClass).text(), rawB=$(b).children('.'+sort.columnClass).text();
+                    const av=sort.number ? parseDashboardNumber(rawA)||0 : rawA;
+                    const bv=sort.number ? parseDashboardNumber(rawB)||0 : rawB;
+                    return (av < bv ? -1 : av > bv ? 1 : 0)*(sort.ascending ? 1 : -1);
+                });
+                table!.find('tbody').append(rows);
+            }
+        }
     });
     if (!table) {
         openAirlineBtn.prop('disabled', true);
@@ -2524,7 +2569,7 @@ function displayCompetitorMonitoringAirlinesTableOptions(table?: JQuery, compAir
         removeBtn.prop('disabled', true);
     }
     let optionsDiv = $('<div class="col-md-4"></div>').append(
-        buildDashboardControlPanel('Actions', '', actions, true)
+        buildDashboardControlPanel('Actions', '', actionContent, true)
     );
 
     openAirlineBtn.click(function() {

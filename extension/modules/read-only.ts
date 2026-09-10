@@ -1,5 +1,26 @@
 /** Read-only collection from the current game page. Never execute fetched page scripts. */
 class AESRead {
+    static feedback(host: JQuery) {
+        const line = $('<div class="aes-read-feedback"></div>');
+        const text = $('<span role="status"></span>');
+        const details = $('<button type="button" class="btn btn-default">Details</button>').css('visibility','hidden');
+        const dialog = $('<dialog class="aes-read-details"></dialog>');
+        const body = $('<pre></pre>'), close = $('<button type="button" class="btn btn-default">Close</button>');
+        dialog.append(body,close);line.append(text,details,dialog);host.append(line);
+        let timer: number | undefined;
+        details.on('click',()=> (dialog[0] as HTMLDialogElement).showModal());
+        close.on('click',()=> (dialog[0] as HTMLDialogElement).close());
+        const show = (message: string, tone = '', detail = '') => {
+            window.clearTimeout(timer);
+            text.removeClass('good bad warning').addClass(tone).text(message).attr('title',message);
+            body.text(detail);details.css('visibility',detail ? 'visible' : 'hidden');
+        };
+        const settle = (message: string, current: () => boolean) => {
+            window.clearTimeout(timer);
+            timer = window.setTimeout(()=> {if(current() && line[0].isConnected) show(message);},5000);
+        };
+        return {show,settle,line};
+    }
     static saves = new Map<string, () => boolean>();
     static context() {
         const href = location.href;

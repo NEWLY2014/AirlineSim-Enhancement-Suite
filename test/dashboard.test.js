@@ -170,3 +170,25 @@ test('blocked background queue never falls back to window.open',async t=>{
     p.w.document.querySelector('#aes-row-AAABBB input').click();button(p,'Open inventory (max 10)').click();
     await until(()=>!button(p,'Open inventory (max 10)').disabled);assert.equal(p.opened.length,0);assert.ok(p.errors.length);
 });
+
+test('competitor collection updates existing rows and schedule cache without resetting selection or sort',async t=>{
+    const record=id=>({key:`paine42_${id}competitorMonitoring`,type:'competitorMonitoring',server:'paine',ownerId:'42',id,tracking:1,tab0:{'20260908':{id,code:'OA',displayName:'Old '+id,rating:'AAA',pax:Number(id),fleet:2}},tab2:{}});
+    const p=dashboard(t,'competitorMonitoring',{paine42competitorMonitoringIndex:['99','100'],paine42_99competitorMonitoring:record('99'),paine42_100competitorMonitoring:record('100')});
+    require('./support/read-pages.cjs').install(p);
+    await load(p,'#aes-compMon-row-99');
+    const table=p.w.document.querySelector('#aes-table-competitorMonitoring'), row=p.w.document.querySelector('#aes-compMon-row-99');
+    row.querySelector('input').click();
+    const sort=p.w.$(table).find('thead a').filter((_,el)=>el.textContent==='Total pax');
+    assert.equal(sort.length,1);sort.trigger('click');
+    button(p,'Refresh selected data').click();
+    await until(()=>p.w.document.querySelector('.aes-read-feedback').textContent.includes('Updated 1, failed 0.'));
+    assert.equal(p.w.document.querySelector('#aes-table-competitorMonitoring'),table);
+    assert.equal(p.w.document.querySelector('#aes-compMon-row-99'),row);
+    assert.equal(row.querySelector('input').checked,true);
+    assert.match(row.textContent,/Other Air/);
+    assert.equal(row.querySelector('.aes-overviewTotalPax').textContent,'1000');
+    assert.equal(table.tBodies[0].rows[0],row);
+    assert.equal(button(p,'Refresh selected data').parentElement.querySelector('[role=status]'),null);
+    button(p,'Show airline schedule').click();
+    assert.match(p.w.document.querySelector('#aes-table-competitorMonitoring-airline-schedule').textContent,/AAA/);
+});
