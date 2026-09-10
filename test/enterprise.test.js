@@ -73,6 +73,7 @@ test('schedule extraction preserves segment splitting, frequencies and old snaps
     p.load('content_enterpriseOverview.js');
     await until(() => p.w.document.querySelector('#aes-panel-airline-competitive-monitoring'));
     p.w.document.querySelector('#aes-extractSchedule-btn').click();
+    await until(() => p.saved.paine99schedule?.date['20260908']);
     const result = p.saved.paine99schedule;
     assert.deepEqual(result.date['20260901'], { old: true });
     assert.equal(result.extra, 'keep');
@@ -123,6 +124,7 @@ test('delayed competitor reads cannot resurrect completed automation in either c
         await until(() => pending.length === 2);
         if (reverse) pending.reverse();
         pending.forEach(finish => finish());
+        await until(() => p.navigations.length > 0);
         assert.equal(p.saved[key].autoExtract, 0);
     await new Promise(resolve => setImmediate(resolve)); // Let queued navigation callbacks settle.
         assert.equal(p.navigations.length, 1);
@@ -138,6 +140,7 @@ test('empty or unparseable schedules leave history intact and the extract button
         p.load('content_flightSchedule.js');
         await until(() => p.w.document.querySelector('#aes-extractSchedule-btn'));
         p.w.document.querySelector('#aes-extractSchedule-btn').click();
+        await until(() => !p.w.document.querySelector('#aes-extractSchedule-btn').disabled);
         assert.deepEqual(p.saved.paine99schedule, stored);
         assert.equal(p.calls.length, 0);
         assert.equal(p.w.document.querySelector('#aes-extractSchedule-btn').disabled, false);
@@ -156,6 +159,7 @@ test('failed schedule writes do not complete automation or navigate, and can be 
     assert.equal(p.saved.paine99schedule, undefined);
     delete p.failures.set;
     p.w.document.querySelector('#aes-extractSchedule-btn').click();
+    await until(() => p.navigations.length > 0);
     assert.ok(p.saved.paine99schedule);
     assert.equal(p.saved[key].autoExtract, 0);
     await new Promise(resolve => setImmediate(resolve)); // Let queued navigation callbacks settle.
@@ -169,6 +173,7 @@ test('failed history reads preserve stored snapshots and allow retry', async t =
     await until(() => p.w.document.querySelector('#aes-extractSchedule-btn'));
     p.failures.get = 'Read failed';
     p.w.document.querySelector('#aes-extractSchedule-btn').click();
+    await until(() => !p.w.document.querySelector('#aes-extractSchedule-btn').disabled);
     assert.deepEqual(p.saved.paine99schedule, original);
     assert.equal(p.calls.length, 0);
     assert.equal(p.w.document.querySelector('#aes-extractSchedule-btn').disabled, false);
@@ -228,6 +233,7 @@ test('schedule completion failure retains the automation flag and supports retry
     p.w.chrome.storage.local.set = set;
     delete p.failures.set;
     p.w.document.querySelector('#aes-extractSchedule-btn').click();
+    await until(() => p.navigations.length > 0);
     assert.equal(p.saved[key].autoExtract, 0);
     await new Promise(resolve => setImmediate(resolve)); // Let queued navigation callbacks settle.
     assert.equal(p.navigations.length, 1);
@@ -241,9 +247,11 @@ test('ownership loss prevents a pending schedule read from saving or navigating'
     let finish;
     p.w.chrome.storage.local.get = (keys, callback) => get(keys, value => { finish = () => callback(value); });
     p.w.document.querySelector('#aes-extractSchedule-btn').click();
+    await until(() => finish);
     p.w.document.getElementById('aes-page-control').setAttribute('data-owner', 'other-extension');
     await until(() => !p.run('AES.isPageOwner()'));
     finish();
+    await new Promise(resolve => setImmediate(resolve));
     assert.equal(p.saved.paine99schedule, undefined);
     await new Promise(resolve => setImmediate(resolve)); // Let queued navigation callbacks settle.
     assert.equal(p.navigations.length, 0);
@@ -266,5 +274,50 @@ test('numeric flight number zero retains the legacy extraction behavior', async 
     p.load('content_flightSchedule.js');
     await until(() => p.w.document.querySelector('#aes-extractSchedule-btn'));
     p.w.document.querySelector('#aes-extractSchedule-btn').click();
+    await until(() => p.saved.paine99schedule);
     assert.equal(p.saved.paine99schedule.date['20260908'].schedule[0].flightNumber['0'].paxFreq, 5);
+});
+
+test('large schedule extraction yields between batches and ignores overlapping starts', async t => {
+    const body=schedule.replace(line(100,'12345'),Array.from({length:500},(_,i)=>line(1000+i,'1234567')).join(''));
+    const p=enterprise(t,3,body,{settings:{}});
+    let saves=0;const send=p.w.chrome.runtime.sendMessage;
+    p.w.chrome.runtime.sendMessage=(message,callback)=>{if(message.type==='AES_SAVE_SCHEDULE')saves++;return send(message,callback);};
+    p.load('content_flightSchedule.js');await until(()=>p.w.document.querySelector('#aes-extractSchedule-btn'));
+    const button=p.w.document.querySelector('#aes-extractSchedule-btn');
+    button.click();button.dispatchEvent(new p.w.Event('click'));
+    assert.equal(p.saved.paine99schedule,undefined,'extraction returns control before storage starts');
+    await until(()=>p.w.document.querySelector('#aes-schedule-status')?.textContent.includes('rows processed'));
+    assert.equal(p.saved.paine99schedule,undefined,'progress becomes observable before completion');
+    await until(()=>p.saved.paine99schedule);
+    assert.equal(Object.keys(p.saved.paine99schedule.date['20260908'].schedule[0].flightNumber).length,501);
+    assert.equal(saves,1);
+});
+
+test('ownership loss during a large extraction aborts before requesting a save',async t=>{
+    const body=schedule.replace(line(100,'12345'),Array.from({length:500},(_,i)=>line(1000+i,'1234567')).join(''));
+    const original={type:'schedule',date:{20260901:{keep:true}}};
+    const p=enterprise(t,3,body,{settings:{},paine99schedule:original});
+    let saves=0;const send=p.w.chrome.runtime.sendMessage;
+    p.w.chrome.runtime.sendMessage=(message,callback)=>{if(message.type==='AES_SAVE_SCHEDULE')saves++;return send(message,callback);};
+    p.load('content_flightSchedule.js');await until(()=>p.w.document.querySelector('#aes-extractSchedule-btn'));
+    p.w.document.querySelector('#aes-extractSchedule-btn').click();
+    await until(()=>p.w.document.querySelector('#aes-schedule-status')?.textContent.includes('rows processed'));
+    p.w.document.getElementById('aes-page-control').setAttribute('data-owner','other-extension');
+    await until(()=>!p.run('AES.isPageOwner()'));
+    await new Promise(resolve=>setTimeout(resolve,20));
+    assert.equal(saves,0);assert.deepEqual(p.saved.paine99schedule,original);
+});
+
+test('changing schedule rows between extraction batches preserves the previous snapshot',async t=>{
+    const body=schedule.replace(line(100,'12345'),Array.from({length:500},(_,i)=>line(1000+i,'1234567')).join(''));
+    const original={type:'schedule',date:{20260901:{keep:true}}};
+    const p=enterprise(t,3,body,{settings:{},paine99schedule:original});
+    p.load('content_flightSchedule.js');await until(()=>p.w.document.querySelector('#aes-extractSchedule-btn'));
+    p.w.document.querySelector('#aes-extractSchedule-btn').click();
+    await until(()=>p.w.document.querySelector('#aes-schedule-status')?.textContent.includes('rows processed'));
+    p.w.document.querySelector('.flight-schedule .days').textContent='1';
+    await until(()=>p.w.document.querySelector('#aes-schedule-status')?.textContent.includes('Schedule changed'));
+    assert.deepEqual(p.saved.paine99schedule,original);
+    assert.equal(p.w.document.querySelector('#aes-extractSchedule-btn').disabled,false);
 });

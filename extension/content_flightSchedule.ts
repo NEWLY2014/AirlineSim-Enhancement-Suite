@@ -7,6 +7,7 @@ var server: string;
 var airline: AESModel.Airline;
 var ownerAirline: AESModel.Airline;
 var date: { date: string; time: string };
+let extracting = false;
 const FLIGHT_SCHEDULE_SCRIPT_ENABLED = AES.runContentScript("content_flightSchedule", function() {
     server = AES.getServerName();
     airline = AES.getAirline();
@@ -86,7 +87,9 @@ function initializeFlightSchedule(result: Record<string, unknown>) {
     }
 }
 
-function extractSchedule() {
+async function extractSchedule() {
+    if (extracting || !AES.isPageOwner()) return;
+    extracting = true;
     // Update UI
     $('#aes-schedule-status').remove();
     let span = $('<span id="aes-schedule-status" class="warning"></span>').text('Extracting...');
@@ -97,112 +100,124 @@ function extractSchedule() {
         button.prop('disabled', false);
     };
 
-    // Pull every table-body and build an array of route-segments
-    let tbodyList = $('.flight-schedule table tbody');
-    let schedule: AESModel.ScheduleRoute[] = [];
-
-    for (let i = 0; i < tbodyList.length; i++) {
-        let destinationCount = 0;
-        let rows = $<HTMLTableRowElement>('tr', tbodyList[i]);
-        let route: Partial<AESModel.ScheduleRoute> = {};
-
-        for (let j = 0; j < rows.length; j++) {
-            let cls = rows[j].className;
-
-            if (cls === 'important origin') {
-                // origin row
-                route.origin = $('a', rows[j]).text();
-
-            } else if (cls === 'destination') {
-                // on a second+ destination, push the prior segment
-                if (destinationCount) {
-                    if (isCompleteScheduleRoute(route)) schedule.push(route);
-                    route = { origin: route.origin };
+    // Let the status paint first, then bound each parsing turn by time and row count.
+    let scheduleChanged = false;
+    const observer = new MutationObserver(changes => {
+        if (changes.some(change => {
+            const target = change.target instanceof Element ? change.target : change.target.parentElement;
+            return !target?.closest('#aes-panel-schedule, #aes-schedule-heading');
+        })) scheduleChanged = true;
+    });
+    for (const container of document.querySelectorAll('.flight-schedule')) {
+        observer.observe(container, {subtree:true, childList:true, characterData:true, attributes:true});
+    }
+    let processed = 0;
+    let turnStarted = performance.now();
+    let turnRows = 0;
+    const yieldToPage = async () => {
+        await new Promise<void>(resolve => window.setTimeout(resolve, 0));
+        if (!AES.isPageOwner()) throw new Error('Page ownership lost.');
+        if (scheduleChanged) throw new Error('Schedule changed during extraction. Please try again.');
+        turnStarted = performance.now();
+        turnRows = 0;
+    };
+    const needsYield = () => ++turnRows >= 100 || performance.now() - turnStarted >= 8;
+    try {
+        await yieldToPage();
+        const schedule: AESModel.ScheduleRoute[] = [];
+        for (const tbody of document.querySelectorAll('.flight-schedule table tbody')) {
+            let destinationCount = 0;
+            let route: Partial<AESModel.ScheduleRoute> = {};
+            // Walking siblings avoids materializing a second array of every flight row.
+            for (let child = tbody.firstElementChild; child; child = child.nextElementSibling) {
+                if (!(child instanceof HTMLTableRowElement)) continue;
+                const cls = child.className;
+                if (cls === 'important origin') {
+                    route.origin = scheduleCellText(child, 'a');
+                } else if (cls === 'destination') {
+                    if (destinationCount && isCompleteScheduleRoute(route)) schedule.push(route);
+                    if (destinationCount) route = {origin: route.origin};
+                    route.destination = scheduleCellText(child, 'a');
+                    destinationCount++;
+                } else if (cls !== 'head') {
+                    const remark = scheduleCellText(child, '.remarks');
+                    if (!remark.includes('via')) route = getLineDetails(child, route, remark);
                 }
-                route.destination = $('a', rows[j]).text();
-                destinationCount++;
-
-            } else if (cls !== 'head') {
-                // line-detail row; skip A→C “via B” rows
-                let remarkText = $(".remarks", rows[j]).text();
-                if (remarkText.includes('via')) continue;
-
-                route = getLineDetails(rows[j], route);
+                processed++;
+                if (needsYield()) {
+                    span.text('Extracting... ' + processed.toLocaleString() + ' rows processed');
+                    await yieldToPage();
+                }
             }
+            if (isCompleteScheduleRoute(route)) schedule.push(route);
+        }
+        if (!schedule.length) throw new Error('No flight segments found. Existing schedule data was kept.');
+
+        span.text('Preparing ' + schedule.length.toLocaleString() + ' routes...');
+        const hub: Record<string, number> = {};
+        for (const route of schedule) {
+            hub[route.origin] = (hub[route.origin] || 0) + 1;
+            if (needsYield()) await yieldToPage();
+        }
+        for (const route of schedule) {
+            if (hub[route.origin] > hub[route.destination]) { route.od = route.origin + route.destination; route.direction = 'Outbound'; }
+            else if (hub[route.origin] < hub[route.destination]) { route.od = route.destination + route.origin; route.direction = 'Inbound'; }
+            else if (route.origin < route.destination) { route.od = route.origin + route.destination; route.direction = 'Outbound'; }
+            else { route.od = route.destination + route.origin; route.direction = 'Inbound'; }
+            if (needsYield()) await yieldToPage();
         }
 
-        // push the last segment for this table
-        if (isCompleteScheduleRoute(route)) schedule.push(route);
-    }
-
-    if (!schedule.length) {
-        fail('No flight segments found. Existing schedule data was kept.');
-        return;
-    }
-
-    // build hub counts for OD logic
-    let hub: Record<string, number> = {};
-    schedule.forEach(r => { hub[r.origin] = (hub[r.origin]||0) + 1 });
-
-    // assign od & direction
-    schedule.forEach(route => {
-        if      (hub[route.origin] > hub[route.destination]) { route.od = route.origin + route.destination; route.direction = 'Outbound'; }
-        else if (hub[route.origin] < hub[route.destination]) { route.od = route.destination + route.origin; route.direction = 'Inbound';  }
-        else {
-            if (route.origin < route.destination) {
-                route.od = route.origin + route.destination; route.direction = 'Outbound';
-            } else {
-                route.od = route.destination + route.origin; route.direction = 'Inbound';
-            }
-        }
-    });
-
-    // save into chrome.storage
-    let newScheduleData: AESModel.ScheduleSnapshot = { date: date.date, updateTime: date.time, schedule };
-    let key = server + airline.id + 'schedule';
-    let defaultScheduleData: AESModel.ScheduleRecord = { type: 'schedule', server, airline, date: {} };
-
-    chrome.storage.local.get({ [key]: defaultScheduleData }, function(result) {
-        if (!AES.isPageOwner()) return;
-        if (chrome.runtime.lastError) {
-            fail('Unable to read schedule history: ' + chrome.runtime.lastError.message);
-            return;
-        }
-        const old = AES.isRecord(result[key]) ? result[key] : {};
-        const scheduleData: AESModel.ScheduleRecord = {
-            ...old, type: 'schedule', server, airline,
-            date: { ...(AES.isRecord(old.date) ? old.date : {}), [date.date]: newScheduleData }
-        };
-        chrome.storage.local.set({ [key]: scheduleData }, function() {
-            if (!AES.isPageOwner()) return;
-            if (chrome.runtime.lastError) {
-                fail('Unable to save schedule: ' + chrome.runtime.lastError.message);
-                return;
-            }
-            const complete = () => {
-                span.removeClass().addClass('good').text('Schedule extracted!');
-                button.remove();
-            };
-            const competitor = compData;
-            if (competitor?.autoExtract) {
-                chrome.storage.local.set({ [competitor.key]: { ...competitor, autoExtract: 0 } }, function() {
-                    if (!AES.isPageOwner()) return;
-                    if (chrome.runtime.lastError) {
-                        fail('Schedule saved, but automation could not be completed: ' + chrome.runtime.lastError.message);
-                        return;
-                    }
-                    competitor.autoExtract = 0;
-                    complete();
-                    void AES.queuePage('./' + airline.id + '?tab=0', 'navigate').catch(error => AES.reportContentScriptError('page_queue', error));
-                });
-            } else complete();
+        span.text('Saving ' + schedule.length.toLocaleString() + ' routes...');
+        await yieldToPage();
+        // Only today's snapshot crosses the page boundary. Historical records stay in the worker.
+        await new Promise<void>((resolve, reject) => {
+            chrome.runtime.sendMessage({type:'AES_SAVE_SCHEDULE', airline,
+                snapshot:{date:date.date, updateTime:date.time, schedule}}, (response: unknown) => {
+                if (chrome.runtime.lastError) { reject(new Error(chrome.runtime.lastError.message)); return; }
+                if (!AES.isRecord(response) || response.ok !== true) {
+                    reject(new Error(AES.isRecord(response) ? String(response.error) : 'Schedule storage is unavailable.')); return;
+                }
+                resolve();
+            });
         });
-    });
+        if (!AES.isPageOwner()) return;
+        const competitor = compData;
+        const automatedCompetitorSave = !!competitor?.autoExtract;
+        if (competitor?.autoExtract) {
+            await new Promise<void>((resolve, reject) => chrome.storage.local.set({[competitor.key]: {...competitor, autoExtract:0}}, () => {
+                if (chrome.runtime.lastError) reject(new Error('Schedule saved, but automation could not be completed: ' + chrome.runtime.lastError.message));
+                else resolve();
+            }));
+            if (!AES.isPageOwner()) return;
+            competitor.autoExtract = 0;
+        }
+        span.removeClass().addClass('good').text('Schedule extracted!');
+        button.remove();
+        if (competitor && automatedCompetitorSave) {
+            void AES.queuePage('./' + airline.id + '?tab=0', 'navigate').catch(error => AES.reportContentScriptError('page_queue', error));
+        }
+    } catch (error) {
+        if (AES.isPageOwner()) fail(error instanceof Error ? error.message : String(error));
+    } finally {
+        observer.disconnect();
+        extracting = false;
+    }
 }
 
-function getLineDetails(row: HTMLTableRowElement, route: Partial<AESModel.ScheduleRoute>) {
+// Recheck ownership after the background has read history, before it commits a save.
+chrome.runtime.onMessage.addListener((message: unknown, sender, reply) => {
+    if (!AES.isRecord(message) || message.type !== 'AES_SCHEDULE_OWNER_CHECK') return false;
+    reply({ok: sender.id === chrome.runtime.id && extracting && AES.isPageOwner()});
+    return false;
+});
+
+function scheduleCellText(row: HTMLTableRowElement, selector: string) {
+    return row.querySelector(selector)?.textContent || '';
+}
+
+function getLineDetails(row: HTMLTableRowElement, route: Partial<AESModel.ScheduleRoute>, remark: string) {
     // parse flight number
-    let parts = $(".code:eq(0)", row).text().trim().split(/\s+/);
+    let parts = scheduleCellText(row, '.code').trim().split(/\s+/);
     let flightNumber = parseInt(parts[1], 10);
 
     if (!/^\d+$/.test(parts[1] || '') || !Number.isSafeInteger(flightNumber)) return route;
@@ -211,8 +226,7 @@ function getLineDetails(row: HTMLTableRowElement, route: Partial<AESModel.Schedu
     if (!route.flightNumber) route.flightNumber = {};
 
     // always re-initialize the entry
-    let remark = $(".remarks", row).text();
-    let valid  = $(".valid", row).text();
+    let valid  = scheduleCellText(row, '.valid');
 
     route.flightNumber[flightNumber] = {
         paxFreq:   0,
@@ -222,7 +236,7 @@ function getLineDetails(row: HTMLTableRowElement, route: Partial<AESModel.Schedu
     };
 
     // count days: cargo vs pax based on remark
-    let days   = $(".days", row).text().split('');
+    let days   = scheduleCellText(row, '.days').split('');
     let isCargo = remark.includes('CARGO FLIGHT');
 
     for (let d of days) {
