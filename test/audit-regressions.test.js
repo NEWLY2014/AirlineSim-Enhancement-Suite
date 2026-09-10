@@ -80,7 +80,16 @@ test('F10: settings helper stops on read failure', t => {
     assert.deepEqual(p.saved.settings,{important:'keep'});assert.equal(p.w.auditReportedSuccess,undefined);
     assert.equal(p.calls.length,0);
 });
-
+test('F09: hub summary preserves every name and count', async t => {
+    const key='paine42_99competitorMonitoring';
+    const route=od=>({origin:od.slice(0,3),destination:od.slice(3),od,flightNumber:{1:{paxFreq:7,cargoFreq:0}}});
+    const p=await dash(t,'competitorMonitoring',{paine42competitorMonitoringIndex:['99'],[key]:{key,type:'competitorMonitoring',server:'paine',ownerId:'42',id:'99',tracking:1,tab0:{20260908:{displayName:'Other'}},tab2:{}},paine99schedule:{type:'schedule',server:'paine',airline:{id:'99'},date:{20260908:{schedule:[route('AAABBB'),route('CCCDDD')]}}}});
+    await until(()=>p.w.document.querySelector('#aes-compMon-row-99'));
+    const choice=p.w.document.querySelector('.aes-dashboard-column-choice input[value="scheduleHubs"]');
+    if(choice&&!choice.checked)choice.click();
+    await until(()=>p.w.document.querySelector('.aes-scheduleHubs'));
+    assert.equal(p.w.document.querySelector('td.aes-scheduleHubs').textContent,'AAA (1), CCC (1)');
+});
 
 const entry={flightCode:'AA 100',flightNumberValue:'10',flightNumberToken:'100',selectedDays:[6],daySettings:{6:{segments:{0:{arrival:{hours:'9',minutes:'30'}}}}}};
 const jobKey='paine42flightPlanSchedulingJob';

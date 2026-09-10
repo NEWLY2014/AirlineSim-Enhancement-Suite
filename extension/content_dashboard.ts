@@ -2074,13 +2074,7 @@ function displayCompetitorMonitoringAirlinesTable(div: JQuery) {
                         hubArray.sort(function(a, b) {
                             return b[1] - a[1];
                         });
-                        data.scheduleHubs = '';
-                        hubArray.forEach(function(hubA, index) {
-                            if (index) {
-                                data.scheduleHubs = Number(data.scheduleHubs || 0) + (', ');
-                            }
-                            data.scheduleHubs = Number(data.scheduleHubs || 0) + (hubA[0] + ' (' + hubA[1] + ')');
-                        });
+                        data.scheduleHubs = hubArray.map(hub => hub[0] + ' (' + hub[1] + ')').join(', ');
 
                         //Previous schedule data
                         if (schedulePrevious && Array.isArray(schedulePrevious.schedule)) {
