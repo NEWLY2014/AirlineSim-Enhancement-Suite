@@ -53,7 +53,15 @@ test('F02: unavailable template arrival hour prevents submission', async t => {
     assert.equal(p.submissions,0);
     assert.equal(p.w.document.querySelector('select[name="segmentsContainer:segments:0:newArrivals:0:newArrival:hours"]').value,'8');
 });
-
+test('F03: second already-open aircraft page cannot replace an active job', async t => {
+    const p=await planner(t,'123','9'),q=await planner(t,'456','9');
+    // Both pages have already loaded an empty job snapshot. Share storage from now on.
+    q.w.chrome.storage.local=p.w.chrome.storage.local;
+    q.w.chrome.runtime.sendMessage=(message,reply)=>p.dispatch(message,q.sender,reply);
+    btn(p,'Start scheduling').click();await until(()=>p.submissions);
+    btn(q,'Start scheduling').click();await until(()=>q.errors.length);
+    assert.equal(p.saved[jobKey].targetAircraftId,'123');assert.equal(p.submissions,1);assert.equal(q.submissions,0);
+});
 
 
 

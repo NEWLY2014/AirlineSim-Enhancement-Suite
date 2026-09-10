@@ -82,7 +82,8 @@ test('old template versions are removed and another aircraft job disables schedu
     assert.equal(p.saved[jobKey].status,'selecting');
     assert.equal(p.submissions.length,0);
     button(p,'Stop scheduling').click();
-    await until(() => !p.saved[jobKey]);
+    await until(() => /target aircraft/.test(p.w.document.querySelector('#aes-aircraft-flight-plan-runtime').textContent));
+    assert.equal(p.saved[jobKey].targetAircraftId,'999');
 });
 
 test('changing the flight selector saves waitForSelection without submitting a form', async t => {

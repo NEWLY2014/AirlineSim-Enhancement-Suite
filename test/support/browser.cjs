@@ -2,6 +2,7 @@ const { readFileSync } = require('node:fs');
 const { join } = require('node:path');
 const { runInContext } = require('node:vm');
 const { JSDOM } = require('jsdom');
+const {coordinator, sender} = require('./coordinator.cjs');
 const snapshot = value => value === undefined ? undefined : JSON.parse(JSON.stringify(value));
 const source = file => readFileSync(join(__dirname, '../../build/extension', file), 'utf8');
 
@@ -51,7 +52,10 @@ function browser(t, { html = '', path = '/app/info/ors', data = {}, helpers = tr
         } }
     };
     const queueJobs = new Map();
+    const dispatch = coordinator(w.chrome);
+    const pageSender = sender(w.location.href);
     w.chrome.runtime.sendMessage = (message, callback) => {
+        if (dispatch(message, pageSender, callback)) return;
         if (message.op === 'enqueue') {
             queueJobs.set(message.id, message);
             if (message.kind !== 'price') w.open(message.url, message.kind === 'navigate' ? '_self' : '_blank');
@@ -66,7 +70,7 @@ function browser(t, { html = '', path = '/app/info/ors', data = {}, helpers = tr
         if (helpers) run('AES._ownershipLostCallbacks.forEach(fn => fn()); AES._pageControlObserver?.disconnect();');
         w.close();
     });
-    return { w, run, load, saved, calls, failures, errors };
+    return { w, run, load, saved, calls, failures, errors, dispatch, sender:pageSender };
 }
 async function until(check) {
     for (let i = 0; i < 100; i++) {

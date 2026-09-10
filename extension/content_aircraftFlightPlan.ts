@@ -20,6 +20,7 @@ const aircraftFlightPlanState: AESModel.FlightPlanState = {
 class FlightPlanCancelled extends Error {}
 let activeRun: { job: AESModel.FlightPlanJob; cancelled: boolean } | null = null;
 let startingJob = false;
+let jobToken: string | null = null;
 
 function afp_assertPageOwner() {
     if (!AES.isPageOwner()) throw new FlightPlanCancelled('Page ownership lost');
@@ -95,6 +96,9 @@ async function aircraftFlightPlanInit() {
         aircraftFlightPlanState.templateStale = false;
     }
 
+    if (aircraftFlightPlanState.job && String(aircraftFlightPlanState.job.targetAircraftId) === aircraftFlightPlanState.aircraft.id) {
+        await afp_jobMessage('claim');
+    }
     afp_renderPanel();
     afp_watchFlightPlanHubData();
     window.setTimeout(function() {
@@ -112,6 +116,19 @@ function afp_getTemplateKey() {
 
 function afp_getJobKey() {
     return aircraftFlightPlanState.server + aircraftFlightPlanState.airline.id + 'flightPlanSchedulingJob';
+}
+
+async function afp_jobMessage(op: 'create' | 'claim' | 'save' | 'clear' | 'check', job?: AESModel.FlightPlanJob) {
+    afp_assertPageOwner();
+    const response = await new Promise<Record<string, unknown>>((resolve, reject) => {
+        chrome.runtime.sendMessage({type:'AES_FLIGHT_PLAN_JOB', op, key:afp_getJobKey(), token:jobToken, job}, response => {
+            if (chrome.runtime.lastError) { reject(new Error(chrome.runtime.lastError.message)); return; }
+            if (!AES.isRecord(response) || response.ok !== true) { reject(new Error(AES.isRecord(response) ? String(response.error) : 'Scheduling service unavailable.')); return; }
+            resolve(response);
+        });
+    });
+    afp_assertPageOwner();
+    if (typeof response.token === 'string') jobToken = response.token;
 }
 
 function afp_getOffsetDaysKey() {
@@ -880,7 +897,7 @@ async function afp_startScheduling(offsetDays: number) {
             type: 'aircraftFlightPlanSchedulingJob',
         };
 
-        await afp_storageSet({ [afp_getJobKey()]: job });
+        await afp_jobMessage('create', job);
         aircraftFlightPlanState.job = job;
         afp_setRuntimeMessage('Scheduling started.', 'warning');
         afp_renderPanel();
@@ -893,7 +910,9 @@ async function afp_startScheduling(offsetDays: number) {
 
 async function afp_clearJob(notifyUser: boolean) {
     if (activeRun && notifyUser) activeRun.cancelled = true;
-    await afp_storageRemove([afp_getJobKey()]);
+    if (!jobToken) await afp_jobMessage('claim');
+    await afp_jobMessage('clear');
+    jobToken = null;
     aircraftFlightPlanState.job = null;
     aircraftFlightPlanState.jobInvalid = false;
     if (notifyUser) {
@@ -1352,7 +1371,7 @@ async function afp_saveJob() {
     if (!aircraftFlightPlanState.job) {
         return;
     }
-    await afp_storageSet({ [afp_getJobKey()]: aircraftFlightPlanState.job });
+    await afp_jobMessage('save', aircraftFlightPlanState.job);
 }
 
 async function afp_completeJob() {

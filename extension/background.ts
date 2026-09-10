@@ -5,6 +5,7 @@
 'use strict';
 declare function importScripts(...urls: string[]): void;
 importScripts('modules/page-queue.js');
+importScripts('modules/storage-coordinator.js');
 (() => {
 //Functions
 function setDefaultSettings() {
