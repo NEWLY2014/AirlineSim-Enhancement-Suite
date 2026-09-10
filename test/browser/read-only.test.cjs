@@ -1,0 +1,57 @@
+const {test}=require('node:test');
+const assert=require('node:assert/strict');
+const {chromium}=require('@playwright/test');
+const {mkdtemp,rm,readFile}=require('node:fs/promises');
+const {tmpdir}=require('node:os');
+const {join,resolve}=require('node:path');
+const {createServer}=require('node:https');
+const {execFileSync}=require('node:child_process');
+const {frontend,financial,enterprise}=require('../support/read-pages.cjs');
+
+test('Chrome performs read-only batches in the initiating pages with shared pacing and no new tabs', {timeout:60000},async t=>{
+    const profile=await mkdtemp(join(tmpdir(),'aes-read-browser-'));let context,server;const requests=[];
+    t.after(async()=>{if(context)await context.close();if(server){server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}await rm(profile,{recursive:true,force:true});});
+    execFileSync('openssl',['req','-x509','-newkey','rsa:2048','-nodes','-keyout',join(profile,'key.pem'),'-out',join(profile,'cert.pem'),'-days','1','-subj','/CN=paine.airlinesim.aero'],{stdio:'ignore'});
+    const header=frontend()+'<div id="header"><div><button aria-haspopup="menu"><span class="_name_test">AES Airlines</span></button><div role="menubar"></div></div></div>';
+    const row=(id,status)=>`<tr><td></td><td>AA ${id}</td><td><span>AAA</span></td><td><span>08.09. 01:00 UTC</span></td><td><span>BBB</span></td><td><span>08.09. 03:00 UTC</span></td><td class="flightStatusPanel">${status}</td><td><a href="/action/info/flight?id=${id}">Details</a></td></tr>`;
+    const aircraft=header+'<div class="bootstrap container-fluid"><h1><span>AA-123</span><span>A320</span></h1><div class="as-table-well"><table id="aircraft-flight-instances-table"><thead><tr>'+Array.from({length:8},()=>'<th>Column</th>').join('')+'</tr></thead><tbody>'+row(1,'finished')+row(2,'inflight')+row(3,'scheduled')+'</tbody></table></div></div>';
+    server=createServer({key:await readFile(join(profile,'key.pem')),cert:await readFile(join(profile,'cert.pem'))},(req,res)=>{
+        const url=new URL(req.url,'https://paine.airlinesim.aero');
+        if(req.headers['sec-fetch-dest']==='empty' && (url.pathname === '/action/info/flight' || url.pathname.startsWith('/app/info/enterprises/'))){
+            const request={url:req.url,time:Date.now(),method:req.method,cookie:req.headers.cookie};requests.push(request);
+            res.on('finish',()=>{request.finished=Date.now();});
+        }
+        const body=url.pathname.includes('/action/info/flight')?financial():url.pathname.includes('/app/info/enterprises/')?header+'<div class="bootstrap container-fluid"><h1>Enterprises</h1>'+enterprise(url.searchParams.get('tab')||'0')+'</div>':url.pathname.includes('/app/fleets/aircraft/')?aircraft:header+'<div class="bootstrap container-fluid"><h1>Dashboard</h1><div id="enterprise-dashboard"></div></div>';
+        req.resume();res.writeHead(200,{'Content-Type':'text/html','Cache-Control':'no-store'});res.end(body);
+    });
+    await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+    const extension=resolve('build/extension');
+    context=await chromium.launchPersistentContext(profile,{channel:'chromium',headless:true,ignoreHTTPSErrors:true,args:[`--disable-extensions-except=${extension}`,`--load-extension=${extension}`,`--host-resolver-rules=MAP * 127.0.0.1:${server.address().port}`,'--no-proxy-server','--ignore-certificate-errors']});
+    await context.addCookies([{name:'aesFixtureSession',value:'local-only',url:'https://paine.airlinesim.aero'}]);
+    const worker=context.serviceWorkers()[0]||await context.waitForEvent('serviceworker');
+    await worker.evaluate(async()=>{
+        await chrome.storage.local.set({aesReleaseNotesSeenVersion:'0.8.13',settings:{general:{defaultDashboard:'general'}},paine42_99competitorMonitoring:{key:'paine42_99competitorMonitoring',type:'competitorMonitoring',server:'paine',id:'99',ownerId:'42',tracking:1,autoExtract:0,tab0:{},tab2:{}}});
+    });
+    const a=await context.newPage(),b=await context.newPage();
+    await Promise.all([a.goto('https://paine.airlinesim.aero/app/enterprise/dashboard'),b.goto('https://paine.airlinesim.aero/app/enterprise/dashboard')]);
+    await Promise.all([a.locator('#aes-dashboard-root').waitFor(),b.locator('#aes-dashboard-root').waitFor()]);
+    const tabCount=context.pages().length;
+    await Promise.all([a.getByRole('button',{name:'Extract schedule data',exact:true}).click(),b.getByRole('button',{name:'Extract schedule data',exact:true}).click()]);
+    await Promise.all([a.getByText('Schedule saved.',{exact:true}).waitFor(),b.getByText('Schedule saved.',{exact:true}).waitFor()]);
+    assert.equal(requests.length,2);assert.equal(context.pages().length,tabCount);
+    assert.ok(requests[1].time-requests[0].finished>=25,'different pages share the post-response cooldown (5 ms timestamp tolerance)');
+    await a.goto('https://paine.airlinesim.aero/app/info/enterprises/99?tab=2');
+    await a.getByRole('button',{name:'save all tab data',exact:true}).click();
+    await a.getByText('All tab data saved.',{exact:true}).waitFor();
+    assert.equal(a.url(),'https://paine.airlinesim.aero/app/info/enterprises/99?tab=2');
+    assert.deepEqual(requests.slice(2).map(r=>new URL(r.url,'https://paine.airlinesim.aero').searchParams.get('tab')),['0','2','3']);
+    await a.goto('https://paine.airlinesim.aero/app/fleets/aircraft/123/1');
+    await a.getByRole('button',{name:'Extract finished flight data',exact:true}).click();
+    await a.locator('.aes-aircraft-flights-extract-status').filter({hasText:'Collected 2 flights'}).waitFor();
+    assert.equal(context.pages().length,tabCount);
+    assert.deepEqual(requests.slice(5).map(r=>r.url),['/action/info/flight?id=1','/action/info/flight?id=2']);
+    assert.ok(requests.every(r=>r.method==='GET'&&r.cookie.includes('aesFixtureSession=local-only')));
+    const stored=await worker.evaluate(async()=>{const data=await chrome.storage.local.get(['paine42schedule','paine99schedule','paine42_99competitorMonitoring','paineflightInfo1','paineaircraftFlights123']);return {ownRoutes:data.paine42schedule.date['20260908'].schedule.length,otherRoutes:data.paine99schedule.date['20260908'].schedule.length,pax:data.paine42_99competitorMonitoring.tab0['20260908'].pax,profit:data.paineaircraftFlights123.profit,cm5:data.paineflightInfo1.money.CM5.Total};});
+    assert.deepEqual(stored,{ownRoutes:1,otherRoutes:1,pax:1000,profit:200,cm5:100});
+    t.diagnostic(JSON.stringify({readRequests:requests.length,newTabs:context.pages().length-tabCount,crossPageGapMs:requests[1].time-requests[0].finished}));
+});

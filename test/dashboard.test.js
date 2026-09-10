@@ -105,10 +105,12 @@ test('ownership loss during initialization prevents mounting and settings writes
     assert.equal(p.w.document.querySelector('#aes-dashboard-root'),null);assert.equal(p.calls.length,0);
 });
 
-test('missing native schedule link does not enable automatic extraction',async t=>{
-    const p=dashboard(t);await load(p);button(p,'Extract schedule data').click();
+test('schedule collects from dashboard without a native link, navigation or auto-extract flag',async t=>{
+    const p=dashboard(t);const requests=require('./support/read-pages.cjs').install(p);await load(p);button(p,'Extract schedule data').click();
+    await until(()=>p.saved.paine42schedule);
     assert.equal(p.saved.settings.schedule.autoExtract,undefined);
-    assert.match(p.w.document.querySelector('#aes-dashboard-root').textContent,/Schedule link unavailable/);
+    assert.equal(requests.length,1);assert.equal(new URL(requests[0].url).searchParams.get('tab'),'3');assert.deepEqual(p.opened,[]);
+    assert.equal(p.saved.paine42schedule.date['20260908'].schedule.length,1);
 });
 
 test('failed settings reads do not overwrite preferences or report saved filters',async t=>{

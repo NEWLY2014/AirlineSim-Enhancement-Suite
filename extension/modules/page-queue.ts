@@ -5,7 +5,7 @@
     const gap = () => 30 + Math.floor(Math.random() * 41);
     const LEASE = 10000;
     const CLIENT_TIMEOUT = 120000; // Background-tab polling can be throttled to once a minute.
-    type Kind = 'open' | 'price' | 'navigate';
+    type Kind = 'open' | 'price' | 'navigate' | 'read';
     interface Job {
         id: string; kind: Kind; url: string; source: number; document: string;
         seen: number; state: 'queued' | 'running' | 'done' | 'failed';
@@ -20,13 +20,15 @@
         try {
             const u = new URL(url);
             if (u.protocol !== 'https:' || !u.hostname.endsWith('.airlinesim.aero') || u.username || u.password || u.port) return false;
+            if (kind === 'read') return (u.pathname === '/action/info/flight' && /^\d+$/.test(u.searchParams.get('id') || '') && [...u.searchParams.keys()].every(k => k === 'id')) ||
+                (/^\/app\/info\/enterprises\/\d+$/.test(u.pathname) && ['0','2','3'].includes(u.searchParams.get('tab') || '') && [...u.searchParams.keys()].every(k => k === 'tab'));
             if (kind === 'price') return /^\/app\/com\/inventory\//.test(u.pathname);
             return /^\/app\/com\/inventory\//.test(u.pathname) || /^\/app\/fleets\/aircraft\/[^/]+\/[01]/.test(u.pathname) ||
                 /^\/app\/info\/enterprises\//.test(u.pathname) || (u.pathname === '/action/info/flight' && u.searchParams.has('id'));
         } catch { return false; }
     }
     function isJob(x: unknown): x is Job {
-        return record(x) && typeof x.id === 'string' && ['open','price','navigate'].includes(String(x.kind)) &&
+        return record(x) && typeof x.id === 'string' && ['open','price','navigate','read'].includes(String(x.kind)) &&
             typeof x.url === 'string' && typeof x.source === 'number' && typeof x.document === 'string' && typeof x.seen === 'number' &&
             ['queued','running','done','failed'].includes(String(x.state)) &&
             (x.started === undefined || typeof x.started === 'number') && (x.expires === undefined || typeof x.expires === 'number') &&
@@ -50,18 +52,18 @@
         for (const job of s.jobs) {
             if (job.state === 'queued' && now - job.seen > CLIENT_TIMEOUT) fail(job, 'The requesting page stopped waiting.');
         }
-        const submitting = s.jobs.find(j => j.kind === 'price' && j.state === 'running');
+        const submitting = s.jobs.find(j => (j.kind === 'price' || j.kind === 'read') && j.state === 'running');
         if (submitting) {
             if (now < (submitting.expires || 0)) return;
-            fail(submitting, 'Price dispatch permit expired.');
+            fail(submitting, 'Request dispatch permit expired.');
             s.next = Math.max(s.next, now + gap());
         }
         if (now < s.next) return;
         const job = s.jobs.find(j => j.state === 'queued');
         if (!job) return;
-        // Price permits are granted only by that page's own poll below. A delayed
-        // response must never cause another client to start the pending price job.
-        if (job.kind === 'price') return;
+        // Read and price permits are granted only by their source page's poll.
+        // Another client must never dispatch a pending request for that page.
+        if (job.kind === 'price' || job.kind === 'read') return;
         job.state = 'running'; job.started = now; s.next = now + gap();
         job.target = job.kind === 'navigate' ? job.source : undefined;
         // Persist intent before the side effect. Restarting must not replay it.
@@ -90,7 +92,7 @@
             if (job && (job.source !== source || job.document !== doc)) return {ok:false,error:'Queue request owner mismatch.'};
             if (message.op === 'enqueue' && !job) {
                 const kind = message.kind;
-                if ((kind !== 'open' && kind !== 'price' && kind !== 'navigate') || !allowed(message.url, kind) ||
+                if ((kind !== 'open' && kind !== 'price' && kind !== 'navigate' && kind !== 'read') || !allowed(message.url, kind) ||
                     !sender.url || new URL(sender.url).origin !== new URL(message.url).origin ||
                     (kind === 'price' && sender.url !== message.url)) return {ok:false,error:'Unsupported queue destination.'};
                 if (s.jobs.filter(j => j.state === 'queued').length >= 200) return {ok:false,error:'The page queue is full. Try again later.'};
@@ -99,16 +101,19 @@
             }
             if (!job) return {ok:false,error:'Queue request expired. Please retry.'};
             job.seen = now;
-            if (message.op === 'complete' && job.kind === 'price' && job.state === 'running') {
+            if (message.op === 'complete' && (job.kind === 'price' || job.kind === 'read') && job.state === 'running') {
                 job.state = 'done'; s.next = Math.max(s.next, now + gap());
             }
             if (message.op === 'cancel') {
-                if (job.state === 'queued' || (job.kind === 'price' && !job.loading)) fail(job, 'Cancelled by the requesting page.');
+                if (job.state === 'queued' || ((job.kind === 'price' || job.kind === 'read') && !job.loading)) {
+                    if (job.state === 'running') s.next = Math.max(s.next, now + gap());
+                    fail(job, 'Cancelled by the requesting page.');
+                }
             }
             await pump(s);
-            if (message.op === 'poll' && job.kind === 'price' && job.state === 'queued' &&
-                !s.jobs.some(j => j.kind === 'price' && j.state === 'running') && s.jobs.find(j => j.state === 'queued') === job && now >= s.next) {
-                job.state = 'running'; job.started = now; job.expires = now + LEASE; job.target = source; s.next = now + gap();
+            if (message.op === 'poll' && (job.kind === 'price' || job.kind === 'read') && job.state === 'queued' &&
+                !s.jobs.some(j => (j.kind === 'price' || j.kind === 'read') && j.state === 'running') && s.jobs.find(j => j.state === 'queued') === job && now >= s.next) {
+                job.state = 'running'; job.started = now; job.expires = now + (job.kind === 'read' ? 30000 : LEASE); job.target = source; s.next = now + gap();
             }
             await save(s);
             return {ok:job.state !== 'failed', state:job.state, expires:job.expires, error:job.error,
@@ -123,7 +128,9 @@
         if (change.status !== 'loading') return;
         void transaction(async s => {
             for (const job of s.jobs) {
-                if (job.source === id && job.state === 'queued') fail(job, 'The requesting page navigated away.');
+                if (job.source === id && (job.state === 'queued' || (job.kind === 'read' && job.state === 'running'))) {
+                    fail(job, 'The requesting page navigated away.'); s.next = Math.max(s.next, Date.now() + gap());
+                }
                 // A navigation start is also a dispatch acknowledgement if the
                 // submitting document unloads before its explicit reply arrives.
                 if (job.source === id && job.kind === 'price' && job.state === 'running') {job.state = 'done'; s.next = Math.max(s.next, Date.now() + gap());}
@@ -133,7 +140,9 @@
     });
     chrome.tabs.onRemoved.addListener(id => {
         void transaction(async s => {
-            for (const job of s.jobs) if (job.source === id && job.state === 'queued') fail(job, 'Tab closed.');
+            for (const job of s.jobs) if (job.source === id && (job.state === 'queued' || (job.kind === 'read' && job.state === 'running'))) {
+                fail(job, 'Tab closed.'); s.next = Math.max(s.next, Date.now() + gap());
+            }
             await save(s);
         }).catch(console.error);
     });

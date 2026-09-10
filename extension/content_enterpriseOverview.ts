@@ -135,23 +135,21 @@ function displayAutomation(actionBar: JQuery) {
     if (!compData.autoExtract) { //
         let span = $('<span></span>');
         let btn = $('<button type="button" class="btn btn-default">save all tab data</button>');
-        btn.click(function() {
-            btn.prop('disabled', true);
-            span.removeClass().addClass('warning').text('extracting...');
-            const previousAutoExtract = compData.autoExtract;
-            compData.autoExtract = 1;
-            if (activeTab === 'tab0') {
-                $('#aes-btn-save-tab0-data').click();
-            } else {
-                saveCompetitorRecord(function() {
-                    btn.remove();
-                    void AES.queuePage('./' + airline.id + '?tab=0', 'navigate').catch(error => AES.reportContentScriptError('page_queue', error));
-                }, function(error) {
-                    compData.autoExtract = previousAutoExtract;
-                    btn.prop('disabled', false);
-                    span.removeClass().addClass('bad').text(error.message);
-                });
-            }
+        btn.on('click', async function() {
+            if (btn.prop('disabled')) return;
+            const current = AESRead.context();
+            const controls = $('#aes-panel-airline-competitive-monitoring').find('button,input').toArray();
+            const disabled = controls.map(element => $(element).prop('disabled'));
+            controls.forEach(element => $(element).prop('disabled',true));
+            btn.prop('disabled',true);span.removeClass().addClass('warning').text('Fetching...');
+            try {
+                await AESRead.collectCompetitor(airline,message => {if(current())span.text(message);},current);
+                const stored = (await chrome.storage.local.get(compData.key))[compData.key];
+                if (current() && AES.isRecord(stored)) Object.assign(compData,stored);
+                if (current()) {span.removeClass().addClass('good').text('All tab data saved.');btn.prop('disabled',false);}
+            } catch (error) {
+                if(current()){btn.prop('disabled',false);span.removeClass().addClass('bad').text(error instanceof Error ? error.message : String(error));}
+            } finally {if(current())controls.forEach((element,i)=>$(element).prop('disabled',disabled[i]));}
         });
         let li = $('<li></li>').append(btn, span);
         actionBar.append(li);
@@ -348,68 +346,8 @@ function displayScheduleRow() {
 
 }
 
-function getTab0Data(): AESModel.CompetitorOverview {
-    const currentAirline = AES.getAirline();
-    const data: AESModel.CompetitorOverview = {
-        ...currentAirline, rating: '', pax: NaN, cargo: NaN, stations: NaN,
-        fleet: NaN, employees: NaN, tab0data: 1
-    };
-    //First table
-    let table = $(".layout-col-md-4 > .as-fieldset:eq(0) table tbody");
-    data.rating = $('td:eq(1)', $('tr', table).last()).text().trim().replace(/[^A-Za-z0-9]/g, '');
-    //console.log(table.find('tr:eq(9) td:eq(1)').text().trim().replace(/[^A-Za-z0-9]/g, ''));
-    //console.log($('tr td:eq(1)',table).last().text().trim().replace(/[^A-Za-z0-9]/g, ''));
-    //console.log($('td:eq(1)',$('tr',table).last()).text().trim().replace(/[^A-Za-z0-9]/g, ''));
-    //Second Table
-    table = $(".layout-col-md-4 > .as-fieldset:eq(1) table tbody");
-    data.pax = parseInt(table.find('tr:eq(0) td:eq(1)').text().trim().replace(/\D/g, ''), 10);
-    data.cargo = parseInt(table.find('tr:eq(1) td:eq(1)').text().trim().replace(/\D/g, ''), 10);
-    data.stations = parseInt(table.find('tr:eq(2) td:eq(1)').text().trim().replace(/\D/g, ''), 10);
-    data.fleet = parseInt(table.find('tr:eq(3) td:eq(1)').text().trim().replace(/\D/g, ''), 10);
-    data.employees = parseInt(table.find('tr:eq(4) td:eq(1)').text().trim().replace(/\D/g, ''), 10);
-    data.tab0data = 1;
-    return data;
-}
-
-function getTab2Data(): AESModel.CompetitorFacts {
-    //First table
-    const data: AESModel.CompetitorFacts = {
-        week: NaN, airportsServed: NaN, operatedFlights: NaN, seatsOffered: NaN,
-        sko: NaN, cargoOffered: NaN, fko: NaN, tab2data: 2
-    };
-    let table = $(".tab-content table");
-    let getNumber = function(text: string) {
-        let number = text.trim().split('(')[0].replace(/\D/g, '');
-        return number ? parseInt(number, 10) : NaN;
-    };
-    let getNumberByLabel = function(labels: string[], fallbackCell: JQuery) {
-        let value: number | undefined;
-        table.find('tbody tr').each(function() {
-            let label = $(this).find('th, td').first().text().trim().toLowerCase();
-            let found = labels.some(function(match) {
-                return label.indexOf(match) != -1;
-            });
-            if (found) {
-                value = getNumber($(this).find('td:eq(1)').text());
-                return false;
-            }
-        });
-        if (value !== undefined) {
-            return value;
-        }
-        return getNumber(fallbackCell.text());
-    };
-
-    data.week = parseInt(table.find('tr:eq(0) th:eq(2)').text().trim().replace(/\D/g, ''), 10);
-    data.airportsServed = getNumberByLabel(['airports served'], table.find('tbody:eq(0) tr:eq(0) td:eq(1)'));
-    data.operatedFlights = getNumberByLabel(['operated flights'], table.find('tbody:eq(0) tr:eq(1) td:eq(1)'));
-    data.seatsOffered = getNumberByLabel(['seats offered'], table.find('tbody:eq(1) tr:eq(2) td:eq(1)'));
-    data.sko = getNumberByLabel(['seat kilometer offered', 'sko'], table.find('tbody:eq(1) tr:eq(5) td:eq(1)'));
-    data.cargoOffered = getNumberByLabel(['units offered'], table.find('tbody:eq(2) tr:eq(2) td:eq(1)'));
-    data.fko = getNumberByLabel(['freight kilometer offered', 'fko'], table.find('tbody:eq(2) tr:eq(5) td:eq(1)'));
-    data.tab2data = 2;
-    return data;
-}
+function getTab0Data() {return AESRead.overview(document,AES.getAirline());}
+function getTab2Data() {return AESRead.facts(document);}
 
 function formatWeekDate(date: unknown) {
     if (typeof date !== 'string' && typeof date !== 'number') return 'unknown';

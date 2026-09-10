@@ -33,6 +33,7 @@
             "js": [
                 "js/vendor/jquery-4.0.0.min.js",
                 "helpers.js",
+                "modules/read-only.js",
                 "modules/aes-menu.js",
                 "modules/about-dialog.js",
                 "modules/release-notes.js",

@@ -239,7 +239,7 @@ async function startFlightProfitExtraction(type: 'all' | 'finished') {
 
     setFlightExtractionState({
         failed: 0,
-        message: 'Opening flight data pages 0/' + flights.length + '...',
+        message: 'Collecting flight data 0/' + flights.length + '...',
         opened: 0,
         running: true,
         tone: 'warning',
@@ -250,7 +250,7 @@ async function startFlightProfitExtraction(type: 'all' | 'finished') {
         const result = await extractAllFlightProfit(type, function(progress) {
             setFlightExtractionState({
                 failed: progress.failed,
-                message: 'Opening flight data pages ' + progress.opened + '/' + progress.total + (progress.failed ? ' (' + progress.failed + ' failed)' : '') + '...',
+                message: 'Collecting flight data ' + progress.opened + '/' + progress.total + (progress.failed ? ' (' + progress.failed + ' failed)' : '') + '...',
                 opened: progress.opened,
                 running: true,
                 tone: 'warning',
@@ -261,25 +261,25 @@ async function startFlightProfitExtraction(type: 'all' | 'finished') {
         if (result.failed) {
             setFlightExtractionState({
                 failed: result.failed,
-                message: 'Opened ' + result.opened + '/' + result.total + ' flight data pages. Check the queue error and retry missing pages.',
+                message: 'Collected ' + result.opened + '/' + result.total + ' flights. Retry the failed items.',
                 opened: result.opened,
                 running: false,
                 tone: 'warning',
                 total: result.total,
             });
-            showAircraftFlightsNotification('Some flight data pages could not be opened.', 'warning');
+            showAircraftFlightsNotification('Some flight data could not be collected.', 'warning');
             return;
         }
 
         setFlightExtractionState({
             failed: 0,
-            message: 'Opened ' + result.opened + ' flight data pages. Reload this page after they finish.',
+            message: 'Collected ' + result.opened + ' flights. Profit data refreshed.',
             opened: result.opened,
             running: false,
             tone: 'good',
             total: result.total,
         });
-        showAircraftFlightsNotification('Please reload page after all flight info pages open', 'warning');
+        showAircraftFlightsNotification('Flight data collected. Profit data refreshed.', 'success');
     } catch (error) {
         setFlightExtractionState({
             failed: 0,
@@ -319,14 +319,15 @@ function getFlightsForProfitExtraction(type: 'all' | 'finished') {
 
 async function extractAllFlightProfit(type: 'all' | 'finished', progressCallback?: (progress: AESModel.FlightExtractionProgress) => void) {
     const flights = getFlightsForProfitExtraction(type);
+    const current = AESRead.context();
     let failed = 0;
     let lastError = '';
     let opened = 0;
 
     for (let i = 0; i < flights.length; i++) {
-        if (!AES.isPageOwner()) throw new Error('Page ownership lost');
+        if (!current()) throw new Error('Page ownership or airline changed');
         const url = getFlightInfoUrl(flights[i]);
-        const result = await openFlightInfoPage(url);
+        const result = await collectFlightInfoPage(url, flights[i].id, current);
 
         if (result.ok) {
             opened++;
@@ -346,6 +347,7 @@ async function extractAllFlightProfit(type: 'all' | 'finished', progressCallback
 
     }
 
+    if (current()) getStorageData();
     return {
         failed: failed,
         lastError: lastError,
@@ -358,9 +360,12 @@ function getFlightInfoUrl(flight: AESModel.AircraftFlight) {
     return 'https://' + aircraftFlightData.server + '.airlinesim.aero/action/info/flight?id=' + flight.id;
 }
 
-async function openFlightInfoPage(url: string): Promise<AESModel.TabOpenResult> {
+async function collectFlightInfoPage(url: string, id: number, current: () => boolean): Promise<AESModel.TabOpenResult> {
     try {
-        await AES.queuePage(url);
+        const doc = await AESRead.fetchDocument(url,current);
+        const data = AESRead.flight(doc,id);
+        if (!current()) throw new Error('Page ownership or airline changed');
+        await chrome.storage.local.set({[data.server+'flightInfo'+id]:data});
         return {ok: true};
     } catch (error) {
         return {ok: false, error: error instanceof Error ? error.message : String(error)};

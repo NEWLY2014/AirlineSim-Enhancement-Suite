@@ -2497,7 +2497,27 @@ function displayCompetitorMonitoringAirlinesTableOptions(table?: JQuery, compAir
     let showScheduleBtn = $('<button type="button" class="btn btn-default">Show airline schedule</button>');
     let removeBtn = $('<button type="button" class="btn btn-default aes-dashboard-confirm-action">Remove airline</button>');
     let reloadBtn = $('<button type="button" class="btn btn-default">Reload table</button>');
-    actions.append(openAirlineBtn, showScheduleBtn, removeBtn, reloadBtn);
+    const refreshBtn = $('<button type="button" class="btn btn-default">Refresh selected data</button>');
+    const refreshStatus = $('<span role="status"></span>');
+    actions.append(openAirlineBtn,refreshBtn,showScheduleBtn,removeBtn,reloadBtn,refreshStatus);
+    refreshBtn.prop('disabled',!table);
+    refreshBtn.on('click',async () => {
+        if (!table || refreshBtn.prop('disabled')) return;
+        const rows=getSelectedCompetitorRows(table);
+        if (!rows.length){refreshStatus.text('Select airlines first.');return;}
+        const revision=dashboardRevision, context=AESRead.context();
+        const current=()=>context() && revision===dashboardRevision;
+        refreshBtn.prop('disabled',true);let complete=0,failed=0;
+        for (const row of rows) {
+            if (!current()) break;
+            try {
+                await AESRead.collectCompetitor({id:String(row.airlineId),name:'',displayName:String(row.airlineName || ''),code:String(row.airlineCode || '')},
+                    message=>{if(current())refreshStatus.text((complete+failed+1)+'/'+rows.length+': '+message);},current);
+                complete++;
+            } catch {failed++;}
+        }
+        if(current()){refreshStatus.text('Saved '+complete+', failed '+failed+'. Reload table to view updated data.');refreshBtn.prop('disabled',false);}
+    });
     if (!table) {
         openAirlineBtn.prop('disabled', true);
         showScheduleBtn.prop('disabled', true);
@@ -3464,18 +3484,23 @@ function generalAddScheduleRow(tbody: JQuery) {
 
 function generalUpdateScheduleAction(td3: JQuery) {
     let btn = $('<button type="button" class="btn btn-default">Extract schedule data</button>');
-    btn.click(function() {
-        if (!AES.isPageOwner()) return;
-        let link = $('#enterprise-dashboard table:eq(0) tfoot td a:eq(2)');
-        if (!link.length) { $(this).text('Schedule link unavailable. Reload the dashboard.'); return; }
-        settings.schedule.autoExtract = 1;
-        updateDashboardSettings(function(currentSettings) {
-            currentSettings.schedule.autoExtract = 1;
-        }, function(updatedSettings) {
-            settings = updatedSettings;
-            link[0].click();
-        });
+    const status = $('<span role="status"></span>');
+    btn.on('click', async function() {
+        if (btn.prop('disabled') || !AES.isPageOwner()) return;
+        const revision = dashboardRevision, context = AESRead.context();
+        const current = () => context() && revision === dashboardRevision;
+        btn.prop('disabled',true);status.removeClass().addClass('warning').text('Fetching schedule...');
+        try {
+            await AESRead.collectSchedule(airline, message => {if(current())status.text(message);},current);
+            if (current()) {
+                status.removeClass().addClass('good').text('Schedule saved.');
+                td3.closest('tr').children('td').eq(1).text('Schedule updated just now.');
+            }
+        } catch (error) {
+            if(current())status.removeClass().addClass('bad').text(String(error instanceof Error ? error.message : error));
+        } finally {if(current())btn.prop('disabled',false);}
     });
+    td3.append(status);
     td3.append(btn);
 }
 

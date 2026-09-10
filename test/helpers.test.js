@@ -22,6 +22,7 @@ function page(html, path = '/app/info/enterprises/12685?tab=0') {
     w.chrome.runtime.sendMessage=(message,reply)=>dispatch(message,identity,reply);
     evaluate(source('js/vendor/jquery-4.0.0.min.js'));
     evaluate(source('helpers.js') + '\nwindow.TestAES = AES; window.AES = AES;');
+    evaluate(source('modules/read-only.js'));
     return { dom, w, aes: w.TestAES, saved, load: file => evaluate(source(file)), close: () => { w.TestAES._ownershipLostCallbacks.forEach(fn => fn()); w.TestAES._pageControlObserver.disconnect(); w.close(); } };
 }
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));

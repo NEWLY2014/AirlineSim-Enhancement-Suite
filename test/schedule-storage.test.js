@@ -43,7 +43,7 @@ test('schedule storage read and write failures retain history and permit subsequ
 test('schedule save requests cannot target another airline or come from an untrusted page',async t=>{
     const p=browser(t);accept(p);const valid=identity();
     for(const from of [{...valid,id:'other-extension'},{...valid,frameId:1},{...valid,url:'https://example.com/app/info/enterprises/99?tab=3'},
-        {...valid,url:'https://paine.airlinesim.aero/app/info/enterprises/42?tab=3'},{...valid,url:'https://paine.airlinesim.aero/app/info/enterprises/99?tab=0'}]){
+        {...valid,url:'https://paine.airlinesim.aero/app/info/enterprises/42?tab=3'},{...valid,url:'https://paine.airlinesim.aero/app/info/enterprises/99?tab=7'}]){
         assert.equal((await send(p,request('20260908'),from)).ok,false);
     }
     const invalid=request('20260908');invalid.snapshot.schedule=[];

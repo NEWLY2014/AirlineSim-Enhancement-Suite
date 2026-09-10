@@ -1,0 +1,9 @@
+const frontend=(id=42)=>`<script>window.frontendSettings = {"fixedEnterpriseId":${id},"server":{"time":"2026-09-08T00:00:00Z"}};</script>`;
+const financial=()=>frontend()+'<div id="privInf"></div><div id="flight-page"><ul><li class="active">Info</li></ul><table>'+Array.from({length:5},()=>'<tr class="cm">'+Array.from({length:6},()=>'<td>100</td>').join('')+'</tr>').join('')+'</table></div>';
+const overview='<div class="layout-col-md-4"><div class="as-fieldset"><table><tbody><tr><td>Rating</td><td>AAA</td></tr></tbody></table></div><div class="as-fieldset"><table><tbody>'+[1000,200,3,4,50].map(x=>`<tr><td>Metric</td><td>${x}</td></tr>`).join('')+'</tbody></table></div></div>';
+const facts='<div class="tab-content"><table><thead><tr><th>Metric</th><th>Value</th><th>Week 362026</th></tr></thead><tbody>'+['Airports served','Operated flights','Seats offered','Seat kilometer offered','Units offered','Freight kilometer offered'].map(x=>`<tr><td>${x}</td><td>100</td></tr>`).join('')+'</tbody></table></div>';
+const schedule='<div class="flight-schedule"><table><tbody><tr class="important origin"><td><a>AAA</a></td></tr><tr class="destination"><td><a>BBB</a></td></tr><tr><td class="code">OA 100</td><td class="days">1234567</td><td class="remarks"></td><td class="valid">Now</td></tr></tbody></table></div>';
+function enterprise(tab){return frontend()+`<div><h2>Other Air</h2><div><ul class="nav-tabs"><li class="tab${tab} active">Tab</li></ul>${tab==='0'?overview:tab==='2'?facts:schedule}</div></div>`;}
+function respond(url,html){return {ok:true,status:200,url,text:async()=>html};}
+function install(p){const requests=[];p.w.fetch=async(url,options)=>{requests.push({url,options});return respond(url,url.includes('/action/info/flight')?financial():enterprise(new URL(url).searchParams.get('tab')));};return requests;}
+module.exports={frontend,financial,enterprise,respond,install};

@@ -93,3 +93,33 @@ test('cancelled price permit releases the slot after cooldown',async()=>{
     await q.message('enqueue','b','open',2);await q.message('cancel','p','price');
     assert.equal(q.opened.length,0);q.advance(2000);await q.message('poll','b','open',2);assert.equal(q.opened.length,1);
 });
+
+test('read requests from different pages share completion-to-start gaps of 30–70 ms without opening tabs',async()=>{
+    for (const random of [0,0.5,0.999999]){
+        const q=queue(random),read='https://paine.airlinesim.aero/action/info/flight?id=1';
+        await q.message('enqueue','r1','read',1,read);assert.equal((await q.message('poll','r1','read',1,read)).state,'running');
+        await q.message('enqueue','r2','read',2,read);q.advance(100);
+        assert.equal((await q.message('poll','r2','read',2,read)).state,'queued');
+        q.boot();assert.equal((await q.message('poll','r2','read',2,read)).state,'queued');
+        await q.message('complete','r1','read',1,read);
+        const gap=30+Math.floor(random*41);q.advance(gap-1);
+        assert.equal((await q.message('poll','r2','read',2,read)).state,'queued');
+        q.advance(1);assert.equal((await q.message('poll','r2','read',2,read)).state,'running');
+        assert.deepEqual(q.opened,[]);
+    }
+});
+test('read request queue refuses action URLs and permits only explicit read-only targets',async()=>{
+    const q=queue();
+    for(const url of ['https://paine.airlinesim.aero/app/info/airports/1-1.ILinkListener-link.station~open',
+        'https://paine.airlinesim.aero/app/info/enterprises/99?tab=3&select=99','https://paine.airlinesim.aero/action/enterprise/staffOverview']){
+        assert.equal((await q.message('enqueue',url,'read',1,url)).ok,false);
+    }
+});
+test('failed or cancelled read releases the queue with a cooldown before price operations',async()=>{
+    const q=queue(0),read='https://paine.airlinesim.aero/action/info/flight?id=1';
+    await q.message('enqueue','r','read',1,read);await q.message('poll','r','read',1,read);
+    await q.message('enqueue','p','price',2);q.advance(100);
+    assert.equal((await q.message('poll','p','price',2)).state,'queued');
+    await q.message('cancel','r','read',1,read);q.advance(29);assert.equal((await q.message('poll','p','price',2)).state,'queued');
+    q.advance(1);assert.equal((await q.message('poll','p','price',2)).state,'running');
+});

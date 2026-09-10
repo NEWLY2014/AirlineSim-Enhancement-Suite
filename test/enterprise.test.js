@@ -193,15 +193,18 @@ test('overview automation does not navigate after its history write fails', asyn
     assert.equal(p.saved[key].tab0['20260908'], undefined);
 });
 
-test('starting all-tab extraction on the facts tab persists the flag before navigation', async t => {
+test('all-tab extraction fetches all three documents without changing page or enabling navigation', async t => {
     const p = enterprise(t, 2, facts, { [key]: competitor({ tracking: 1 }) });
+    const requests=require('./support/read-pages.cjs').install(p);
     p.load('content_enterpriseOverview.js');
     await until(() => Array.from(p.w.document.querySelectorAll('button')).some(b => b.textContent === 'save all tab data'));
     const button = Array.from(p.w.document.querySelectorAll('button')).find(b => b.textContent === 'save all tab data');
     button.click();
-    assert.equal(p.saved[key].autoExtract, 1);
+    await until(()=>p.saved[key]?.tab0?.['20260908'] && p.saved.paine99schedule);
+    assert.equal(p.saved[key].autoExtract,0);
+    assert.deepEqual(requests.map(r=>new URL(r.url).searchParams.get('tab')),['0','2','3']);
     await new Promise(resolve => setImmediate(resolve)); // Let queued navigation callbacks settle.
-    assert.deepEqual(p.navigations, [['https://paine.airlinesim.aero/app/info/enterprises/99?tab=0', '_self']]);
+    assert.deepEqual(p.navigations, []);
 });
 
 test('failed tracking writes restore the checkbox and leave the index unchanged', async t => {

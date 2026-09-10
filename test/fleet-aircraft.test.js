@@ -149,17 +149,20 @@ test('pending storage reads stop after page ownership is lost in both modules', 
     }
 });
 
-test('extraction opens only finished/inflight flights and reports background failures', async t => {
+test('extraction fetches finished/inflight data without tabs and reports queue failures', async t => {
     const p = flights(t, rows + flightRow(3,'AAA','BBB','09.09. 01:00','09.09. 03:00','scheduled'));
     const opened = [];
-    p.w.chrome.runtime.sendMessage = (message, callback) => { if (message.op === 'enqueue') opened.push(message); callback({ok:opened.length === 1 || message.op === 'cancel', state:'running', error:'blocked'}); };
+    const requests=require('./support/read-pages.cjs').install(p);
+    p.w.chrome.runtime.sendMessage = (message, callback) => { if (message.op === 'enqueue') opened.push(message); callback({ok:opened.length === 1 || message.op === 'cancel', state:'running', expires:Date.now()+10000,error:'blocked'}); };
     p.w.open = () => null;
     p.load('content_aircraftFlights.js');
     await until(() => p.w.document.querySelector('.aes-aircraft-flights-block'));
     p.w.$('button').filter((i,e) => e.textContent === 'Extract finished flight data').trigger('click');
-    await until(() => /Opened 1\/2/.test(p.w.document.querySelector('.aes-aircraft-flights-extract-status').textContent));
+    await until(() => /Collected 1\/2/.test(p.w.document.querySelector('.aes-aircraft-flights-extract-status').textContent));
     assert.deepEqual(opened.map(m => m.url), ['https://paine.airlinesim.aero/action/info/flight?id=1','https://paine.airlinesim.aero/action/info/flight?id=2']);
-    assert.ok(opened.every(m => m.kind === 'open'));
+    assert.ok(opened.every(m => m.kind === 'read'));
+    assert.equal(requests.length,1);assert.equal(p.saved.paineflightInfo1.money.CM5.Total,100);
+    assert.equal(p.saved.paineaircraftFlights123.profit,100);
     assert.equal(p.w.document.querySelector('.aes-aircraft-flights-extract-btn').disabled,false);
 });
 

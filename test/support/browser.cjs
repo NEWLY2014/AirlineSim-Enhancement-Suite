@@ -58,14 +58,14 @@ function browser(t, { html = '', path = '/app/info/ors', data = {}, helpers = tr
         if (dispatch(message, pageSender, callback)) return;
         if (message.op === 'enqueue') {
             queueJobs.set(message.id, message);
-            if (message.kind !== 'price') w.open(message.url, message.kind === 'navigate' ? '_self' : '_blank');
+            if (message.kind !== 'price' && message.kind !== 'read') w.open(message.url, message.kind === 'navigate' ? '_self' : '_blank');
         }
         callback({ok:true,state:'running',expires:Date.now()+10000});
     };
     const run = code => runInContext(code, dom.getInternalVMContext());
     const load = file => run(source(file));
     load('js/vendor/jquery-4.0.0.min.js');
-    if (helpers) load('helpers.js');
+    if (helpers) {load('helpers.js');load('modules/read-only.js');}
     t.after(() => {
         if (helpers) run('AES._ownershipLostCallbacks.forEach(fn => fn()); AES._pageControlObserver?.disconnect();');
         w.close();
