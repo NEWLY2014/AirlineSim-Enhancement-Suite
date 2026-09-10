@@ -53,7 +53,15 @@ test('F06: replace restore write failure retains previous data', async t => {
     p.w.document.querySelector('#aes-restore-mode').value='replace';p.run('restoreData()');
     await until(()=>p.w.document.querySelector('#aes-status-message').classList.contains('status-error'));assert.deepEqual(p.saved,{important:{history:[1,2,3]}});
 });
-
+test('F07: concurrent settings updates retain both independent edits', t => {
+    const p=browser(t,{data:{settings:{a:0,b:0}}});const callbacks=[];const originalGet=p.w.chrome.storage.local.get;let reads=0;
+    p.w.chrome.storage.local.get=(keys,callback)=>{
+        if(++reads<=2) callbacks.push(()=>callback({settings:{a:0,b:0}}));
+        else return originalGet(keys,callback);
+    };
+    p.run('AES.updateSettings(s=>s.a=1); AES.updateSettings(s=>s.b=1)');
+    callbacks.shift()();callbacks.shift()();assert.deepEqual(p.saved.settings,{a:1,b:1});
+});
 
 test('F10: settings helper stops on read failure', t => {
     const p=browser(t,{data:{settings:{important:'keep'}}});

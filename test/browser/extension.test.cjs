@@ -74,6 +74,15 @@ test('Chromium loads the extension runtime, exports real storage and injects the
     await page.goto('https://paine.airlinesim.aero/app/enterprise/dashboard');
     await page.locator('#aes-dashboard-root').waitFor();
     await page.locator('#aes-select-dashboard-main').selectOption('routeManagement');
+    // Exercise the content-script sender/document identity and background CAS in Chrome.
+    assert.equal(await worker.evaluate(async () => {
+        for (let i = 0; i < 100; i++) {
+            const settings = (await chrome.storage.local.get('settings')).settings;
+            if (settings.general.defaultDashboard === 'routeManagement') return true;
+            await new Promise(resolve => setTimeout(resolve, 20));
+        }
+        return false;
+    }), true);
     await page.locator('#aes-select-dashboard-main').selectOption('general');
     await page.locator('#aes-div-dashboard-general').waitFor();
     assert.deepEqual(await worker.evaluate(async () => (await chrome.storage.local.get('migrationSmoke')).migrationSmoke), {preserve:true});

@@ -122,19 +122,27 @@ class AES {
             AES.reportContentScriptError('settings', error);
             onError?.(error);
         };
-        chrome.storage.local.get(['settings'], function(result) {
-            if (chrome.runtime.lastError) { fail(chrome.runtime.lastError.message || 'Unable to read settings.'); return; }
-            let currentSettings = AES.isRecord(result.settings) ? result.settings : {};
-            if (typeof mutator === 'function') {
-                mutator(currentSettings);
-            }
-            chrome.storage.local.set({ settings: currentSettings }, function() {
-                if (chrome.runtime.lastError) { fail(chrome.runtime.lastError.message || 'Unable to write settings.'); return; }
-                if (typeof callback === 'function') {
-                    callback(currentSettings);
-                }
+        const attempt = (remaining: number) => {
+            chrome.storage.local.get(['settings'], function(result) {
+                if (chrome.runtime.lastError) { fail(chrome.runtime.lastError.message || 'Unable to read settings.'); return; }
+                if (!AES.isPageOwner()) return;
+                const current = AES.isRecord(result.settings) ? result.settings : {};
+                const expected = JSON.stringify(current);
+                const next: Record<string, unknown> = JSON.parse(expected);
+                try { mutator(next); } catch (error) { fail(String(error)); return; }
+                chrome.runtime.sendMessage({type:'AES_SETTINGS_CAS', expected, next}, (response: unknown) => {
+                    if (chrome.runtime.lastError) { fail(chrome.runtime.lastError.message || 'Settings service unavailable.'); return; }
+                    if (!AES.isRecord(response) || response.ok !== true) { fail(AES.isRecord(response) ? String(response.error) : 'Settings service unavailable.'); return; }
+                    if (response.conflict) {
+                        if (remaining > 0) attempt(remaining - 1);
+                        else fail('Settings changed repeatedly. Please retry.');
+                        return;
+                    }
+                    if (AES.isPageOwner()) callback?.(next);
+                });
             });
-        });
+        };
+        attempt(20);
     }
 
     /**

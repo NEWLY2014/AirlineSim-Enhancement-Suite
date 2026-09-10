@@ -3575,17 +3575,15 @@ function readDashboardSettings(raw: unknown): AESModel.DashboardSettings {
 function updateDashboardSettings(mutator: (settings: AESModel.DashboardSettings) => void, callback?: (settings: AESModel.DashboardSettings) => void) {
     if (!AES.isPageOwner()) return;
     const revision = dashboardRevision;
-    nativeDashboardStorage.get(['settings'], result => {
-        if (!dashboardCallbackSucceeded()) return;
-        AES.tryRun('content_dashboard', () => {
-            const typed = readDashboardSettings(result.settings);
-            mutator(typed);
-            nativeDashboardStorage.set({settings: typed}, () => {
-                if (dashboardCallbackSucceeded() && revision === dashboardRevision) callback?.(typed);
-            });
-        });
+    AES.updateSettings(current => {
+        const typed = readDashboardSettings(current);
+        mutator(typed);
+        Object.assign(current, typed);
+    }, updated => {
+        if (revision === dashboardRevision) callback?.(readDashboardSettings(updated));
     });
 }
+
 function readDashboardSchedule(value: unknown): AESModel.DashboardSchedule | null {
     if (!AES.isRecord(value) || !AES.isRecord(value.date)) return null;
     const date: AESModel.DashboardSchedule['date'] = {};

@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const { readFileSync } = require('node:fs');
 const { runInContext } = require('node:vm');
 const { JSDOM } = require('jsdom');
+const {coordinator,sender} = require('./support/coordinator.cjs');
 const source = file => readFileSync(`${__dirname}/../build/extension/${file}`, 'utf8');
 const header = `<div id="header"><div><button aria-haspopup="menu"><div><span class="_code_newhash_19">AES</span></div><div><span class="_name_newhash_46">AES Airlines</span><span>10,000,000 AS$</span></div></button><div role="menubar"><button role="menuitem">Airline</button></div></div></div>`;
 const settings = `<script>window.frontendSettings = {"fixedEnterpriseId":13150,"theme":"dark","server":{"time":"2026-09-08T00:43:12.858Z"}};</script>`;
@@ -17,6 +18,8 @@ function page(html, path = '/app/info/enterprises/12685?tab=0') {
         get(keys, callback) { const value = { ...saved }; if (callback) callback(value); else return Promise.resolve(value); },
         set(value, callback) { Object.assign(saved, value); if (callback) callback(); else return Promise.resolve(); }
     } } };
+    const dispatch=coordinator(w.chrome), identity=sender(w.location.href);
+    w.chrome.runtime.sendMessage=(message,reply)=>dispatch(message,identity,reply);
     evaluate(source('js/vendor/jquery-4.0.0.min.js'));
     evaluate(source('helpers.js') + '\nwindow.TestAES = AES; window.AES = AES;');
     return { dom, w, aes: w.TestAES, saved, load: file => evaluate(source(file)), close: () => { w.TestAES._ownershipLostCallbacks.forEach(fn => fn()); w.TestAES._pageControlObserver.disconnect(); w.close(); } };
