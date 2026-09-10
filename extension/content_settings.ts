@@ -222,10 +222,13 @@ function invPricingRecStepHandle() {
     let tbody = $('<tbody></tbody>');
     getSettingsRecommendation(cmp).steps.forEach(function(value) {
         let row = $('<tr></tr>');
-        row.append('<td><input type="text" class="form-control" value="' + value.name + '"></td>');
-        row.append('<td><div class="input-group"><input type="text" class="form-control number" value="' + value.min + '" style="min-width: 50px;"><span class="input-group-addon">%</span></div></td>');
-        row.append('<td><div class="input-group"><input type="text" class="form-control number" value="' + value.max + '" style="min-width: 50px;"><span class="input-group-addon">%</span></div></td>');
-        row.append('<td><div class="input-group"><input type="text" class="form-control number" value="' + value.step + '" style="min-width: 50px;"><span class="input-group-addon">%</span></div></td>');
+        row.append($('<td></td>').append($('<input type="text" class="form-control">').val(value.name)));
+        for (const number of [value.min, value.max, value.step]) {
+            row.append($('<td></td>').append($('<div class="input-group"></div>').append(
+                $('<input type="text" class="form-control number" style="min-width: 50px;">').val(number),
+                $('<span class="input-group-addon">%</span>')
+            )));
+        }
         row.append('<td><a class="aes-a-invPricing-delete-row" ><span class="fa fa-trash" title="Delete row"></span></a></td>');
         tbody.append(row);
     });

@@ -493,7 +493,7 @@ function fltmng_displayAircraftProfit() {
         if (date) {
             $(this).append(
                 $('<td class="aes-fleet-extra-cell"></td>').html(AES.formatCurrency(profit, 'right')),
-                $('<td class="aes-fleet-extra-cell"></td>').html(AES.formatDateString(date) + '<br>' + time)
+                $('<td class="aes-fleet-extra-cell"></td>').append(document.createTextNode(AES.formatDateString(date) || ''), $('<br>'), document.createTextNode(time || ''))
             );
         } else {
             $(this).append(

@@ -286,7 +286,7 @@ function buildDashboardColumnsPicker<C extends object>(columns: C[], options: {
                 options.onChange(col, $(this).prop('checked'));
             });
 
-            grid.append($('<label class="aes-dashboard-column-choice"></label>').append(input, $('<span></span>').html(String(col[options.labelField] || ''))));
+            grid.append($('<label class="aes-dashboard-column-choice"></label>').append(input, $('<span></span>').text(String(col[options.labelField] || ''))));
         });
 
         groupDiv.append(grid);
@@ -432,13 +432,13 @@ function buildDashboardTable(options: AESModel.DashboardTableOptions) {
     visibleColumns.forEach(function(column) {
         if (column.sortable) {
             let columnClass = getDashboardColumnClass(options.columnPrefix || '', column);
-            let sort = $('<a></a>').html(column.title);
+            let sort = $('<a></a>').text(column.title);
             sort.click(function() {
                 sortDashboardTable(tableHtml, columnClass, column.number);
             });
             headerCells.push($('<th style="cursor: pointer;"></th>').append(sort));
         } else {
-            headerCells.push($('<th></th>').html(column.title));
+            headerCells.push($('<th></th>').text(column.title));
         }
     });
 
@@ -462,7 +462,9 @@ function buildDashboardTable(options: AESModel.DashboardTableOptions) {
         visibleColumns.forEach(function(column) {
             let value = column.render ? column.render(rowData) : rowData[column.data];
             let td = $('<td></td>').addClass(getDashboardColumnClass(options.columnPrefix || '', column));
-            td.append(column.format ? formatDashboardCell(column.format, value) : (typeof value === 'object' && value !== null ? value : String(value ?? '')));
+            const rendered = column.format ? formatDashboardCell(column.format, value) : value;
+            if (typeof rendered === 'object' && rendered !== null) td.append(rendered);
+            else td.text(String(rendered ?? ''));
             cells.push(td);
         });
 
@@ -675,7 +677,7 @@ function buildDashboardFilterPanel(options: AESModel.DashboardFilterPanelOptions
     options.columns.filter(function(column) {
         return column.filterable !== false;
     }).forEach(function(column) {
-        columnOptions.push('<option value="' + (column.filterValue || column.data) + '">' + column.title + '</option>');
+        columnOptions.push($('<option></option>').val(column.filterValue || column.data).text(column.title));
     });
     let columnSelect = $('<select class="form-control"></select>').append(...columnOptions);
     let operationSelect = $('<select class="form-control"></select>');
@@ -1129,7 +1131,7 @@ function getDefaultRouteManagementSettings() {
             show: 1
     },
         {
-            name: 'PAX load &Delta;',
+            name: 'PAX load Δ',
             class: 'aes-paxLoadDelta',
             number: 1,
             show: 1
@@ -1141,7 +1143,7 @@ function getDefaultRouteManagementSettings() {
             show: 1
     },
         {
-            name: 'Cargo load &Delta;',
+            name: 'Cargo load Δ',
             class: 'aes-cargoLoadDelta',
             number: 1,
             show: 1
@@ -1153,7 +1155,7 @@ function getDefaultRouteManagementSettings() {
             show: 1
     },
         {
-            name: 'Total load &Delta;',
+            name: 'Total load Δ',
             class: 'aes-loadDelta',
             number: 1,
             show: 1
@@ -1165,7 +1167,7 @@ function getDefaultRouteManagementSettings() {
             show: 1
     },
         {
-            name: 'PAX index &Delta;',
+            name: 'PAX index Δ',
             class: 'aes-paxIndexDelta',
             number: 1,
             show: 1
@@ -1177,7 +1179,7 @@ function getDefaultRouteManagementSettings() {
             show: 1
     },
         {
-            name: 'Cargo index &Delta;',
+            name: 'Cargo index Δ',
             class: 'aes-cargoIndexDelta',
             number: 1,
             show: 1
@@ -1189,7 +1191,7 @@ function getDefaultRouteManagementSettings() {
             show: 1
     },
         {
-            name: 'Index &Delta;',
+            name: 'Index Δ',
             class: 'aes-indexDelta',
             number: 1,
             show: 1
@@ -1381,7 +1383,10 @@ function getRouteManagementDashboardColumns() {
             filterValue: col.class,
             number: col.number,
             visible: col.show,
-            sortable: 1
+            sortable: 1,
+            render: col.value === 'actionInventory' ? (row: AESModel.DashboardRow) =>
+                $('<a class="btn btn-xs btn-default"></a>').text('Inventory')
+                    .attr('href', '/app/com/inventory/' + encodeURIComponent(String(row.rowId || ''))) : undefined
         };
     });
     return columns;
@@ -1514,7 +1519,7 @@ function renderRouteManagementTable(scheduleData: AESModel.DashboardSchedule) {
             cargoFreq: cargoFreq,
             totalFreq: totalFreq,
             hub: hub,
-            actionInventory: '<a class="btn btn-xs btn-default" href="https://' + server + '.airlinesim.aero/app/com/inventory/' + rowId + '">Inventory</a>'
+            actionInventory: 'Inventory'
         });
     });
     let table = buildDashboardTable({
@@ -2418,7 +2423,7 @@ function displayCompetitorMonitoringAirlineScheduleTable(mainDiv: JQuery, schedu
     let tableWell = $('<div style="overflow-x:auto;" class="as-table-well"></div>').append(table);
     let button = $('<button type="button" class="btn btn-default">Back to overview</button>');
     let panelDiv = $('<div class="as-panel"></div>').append(button, tableWell);
-    let heading = $('<h4>' + data.airlineName + ' ' + data.airlineCode + ' schedule</h4>');
+    let heading = $('<h4></h4>').text(data.airlineName + ' ' + data.airlineCode + ' schedule');
     let div = $('<div id="aes-compMonitor-schedule"></div>').append(heading, panelDiv);
     mainDiv.after(div);
     //Button clicks
@@ -2620,7 +2625,7 @@ function getDefaultCompetitorMonitoringColumns() {
     },
         {
             field: 'overviewRatingDelta',
-            text: 'Rating &Delta;',
+            text: 'Rating Δ',
             headGroup: 'Overview',
             visible: 0,
             number: 0
@@ -2634,7 +2639,7 @@ function getDefaultCompetitorMonitoringColumns() {
     },
         {
             field: 'overviewTotalPaxDelta',
-            text: 'Total pax &Delta;',
+            text: 'Total pax Δ',
             headGroup: 'Overview',
             visible: 1,
             number: 1
@@ -2648,7 +2653,7 @@ function getDefaultCompetitorMonitoringColumns() {
     },
         {
             field: 'overviewTotalCargoDelta',
-            text: 'Total cargo &Delta;',
+            text: 'Total cargo Δ',
             headGroup: 'Overview',
             visible: 1,
             number: 1
@@ -2662,7 +2667,7 @@ function getDefaultCompetitorMonitoringColumns() {
     },
         {
             field: 'overviewStationsDelta',
-            text: 'Stations &Delta;',
+            text: 'Stations Δ',
             headGroup: 'Overview',
             visible: 1,
             number: 1
@@ -2676,7 +2681,7 @@ function getDefaultCompetitorMonitoringColumns() {
     },
         {
             field: 'overviewFleetDelta',
-            text: 'Fleet &Delta;',
+            text: 'Fleet Δ',
             headGroup: 'Overview',
             visible: 1,
             number: 1
@@ -2690,7 +2695,7 @@ function getDefaultCompetitorMonitoringColumns() {
     },
         {
             field: 'overviewStaffDelta',
-            text: 'Staff &Delta;',
+            text: 'Staff Δ',
             headGroup: 'Overview',
             visible: 0,
             number: 1
@@ -2718,7 +2723,7 @@ function getDefaultCompetitorMonitoringColumns() {
     },
         {
             field: 'fafAirportsServedDelta',
-            text: 'Airports served &Delta;',
+            text: 'Airports served Δ',
             headGroup: 'Figures',
             visible: 0,
             number: 1
@@ -2732,7 +2737,7 @@ function getDefaultCompetitorMonitoringColumns() {
     },
         {
             field: 'fafOperatedFlightsDelta',
-            text: 'Operated flights &Delta;',
+            text: 'Operated flights Δ',
             headGroup: 'Figures',
             visible: 1,
             number: 1
@@ -2746,7 +2751,7 @@ function getDefaultCompetitorMonitoringColumns() {
     },
         {
             field: 'fafSeatsOfferedDelta',
-            text: 'Seats offered &Delta;',
+            text: 'Seats offered Δ',
             headGroup: 'Figures',
             visible: 1,
             number: 1
@@ -2760,7 +2765,7 @@ function getDefaultCompetitorMonitoringColumns() {
     },
         {
             field: 'fafskoDelta',
-            text: 'Seat kilometer offered (SKO) &Delta;',
+            text: 'Seat kilometer offered (SKO) Δ',
             headGroup: 'Figures',
             visible: 0,
             number: 1
@@ -2774,7 +2779,7 @@ function getDefaultCompetitorMonitoringColumns() {
     },
         {
             field: 'fafCargoOfferedDelta',
-            text: 'Units offered &Delta;',
+            text: 'Units offered Δ',
             headGroup: 'Figures',
             visible: 1,
             number: 1
@@ -2788,7 +2793,7 @@ function getDefaultCompetitorMonitoringColumns() {
     },
         {
             field: 'faffkoDelta',
-            text: 'FKO &Delta;',
+            text: 'FKO Δ',
             headGroup: 'Figures',
             visible: 0,
             number: 1
@@ -2823,7 +2828,7 @@ function getDefaultCompetitorMonitoringColumns() {
     },
         {
             field: 'scheduleFltNrDelta',
-            text: '# of flight numbers &Delta;',
+            text: '# of flight numbers Δ',
             headGroup: 'Schedule',
             visible: 0,
             number: 1
@@ -2837,7 +2842,7 @@ function getDefaultCompetitorMonitoringColumns() {
     },
         {
             field: 'schedulePAXFreqDelta',
-            text: 'PAX frequency &Delta;',
+            text: 'PAX frequency Δ',
             headGroup: 'Schedule',
             visible: 0,
             number: 1
@@ -2851,7 +2856,7 @@ function getDefaultCompetitorMonitoringColumns() {
     },
         {
             field: 'scheduleCargoFreqDelta',
-            text: 'Cargo frequency &Delta;',
+            text: 'Cargo frequency Δ',
             headGroup: 'Schedule',
             visible: 0,
             number: 1
@@ -2865,7 +2870,7 @@ function getDefaultCompetitorMonitoringColumns() {
     },
         {
             field: 'scheduleTotalFreqDelta',
-            text: 'Total frequency &Delta;',
+            text: 'Total frequency Δ',
             headGroup: 'Schedule',
             visible: 1,
             number: 1
@@ -2918,12 +2923,12 @@ function ensureCompetitorMonitoringSettings() {
     settings.competitorMonitoring.tableColumns.forEach(function(column) {
         if (column.field == 'faffkoDela') {
             column.field = 'faffkoDelta';
-            column.text = 'FKO &Delta;';
+            column.text = 'FKO Δ';
             changed = true;
         }
         if (column.field == 'faffkoDelta') {
-            if (column.text != 'FKO &Delta;') {
-                column.text = 'FKO &Delta;';
+            if (column.text != 'FKO Δ') {
+                column.text = 'FKO Δ';
                 changed = true;
             }
         }
