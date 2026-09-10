@@ -199,12 +199,23 @@ test('all-tab extraction fetches all three documents without changing page or en
     p.load('content_enterpriseOverview.js');
     await until(() => Array.from(p.w.document.querySelectorAll('button')).some(b => b.textContent === 'save all tab data'));
     const button = Array.from(p.w.document.querySelectorAll('button')).find(b => b.textContent === 'save all tab data');
+    const settle=[];const timeout=p.w.setTimeout;
+    p.w.setTimeout=(fn,ms,...args)=>ms===5000?(settle.push(()=>fn(...args)),100000+settle.length):timeout(fn,ms,...args);
+    const table=p.w.document.querySelector('.aes-competitor-summary');
     button.click();
     await until(()=>p.saved[key]?.tab0?.['20260908'] && p.saved.paine99schedule);
     assert.equal(p.saved[key].autoExtract,0);
     assert.deepEqual(requests.map(r=>new URL(r.url).searchParams.get('tab')),['0','2','3']);
     await new Promise(resolve => setImmediate(resolve)); // Let queued navigation callbacks settle.
     assert.deepEqual(p.navigations, []);
+    await until(()=>settle.length===3);
+    assert.equal(button.parentElement.querySelector('[role=status]'),null);
+    assert.equal(p.w.document.querySelector('.aes-competitor-summary'),table);
+    settle.forEach(fn=>fn());
+    assert.match(table.textContent,/Last overview extract 2026-09-08/);
+    assert.match(table.textContent,/Last facts and figures extract/);
+    assert.match(table.textContent,/Last schedule extract 2026-09-08/);
+    assert.equal(table.querySelector('.good'),null);
 });
 
 test('failed tracking writes restore the checkbox and leave the index unchanged', async t => {

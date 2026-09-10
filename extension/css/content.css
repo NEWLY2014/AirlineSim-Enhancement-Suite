@@ -918,3 +918,5 @@
 .aes-read-feedback > button { flex: none; padding: 1px 6px; }
 .aes-read-details { max-width: min(600px, 90vw); max-height: 70vh; }
 .aes-read-details pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+.aes-competitor-summary { table-layout: fixed; width: 100%; }

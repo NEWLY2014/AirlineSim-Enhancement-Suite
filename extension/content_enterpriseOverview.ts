@@ -7,6 +7,24 @@ var airline: AESModel.Airline;
 var ownerAirline: AESModel.Airline;
 var activeTab: string;
 var compData: AESModel.CompetitorRecord;
+let summaryFeedback: ReturnType<typeof AESRead.feedback>[] = [];
+let summaryRevision = 0;
+async function refreshCompetitorSummary(success = false) {
+    const revision = ++summaryRevision, feedback = summaryFeedback, context = AESRead.context();
+    const stored = await chrome.storage.local.get([compData.key,server+airline.id+'schedule']);
+    const current = () => context() && revision === summaryRevision && feedback === summaryFeedback;
+    if(!current()) return;
+    if(AES.isRecord(stored[compData.key])) Object.assign(compData,stored[compData.key]);
+    const schedule = stored[server+airline.id+'schedule'];
+    const dates = AES.isRecord(schedule) && AES.isRecord(schedule.date) ? getCompetitorHistoryDates(schedule.date) : [];
+    const messages = [displayOverviewRow().text(),displayFactsAndFiguresRow().text(),
+        dates.length ? 'Last schedule extract '+AES.formatDateString(dates[0]) : 'No Schedule data found.'];
+    feedback.forEach((item,index)=>{
+        item.show(success ? ['Overview saved.','Facts saved.','All tab data saved.'][index] : messages[index],success ? 'good' : '');
+        if(success)item.settle(messages[index],current);
+    });
+}
+
 const ENTERPRISE_OVERVIEW_SCRIPT_ENABLED = AES.runContentScript("content_enterpriseOverview", function() {
     AES.waitForElement(function() {
         return $(".nav-tabs .active").length && AES.getEnterpriseHeading() && AES.getNavbarAirline().displayName;
@@ -133,25 +151,33 @@ function updateCompetitorMonitoringIndex(tracking: boolean) {
 
 function displayAutomation(actionBar: JQuery) {
     if (!compData.autoExtract) { //
-        let span = $('<span></span>');
         let btn = $('<button type="button" class="btn btn-default">save all tab data</button>');
         btn.on('click', async function() {
             if (btn.prop('disabled')) return;
-            const current = AESRead.context();
-            const controls = $('#aes-panel-airline-competitive-monitoring').find('button,input').toArray();
+            const context = AESRead.context(), feedback = summaryFeedback;
+            const current = () => context() && feedback === summaryFeedback;
+            const controls = $('#aes-panel-airline-competitive-monitoring').find('.as-action-bar button, input').toArray();
             const disabled = controls.map(element => $(element).prop('disabled'));
             controls.forEach(element => $(element).prop('disabled',true));
-            btn.prop('disabled',true);span.removeClass().addClass('warning').text('Fetching...');
+            ++summaryRevision;
+            feedback.forEach(item=>item.show('Waiting…'));
+            let stage = 0;
             try {
-                await AESRead.collectCompetitor(airline,message => {if(current())span.text(message);},current);
-                const stored = (await chrome.storage.local.get(compData.key))[compData.key];
-                if (current() && AES.isRecord(stored)) Object.assign(compData,stored);
-                if (current()) {span.removeClass().addClass('good').text('All tab data saved.');btn.prop('disabled',false);}
+                await AESRead.collectCompetitor(airline,message => {
+                    if(!current())return;
+                    if(message.startsWith('Fetching facts'))stage=1;
+                    if(message.startsWith('Fetching schedule'))stage=2;
+                    feedback[stage].show(message,'warning');
+                },current);
+                await refreshCompetitorSummary(true);
             } catch (error) {
-                if(current()){btn.prop('disabled',false);span.removeClass().addClass('bad').text(error instanceof Error ? error.message : String(error));}
+                if(current()) {
+                    try {await refreshCompetitorSummary();} catch { /* Preserve existing summary on read failure. */ }
+                    if(current())feedback[stage].show('Collection failed. Retry save all.','bad',error instanceof Error ? error.message : String(error));
+                }
             } finally {if(current())controls.forEach((element,i)=>$(element).prop('disabled',disabled[i]));}
         });
-        let li = $('<li></li>').append(btn, span);
+        let li = $('<li></li>').append(btn);
         actionBar.append(li);
     } else {
         let span = $('<span></span>').addClass('warning').text('Please wait... extracting all tab info...');
@@ -168,17 +194,21 @@ function displayCompetitorMonitoring(div: JQuery) {
     let headRow = $('<tr></tr>').append(...th);
     let thead = $('<thead></thead>').append(headRow);
     //body
-    let td = [];
-    td.push($('<td></td>').append(displayOverviewRow()));
-    td.push($('<td></td>').append(displayFactsAndFiguresRow()));
-    td.push($('<td></td>').append(displayScheduleRow()));
+    summaryFeedback = [];
+    let td = [0,1,2].map(()=>{
+        const cell = $('<td></td>');
+        const feedback = AESRead.feedback(cell);
+        feedback.show('Loading…');summaryFeedback.push(feedback);
+        return cell;
+    });
     let row = $('<tr></tr>').append(td);
     let tbody = $('<tbody></tbody>').append(row);
-    let table = $('<table class="table table-bordered table-striped table-hover"></table>').append(thead, tbody);
+    let table = $('<table class="table table-bordered table-striped table-hover aes-competitor-summary"></table>').append(thead, tbody);
     let divTable = $('<div class="as-table-well"></div>').append(table);
     let divPanel = $('<div class="as-panel"></div>').append(divTable);
 
     div.append(divPanel);
+    void refreshCompetitorSummary().catch(error=>summaryFeedback.forEach(item=>item.show('Unable to refresh summary.','bad',String(error))));
 
 }
 
@@ -200,6 +230,7 @@ function displayTab0(actionBar: JQuery) {
         compData.tab0[time.date] = data;
         saveCompetitorRecord(function() {
             btnSave.remove();
+            void refreshCompetitorSummary().catch(error=>AES.reportContentScriptError("content_enterpriseOverview",error));
             span.removeClass().addClass("good").text("Overview Tab data Saved!");
             if (compData.autoExtract) void AES.queuePage('./' + airline.id + '?tab=2', 'navigate').catch(error => AES.reportContentScriptError('page_queue', error));
         }, function(error) {
@@ -248,6 +279,7 @@ function displayTab2(actionBar: JQuery) {
             compData.tab2[time.date] = data;
             saveCompetitorRecord(function() {
                 btnSave.remove();
+                void refreshCompetitorSummary().catch(error=>AES.reportContentScriptError("content_enterpriseOverview",error));
                 span.removeClass().addClass("good").text("Fact and figures Tab data Saved!");
                 if (compData.autoExtract) void AES.queuePage('./' + airline.id + '?tab=3', 'navigate').catch(error => AES.reportContentScriptError('page_queue', error));
             }, function(error) {
