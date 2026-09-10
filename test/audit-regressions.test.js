@@ -62,7 +62,14 @@ test('F07: concurrent settings updates retain both independent edits', t => {
     p.run('AES.updateSettings(s=>s.a=1); AES.updateSettings(s=>s.b=1)');
     callbacks.shift()();callbacks.shift()();assert.deepEqual(p.saved.settings,{a:1,b:1});
 });
-
+test('F08: zero-profit aircraft is included in average', async t => {
+    const summary=profit=>({date:'20260908',time:'00:00 UTC',finishedFlights:1,totalFlights:1,profitFlights:1,profit});
+    const p=await dash(t,'aircraftProfitability',{paine42aircraftFleet:{fleet:[{aircraftId:1,profit:summary(0)},{aircraftId:2,profit:summary(100)}]}});
+    await until(()=>p.w.document.querySelector('#aircraft-id-1'));
+    const table=p.w.document.querySelector('#aircraft-id-1').closest('table');
+    const col=[...table.tBodies[0].rows[0].cells].findIndex(c=>c.classList.contains('aes-aircraftProfit-profit'));
+    assert.ok(col>0);assert.match(table.tFoot.rows[0].cells[col].textContent,/50/);
+});
 test('F10: settings helper stops on read failure', t => {
     const p=browser(t,{data:{settings:{important:'keep'}}});
     p.w.chrome.storage.local.get=(keys,callback)=>{

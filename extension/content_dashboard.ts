@@ -307,9 +307,6 @@ function formatDashboardCell(type: string | undefined, value: AESModel.Dashboard
 
     switch (type) {
         case 'money': {
-            if (!value) {
-                return '';
-            }
             let span = $('<span></span>');
             let text = '';
             if (Number(value) > 0) {
@@ -538,13 +535,12 @@ function updateDashboardTableFooter(table: JQuery) {
             if (!isDashboardRowVisible(row)) {
                 return;
             }
-            let cellOffset = row.cells.length - columns.length;
             aggregates.forEach(function(aggregate, index) {
                 if (!aggregate) {
                     return;
                 }
-                let cell = row.cells[index + cellOffset];
-                let value = parseDashboardNumber(cell ? cell.textContent : '');
+                const raw = dashboardRows.get(row)?.[columns[index].data];
+                let value = typeof raw === 'number' ? raw : parseDashboardNumber(raw);
                 if (!isNaN(value)) {
                     aggregate.total += value;
                     aggregate.count++;
