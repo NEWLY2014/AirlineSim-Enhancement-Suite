@@ -8,6 +8,9 @@ let aircraftFleetKey: string;
 let aircraftFlightNotifications: Notifications | null;
 let aircraftFlightsTableLayoutObserver: MutationObserver | null = null;
 let aircraftFlightsTableLayoutTimer: number | undefined;
+let flightFeedback: ReturnType<typeof AESRead.feedback> | undefined;
+let flightFeedbackTimer: number | undefined;
+let flightFailureDetails = '';
 let aircraftFlightExtractionState: AESModel.FlightExtractionState = {
     failed: 0,
     message: '',
@@ -95,7 +98,7 @@ function getStorageData() {
     });
 }
 
-function getTotalProfit() {
+function getTotalProfit(persist = true) {
     let profit = 0;
     let profitFlights = 0;
     aircraftFlightData.flights.forEach(function(value) {
@@ -110,14 +113,14 @@ function getTotalProfit() {
     aircraftFlightData.profit = profit;
     aircraftFlightData.profitFlights = profitFlights;
     //Async
-    saveData();
+    if(persist) saveData();
 }
 
 function saveData() {
     syncFleetHubData(display);
 }
 
-function persistAircraftFlightSummary(callback?: () => void) {
+function persistAircraftFlightSummary(callback?: () => void, failed?: (error: Error) => void) {
     let key = aircraftFlightData.server + aircraftFlightData.type + aircraftFlightData.aircraftId;
     let saveData = {
         aircraftId: aircraftFlightData.aircraftId,
@@ -139,7 +142,11 @@ function persistAircraftFlightSummary(callback?: () => void) {
     }
     chrome.storage.local.set({
         [key]: saveData }, function() {
-        if (!storageCallbackSucceeded()) return;
+        if (chrome.runtime.lastError) {
+            const error = new Error(chrome.runtime.lastError.message);
+            if(failed) failed(error); else storageCallbackSucceeded();
+            return;
+        }
         if (callback) {
             callback();
         }
@@ -158,7 +165,9 @@ function display() {
     let saveOverrideBtn = $('<button type="button" class="btn btn-default"></button>').text('Save HUB override');
     let resetOverrideBtn = $('<button type="button" class="btn btn-default"></button>').text('Reset to default');
     let hubInput = $('<input type="text" class="form-control aes-aircraft-flights-hub-input" maxlength="3">').val((aircraftFlightData.hubOverride || '').slice(0, 3));
-    let extractStatus = $('<span class="aes-aircraft-flights-extract-status" aria-live="polite"></span>');
+    let extractStatus = $('<div style="width:100%;min-width:0"></div>');
+    flightFeedback = AESRead.feedback(extractStatus);
+    flightFeedback.line.find('[role="status"]').addClass('aes-aircraft-flights-extract-status');
     let toolbar = $('<div class="aes-aircraft-flights-toolbar aes-aircraft-flights-summary"></div>').append(
         $('<div class="aes-aircraft-flights-toolbar-row"></div>').append(
             $('<div class="aes-aircraft-flights-toolbar-group"></div>').append(
@@ -223,6 +232,8 @@ async function startFlightProfitExtraction(type: 'all' | 'finished') {
         return;
     }
 
+    window.clearTimeout(flightFeedbackTimer);
+    flightFailureDetails = '';
     const flights = getFlightsForProfitExtraction(type);
     if (!flights.length) {
         setFlightExtractionState({
@@ -267,7 +278,8 @@ async function startFlightProfitExtraction(type: 'all' | 'finished') {
                 tone: 'warning',
                 total: result.total,
             });
-            showAircraftFlightsNotification('Some flight data could not be collected.', 'warning');
+            flightFailureDetails = result.lastError;
+            updateFlightExtractionDisplay();
             return;
         }
 
@@ -279,8 +291,12 @@ async function startFlightProfitExtraction(type: 'all' | 'finished') {
             tone: 'good',
             total: result.total,
         });
-        showAircraftFlightsNotification('Flight data collected. Profit data refreshed.', 'success');
+        const current = AESRead.context();
+        flightFeedbackTimer = window.setTimeout(()=>{
+            if(current() && !aircraftFlightExtractionState.running) setFlightExtractionState({message:'Profit updated just now.',tone:''});
+        },5000);
     } catch (error) {
+        flightFailureDetails = error instanceof Error ? error.message : String(error);
         setFlightExtractionState({
             failed: 0,
             message: 'Flight data extraction failed. Try again.',
@@ -289,7 +305,6 @@ async function startFlightProfitExtraction(type: 'all' | 'finished') {
             tone: 'bad',
             total: flights.length,
         });
-        showAircraftFlightsNotification('Flight data extraction failed.', 'error');
         console.error('[AES] Flight data extraction failed', error);
     }
 }
@@ -302,10 +317,7 @@ function setFlightExtractionState(nextState: Partial<AESModel.FlightExtractionSt
 function updateFlightExtractionDisplay() {
     if (!AES.isPageOwner()) return;
     $('.aes-aircraft-flights-extract-btn').prop('disabled', aircraftFlightExtractionState.running);
-    $('.aes-aircraft-flights-extract-status')
-        .removeClass('good bad warning')
-        .addClass(aircraftFlightExtractionState.tone || '')
-        .text(aircraftFlightExtractionState.message || '');
+    flightFeedback?.show(aircraftFlightExtractionState.message || '', aircraftFlightExtractionState.tone || '', flightFailureDetails);
 }
 
 function getFlightsForProfitExtraction(type: 'all' | 'finished') {
@@ -347,7 +359,14 @@ async function extractAllFlightProfit(type: 'all' | 'finished', progressCallback
 
     }
 
-    if (current()) getStorageData();
+    if (current()) {
+        getTotalProfit(false);
+        await new Promise<void>((resolve,reject)=>persistAircraftFlightSummary(resolve,reject));
+        if(!current()) throw new Error('Page ownership or airline changed');
+        displayFlightProfit();
+        const validation=validateFlightSequence(aircraftFlightData.flights);
+        $('.aes-aircraft-flights-table').replaceWith($('<div class="as-table-well aes-aircraft-flights-summary aes-aircraft-flights-table"></div>').append(buildTable(validation)));
+    }
     return {
         failed: failed,
         lastError: lastError,
@@ -366,6 +385,10 @@ async function collectFlightInfoPage(url: string, id: number, current: () => boo
         const data = AESRead.flight(doc,id);
         if (!current()) throw new Error('Page ownership or airline changed');
         await chrome.storage.local.set({[data.server+'flightInfo'+id]:data});
+        if(current()) {
+            const flight=aircraftFlightData.flights.find(flight=>flight.id===id);
+            if(flight) flight.data={money:{CM5:{Total:data.money.CM5.Total!}},date:data.date,time:data.time};
+        }
         return {ok: true};
     } catch (error) {
         return {ok: false, error: error instanceof Error ? error.message : String(error)};

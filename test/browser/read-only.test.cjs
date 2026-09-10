@@ -9,7 +9,7 @@ const {execFileSync}=require('node:child_process');
 const {frontend,financial,enterprise}=require('../support/read-pages.cjs');
 
 test('Chrome performs read-only batches in the initiating pages with shared pacing and no new tabs', {timeout:60000},async t=>{
-    const profile=await mkdtemp(join(tmpdir(),'aes-read-browser-'));let context,server;const requests=[];
+    const profile=await mkdtemp(join(tmpdir(),'aes-read-browser-'));let context,server;let failReads=false;const requests=[];
     t.after(async()=>{if(context)await context.close();if(server){server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}await rm(profile,{recursive:true,force:true});});
     execFileSync('openssl',['req','-x509','-newkey','rsa:2048','-nodes','-keyout',join(profile,'key.pem'),'-out',join(profile,'cert.pem'),'-days','1','-subj','/CN=paine.airlinesim.aero'],{stdio:'ignore'});
     const header=frontend()+'<div id="header"><div><button aria-haspopup="menu"><span class="_name_test">AES Airlines</span></button><div role="menubar"></div></div></div>';
@@ -20,6 +20,7 @@ test('Chrome performs read-only batches in the initiating pages with shared paci
         if(req.headers['sec-fetch-dest']==='empty' && (url.pathname === '/action/info/flight' || url.pathname.startsWith('/app/info/enterprises/'))){
             const request={url:req.url,time:Date.now(),method:req.method,cookie:req.headers.cookie};requests.push(request);
             res.on('finish',()=>{request.finished=Date.now();});
+            if(failReads){req.resume();res.writeHead(503,{'Content-Type':'text/plain'});res.end('Fixture unavailable');return;}
         }
         const body=url.pathname.includes('/action/info/flight')?financial():url.pathname.includes('/app/info/enterprises/')?header+'<div class="bootstrap container-fluid"><h1>Enterprises</h1>'+enterprise(url.searchParams.get('tab')||'0')+'</div>':url.pathname.includes('/app/fleets/aircraft/')?aircraft:header+'<div class="bootstrap container-fluid"><h1>Dashboard</h1><div id="enterprise-dashboard"></div></div>';
         req.resume();res.writeHead(200,{'Content-Type':'text/html','Cache-Control':'no-store'});res.end(body);
@@ -41,17 +42,54 @@ test('Chrome performs read-only batches in the initiating pages with shared paci
     assert.equal(requests.length,2);assert.equal(context.pages().length,tabCount);
     assert.ok(requests[1].time-requests[0].finished>=25,'different pages share the post-response cooldown (5 ms timestamp tolerance)');
     await a.goto('https://paine.airlinesim.aero/app/info/enterprises/99?tab=2');
-    await a.getByRole('button',{name:'save all tab data',exact:true}).click();
+    const enterpriseButton=a.getByRole('button',{name:'save all tab data',exact:true});
+    await a.locator('.aes-competitor-summary').waitFor();
+    const enterpriseBefore=await enterpriseButton.boundingBox();
+    const summaryBefore=await a.locator('.aes-competitor-summary').boundingBox();
+    await enterpriseButton.click();
     await a.getByText('All tab data saved.',{exact:true}).waitFor();
+    assert.deepEqual(await enterpriseButton.boundingBox(),enterpriseBefore);
+    assert.deepEqual(await a.locator('.aes-competitor-summary').boundingBox(),summaryBefore);
+    await a.locator('.aes-competitor-summary').getByText('Last schedule extract 2026-09-08',{exact:true}).waitFor();
+    assert.equal(await a.locator('.aes-competitor-summary .good').count(),0);
     assert.equal(a.url(),'https://paine.airlinesim.aero/app/info/enterprises/99?tab=2');
     assert.deepEqual(requests.slice(2).map(r=>new URL(r.url,'https://paine.airlinesim.aero').searchParams.get('tab')),['0','2','3']);
     await a.goto('https://paine.airlinesim.aero/app/fleets/aircraft/123/1');
-    await a.getByRole('button',{name:'Extract finished flight data',exact:true}).click();
+    const flightButton=a.getByRole('button',{name:'Extract finished flight data',exact:true});
+    await a.locator('.aes-aircraft-flights-hub-input').fill('XYZ');
+    const flightBefore=await flightButton.boundingBox();
+    const toolbarBefore=await a.locator('.aes-aircraft-flights-toolbar').boundingBox();
+    await flightButton.click();
     await a.locator('.aes-aircraft-flights-extract-status').filter({hasText:'Collected 2 flights'}).waitFor();
+    assert.deepEqual(await flightButton.boundingBox(),flightBefore);
+    assert.deepEqual(await a.locator('.aes-aircraft-flights-toolbar').boundingBox(),toolbarBefore);
+    assert.equal(await a.locator('.aes-aircraft-flights-hub-input').inputValue(),'XYZ');
     assert.equal(context.pages().length,tabCount);
     assert.deepEqual(requests.slice(5).map(r=>r.url),['/action/info/flight?id=1','/action/info/flight?id=2']);
     assert.ok(requests.every(r=>r.method==='GET'&&r.cookie.includes('aesFixtureSession=local-only')));
     const stored=await worker.evaluate(async()=>{const data=await chrome.storage.local.get(['paine42schedule','paine99schedule','paine42_99competitorMonitoring','paineflightInfo1','paineaircraftFlights123']);return {ownRoutes:data.paine42schedule.date['20260908'].schedule.length,otherRoutes:data.paine99schedule.date['20260908'].schedule.length,pax:data.paine42_99competitorMonitoring.tab0['20260908'].pax,profit:data.paineaircraftFlights123.profit,cm5:data.paineflightInfo1.money.CM5.Total};});
     assert.deepEqual(stored,{ownRoutes:1,otherRoutes:1,pax:1000,profit:200,cm5:100});
+    await b.locator('#aes-select-dashboard-main').selectOption('competitorMonitoring');
+    await b.locator('#aes-compMon-row-99 input').check();
+    const refresh=b.getByRole('button',{name:'Refresh selected data',exact:true});
+    const refreshBefore=await refresh.boundingBox();
+    const feedback=b.locator('.aes-read-feedback');
+    const feedbackBefore=await feedback.boundingBox();
+    await refresh.click();
+    await b.getByText('Updated 1, failed 0.',{exact:true}).waitFor();
+    assert.deepEqual(await refresh.boundingBox(),refreshBefore);
+    assert.deepEqual(await feedback.boundingBox(),feedbackBefore);
+    assert.equal(await b.locator('#aes-compMon-row-99 input').isChecked(),true);
+    assert.equal(await b.locator('#aes-compMon-row-99 .aes-overviewTotalPax').textContent(),'1000');
+    assert.equal(context.pages().length,tabCount);
+    failReads=true;
+    await refresh.click();
+    await b.getByText('Updated 0, failed 1.',{exact:true}).waitFor();
+    assert.deepEqual(await refresh.boundingBox(),refreshBefore);
+    assert.deepEqual(await feedback.boundingBox(),feedbackBefore);
+    await feedback.getByRole('button',{name:'Details',exact:true}).click();
+    await feedback.locator('dialog[open]').waitFor();
+    assert.match(await feedback.locator('dialog pre').textContent(),/HTTP 503/);
+    await feedback.getByRole('button',{name:'Close',exact:true}).click();
     t.diagnostic(JSON.stringify({readRequests:requests.length,newTabs:context.pages().length-tabCount,crossPageGapMs:requests[1].time-requests[0].finished}));
 });

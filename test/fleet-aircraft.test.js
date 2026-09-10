@@ -204,3 +204,36 @@ test('aircraft table reconciles extra columns after a native column-span update'
     await until(() => footer.firstChild.colSpan === 10);
     assert.equal(p.w.document.querySelectorAll('.aes-aircraft-flights-extra-header').length,2);
 });
+
+test('collection waits for summary persistence and refreshes profits without replacing the toolbar',async t=>{
+    const p=flights(t,rows);require('./support/read-pages.cjs').install(p);
+    p.load('content_aircraftFlights.js');
+    await until(()=>p.w.document.querySelector('.aes-aircraft-flights-block'));
+    const hub=p.w.document.querySelector('.aes-aircraft-flights-hub-input');hub.value='XYZ';
+    const set=p.w.chrome.storage.local.set;let finish;
+    p.w.chrome.storage.local.set=(data,callback)=>data.paineaircraftFlights123?(finish=()=>set(data,callback)):set(data,callback);
+    const button=[...p.w.document.querySelectorAll('button')].find(b=>b.textContent==='Extract finished flight data');button.click();
+    await until(()=>finish);
+    assert.equal(button.disabled,true);
+    assert.doesNotMatch(p.w.document.querySelector('.aes-aircraft-flights-extract-status').textContent,/Profit data refreshed/);
+    finish();
+    await until(()=>p.w.document.querySelector('.aes-aircraft-flights-extract-status').textContent.includes('Profit data refreshed'));
+    assert.equal(p.saved.paineaircraftFlights123.profit,200);
+    assert.equal(p.w.document.querySelector('.aes-aircraft-flights-hub-input'),hub);
+    assert.equal(hub.value,'XYZ');assert.equal(button.disabled,false);
+    assert.match(p.w.document.querySelector('.aes-aircraft-flights-table').textContent,/200/);
+});
+
+test('summary write failure cannot produce collection success and exposes error details',async t=>{
+    const p=flights(t,rows);require('./support/read-pages.cjs').install(p);
+    p.load('content_aircraftFlights.js');await until(()=>p.w.document.querySelector('.aes-aircraft-flights-block'));
+    const set=p.w.chrome.storage.local.set;
+    p.w.chrome.storage.local.set=(data,callback)=>{
+        if(data.paineaircraftFlights123){p.w.chrome.runtime.lastError={message:'Summary unavailable'};callback();p.w.chrome.runtime.lastError=null;return;}
+        return set(data,callback);
+    };
+    [...p.w.document.querySelectorAll('button')].find(b=>b.textContent==='Extract finished flight data').click();
+    await until(()=>p.w.document.querySelector('.aes-aircraft-flights-extract-status').classList.contains('bad'));
+    assert.match(p.w.document.querySelector('.aes-read-details').textContent,/Summary unavailable/);
+    assert.doesNotMatch(p.w.document.querySelector('.aes-aircraft-flights-extract-status').textContent,/refreshed/);
+});
