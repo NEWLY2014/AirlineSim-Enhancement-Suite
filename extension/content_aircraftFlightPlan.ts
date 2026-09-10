@@ -1190,38 +1190,31 @@ async function afp_setPlannerArrivalSelect(segmentIndex: number, day: number, pa
     let plannerForm = afp_getPlannerForm();
     let arrivalSelects = afp_getArrivalSelects(plannerForm, segmentIndex, day);
     let select = part === 'hours' ? arrivalSelects.hours : arrivalSelects.minutes;
-    if (!select.length) {
-        return;
-    }
+    if (!select.length) throw new Error('Required arrival time control is missing.');
     let changed = afp_setSelectValue(select, value);
-    if (!changed) {
-        return;
-    }
+    if (!changed) throw new Error('Template arrival time is not available on this aircraft.');
     await afp_waitForPlannerMutation(1500);
     let applied = await afp_waitForArrivalSelectValue(segmentIndex, day, part, value);
     if (!applied) {
         let retryPlannerForm = afp_getPlannerForm();
         let retrySelects = afp_getArrivalSelects(retryPlannerForm, segmentIndex, day);
         let retrySelect = part === 'hours' ? retrySelects.hours : retrySelects.minutes;
-        if (!retrySelect.length) {
-            return;
+        if (!retrySelect.length || !afp_setSelectValue(retrySelect, value) ||
+            !await afp_waitForArrivalSelectValue(segmentIndex, day, part, value)) {
+            throw new Error('Template arrival time could not be applied.');
         }
-        afp_setSelectValue(retrySelect, value);
-        await afp_waitForArrivalSelectValue(segmentIndex, day, part, value);
     }
 }
 
 async function afp_syncPlannerArrivalTime(plannerForm: JQuery, segmentIndex: number, day: number, daySettings: AESModel.PlannerArrival) {
     let arrivalSelects = afp_getArrivalSelects(plannerForm, segmentIndex, day);
     if (!arrivalSelects.hours.length || !arrivalSelects.minutes.length) {
-        return;
+        throw new Error('Required arrival time controls are missing.');
     }
 
     let targetHours = String(daySettings.arrivalHours || '');
     let targetMinutes = String(daySettings.arrivalMinutes || '');
-    if (!targetHours || !targetMinutes) {
-        return;
-    }
+    if (!targetHours || !targetMinutes) throw new Error('Template arrival time is missing.');
 
     let currentArrival = afp_getArrivalValueSnapshot(segmentIndex, day);
     if (currentArrival.hours === targetHours && currentArrival.minutes === targetMinutes) {
@@ -1300,33 +1293,48 @@ async function afp_applyFlightEntryToPlanner(entry: AESModel.FlightPlanEntry, of
     }
 }
 
+function afp_validatePlanner(entry: AESModel.FlightPlanEntry, offsetDays: number) {
+    if (!afp_selectionMatchesEntry(afp_getSelectedExistingFlight(), entry)) throw new Error('Flight selection changed.');
+    const days = entry.selectedDays.map(day => (day + offsetDays) % 7);
+    for (let day = 0; day < 7; day++) {
+        const checkbox = afp_getPlannerDayCheckbox(day);
+        if (!checkbox.length || !!checkbox.prop('checked') !== days.includes(day)) throw new Error('Planner days do not match the template.');
+    }
+    const segments = afp_getPlannerSourceDaySettings(entry);
+    if (!segments.length) throw new Error('Planner segments are missing.');
+    for (const segment of segments) for (const day of entry.selectedDays) {
+        const expected = segment.days[day];
+        const actual = afp_getArrivalValueSnapshot(segment.index, (day + offsetDays) % 7);
+        if (!expected.arrivalHours || !expected.arrivalMinutes || !actual.hours || !actual.minutes ||
+            Number(actual.hours) !== Number(expected.arrivalHours) || Number(actual.minutes) !== Number(expected.arrivalMinutes)) {
+            throw new Error('Planner arrival time does not match the template.');
+        }
+    }
+}
+
 function afp_entryAppearsInVisualPlan(entry: AESModel.FlightPlanEntry, offsetDays: number) {
     let visualPlan = afp_getVisualPlan();
     if (!visualPlan.length) {
         return false;
     }
 
-    return entry.selectedDays.every(function(sourceDay) {
-        let targetDay = (sourceDay + offsetDays) % 7;
-        let day = visualPlan.find('.day').eq(targetDay);
-        if (!day.length) {
-            return false;
-        }
-
-        let found = false;
-        day.find('.blocks .block.flight .code').each(function() {
-            let codeText = $(this).text().trim();
-            if (entry.flightCode && codeText === entry.flightCode) {
-                found = true;
-                return false;
-            }
-            if (entry.flightNumberToken && afp_extractFlightNumberToken(codeText) === entry.flightNumberToken) {
-                found = true;
-                return false;
-            }
+    const actual = afp_getUniqueFlightEntries().find(candidate =>
+        entry.flightNumberValue ? candidate.flightNumberValue === entry.flightNumberValue : candidate.flightCode === entry.flightCode);
+    if (!actual) return false;
+    const targetDays = entry.selectedDays.map(day => (day + offsetDays) % 7);
+    if (actual.selectedDays.length !== targetDays.length) return false;
+    return entry.selectedDays.every(sourceDay => {
+        const targetDay = (sourceDay + offsetDays) % 7;
+        const observed = actual.daySettings[targetDay];
+        const expected = entry.daySettings?.[sourceDay];
+        if (!observed || !expected) return false;
+        const segments = expected.segments || {0:{arrival:expected.arrival}};
+        return Object.entries(segments).every(([index, segment]) => {
+            const arrival = segment.arrival;
+            const found = observed.segments[Number(index)]?.arrival;
+            return !!arrival?.hours && !!arrival.minutes && !!found?.hours && !!found.minutes &&
+                Number(arrival.hours) === Number(found.hours) && Number(arrival.minutes) === Number(found.minutes);
         });
-
-        return found;
     });
 }
 
@@ -1423,6 +1431,7 @@ async function afp_processJob() {
             job.status = 'waitForApply';
             await afp_saveJob();
             afp_renderPanel();
+            afp_validatePlanner(entry, job.offsetDays);
             afp_submitPlanner();
             return;
         }

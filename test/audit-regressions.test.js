@@ -48,6 +48,11 @@ async function planner(t,id='123',arrival='8') {
     p.submissions=0;p.w.document.querySelector('form').addEventListener('submit',e=>{e.preventDefault();p.submissions++;});
     p.load('content_aircraftFlightPlan.js');await until(()=>p.w.document.querySelector('#aes-aircraft-flight-plan-panel'));return p;
 }
+test('F02: unavailable template arrival hour prevents submission', async t => {
+    const p=await planner(t);btn(p,'Start scheduling').click();await until(()=>p.saved[jobKey]?.status==='error');
+    assert.equal(p.submissions,0);
+    assert.equal(p.w.document.querySelector('select[name="segmentsContainer:segments:0:newArrivals:0:newArrival:hours"]').value,'8');
+});
 
 
 
@@ -56,8 +61,15 @@ async function planner(t,id='123',arrival='8') {
 
 
 
-
-
+test('F02: final validation catches arrival controls removed while saving', async t => {
+    const p=await planner(t,'123','9');const originalSet=p.w.chrome.storage.local.set;
+    p.w.chrome.storage.local.set=(values,callback)=>{
+        if(values[jobKey]?.status==='waitForApply')p.w.document.querySelector('select[name="segmentsContainer:segments:0:newArrivals:0:newArrival:hours"]').remove();
+        return originalSet(values,callback);
+    };
+    btn(p,'Start scheduling').click();await until(()=>p.saved[jobKey]?.status==='error');
+    assert.equal(p.submissions,0);
+});
 
 test('F01: custom column titles and Inventory links use explicit DOM construction', async t => {
     const p=await dash(t,'routeManagement',{
