@@ -46,7 +46,13 @@ test('F05: Pricing Data backup includes actual routeAnalysis records', async t =
     const backup=JSON.parse(await p.downloads[0].text());assert.equal(backup.metadata.itemCount,1);
     assert.deepEqual(backup.data,p.saved);
 });
-
+test('F06: replace restore write failure retains previous data', async t => {
+    const p=await options(t,{important:{history:[1,2,3]}});p.failures.set='Simulated write failure';
+    const input=p.w.document.querySelector('#aes-restore-file');
+    Object.defineProperty(input,'files',{value:[new p.w.File([JSON.stringify({metadata:{},data:{replacement:1}})],'backup.json')]});
+    p.w.document.querySelector('#aes-restore-mode').value='replace';p.run('restoreData()');
+    await until(()=>p.w.document.querySelector('#aes-status-message').classList.contains('status-error'));assert.deepEqual(p.saved,{important:{history:[1,2,3]}});
+});
 
 
 
@@ -76,9 +82,29 @@ test('F03: second already-open aircraft page cannot replace an active job', asyn
     assert.equal(p.saved[jobKey].targetAircraftId,'123');assert.equal(p.submissions,1);assert.equal(q.submissions,0);
 });
 
+test('F06: failed replacement after journaling can recover across page reload', async t => {
+    const original={settings:{important:'original'},history:[1,2,3]};
+    const p=await options(t,original);
+    p.failures.remove='Delete failed';
+    p.w.target={settings:{important:'replacement'}};
+    await p.run('replaceStorageData(window.target)');
+    assert.deepEqual(p.saved.aesRestoreRecoveryV1.previous,original);
+    assert.deepEqual(p.saved.settings,{important:'replacement'});
+    const q=await options(t,p.saved);
+    btn(q,'Recover data from before restore').click();
+    await until(()=>!q.saved.aesRestoreRecoveryV1);
+    assert.deepEqual(q.saved,original);
+});
 
-
-
+test('F06: interrupted restore copy is retained if recovery writes fail', async t => {
+    const original={settings:{a:1}};
+    const p=await options(t,{settings:{a:2},aesRestoreRecoveryV1:{previous:original}});
+    p.failures.set='Disk unavailable';
+    btn(p,'Recover data from before restore').click();
+    await until(()=>p.w.document.querySelector('#aes-status-message').classList.contains('status-error'));
+    assert.deepEqual(p.saved.aesRestoreRecoveryV1.previous,original);
+    assert.deepEqual(p.saved.settings,{a:2});
+});
 
 
 

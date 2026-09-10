@@ -38,7 +38,7 @@ test('backup filters preserve complete records and metadata without changing sto
     assert.deepEqual(p.saved, data);
 });
 
-test('restore merge retains unrelated keys; replace clears before writing', async t => {
+test('restore merge retains unrelated keys; replace journals before writing and removes obsolete keys', async t => {
     const p = await options(t, { keep: { original: true }, settings: { old: true } });
     const backup = { metadata: { itemCount: 1 }, data: { settings: { custom: false } } };
     selectBackup(p, JSON.stringify(backup), 'merge');
@@ -47,8 +47,8 @@ test('restore merge retains unrelated keys; replace clears before writing', asyn
     assert.deepEqual(p.calls.map(c => c.operation), ['set']);
     p.calls.length = 0;
     selectBackup(p, JSON.stringify(backup), 'replace');
-    await until(() => p.calls.length === 2);
-    assert.deepEqual(p.calls.map(c => c.operation), ['clear', 'set']);
+    await until(() => p.calls.filter(c=>c.operation==='remove').length === 2);
+    assert.deepEqual(p.calls.map(c => c.operation), ['set', 'set', 'remove', 'remove']);
     assert.deepEqual(p.saved, backup.data);
 });
 
@@ -99,12 +99,12 @@ test('malformed backup envelopes are rejected before replacement can clear data'
 test('restore and backup show storage errors and stop dependent operations', async t => {
     const p = await options(t, { keep: 42 });
     const backup = JSON.stringify({ metadata: {}, data: { replacement: true } });
-    p.failures.clear = 'Clear failed';
+    p.failures.get = 'Read failed';
     selectBackup(p, backup, 'replace');
-    await until(() => p.w.document.querySelector('#aes-status-message').textContent.includes('Clear failed'));
-    assert.deepEqual(p.calls.map(c => c.operation), ['clear']);
+    await until(() => p.w.document.querySelector('#aes-status-message').textContent.includes('Read failed'));
+    assert.deepEqual(p.calls, []);
     assert.deepEqual(p.saved, { keep: 42 });
-    delete p.failures.clear;
+    delete p.failures.get;
     p.failures.set = 'Write failed';
     selectBackup(p, backup, 'merge');
     await until(() => p.w.document.querySelector('#aes-status-message').textContent.includes('Write failed'));
