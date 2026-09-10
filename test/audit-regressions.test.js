@@ -40,7 +40,12 @@ test('F04: legacy migration preserves existing owner history', async t => {
     assert.equal(p.saved[key].tab0['20260901'].displayName,'Old');
     assert.equal(p.saved[key].newMetadata,'keep');
 });
-
+test('F05: Pricing Data backup includes actual routeAnalysis records', async t => {
+    const p=await options(t,{paine42AAABBBrouteAnalysis:{type:'routeAnalysis',date:{20260908:{data:{}}}}});
+    p.w.document.querySelector('#aes-backup-type').value='pricing';p.w.document.querySelector('#aes-backup-btn').click();
+    const backup=JSON.parse(await p.downloads[0].text());assert.equal(backup.metadata.itemCount,1);
+    assert.deepEqual(backup.data,p.saved);
+});
 
 
 

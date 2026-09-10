@@ -171,6 +171,7 @@ function analyzeStorageData(data: AESModel.StorageSnapshot) {
                 case "schedule":
                     stats.schedule++;
                     break;
+                case "routeAnalysis":
                 case "pricing":
                     stats.pricing++;
                     break;
@@ -229,7 +230,7 @@ function createBackup() {
                         }
                         break;
                     case "pricing":
-                        if (isOptionsRecord(item) && item.type === "pricing") {
+                        if (isOptionsRecord(item) && (item.type === "pricing" || item.type === "routeAnalysis")) {
                             backupData[key] = item;
                         }
                         break;
