@@ -3463,7 +3463,7 @@ function generalAddScheduleRow(tbody: JQuery) {
         if (scheduleData) {
             let lastUpdate = getDate('schedule', scheduleData.date);
             let diff = AES.getDateDiff([todayDate.date, lastUpdate]);
-            let span = $('<span></span>').text('Last schedule extract ' + AES.formatDateString(lastUpdate) + ' (' + diff + ' days ago). Extract new schedule if there are new routes.');
+            let span = $('<span></span>').text('Last schedule extract ' + AES.formatDateString(lastUpdate) + ' (' + diff + ' days ago).');
             if (diff >= 0 && diff < 7) {
                 span.addClass('good');
             } else {
@@ -3485,17 +3485,22 @@ function generalAddScheduleRow(tbody: JQuery) {
 function generalUpdateScheduleAction(td3: JQuery) {
     let btn = $('<button type="button" class="btn btn-default">Extract schedule data</button>');
     const statusCell = td3.closest('tr').children('td').eq(1);
+    let savedTimer: number | undefined;
     const status = $('<span role="status"></span>');
     btn.on('click', async function() {
         if (btn.prop('disabled') || !AES.isPageOwner()) return;
         const revision = dashboardRevision, context = AESRead.context();
         const current = () => context() && revision === dashboardRevision;
+        window.clearTimeout(savedTimer);
         statusCell.empty().append(status);
         btn.prop('disabled',true);status.removeClass().addClass('warning').text('Fetching schedule...');
         try {
             await AESRead.collectSchedule(airline, message => {if(current())status.text(message);},current);
             if (current()) {
                 status.removeClass().addClass('good').text('Schedule saved.');
+                savedTimer = window.setTimeout(() => {
+                    if (current() && status[0].isConnected) status.removeClass().text('Schedule saved just now.');
+                }, 5000);
             }
         } catch (error) {
             if(current())status.removeClass().addClass('bad').text(String(error instanceof Error ? error.message : error));
