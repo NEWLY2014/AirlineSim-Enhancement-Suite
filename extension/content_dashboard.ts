@@ -2216,6 +2216,14 @@ function displayCompetitorMonitoringAirlinesTable(div: JQuery) {
         });
     };
 
+    function mergeMigratedCompetitor(legacy: unknown, existing: unknown, key: string) {
+        const old = AES.isRecord(legacy) ? legacy : {};
+        const current = AES.isRecord(existing) ? existing : {};
+        return {...old, ...current, key, ownerId:airline.id, ownerAirline:airline,
+            tab0:{...(AES.isRecord(old.tab0) ? old.tab0 : {}), ...(AES.isRecord(current.tab0) ? current.tab0 : {})},
+            tab2:{...(AES.isRecord(old.tab2) ? old.tab2 : {}), ...(AES.isRecord(current.tab2) ? current.tab2 : {})}};
+    }
+
     let migrateLegacyCompetitorMonitoringData = function() {
         dashboardStorage.get(null, function(items) {
             let legacyKeysToRemove: string[] = [];
@@ -2233,7 +2241,8 @@ function displayCompetitorMonitoringAirlinesTable(div: JQuery) {
                             ownerId: airline.id,
                             ownerAirline: airline
                         };
-                        migratedCompetitorData[newKey] = {...(AES.isRecord(items[key]) ? items[key] : {}), key: newKey, ownerId: airline.id, ownerAirline: airline};
+                        migratedCompetitorData[newKey] = mergeMigratedCompetitor(items[key], items[newKey], newKey);
+                        compData = readDashboardCompetitor(migratedCompetitorData[newKey])!;
                         if (key != newKey) {
                             legacyKeysToRemove.push(key);
                         }
@@ -2246,7 +2255,7 @@ function displayCompetitorMonitoringAirlinesTable(div: JQuery) {
                                 ...compData,
                                 key: expectedKey
                             };
-                            migratedCompetitorData[expectedKey] = {...(AES.isRecord(items[key]) ? items[key] : {}), key: expectedKey, ownerId: airline.id, ownerAirline: airline};
+                            migratedCompetitorData[expectedKey] = mergeMigratedCompetitor(items[key], items[expectedKey], expectedKey);
                             if (key != expectedKey) {
                                 legacyKeysToRemove.push(key);
                             }

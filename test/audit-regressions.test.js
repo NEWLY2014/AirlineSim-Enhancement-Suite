@@ -31,7 +31,15 @@ test('F01: pricing step name remains an input value', async t => {
     assert.equal(p.w.document.querySelector('#audit-setting-injected'),null);
     assert.match(p.w.document.querySelector('#aes-table-invPricing input').value, /<img/);
 });
-
+test('F04: legacy migration preserves existing owner history', async t => {
+    const oldKey='paine99competitorMonitoring',key='paine42_99competitorMonitoring';
+    const common={type:'competitorMonitoring',server:'paine',id:'99',tracking:1,tab2:{}};
+    const p=await dash(t,'competitorMonitoring',{[oldKey]:{...common,key:oldKey,tab0:{20260901:{displayName:'Old'}}},[key]:{...common,key,ownerId:'42',tab0:{20260908:{displayName:'New'}},newMetadata:'keep'}});
+    await until(()=>!p.saved[oldKey]);
+    assert.equal(p.saved[key].tab0['20260908'].displayName,'New');
+    assert.equal(p.saved[key].tab0['20260901'].displayName,'Old');
+    assert.equal(p.saved[key].newMetadata,'keep');
+});
 
 
 
