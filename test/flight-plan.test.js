@@ -78,12 +78,19 @@ test('starting a job offsets Sunday to Monday and persists waitForApply before f
     assert.equal(p.submissions.length,1);
 });
 
-test('resumed job completes only after scheduled days appear in the visual plan', async t => {
-    const p = page(t,{days:{0:block(0,'0700','0930')},data:{[templateKey]:template(),[jobKey]:job({status:'waitForApply'})}});
+test('resumed job confirms service days when AirlineSim recalculates the target arrival time', async t => {
+    const p = page(t,{days:{0:block(0,'0700','0951')},data:{[templateKey]:template(),[jobKey]:job({status:'waitForApply'})}});
     await load(p);
     await until(() => !p.saved[jobKey]);
     assert.equal(p.submissions.length,0);
     assert.match(p.w.document.querySelector('#aes-aircraft-flight-plan-runtime').textContent,/completed/);
+
+    const wrongDay = page(t,{days:{1:block(0,'0700','0930')},data:{[templateKey]:template(),[jobKey]:job({status:'waitForApply'})}});
+    await load(wrongDay);
+    await until(() => wrongDay.saved[jobKey].status === 'error');
+    assert.match(wrongDay.saved[jobKey].errorMessage,/Could not confirm scheduled days/);
+    assert.equal(wrongDay.submissions.length,0);
+
     const q = page(t,{data:{[templateKey]:template(),[jobKey]:job({status:'waitForApply'})}});
     await load(q);
     await until(() => q.saved[jobKey].status === 'error');

@@ -1376,19 +1376,9 @@ function afp_entryAppearsInVisualPlan(entry: AESModel.FlightPlanEntry, offsetDay
     if (!actual) return false;
     const targetDays = entry.selectedDays.map(day => (day + offsetDays) % 7);
     if (actual.selectedDays.length !== targetDays.length) return false;
-    return entry.selectedDays.every(sourceDay => {
-        const targetDay = (sourceDay + offsetDays) % 7;
-        const observed = actual.daySettings[targetDay];
-        const expected = entry.daySettings?.[sourceDay];
-        if (!observed || !expected) return false;
-        const segments = expected.segments || {0:{arrival:expected.arrival}};
-        return Object.entries(segments).every(([index, segment]) => {
-            const arrival = segment.arrival;
-            const found = observed.segments[Number(index)]?.arrival;
-            return !!arrival?.hours && !!arrival.minutes && !!found?.hours && !!found.minutes &&
-                Number(arrival.hours) === Number(found.hours) && Number(arrival.minutes) === Number(found.minutes);
-        });
-    });
+    // AirlineSim recalculates arrival times for the target aircraft. The applied
+    // flight number and service days are the authoritative scheduling result.
+    return targetDays.every(targetDay => actual.selectedDays.includes(targetDay));
 }
 
 function afp_submitPlanner() {
