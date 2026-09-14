@@ -8,7 +8,7 @@ const offsetKey = 'paine42flightPlanAssistantOffsetDays';
 const block = (segment, start, end, classes = 'started ended') => `<div class="block flight ${classes}"><span class="code">AA 100</span><a title="View flight number" href="/app/com/numbers/10?segment=${segment}"></a><div class="times"><span class="start">${start}</span><span class="end">${end}</span></div></div>`;
 const visual = days => `<div class="visual-flight-plan">${Array.from({length:7},(_,i) => `<div class="day"><div class="blocks">${days[i] || ''}</div></div>`).join('')}</div>`;
 const select = (name, value) => `<select name="${name}"><option value="${value}" selected>${value}</option></select>`;
-const planner = `<form><select name="existingNumber:numbers:numbers_body:input"><option value="10">AA 100</option><option value="20">AA 200</option></select>${Array.from({length:7},(_,i) => `<input type="checkbox" name="days:daySelection:${i}:ticked">${select(`segmentsContainer:segments:0:newArrivals:${i}:newArrival:hours`,'9')}${select(`segmentsContainer:segments:0:newArrivals:${i}:newArrival:minutes`,'30')}`).join('')}<input type="submit" name="button-submit"></form>`;
+const planner = `<form><select name="existingNumber:numbers:numbers_body:input"><option value="10">AA 100</option><option value="20">AA 200</option></select>${Array.from({length:7},(_,i) => `<input type="checkbox" name="days:daySelection:${i}:ticked"><input type="checkbox" name="segmentsContainer:segments:0:fixedArrivalSelection:${i}:fixedArrival">${select(`segmentsContainer:segments:0:newArrivals:${i}:newArrival:hours`,'9')}${select(`segmentsContainer:segments:0:newArrivals:${i}:newArrival:minutes`,'30')}`).join('')}<input type="submit" name="button-submit"></form>`;
 function page(t, {days = {}, data = {}, form = planner} = {}) {
     const p = browser(t,{path:'/app/fleets/aircraft/123/0',data,html:header + '<h1>Aircraft: AA-123 / A320</h1><h3>Assign a new flight</h3><div class="as-panel">'+form+'</div><h3>Transfer Flight Plan</h3>'+visual(days)});
     const setTimeout = p.w.setTimeout.bind(p.w);
@@ -16,7 +16,11 @@ function page(t, {days = {}, data = {}, form = planner} = {}) {
     p.submissions = [];
     p.w.document.querySelector('form')?.addEventListener('submit', event => {
         event.preventDefault();
-        p.submissions.push({job:JSON.parse(JSON.stringify(p.saved[jobKey])),days:[...p.w.document.querySelectorAll('input[type="checkbox"]')].map(c => c.checked)});
+        p.submissions.push({
+            job:JSON.parse(JSON.stringify(p.saved[jobKey])),
+            days:[...p.w.document.querySelectorAll('input[name^="days:daySelection:"]')].map(c => c.checked),
+            fixedArrivals:[...p.w.document.querySelectorAll('input[name*="fixedArrivalSelection"]')].map(c => c.checked)
+        });
     });
     return p;
 }
@@ -75,11 +79,12 @@ test('starting a job offsets Sunday to Monday and persists waitForApply before f
     assert.equal(p.saved[offsetKey],1);
     assert.equal(p.submissions[0].job.status,'waitForApply');
     assert.deepEqual(p.submissions[0].days,[true,false,false,false,false,false,false]);
+    assert.deepEqual(p.submissions[0].fixedArrivals,[true,false,false,false,false,false,false]);
     assert.equal(p.submissions.length,1);
 });
 
-test('resumed job confirms service days when AirlineSim recalculates the target arrival time', async t => {
-    const p = page(t,{days:{0:block(0,'0700','0951')},data:{[templateKey]:template(),[jobKey]:job({status:'waitForApply'})}});
+test('resumed job completes only after scheduled days and fixed arrival times appear', async t => {
+    const p = page(t,{days:{0:block(0,'0700','0930')},data:{[templateKey]:template(),[jobKey]:job({status:'waitForApply'})}});
     await load(p);
     await until(() => !p.saved[jobKey]);
     assert.equal(p.submissions.length,0);
@@ -88,13 +93,19 @@ test('resumed job confirms service days when AirlineSim recalculates the target 
     const wrongDay = page(t,{days:{1:block(0,'0700','0930')},data:{[templateKey]:template(),[jobKey]:job({status:'waitForApply'})}});
     await load(wrongDay);
     await until(() => wrongDay.saved[jobKey].status === 'error');
-    assert.match(wrongDay.saved[jobKey].errorMessage,/Could not confirm scheduled days/);
+    assert.match(wrongDay.saved[jobKey].errorMessage,/Could not confirm scheduled days and arrival times/);
     assert.equal(wrongDay.submissions.length,0);
+
+    const wrongArrival = page(t,{days:{0:block(0,'0700','0951')},data:{[templateKey]:template(),[jobKey]:job({status:'waitForApply'})}});
+    await load(wrongArrival);
+    await until(() => wrongArrival.saved[jobKey].status === 'error');
+    assert.match(wrongArrival.saved[jobKey].errorMessage,/Could not confirm scheduled days and arrival times/);
+    assert.equal(wrongArrival.submissions.length,0);
 
     const q = page(t,{data:{[templateKey]:template(),[jobKey]:job({status:'waitForApply'})}});
     await load(q);
     await until(() => q.saved[jobKey].status === 'error');
-    assert.match(q.saved[jobKey].errorMessage,/Could not confirm scheduled days/);
+    assert.match(q.saved[jobKey].errorMessage,/Could not confirm scheduled days and arrival times/);
     assert.equal(q.submissions.length,0);
 });
 

@@ -1259,6 +1259,19 @@ async function afp_setPlannerArrivalSelect(segmentIndex: number, day: number, pa
     }
 }
 
+async function afp_setPlannerFixedArrival(segmentIndex: number, day: number) {
+    let checkbox = afp_getFixedArrivalCheckbox(afp_getPlannerForm(), segmentIndex, day);
+    if (!checkbox.length) throw new Error('Required fixed arrival control is missing.');
+    if (checkbox.prop('checked')) return;
+
+    afp_clickElement(checkbox);
+    let applied = await afp_waitFor(function() {
+        let current = afp_getFixedArrivalCheckbox(afp_getPlannerForm(), segmentIndex, day);
+        return current.length && current.prop('checked');
+    }, 3000, 80);
+    if (!applied) throw new Error('Template fixed arrival time could not be enabled.');
+}
+
 async function afp_syncPlannerArrivalTime(plannerForm: JQuery, segmentIndex: number, day: number, daySettings: AESModel.PlannerArrival) {
     let arrivalSelects = afp_getArrivalSelects(plannerForm, segmentIndex, day);
     if (!arrivalSelects.hours.length || !arrivalSelects.minutes.length) {
@@ -1269,6 +1282,7 @@ async function afp_syncPlannerArrivalTime(plannerForm: JQuery, segmentIndex: num
     let targetMinutes = String(daySettings.arrivalMinutes || '');
     if (!targetHours || !targetMinutes) throw new Error('Template arrival time is missing.');
 
+    await afp_setPlannerFixedArrival(segmentIndex, day);
     let currentArrival = afp_getArrivalValueSnapshot(segmentIndex, day);
     if (currentArrival.hours === targetHours && currentArrival.minutes === targetMinutes) {
         return;
@@ -1357,7 +1371,12 @@ function afp_validatePlanner(entry: AESModel.FlightPlanEntry, offsetDays: number
     if (!segments.length) throw new Error('Planner segments are missing.');
     for (const segment of segments) for (const day of entry.selectedDays) {
         const expected = segment.days[day];
-        const actual = afp_getArrivalValueSnapshot(segment.index, (day + offsetDays) % 7);
+        const targetDay = (day + offsetDays) % 7;
+        const fixedArrival = afp_getFixedArrivalCheckbox(afp_getPlannerForm(), segment.index, targetDay);
+        const actual = afp_getArrivalValueSnapshot(segment.index, targetDay);
+        if (!fixedArrival.length || !fixedArrival.prop('checked')) {
+            throw new Error('Planner arrival time is not fixed.');
+        }
         if (!expected.arrivalHours || !expected.arrivalMinutes || !actual.hours || !actual.minutes ||
             Number(actual.hours) !== Number(expected.arrivalHours) || Number(actual.minutes) !== Number(expected.arrivalMinutes)) {
             throw new Error('Planner arrival time does not match the template.');
@@ -1376,9 +1395,19 @@ function afp_entryAppearsInVisualPlan(entry: AESModel.FlightPlanEntry, offsetDay
     if (!actual) return false;
     const targetDays = entry.selectedDays.map(day => (day + offsetDays) % 7);
     if (actual.selectedDays.length !== targetDays.length) return false;
-    // AirlineSim recalculates arrival times for the target aircraft. The applied
-    // flight number and service days are the authoritative scheduling result.
-    return targetDays.every(targetDay => actual.selectedDays.includes(targetDay));
+    return entry.selectedDays.every(sourceDay => {
+        const targetDay = (sourceDay + offsetDays) % 7;
+        const observed = actual.daySettings[targetDay];
+        const expected = entry.daySettings?.[sourceDay];
+        if (!observed || !expected) return false;
+        const segments = expected.segments || {0:{arrival:expected.arrival}};
+        return Object.entries(segments).every(([index, segment]) => {
+            const arrival = segment.arrival;
+            const found = observed.segments[Number(index)]?.arrival;
+            return !!arrival?.hours && !!arrival.minutes && !!found?.hours && !!found.minutes &&
+                Number(arrival.hours) === Number(found.hours) && Number(arrival.minutes) === Number(found.minutes);
+        });
+    });
 }
 
 function afp_submitPlanner() {
@@ -1481,7 +1510,7 @@ async function afp_processJob() {
 
         if (job.status === 'waitForApply') {
             if (!afp_entryAppearsInVisualPlan(entry, job.offsetDays)) {
-                await afp_failJob('Could not confirm scheduled days for ' + entry.flightCode + '.');
+                await afp_failJob('Could not confirm scheduled days and arrival times for ' + entry.flightCode + '.');
                 return;
             }
 
