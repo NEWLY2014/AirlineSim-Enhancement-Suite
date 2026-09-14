@@ -620,7 +620,8 @@ function afp_normalizeTemplate(template: unknown): AESModel.FlightPlanTemplate |
 
 function afp_isJobStatus(value: unknown): value is AESModel.FlightPlanJobStatus {
     return value === 'selecting' || value === 'waitForSelection' || value === 'applying' ||
-        value === 'waitForApply' || value === 'done' || value === 'error';
+        value === 'waitForApply' || value === 'correcting' || value === 'waitForCorrectionApply' ||
+        value === 'done' || value === 'error';
 }
 
 function afp_normalizeJob(value: unknown): AESModel.FlightPlanJob | null {
@@ -1360,12 +1361,19 @@ async function afp_applyFlightEntryToPlanner(entry: AESModel.FlightPlanEntry, of
     }
 }
 
-function afp_validatePlanner(entry: AESModel.FlightPlanEntry, offsetDays: number) {
-    if (!afp_selectionMatchesEntry(afp_getSelectedExistingFlight(), entry)) throw new Error('Flight selection changed.');
+function afp_plannerDaysMatch(entry: AESModel.FlightPlanEntry, offsetDays: number) {
     const days = entry.selectedDays.map(day => (day + offsetDays) % 7);
     for (let day = 0; day < 7; day++) {
         const checkbox = afp_getPlannerDayCheckbox(day);
-        if (!checkbox.length || !!checkbox.prop('checked') !== days.includes(day)) throw new Error('Planner days do not match the template.');
+        if (!checkbox.length || !!checkbox.prop('checked') !== days.includes(day)) return false;
+    }
+    return true;
+}
+
+function afp_validatePlanner(entry: AESModel.FlightPlanEntry, offsetDays: number, requireSelection = true) {
+    if (requireSelection && !afp_selectionMatchesEntry(afp_getSelectedExistingFlight(), entry)) throw new Error('Flight selection changed.');
+    if (!afp_plannerDaysMatch(entry, offsetDays)) {
+        throw new Error('Planner days do not match the template.');
     }
     const segments = afp_getPlannerSourceDaySettings(entry);
     if (!segments.length) throw new Error('Planner segments are missing.');
@@ -1384,17 +1392,21 @@ function afp_validatePlanner(entry: AESModel.FlightPlanEntry, offsetDays: number
     }
 }
 
-function afp_entryAppearsInVisualPlan(entry: AESModel.FlightPlanEntry, offsetDays: number) {
-    let visualPlan = afp_getVisualPlan();
-    if (!visualPlan.length) {
-        return false;
-    }
-
-    const actual = afp_getUniqueFlightEntries().find(candidate =>
+function afp_findVisualEntry(entry: AESModel.FlightPlanEntry) {
+    return afp_getUniqueFlightEntries().find(candidate =>
         entry.flightNumberValue ? candidate.flightNumberValue === entry.flightNumberValue : candidate.flightCode === entry.flightCode);
+}
+
+function afp_entryDaysAppearInVisualPlan(entry: AESModel.FlightPlanEntry, offsetDays: number) {
+    const actual = afp_findVisualEntry(entry);
     if (!actual) return false;
     const targetDays = entry.selectedDays.map(day => (day + offsetDays) % 7);
-    if (actual.selectedDays.length !== targetDays.length) return false;
+    return actual.selectedDays.length === targetDays.length && targetDays.every(day => actual.selectedDays.includes(day));
+}
+
+function afp_entryAppearsInVisualPlan(entry: AESModel.FlightPlanEntry, offsetDays: number) {
+    const actual = afp_findVisualEntry(entry);
+    if (!actual || !afp_entryDaysAppearInVisualPlan(entry, offsetDays)) return false;
     return entry.selectedDays.every(sourceDay => {
         const targetDay = (sourceDay + offsetDays) % 7;
         const observed = actual.daySettings[targetDay];
@@ -1408,6 +1420,35 @@ function afp_entryAppearsInVisualPlan(entry: AESModel.FlightPlanEntry, offsetDay
                 Number(arrival.hours) === Number(found.hours) && Number(arrival.minutes) === Number(found.minutes);
         });
     });
+}
+
+function afp_getCorrectionEditLink(entry: AESModel.FlightPlanEntry, offsetDays: number) {
+    if (!afp_entryDaysAppearInVisualPlan(entry, offsetDays)) return $();
+    const targetDay = (entry.selectedDays[0] + offsetDays) % 7;
+    return afp_getVisualPlan().find('.day').eq(targetDay).find('.block.flight.started').filter(function() {
+        const block = $(this);
+        const code = $('.code', block).first().text().trim();
+        const value = afp_getVisualBlockFlightNumberId(block);
+        return entry.flightNumberValue ? value === entry.flightNumberValue : code === entry.flightCode;
+    }).first().find('a[title="Set planner to this flight number"]').first();
+}
+
+function afp_correctionPlannerIsReady(entry: AESModel.FlightPlanEntry, offsetDays: number) {
+    return $('input[type="submit"][name="button-submit"]', afp_getPlannerForm()).length > 0 &&
+        afp_plannerDaysMatch(entry, offsetDays) && afp_collectSegmentIndexes().length > 0;
+}
+
+async function afp_applyFlightEntryCorrection(entry: AESModel.FlightPlanEntry, offsetDays: number) {
+    if (!afp_correctionPlannerIsReady(entry, offsetDays)) {
+        throw new Error('Correction planner does not match the scheduled flight.');
+    }
+    const sourceSegmentSettings = afp_getPlannerSourceDaySettings(entry);
+    for (const segment of sourceSegmentSettings) {
+        for (const sourceDay of entry.selectedDays) {
+            const targetDay = (sourceDay + offsetDays) % 7;
+            await afp_syncPlannerArrivalTime(afp_getPlannerForm(), segment.index, targetDay, segment.days[sourceDay]);
+        }
+    }
 }
 
 function afp_submitPlanner() {
@@ -1509,11 +1550,57 @@ async function afp_processJob() {
         }
 
         if (job.status === 'waitForApply') {
-            if (!afp_entryAppearsInVisualPlan(entry, job.offsetDays)) {
+            if (afp_entryAppearsInVisualPlan(entry, job.offsetDays)) {
+                job.currentIndex++;
+                job.status = 'selecting';
+                await afp_saveJob();
+                afp_renderPanel();
+                continue;
+            }
+            if (!afp_entryDaysAppearInVisualPlan(entry, job.offsetDays) || !afp_getCorrectionEditLink(entry, job.offsetDays).length) {
                 await afp_failJob('Could not confirm scheduled days and arrival times for ' + entry.flightCode + '.');
                 return;
             }
 
+            job.status = 'correcting';
+            await afp_saveJob();
+            afp_renderPanel();
+            continue;
+        }
+
+        if (job.status === 'correcting') {
+            afp_setRuntimeMessage('Correcting arrival time for ' + entry.flightCode + '...', 'warning');
+            if (!afp_correctionPlannerIsReady(entry, job.offsetDays)) {
+                const editLink = afp_getCorrectionEditLink(entry, job.offsetDays);
+                if (!editLink.length) {
+                    await afp_failJob('Could not open arrival time correction for ' + entry.flightCode + '.');
+                    return;
+                }
+                afp_clickElement(editLink);
+                const ready = await afp_waitFor(function() {
+                    return afp_correctionPlannerIsReady(entry, job.offsetDays);
+                }, 5000, 100);
+                if (!ready) {
+                    await afp_failJob('Arrival time correction did not become ready for ' + entry.flightCode + '.');
+                    return;
+                }
+            }
+
+            await afp_applyFlightEntryCorrection(entry, job.offsetDays);
+            afp_assertJobAction();
+            job.status = 'waitForCorrectionApply';
+            await afp_saveJob();
+            afp_renderPanel();
+            afp_validatePlanner(entry, job.offsetDays, false);
+            afp_submitPlanner();
+            return;
+        }
+
+        if (job.status === 'waitForCorrectionApply') {
+            if (!afp_entryAppearsInVisualPlan(entry, job.offsetDays)) {
+                await afp_failJob('Automatic arrival time correction failed for ' + entry.flightCode + '.');
+                return;
+            }
             job.currentIndex++;
             job.status = 'selecting';
             await afp_saveJob();

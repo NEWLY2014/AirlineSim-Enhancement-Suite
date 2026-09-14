@@ -8,13 +8,15 @@ const offsetKey = 'paine42flightPlanAssistantOffsetDays';
 const block = (segment, start, end, classes = 'started ended') => `<div class="block flight ${classes}"><span class="code">AA 100</span><a title="View flight number" href="/app/com/numbers/10?segment=${segment}"></a><div class="times"><span class="start">${start}</span><span class="end">${end}</span></div></div>`;
 const visual = days => `<div class="visual-flight-plan">${Array.from({length:7},(_,i) => `<div class="day"><div class="blocks">${days[i] || ''}</div></div>`).join('')}</div>`;
 const select = (name, value) => `<select name="${name}"><option value="${value}" selected>${value}</option></select>`;
+const choice = (name, selected, values) => `<select name="${name}">${values.map(value => `<option value="${value}"${value === selected ? ' selected' : ''}>${value}</option>`).join('')}</select>`;
 const planner = `<form><select name="existingNumber:numbers:numbers_body:input"><option value="10">AA 100</option><option value="20">AA 200</option></select>${Array.from({length:7},(_,i) => `<input type="checkbox" name="days:daySelection:${i}:ticked"><input type="checkbox" name="segmentsContainer:segments:0:fixedArrivalSelection:${i}:fixedArrival">${select(`segmentsContainer:segments:0:newArrivals:${i}:newArrival:hours`,'9')}${select(`segmentsContainer:segments:0:newArrivals:${i}:newArrival:minutes`,'30')}`).join('')}<input type="submit" name="button-submit"></form>`;
+const correctionPlanner = `<form>${Array.from({length:7},(_,i) => `<input type="checkbox" name="days:daySelection:${i}:ticked"${i === 0 ? ' checked' : ''}><input type="checkbox" name="segmentsContainer:segments:0:fixedArrivalSelection:${i}:fixedArrival">${choice(`segmentsContainer:segments:0:newArrivals:${i}:newArrival:hours`,'9',['9'])}${choice(`segmentsContainer:segments:0:newArrivals:${i}:newArrival:minutes`,i === 0 ? '51' : '30',['30','51'])}`).join('')}<input type="submit" name="button-submit"></form>`;
 function page(t, {days = {}, data = {}, form = planner} = {}) {
     const p = browser(t,{path:'/app/fleets/aircraft/123/0',data,html:header + '<h1>Aircraft: AA-123 / A320</h1><h3>Assign a new flight</h3><div class="as-panel">'+form+'</div><h3>Transfer Flight Plan</h3>'+visual(days)});
     const setTimeout = p.w.setTimeout.bind(p.w);
-    p.w.setTimeout = (fn,ms,...args) => setTimeout(fn,ms === 300 ? 0 : ms,...args);
+    p.w.setTimeout = (fn,ms,...args) => setTimeout(fn,ms === 300 || ms === 1500 ? 0 : ms,...args);
     p.submissions = [];
-    p.w.document.querySelector('form')?.addEventListener('submit', event => {
+    p.w.document.addEventListener('submit', event => {
         event.preventDefault();
         p.submissions.push({
             job:JSON.parse(JSON.stringify(p.saved[jobKey])),
@@ -107,6 +109,31 @@ test('resumed job completes only after scheduled days and fixed arrival times ap
     await until(() => q.saved[jobKey].status === 'error');
     assert.match(q.saved[jobKey].errorMessage,/Could not confirm scheduled days and arrival times/);
     assert.equal(q.submissions.length,0);
+});
+
+test('arrival mismatch opens the scheduled flight, corrects it once and verifies the result', async t => {
+    const editable = block(0,'0700','0951').replace('</div></div>','<a title="Set planner to this flight number" href="#edit"></a></div></div>');
+    const p = page(t,{days:{0:editable},data:{[templateKey]:template(),[jobKey]:job({status:'waitForApply'})}});
+    p.w.document.querySelector('a[title="Set planner to this flight number"]').addEventListener('click', event => {
+        event.preventDefault();
+        p.w.document.querySelector('.as-panel').innerHTML = correctionPlanner;
+    });
+    await load(p);
+    await until(() => p.submissions.length === 1);
+    assert.equal(p.submissions[0].job.status,'waitForCorrectionApply');
+    assert.equal(p.submissions[0].fixedArrivals[0],true);
+    assert.equal(p.w.document.querySelector('select[name="segmentsContainer:segments:0:newArrivals:0:newArrival:minutes"]').value,'30');
+
+    const corrected = page(t,{days:{0:block(0,'0700','0930')},data:{[templateKey]:template(),[jobKey]:job({status:'waitForCorrectionApply'})}});
+    await load(corrected);
+    await until(() => !corrected.saved[jobKey]);
+    assert.match(corrected.w.document.querySelector('#aes-aircraft-flight-plan-runtime').textContent,/completed/);
+
+    const failed = page(t,{days:{0:block(0,'0700','0951')},data:{[templateKey]:template(),[jobKey]:job({status:'waitForCorrectionApply'})}});
+    await load(failed);
+    await until(() => failed.saved[jobKey].status === 'error');
+    assert.match(failed.saved[jobKey].errorMessage,/Automatic arrival time correction failed/);
+    assert.equal(failed.submissions.length,0);
 });
 
 test('old template versions are removed and another aircraft job disables scheduling', async t => {

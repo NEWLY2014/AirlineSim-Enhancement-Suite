@@ -33,7 +33,8 @@ declare namespace AESModel {
         sourceModel: string;
         sourceRegistration: string;
     }
-    type FlightPlanJobStatus = 'selecting' | 'waitForSelection' | 'applying' | 'waitForApply' | 'done' | 'error';
+    type FlightPlanJobStatus = 'selecting' | 'waitForSelection' | 'applying' | 'waitForApply' |
+        'correcting' | 'waitForCorrectionApply' | 'done' | 'error';
     interface FlightPlanJob extends Record<string, unknown> {
         type: 'aircraftFlightPlanSchedulingJob';
         status: FlightPlanJobStatus;
