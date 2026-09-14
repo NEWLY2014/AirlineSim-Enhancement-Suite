@@ -49,6 +49,24 @@ test('flight-plan HUB extraction counts locations with alphabetical tie breaking
     assert.deepEqual(p.saved.paine42aircraftFlightPlanHub123,{aircraftId:'123',counts:{BBB:1,AAA:1},hub:'AAA',server:'paine',type:'aircraftFlightPlanHub'});
 });
 
+test('flight-plan HUB extraction immediately updates fleet and profit consumers', async t => {
+    const fleet={type:'aircraftFleet',server:'paine',extra:'keep',fleet:[
+        {aircraftId:123,registration:'AA-123',hubDetected:'OLD',hubEffective:'CCC',hubOverride:'CCC',note:'keep'},
+        {aircraftId:999,registration:'AA-999',hubDetected:'OTHER'},
+        {aircraftId:{malformed:true},unknown:'keep'}
+    ]};
+    const summary={type:'aircraftFlights',aircraftId:123,date:'20260908',time:'00:00 UTC',finishedFlights:2,totalFlights:2,
+        profit:80,profitFlights:2,hubDetected:'OLD',hubEffective:'CCC',hubOverride:'CCC',extra:'keep'};
+    const p=page(t,{days:{0:'<div class="block location"><span class="inbound" title="bbb"></span><span class="outbound">AAA</span><span class="outbound">AAA</span></div>'},
+        data:{paine42aircraftFleet:fleet,paineaircraftFlights123:summary}});
+    await load(p);
+    assert.equal(p.saved.paine42aircraftFleet.extra,'keep');
+    assert.deepEqual(p.saved.paine42aircraftFleet.fleet[0],{...fleet.fleet[0],hubDetected:'AAA',hubEffective:'CCC',hubDetectionSource:'flightPlan'});
+    assert.deepEqual(p.saved.paine42aircraftFleet.fleet[1],fleet.fleet[1]);
+    assert.deepEqual(p.saved.paine42aircraftFleet.fleet[2],fleet.fleet[2]);
+    assert.deepEqual(p.saved.paineaircraftFlights123,{...summary,hubCounts:{BBB:1,AAA:2},hubDetected:'AAA',hubEffective:'CCC',hubDetectionSource:'flightPlan'});
+});
+
 test('starting a job offsets Sunday to Monday and persists waitForApply before form submission', async t => {
     const p = page(t,{data:{[templateKey]:template()}});
     await load(p);

@@ -168,7 +168,10 @@ async function afp_saveFlightPlanHubData() {
         return;
     }
 
-    await afp_storageSet({
+    const fleetKey = aircraftFlightPlanState.server + aircraftFlightPlanState.airline.id + 'aircraftFleet';
+    const summaryKey = aircraftFlightPlanState.server + 'aircraftFlights' + aircraftFlightPlanState.aircraft.id;
+    const stored = await afp_storageGet([fleetKey, summaryKey]);
+    const updates: Record<string, unknown> = {
         [afp_getHubKey()]: {
             aircraftId: aircraftFlightPlanState.aircraft.id,
             counts: stats.counts,
@@ -176,7 +179,38 @@ async function afp_saveFlightPlanHubData() {
             server: aircraftFlightPlanState.server,
             type: 'aircraftFlightPlanHub',
         }
-    });
+    };
+
+    const fleet = stored[fleetKey];
+    if (AES.isRecord(fleet) && Array.isArray(fleet.fleet)) {
+        let changed = false;
+        const aircraft = fleet.fleet.map(function(value) {
+            if (!AES.isFleetAircraft(value)) return value;
+            if (String(value.aircraftId || '') !== aircraftFlightPlanState.aircraft.id) return value;
+            changed = true;
+            return {
+                ...value,
+                hubDetected: stats.hub,
+                hubDetectionSource: 'flightPlan',
+                hubEffective: value.hubOverride || stats.hub,
+            };
+        });
+        if (changed) updates[fleetKey] = {...fleet, fleet:aircraft};
+    }
+
+    if (AES.isRecord(stored[summaryKey])) {
+        const summary = stored[summaryKey];
+        const override = typeof summary.hubOverride === 'string' ? summary.hubOverride : '';
+        updates[summaryKey] = {
+            ...summary,
+            hubCounts: stats.counts,
+            hubDetected: stats.hub,
+            hubDetectionSource: 'flightPlan',
+            hubEffective: override || stats.hub,
+        };
+    }
+
+    await afp_storageSet(updates);
 }
 
 function afp_watchFlightPlanHubData() {
