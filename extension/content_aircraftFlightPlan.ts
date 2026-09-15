@@ -1401,29 +1401,11 @@ function afp_findVisualEntry(entry: AESModel.FlightPlanEntry) {
 }
 
 function afp_entryDaysAppearInVisualPlan(entry: AESModel.FlightPlanEntry, offsetDays: number) {
-    const actual = afp_findVisualEntry(entry);
-    if (!actual) return false;
-    const targetDays = entry.selectedDays.map(day => (day + offsetDays) % 7);
-    return actual.selectedDays.length === targetDays.length && targetDays.every(day => actual.selectedDays.includes(day));
+    return AESFlightPlanRules.daysMatch(entry, afp_findVisualEntry(entry), offsetDays);
 }
 
 function afp_entryAppearsInVisualPlan(entry: AESModel.FlightPlanEntry, offsetDays: number) {
-    const actual = afp_findVisualEntry(entry);
-    if (!actual || !afp_entryDaysAppearInVisualPlan(entry, offsetDays)) return false;
-    return entry.selectedDays.every(sourceDay => {
-        const targetDay = (sourceDay + offsetDays) % 7;
-        const observed = actual.daySettings[targetDay];
-        const expected = entry.daySettings?.[sourceDay];
-        if (!observed || !expected) return false;
-        const segments = expected.segments || {0:{arrival:expected.arrival}};
-        return Object.entries(segments).every(([index, segment]) => {
-            const arrival = segment.arrival;
-            const found = observed.segments[Number(index)]?.arrival;
-            return !!arrival?.hours && !!arrival.minutes && !!found?.hours && !!found.minutes &&
-                Number(arrival.hours) === Number(found.hours) && Number(arrival.minutes) === Number(found.minutes) &&
-                Number(arrival.dayOffset || 0) === Number(found.dayOffset || 0);
-        });
-    });
+    return AESFlightPlanRules.matches(entry, afp_findVisualEntry(entry), offsetDays);
 }
 
 function afp_getCorrectionEditLink(entry: AESModel.FlightPlanEntry, offsetDays: number) {

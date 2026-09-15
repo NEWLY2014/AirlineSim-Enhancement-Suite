@@ -192,3 +192,18 @@ test('competitor collection updates existing rows and schedule cache without res
     button(p,'Show airline schedule').click();
     assert.match(p.w.document.querySelector('#aes-table-competitorMonitoring-airline-schedule').textContent,/AAA/);
 });
+
+test('shared sorting preserves tied row order, selection and event handlers across refresh',t=>{
+    const p=browser(t,{html:'<table id="sort"><tbody><tr id="a"><td class="value">2</td><td><input type="checkbox" checked></td></tr><tr id="b"><td class="value">1</td></tr><tr id="c"><td class="value">2</td></tr></tbody></table>'});
+    p.load('modules/dashboard-table.js');
+    let clicks=0;
+    p.w.$('#a').on('click',()=>clicks++).data('retained','yes');
+    p.run("AESDashboardTable.sort($('#sort'),'value',true,false)");
+    assert.deepEqual([...p.w.document.querySelectorAll('tr')].map(row=>row.id),['a','c','b']);
+    assert.equal(p.w.document.querySelector('#a input').checked,true);
+    p.w.$('#a').trigger('click');
+    assert.equal(clicks,1);assert.equal(p.w.$('#a').data('retained'),'yes');
+    p.w.$('#b .value').text('3');
+    p.run("AESDashboardTable.sort($('#sort'),'value',true,false)");
+    assert.deepEqual([...p.w.document.querySelectorAll('tr')].map(row=>row.id),['b','a','c']);
+});

@@ -1,4 +1,4 @@
-const { cpSync, mkdirSync, readdirSync, rmSync } = require('node:fs');
+const { cpSync, mkdirSync, readdirSync, rmSync, readFileSync, writeFileSync } = require('node:fs');
 const { dirname, join, relative, sep } = require('node:path');
 const { spawnSync } = require('node:child_process');
 
@@ -38,3 +38,14 @@ function copyAssets(directory) {
     }
 }
 copyAssets(source);
+
+// Bundle pure page dependencies without introducing additional global load ordering.
+const pageModules = {
+    'content_dashboard.js': ['modules/dashboard-defaults.js', 'modules/dashboard-table.js'],
+    'content_inventory.js': ['modules/inventory/data.js'],
+    'content_aircraftFlightPlan.js': ['modules/flight-plan-rules.js'],
+};
+for (const [entry, modules] of Object.entries(pageModules)) {
+    const files = [...modules, entry];
+    writeFileSync(join(output, entry), files.map(file => readFileSync(join(output, file), 'utf8')).join('\n;\n'));
+}

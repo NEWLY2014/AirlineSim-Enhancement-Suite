@@ -448,28 +448,6 @@ function clearOldData() {
     });
 }
 
-function parseStorageDateKey(dateKey: unknown) {
-    const value = String(dateKey);
-
-    if (/^\d{8}$/.test(value)) {
-        const year = parseInt(value.substring(0, 4), 10);
-        const month = parseInt(value.substring(4, 6), 10);
-        const day = parseInt(value.substring(6, 8), 10);
-        const parsedDate = new Date(year, month - 1, day);
-
-        if (
-            parsedDate.getFullYear() === year &&
-            parsedDate.getMonth() === month - 1 &&
-            parsedDate.getDate() === day
-        ) {
-            return parsedDate;
-        }
-    }
-
-    const parsedDate = new Date(value);
-    return isNaN(parsedDate.getTime()) ? null : parsedDate;
-}
-
 function displayLogFiles() {
     const select = $("#aes-log-file-select");
     const logs = getLogStorageItems(allStorageData);

@@ -138,7 +138,7 @@ function cleanupInventoryDisplay() {
  */
 async function getSettings() {
     const data = await chrome.storage.local.get(['settings'])
-    return readInventorySettings(data.settings)
+    return AESInventoryData.readInventorySettings(data.settings)
 }
 
 async function displayInventory(revision: number) {
@@ -423,7 +423,7 @@ function getAnalysis(flights: AESModel.InventoryFlight[], prices: AESModel.Inven
     //Setup object
     let mostRecentDate
     let mostRecentData: AESModel.InventorySnapshot | undefined
-    const data = { Y: emptyInventoryItem(), C: emptyInventoryItem(), F: emptyInventoryItem(), Cargo: emptyInventoryItem() };
+    const data = { Y: AESInventoryData.emptyInventoryItem(), C: AESInventoryData.emptyInventoryItem(), F: AESInventoryData.emptyInventoryItem(), Cargo: AESInventoryData.emptyInventoryItem() };
     let analysis: AESModel.InventoryAnalysis = {
         data: data,
         getLoad: function(cmp) {
@@ -619,19 +619,19 @@ function getAnalysis(flights: AESModel.InventoryFlight[], prices: AESModel.Inven
         //Shouldbe function inside storage object
         let dates = []
         for (let date in storedData) {
-            if (/^\d{8}$/.test(date) && readInventorySnapshot(storedData[date])) {
+            if (/^\d{8}$/.test(date) && AESInventoryData.readInventorySnapshot(storedData[date])) {
                 dates.push(date)
             }
         }
         dates.reverse();
         mostRecentDate = dates[0]
-        mostRecentData = readInventorySnapshot(storedData[mostRecentDate]) || undefined
+        mostRecentData = AESInventoryData.readInventorySnapshot(storedData[mostRecentDate]) || undefined
     }
 
     //extract each cmp analysis
     for (const cmp of cabins) {
         analysis.data[cmp] = {
-            ...emptyInventoryItem(),
+            ...AESInventoryData.emptyInventoryItem(),
             totalCap: 0,
             totalBkd: 0,
             valid: 0,
@@ -1203,7 +1203,7 @@ function displayHistory(analysis: AESModel.InventoryAnalysis) {
     let dates = [];
     //Get valid dates can add function here
     for (let date in pricingData.date) {
-        if (/^\d{8}$/.test(date) && readInventorySnapshot(pricingData.date[date])) {
+        if (/^\d{8}$/.test(date) && AESInventoryData.readInventorySnapshot(pricingData.date[date])) {
             dates.push(date)
         }
     }
@@ -1244,9 +1244,9 @@ function displayHistory(analysis: AESModel.InventoryAnalysis) {
                 settings.invPricing.historyTable.showNow = 0;
             }
             AES.updateSettings(function(currentSettings) {
-                getHistoryPreferences(currentSettings).showNow = settings.invPricing.historyTable.showNow;
+                AESInventoryData.getHistoryPreferences(currentSettings).showNow = settings.invPricing.historyTable.showNow;
             }, function(updatedSettings) {
-                settings = readInventorySettings(updatedSettings);
+                settings = AESInventoryData.readInventorySettings(updatedSettings);
             });
             buildHistoryTable();
         });
@@ -1258,17 +1258,17 @@ function displayHistory(analysis: AESModel.InventoryAnalysis) {
                 settings.invPricing.historyTable.showOnlyPricing = 0;
             }
             AES.updateSettings(function(currentSettings) {
-                getHistoryPreferences(currentSettings).showOnlyPricing = settings.invPricing.historyTable.showOnlyPricing;
+                AESInventoryData.getHistoryPreferences(currentSettings).showOnlyPricing = settings.invPricing.historyTable.showOnlyPricing;
             }, function(updatedSettings) {
-                settings = readInventorySettings(updatedSettings);
+                settings = AESInventoryData.readInventorySettings(updatedSettings);
             });
         });
         $("#aes-select-inventory-history-numberPastDates").change(function() {
             settings.invPricing.historyTable.numberOfDates = String($('#aes-select-inventory-history-numberPastDates').val());
             AES.updateSettings(function(currentSettings) {
-                getHistoryPreferences(currentSettings).numberOfDates = settings.invPricing.historyTable.numberOfDates;
+                AESInventoryData.getHistoryPreferences(currentSettings).numberOfDates = settings.invPricing.historyTable.numberOfDates;
             }, function(updatedSettings) {
-                settings = readInventorySettings(updatedSettings);
+                settings = AESInventoryData.readInventorySettings(updatedSettings);
             });
             buildHistoryTable();
         });
@@ -1310,12 +1310,12 @@ function buildHistoryTable() {
     for (let date in pricingData.date) {
         if (showOnlyPricing) {
             if (getSnapshot(date).pricingUpdated) {
-                if (/^\d{8}$/.test(date) && readInventorySnapshot(pricingData.date[date])) {
+                if (/^\d{8}$/.test(date) && AESInventoryData.readInventorySnapshot(pricingData.date[date])) {
                     dates.push(date)
                 }
             }
         } else {
-            if (/^\d{8}$/.test(date) && readInventorySnapshot(pricingData.date[date])) {
+            if (/^\d{8}$/.test(date) && AESInventoryData.readInventorySnapshot(pricingData.date[date])) {
                 dates.push(date)
             }
         }
@@ -1587,48 +1587,8 @@ function getPricingInventoryKey() {
     return { key: key, server: server, airline: airline, type: "routeAnalysis", origin: org, destination: dest }
 }
 
-function emptyInventoryItem(): AESModel.InventoryItem {
-    return { totalCap: 0, totalBkd: 0, valid: 0, analysisPrice: 0, analysisPricePoint: 0,
-        useCurrentPrice: 0, canRecommend: 0, analysisSourcePrice: 0, currentPrice: 0,
-        currentPricePoint: 0, recommendation: 0, newPrice: 0, newPricePoint: 0, newPriceChange: 0,
-        recType: 'neutral', referenceRecommendation: 0, referenceRecType: 'neutral',
-        referenceNewPrice: 0, referenceNewPricePoint: 0, index: 0 };
-}
 
-function readInventoryItem(value: unknown): AESModel.InventoryItem {
-    const item = emptyInventoryItem();
-    if (!AES.isRecord(value)) return item;
-    const keys: Array<Exclude<keyof AESModel.InventoryItem, 'valid' | 'recommendation' | 'referenceRecommendation' | 'recType' | 'referenceRecType'>> =
-        ['totalCap','totalBkd','analysisPrice','analysisPricePoint','useCurrentPrice','canRecommend','analysisSourcePrice','currentPrice','currentPricePoint','newPrice','newPricePoint','newPriceChange','referenceNewPrice','referenceNewPricePoint','index'];
-    for (const key of keys) if (typeof value[key] === 'number' && Number.isFinite(value[key])) item[key] = value[key];
-    item.valid = !!value.valid && item.totalCap > 0 && ['totalCap','totalBkd','analysisPrice','analysisPricePoint'].every(key => typeof value[key] === 'number' && Number.isFinite(value[key]));
-    for (const key of ['recommendation', 'referenceRecommendation'] as const) if (typeof value[key] === 'string') item[key] = value[key];
-    for (const key of ['recType', 'referenceRecType'] as const) if (typeof value[key] === 'string') item[key] = value[key];
-    return item;
-}
 
-function readInventorySnapshot(value: unknown): AESModel.InventorySnapshot | null {
-    if (!AES.isRecord(value) || !AES.isRecord(value.data)) return null;
-    const result: AESModel.InventorySnapshot = {
-        ...value, data: { Y: readInventoryItem(value.data.Y), C: readInventoryItem(value.data.C), F: readInventoryItem(value.data.F), Cargo: readInventoryItem(value.data.Cargo) },
-        updateTime: typeof value.updateTime === 'string' ? value.updateTime : undefined,
-        date: typeof value.date === 'number' ? value.date : undefined,
-        pricingUpdated: typeof value.pricingUpdated === 'number' ? value.pricingUpdated : 0
-    };
-    delete result.pricingUpdatePending;
-    const pending = value.pricingUpdatePending;
-    if (AES.isRecord(pending) && AES.isRecord(pending.targetPrices)) {
-        const targetPrices: Partial<Record<AESModel.Cabin, number>> = {};
-        for (const cmp of cabins) {
-            const target = pending.targetPrices[cmp];
-            if (typeof target === 'number' && Number.isFinite(target) && target > 0) targetPrices[cmp] = target;
-        }
-        if (Object.keys(targetPrices).length === Object.keys(pending.targetPrices).length && Object.keys(targetPrices).length) {
-            result.pricingUpdatePending = {targetPrices, updateTime: typeof pending.updateTime === 'string' ? pending.updateTime : ''};
-        }
-    }
-    return result;
-}
 
 function hasPendingUpdate(date: string | number) {
     const value = pricingData.date[date];
@@ -1636,35 +1596,9 @@ function hasPendingUpdate(date: string | number) {
 }
 
 function getSnapshot(date: string | number): AESModel.InventorySnapshot {
-    return readInventorySnapshot(pricingData.date[date]) || { data: {Y: emptyInventoryItem(), C: emptyInventoryItem(), F: emptyInventoryItem(), Cargo: emptyInventoryItem()} };
+    return AESInventoryData.readInventorySnapshot(pricingData.date[date]) || { data: {Y: AESInventoryData.emptyInventoryItem(), C: AESInventoryData.emptyInventoryItem(), F: AESInventoryData.emptyInventoryItem(), Cargo: AESInventoryData.emptyInventoryItem()} };
 }
 
-function readInventorySettings(value: unknown): AESModel.InventorySettings {
-    if (!AES.isRecord(value) || !AES.isRecord(value.invPricing) || !AES.isRecord(value.invPricing.recommendation)) throw new Error('Inventory pricing settings are missing. Save pricing settings before using inventory analysis.');
-    const source = value.invPricing;
-    const readConfig = (cmp: AESModel.Cabin): AESModel.PricingRecommendation => {
-        const rec = AES.isRecord(source.recommendation) ? source.recommendation[cmp] : undefined;
-        if (!AES.isRecord(rec) || typeof rec.minPrice !== 'number' || !Number.isFinite(rec.minPrice) || typeof rec.maxPrice !== 'number' || !Number.isFinite(rec.maxPrice) || rec.minPrice < 0 || rec.maxPrice < rec.minPrice || !Array.isArray(rec.steps)) throw new Error('Invalid inventory price bounds for ' + cmp);
-        const steps: AESModel.PricingStep[] = [];
-        for (const step of rec.steps) {
-            if (!AES.isRecord(step) || typeof step.min !== 'number' || !Number.isFinite(step.min) || typeof step.max !== 'number' || !Number.isFinite(step.max) || step.min > step.max || typeof step.step !== 'number' || !Number.isFinite(step.step) || typeof step.name !== 'string') throw new Error('Invalid inventory pricing step for ' + cmp);
-            steps.push({min: step.min, max: step.max, name: step.name, step: step.step});
-        }
-        return {minPrice: rec.minPrice, maxPrice: rec.maxPrice, steps};
-    };
-    const history = AES.isRecord(source.historyTable) ? source.historyTable : {};
-    const enabled = (value: unknown) => value === true || value === 1 || value === '1';
-    return { invPricing: { autoAnalysisSave: enabled(source.autoAnalysisSave) ? 1 : 0, autoPriceUpdate: enabled(source.autoPriceUpdate) ? 1 : 0,
-        autoClose: enabled(source.autoClose) ? 1 : 0, showReferenceRecommendation: enabled(source.showReferenceRecommendation) ? 1 : 0,
-        historyTable: {showNow: history.showNow ? 1 : 0, showOnlyPricing: history.showOnlyPricing ? 1 : 0, numberOfDates: typeof history.numberOfDates === 'string' ? history.numberOfDates : '5'},
-        recommendation: {Y: readConfig('Y'), C: readConfig('C'), F: readConfig('F'), Cargo: readConfig('Cargo')} } };
-}
 
-function getHistoryPreferences(settings: Record<string, unknown>): Record<string, unknown> {
-    if (!AES.isRecord(settings.invPricing)) settings.invPricing = {};
-    const inv = settings.invPricing;
-    if (!AES.isRecord(inv)) throw new Error('Invalid inventory settings');
-    if (!AES.isRecord(inv.historyTable)) inv.historyTable = {};
-    return AES.isRecord(inv.historyTable) ? inv.historyTable : {};
-}
+
 })();
