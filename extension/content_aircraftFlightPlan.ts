@@ -1434,6 +1434,8 @@ function afp_getCorrectionEditLink(entry: AESModel.FlightPlanEntry, offsetDays: 
 }
 
 function afp_correctionPlannerIsReady(entry: AESModel.FlightPlanEntry, offsetDays: number) {
+    const selected = afp_getSelectedExistingFlight();
+    if (selected && /^\d+$/.test(selected.value) && !afp_selectionMatchesEntry(selected, entry)) return false;
     return $('input[type="submit"][name="button-submit"]', afp_getPlannerForm()).length > 0 &&
         afp_plannerDaysMatch(entry, offsetDays) && afp_collectSegmentIndexes().length > 0;
 }
@@ -1570,15 +1572,21 @@ async function afp_processJob() {
 
         if (job.status === 'correcting') {
             afp_setRuntimeMessage('Correcting arrival time for ' + entry.flightCode + '...', 'warning');
-            if (!afp_correctionPlannerIsReady(entry, job.offsetDays)) {
+            if (job.correctionUrl !== location.href || job.correctionIndex !== job.currentIndex) {
+                const previousForm = afp_getPlannerForm()[0];
+                const previousAction = afp_getPlannerForm().attr('action');
                 const editLink = afp_getCorrectionEditLink(entry, job.offsetDays);
                 if (!editLink.length) {
                     await afp_failJob('Could not open arrival time correction for ' + entry.flightCode + '.');
                     return;
                 }
+                job.correctionUrl = new URL(editLink.attr('href')!, location.href).href;
+                job.correctionIndex = job.currentIndex;
+                await afp_saveJob();
                 afp_clickElement(editLink);
                 const ready = await afp_waitFor(function() {
-                    return afp_correctionPlannerIsReady(entry, job.offsetDays);
+                    return (afp_getPlannerForm()[0] !== previousForm || afp_getPlannerForm().attr('action') !== previousAction) &&
+                        afp_correctionPlannerIsReady(entry, job.offsetDays);
                 }, 5000, 100);
                 if (!ready) {
                     await afp_failJob('Arrival time correction did not become ready for ' + entry.flightCode + '.');

@@ -310,3 +310,12 @@ test('failed new-job save cannot change the planner selection or submit', async 
     assert.equal(p.w.document.querySelector('input[type="checkbox"]').checked,false);
     assert.equal(button(p,'Start scheduling').disabled,false);
 });
+
+
+test('correction never submits an unrelated preloaded planner', async t => {
+    const wrong = planner.replace('<option value="20">', '<option value="20" selected>').replace('name="days:daySelection:0:ticked"', 'name="days:daySelection:0:ticked" checked');
+    const p = page(t, {form:wrong, days:{0:block(0,'0700','0951')}, data:{[jobKey]:job({status:'correcting'})}});
+    await load(p);
+    await until(() => p.saved[jobKey].status === 'error');
+    assert.equal(p.submissions.length, 0);
+});
