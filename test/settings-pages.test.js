@@ -60,7 +60,12 @@ test('personnel applies percentage and absolute targets through salary forms onl
         assert.equal(submissions, 1);
         assert.equal(p.saved.settings.personnelManagement.auto, 0);
         assert.equal(p.saved.settings.keep, true);
-        assert.equal(p.saved.paine42personnelManagement.date, '20260908');
+        assert.equal(p.saved.paine42personnelManagement.date, undefined);
+        assert.ok(p.saved.paine42personnelManagement.pending);
+        const reloaded = browser(t,{html:staff.replace('value="800"',`value="${target}"`),path:'/action/enterprise/staffOverview',data:p.saved});
+        reloaded.load('content_personnelManagement.js');
+        await until(() => reloaded.saved.paine42personnelManagement.date === '20260908');
+        assert.equal(reloaded.saved.paine42personnelManagement.pending,undefined);
         assert.equal(p.errors.length, 0);
     }
 });
@@ -119,4 +124,22 @@ test('personnel normalizes old numeric settings and keeps page state isolated', 
     assert.equal(p.run('settings.sentinel'), true);
     assert.equal(p.run('server'), 'other');
     assert.equal(p.run('airline.id'), '999');
+});
+
+
+test('unconfirmed salary response preserves last confirmed update',async t => {
+    const key='paine42personnelManagement';
+    const p=browser(t,{html:staff,path:'/action/enterprise/staffOverview',data:{settings:{personnelManagement:{type:'absolute',value:50}},[key]:{date:'20260901'}}});
+    p.w.document.addEventListener('submit',event=>event.preventDefault());
+    p.load('content_personnelManagement.js');
+    await until(()=>p.w.document.querySelector('.aes-personnel-management-apply'));
+    p.w.document.querySelector('.aes-personnel-management-apply').click();
+    await until(()=>p.saved[key].pending);
+    assert.equal(p.saved[key].date,'20260901');
+    const reload=browser(t,{html:staff,path:'/action/enterprise/staffOverview',data:p.saved});
+    reload.load('content_personnelManagement.js');
+    await until(()=>reload.w.document.querySelector('#aes-personnel-management-last-update'));
+    await new Promise(resolve=>setImmediate(resolve));
+    assert.equal(reload.saved[key].date,'20260901');
+    assert.ok(reload.saved[key].pending);
 });

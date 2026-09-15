@@ -5,6 +5,7 @@
 var settings: Record<string, unknown>;
 var server: string;
 var airline: AESModel.Airline;
+let loadedSalaryTargets: Record<string,number> | null = null;
 var personnelNotifications: Notifications | undefined;
 const PERSONNEL_MANAGEMENT_SCRIPT_ENABLED = AES.runContentScript("content_personnelManagement", function() {
     chrome.storage.local.get(['settings'], function(result) {
@@ -35,6 +36,7 @@ if (PERSONNEL_MANAGEMENT_SCRIPT_ENABLED) {
 }
 
 function displayPersonnelManagement() {
+    loadedSalaryTargets = getSalaryTargets();
     let input = $('<input type="text" id="aes-input-personnelManagement-value" class="form-control number aes-personnel-management-value" inputmode="numeric">').val(ensurePersonnelManagementSettings(settings).value);
 
     let option = [];
@@ -117,6 +119,7 @@ function displayPersonnelManagement() {
     let key = server + airline.id + "personnelManagement";
     chrome.storage.local.get([key], function(result) {
         if (result[key]) {
+            void confirmSalaryUpdate(key, result[key]);
             setPersonnelLastUpdateText(lastUpdate, result[key]);
         } else {
             lastUpdate.text('No previous update');
@@ -209,7 +212,7 @@ function submitSalaryChanges(salaryButtons: JQuery[], salaryForms: HTMLElement[]
 
     buttonsToClick.forEach(function(salaryBtn, index) {
         setTimeout(function() {
-            salaryBtn.trigger('click');
+            if (AES.isPageOwner() && salaryBtn[0]?.isConnected) salaryBtn.trigger('click');
         }, 75 + index * 75);
     });
 }
@@ -407,6 +410,7 @@ function updatePersonnelLastUpdate(data: unknown) {
 }
 
 function formatPersonnelLastUpdate(data: unknown) {
+    if (AES.isRecord(data) && data.pending) return 'Salary submission awaiting confirmation. Reload to check.';
     if (!AES.isRecord(data) || typeof data.date !== "string" || !data.date) {
         return 'No previous update';
     }
@@ -425,6 +429,42 @@ function failSalaryUpdate(message: string, options: AESModel.SalaryUpdateOptions
     });
 }
 
+/** Stable row identities, independent of Wicket's changing form action URLs. */
+function getSalaryTargets(): Record<string,number> | null {
+    const targets: Record<string,number> = {};
+    const table = getStaffSalaryTableInfo()?.table;
+    if (!table) return null;
+    for (const row of table.find('tbody tr').toArray()) {
+        const form = $(row).find('input[name="action"][value="salary"]').closest('form');
+        const input = form.find('input[name="amount"]');
+        if (!input.length) continue;
+        const hidden = form.find('input[type="hidden"]').toArray().map(element => {
+            const field = element as HTMLInputElement;
+            return [field.name,field.value];
+        }).sort((a,b) => a[0].localeCompare(b[0]));
+        const key = JSON.stringify([$(row).children('td,th').first().text().trim(),hidden]);
+        const amount = AES.cleanInteger(input.val());
+        if (key in targets || !Number.isFinite(amount)) return null;
+        targets[key]=amount;
+    }
+    return Object.keys(targets).length ? targets : null;
+}
+
+async function confirmSalaryUpdate(key: string, value: unknown) {
+    if (!AES.isRecord(value) || !AES.isRecord(value.pending) || !AES.isRecord(value.pending.targets)) return;
+    const expected = value.pending.targets, actual = loadedSalaryTargets;
+    if (!actual || !Object.keys(expected).length || !Object.entries(expected).every(([id,amount]) => actual[id] === amount)) return;
+    try {
+        const current = (await chrome.storage.local.get(key))[key];
+        if (!AES.isPageOwner() || !AES.isRecord(current) || JSON.stringify(current.pending) !== JSON.stringify(value.pending)) return;
+        const today = AES.getServerDate();
+        const confirmed: Record<string,unknown> = {...current,date:today.date,time:today.time};
+        delete confirmed.pending;
+        await chrome.storage.local.set({[key]:confirmed});
+        if (AES.isPageOwner()) updatePersonnelLastUpdate(confirmed);
+    } catch(error) {showPersonnelNotification('Could not confirm salary update: '+String(error),'error');}
+}
+
 function finishSalaryUpdate(message: string | null, options: AESModel.SalaryUpdateOptions = {}, callback?: () => void) {
     options = options || {};
     AES.updateSettings(function(currentSettings) {
@@ -433,23 +473,23 @@ function finishSalaryUpdate(message: string | null, options: AESModel.SalaryUpda
         settings = finalSettings;
         const today = AES.getServerDate();
         const key = server + airline.id + 'personnelManagement';
-        const data = {
-            server: server,
-            airline: airline,
-            type: 'personnelManagement',
-            date: today.date,
-            time: today.time
-        };
-        chrome.storage.local.set({ [key]: data }, function() {
+        void (async () => {
+            const stored = await chrome.storage.local.get(key);
+            if (!AES.isPageOwner()) return;
+            const previous = AES.isRecord(stored[key]) ? stored[key] : {};
+            const targets = getSalaryTargets();
+            if (callback && !message && !targets) throw new Error('Salary rows could not be identified.');
+            const data = callback && !message
+                ? {...previous, server, airline, type:'personnelManagement', pending:{targets,submittedAt:Date.now()}}
+                : {...previous, server, airline, type:'personnelManagement', date:today.date,time:today.time};
+            if (message) delete (data as Record<string,unknown>).pending;
+            await chrome.storage.local.set({[key]:data});
+            if (!AES.isPageOwner()) return;
             updatePersonnelLastUpdate(data);
-            setPersonnelManagementBusy(options.actionButton, false);
-            if (message) {
-                showPersonnelNotification(message, 'success');
-            }
-            if (typeof callback === 'function') {
-                callback();
-            }
-        });
+            setPersonnelManagementBusy(options.actionButton,false);
+            if (message) showPersonnelNotification(message,'success');
+            callback?.();
+        })().catch(error => failSalaryUpdate(String(error),options));
     });
 }
 
