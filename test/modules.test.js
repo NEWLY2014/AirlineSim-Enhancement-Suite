@@ -61,7 +61,7 @@ test('ORS keeps rating numbers, differences and maximum across navigation', t =>
 const flightHtml = frontend + `<div class="bootstrap container-fluid"><h1>Flight</h1><div id="privInf"></div>
 <div id="flight-page"><ul><li class="active">Overview</li></ul></div>
 <table><tr class="cm"><td>1,000 AS$</td><td>200 AS$</td><td>300 AS$</td><td>1500</td><td>0</td><td>1500</td></tr>
-<tr class="cm"><td>-200 AS$</td><td>0</td><td>0</td><td>-200</td><td>-50</td><td>-250</td></tr></table></div>`;
+<tr class="cm"><td>-200 AS$</td><td>0</td><td>0</td><td>-200</td><td>-50</td><td>-250</td></tr>${Array.from({length:3},()=>'<tr class="cm">'+Array.from({length:6},()=>'<td>0</td>').join('')+'</tr>').join('')}</table></div>`;
 
 test('flight info saves financial columns under the existing key and renders them', async t => {
     const p = browser(t, { html: flightHtml, path: '/action/info/flight?id=42', data: { settings: { flightInfo: { autoClose: 0 } } } });
@@ -71,8 +71,9 @@ test('flight info saves financial columns under the existing key and renders the
     await until(() => p.w.document.querySelector('.aes-table'));
     assert.deepEqual(p.saved.paineflightInfo42, { server: 'paine', flightId: 42, type: 'flightInfo', date: '20260908', time: '00:43 UTC',
         money: { CM1: { Y: 1000, C: 200, F: 300, PAX: 1500, Cargo: 0, Total: 1500 },
-            CM2: { Y: -200, C: 0, F: 0, PAX: -200, Cargo: -50, Total: -250 } } });
-    assert.equal(p.w.document.querySelectorAll('.aes-table tbody tr').length, 2);
+            CM2: { Y: -200, C: 0, F: 0, PAX: -200, Cargo: -50, Total: -250 },
+            ...Object.fromEntries(['CM3','CM4','CM5'].map(key=>[key,{Y:0,C:0,F:0,PAX:0,Cargo:0,Total:0}])) } });
+    assert.equal(p.w.document.querySelectorAll('.aes-table tbody tr').length, 5);
     assert.equal(p.errors.length, 0);
 });
 
@@ -140,12 +141,12 @@ test('flight info rejects invalid IDs and reports save failures', async t => {
     assert.ok(p.w.document.querySelector('.feedbackPanelERROR'));
 });
 
-test('flight info displays a missing financial cell without inventing a zero', async t => {
-    const p = browser(t, { html: flightHtml.replace('<td>-250</td>', ''), path: '/action/info/flight?id=42' });
+test('flight info rejects incomplete financial data without overwriting saved data', async t => {
+    const p = browser(t, { html: flightHtml.replace('<td>-250</td>', ''), path: '/action/info/flight?id=42',data:{paineflightInfo42:{keep:true}} });
     p.load('modules/notification.js');
     p.load('modules/notifications.js');
     p.load('modules/flightInfo/flightInfo.js');
-    await until(() => p.w.document.querySelector('.aes-table'));
-    assert.equal(p.w.document.querySelector('.aes-table tbody tr:last-child td:last-child').textContent, '—');
-    assert.equal(p.saved.paineflightInfo42.money.CM2.Total, undefined);
+    await until(() => p.errors.length);
+    assert.equal(p.w.document.querySelector('.aes-table'),null);
+    assert.deepEqual(p.saved.paineflightInfo42,{keep:true});
 });

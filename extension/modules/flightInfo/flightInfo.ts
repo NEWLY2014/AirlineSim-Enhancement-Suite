@@ -40,18 +40,7 @@ class FlightInfo {
      * @returns {{server: string, flightId: number, type: string, money: data, date, time: string}}
      */
     #collectFlightData(): AESModel.FlightInfoRecord {
-        const flightId = this.#getFlightId();
-        const dateTime = AES.getServerDate();
-        const money = this.#getFinancials();
-
-        return {
-            server: AES.getServerName(),
-            flightId,
-            type: 'flightInfo',
-            money,
-            date: dateTime.date,
-            time: dateTime.time
-        };
+        return AESRead.flight(document, this.#getFlightId());
     }
 
     /**
@@ -64,25 +53,6 @@ class FlightInfo {
         const id = raw && /^\d+$/.test(raw) ? Number(raw) : NaN;
         if (!Number.isSafeInteger(id) || id <= 0) throw new Error("Invalid flight ID");
         return id;
-    }
-
-    /**
-     * Extracts financial data from the flight information table
-     * @returns data - an object containing financial data for each stage CM1 to CM5
-     */
-    #getFinancials() {
-        const data: AESModel.FlightFinancials = {};
-        document.querySelectorAll('.cm').forEach((row, index) => {
-            const cmLabel = `CM${index + 1}`;
-            data[cmLabel] = {};
-            const labels: AESModel.FinancialColumn[] = ['Y', 'C', 'F', 'PAX', 'Cargo', 'Total'];
-            row.querySelectorAll('td').forEach((cell, i) => {
-                const label = labels[i];
-                const value = AES.cleanInteger(cell.textContent);
-                if (label) data[cmLabel][label] = value;
-            });
-        });
-        return data;
     }
 
     /**
