@@ -319,3 +319,17 @@ test('correction never submits an unrelated preloaded planner', async t => {
     await until(() => p.saved[jobKey].status === 'error');
     assert.equal(p.submissions.length, 0);
 });
+
+
+test('arrival confirmation distinguishes same-day and next-day times', async t => {
+    const expected = structuredClone(entry);
+    expected.daySettings[6].segments[0].arrival.dayOffset = 1;
+    const wrong = page(t,{days:{0:block(0,'0700','0930')},data:{[jobKey]:job({status:'waitForApply',entries:[expected]})}});
+    await load(wrong);
+    await until(() => wrong.saved[jobKey]?.status === 'error');
+    assert.equal(wrong.submissions.length,0);
+    const correct = page(t,{days:{0:block(0,'0700','','started'),1:block(0,'','0930','ended')},data:{[jobKey]:job({status:'waitForApply',entries:[expected]})}});
+    await load(correct);
+    await until(() => !correct.saved[jobKey]);
+    assert.equal(correct.submissions.length,0);
+});

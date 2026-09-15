@@ -1417,7 +1417,8 @@ function afp_entryAppearsInVisualPlan(entry: AESModel.FlightPlanEntry, offsetDay
             const arrival = segment.arrival;
             const found = observed.segments[Number(index)]?.arrival;
             return !!arrival?.hours && !!arrival.minutes && !!found?.hours && !!found.minutes &&
-                Number(arrival.hours) === Number(found.hours) && Number(arrival.minutes) === Number(found.minutes);
+                Number(arrival.hours) === Number(found.hours) && Number(arrival.minutes) === Number(found.minutes) &&
+                Number(arrival.dayOffset || 0) === Number(found.dayOffset || 0);
         });
     });
 }
