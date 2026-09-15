@@ -2,6 +2,7 @@
 (() => {
 //MAIN
 //Global vars
+let fleetBaseline: unknown;
 let aircraftData: AESModel.FleetPageAircraft[] = [];
 let server: string, aircraftFleetKey: string, aircraftFleetStorageData: AESModel.FleetRecord;
 let airline: AESModel.Airline, date: ReturnType<typeof AES.getServerDate>, currentFleet: string;
@@ -317,6 +318,7 @@ function fltmng_getAircraftStorageFleetData() {
 }
 
 function fltmng_updateAircraftFleetStorageData(data: AESModel.FleetRecord | null) {
+    fleetBaseline = AES.cloneData(data) ?? undefined;
     aircraftFleetStorageData = {
         server: server,
         type: 'aircraftFleet',
@@ -418,11 +420,11 @@ function fltmng_isSameAircraft(storedAircraft: AESModel.AircraftIdentity | null,
 
 function fltmng_saveData() {
     //Remove profit
-    chrome.storage.local.set({
-        [aircraftFleetKey]: aircraftFleetStorageData }, function() {
-        if (!fltmng_storageCallbackSucceeded()) return;
-        fltmng_display();
-    });
+    void AES.patchRecord(aircraftFleetKey, fleetBaseline, aircraftFleetStorageData).then(value => {
+        const updated = AES.readFleetRecord(value);
+        if (updated) {aircraftFleetStorageData=updated;fleetBaseline=AES.cloneData(updated);}
+        if (AES.isPageOwner()) fltmng_display();
+    }, error => AES.reportContentScriptError('content_fleetManagement',error));
 }
 
 function fltmng_display() {

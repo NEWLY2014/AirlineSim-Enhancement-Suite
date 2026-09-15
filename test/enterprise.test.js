@@ -38,12 +38,15 @@ test('overview saves owner-scoped history and updates a deduplicated tracking in
     await until(() => p.w.document.querySelector('#aes-panel-airline-competitive-monitoring input'));
     const checkbox = p.w.document.querySelector('#aes-panel-airline-competitive-monitoring input');
     checkbox.click();
+    await new Promise(resolve => setImmediate(resolve));
     p.w.document.querySelector('#aes-btn-save-tab0-data').click();
+    await new Promise(resolve => setImmediate(resolve));
     assert.deepEqual(p.saved.paine42competitorMonitoringIndex, ['7','99']);
     assert.deepEqual(p.saved[key].tab0['20260901'], { old: true });
     assert.deepEqual(p.saved[key].tab0['20260908'], { ...airline, rating: 'AAA', pax: 1000, cargo: 200, stations: 3, fleet: 4, employees: 50, tab0data: 1, updateTime: '00:00 UTC', date: '20260908' });
     assert.equal(p.saved[key].extra, 'keep');
     checkbox.click();
+    await new Promise(resolve => setImmediate(resolve));
     assert.equal(p.saved[key].tracking, 0);
     assert.deepEqual(p.saved.paine42competitorMonitoringIndex, ['7']);
 });
@@ -225,6 +228,7 @@ test('failed tracking writes restore the checkbox and leave the index unchanged'
     p.failures.set = 'Tracking failed';
     const checkbox = p.w.document.querySelector('#aes-panel-airline-competitive-monitoring input');
     checkbox.click();
+    await new Promise(resolve => setImmediate(resolve));
     assert.equal(checkbox.checked, false);
     assert.equal(checkbox.disabled, false);
     assert.equal(p.saved[key].tracking, 0);
@@ -276,6 +280,7 @@ test('malformed history containers are tolerated and unrelated record fields sur
     p.load('content_enterpriseOverview.js');
     await until(() => p.w.document.querySelector('#aes-btn-save-tab0-data'));
     p.w.document.querySelector('#aes-btn-save-tab0-data').click();
+    await new Promise(resolve => setImmediate(resolve));
     assert.ok(p.saved[key].tab0['20260908']);
     assert.deepEqual(p.saved[key].tab2, { invalid: null });
     assert.deepEqual(p.saved[key].extra, { keep: true });

@@ -33,7 +33,7 @@ test('aircraft dashboard footer averages visible rows and hide checked retains s
 test('aircraft removal requires two clicks and retains other aircraft and metadata',async t=>{
     const p=dashboard(t,'aircraftProfitability',{paine42aircraftFleet:{extra:'keep',fleet:[{aircraftId:1,registration:'AA-1'},{aircraftId:2,registration:'AA-2'}]},paineaircraftFlights1:{aircraftId:1,profit:10}});await load(p,'#aircraft-id-1');
     p.w.document.querySelector('#aircraft-id-1 input').click();button(p,'Remove aircraft').click();assert.equal(p.saved.paine42aircraftFleet.fleet.length,2);
-    button(p,'Confirm remove 1').click();assert.equal(p.saved.paine42aircraftFleet.fleet.length,1);assert.equal(p.saved.paine42aircraftFleet.extra,'keep');assert.equal(p.saved.paineaircraftFlights1,undefined);
+    button(p,'Confirm remove 1').click();await new Promise(resolve=>setImmediate(resolve));assert.equal(p.saved.paine42aircraftFleet.fleet.length,1);assert.equal(p.saved.paine42aircraftFleet.extra,'keep');assert.equal(p.saved.paineaircraftFlights1,undefined);
 });
 
 test('competitor owner index loads overview and schedule totals',async t=>{
@@ -74,7 +74,7 @@ test('column preferences survive regeneration without changing route data',async
 test('failed aircraft removal leaves rows, fleet and profit records intact',async t=>{
     const fleet={fleet:[{aircraftId:1,registration:'AA-1'}]};
     const p=dashboard(t,'aircraftProfitability',{paine42aircraftFleet:fleet,paineaircraftFlights1:{aircraftId:1}});await load(p,'#aircraft-id-1');
-    p.w.document.querySelector('#aircraft-id-1 input').click();button(p,'Remove aircraft').click();p.failures.set='Write failed';button(p,'Confirm remove 1').click();
+    p.w.document.querySelector('#aircraft-id-1 input').click();button(p,'Remove aircraft').click();p.failures.set='Write failed';button(p,'Confirm remove 1').click();await new Promise(resolve=>setImmediate(resolve));
     assert.deepEqual(p.saved.paine42aircraftFleet,fleet);assert.ok(p.saved.paineaircraftFlights1);assert.ok(p.w.document.querySelector('#aircraft-id-1'));assert.ok(p.errors.length);
 });
 
@@ -124,7 +124,7 @@ test('failed settings reads do not overwrite preferences or report saved filters
 test('aircraft removal preserves unrecognized records added after rendering',async t=>{
     const p=dashboard(t,'aircraftProfitability',{paine42aircraftFleet:{fleet:[{aircraftId:1,registration:'AA-1'}]}});await load(p,'#aircraft-id-1');
     const unknown={legacyPayload:'keep'};p.saved.paine42aircraftFleet.fleet.push(unknown);
-    p.w.document.querySelector('#aircraft-id-1 input').click();button(p,'Remove aircraft').click();button(p,'Confirm remove 1').click();
+    p.w.document.querySelector('#aircraft-id-1 input').click();button(p,'Remove aircraft').click();button(p,'Confirm remove 1').click();await new Promise(resolve=>setImmediate(resolve));
     assert.deepEqual(p.saved.paine42aircraftFleet.fleet,[unknown]);
 });
 

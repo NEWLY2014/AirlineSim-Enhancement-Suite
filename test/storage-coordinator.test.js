@@ -53,3 +53,27 @@ test('untrusted senders cannot mutate settings or scheduling jobs',async t=>{
     }
     assert.deepEqual(p.saved,{});
 });
+
+test('record patches retain independent aircraft and reject conflicting edits',async t=>{
+    const key='paine42aircraftFleet';
+    const before={fleet:[{aircraftId:1,hubOverride:''},{aircraftId:2,hubOverride:''}]};
+    const p=browser(t,{data:{[key]:before}}),from=identity();
+    const patch=after=>new Promise(resolve=>p.dispatch({type:'AES_RECORD_PATCH',key,before,after},from,resolve));
+    const a=structuredClone(before),b=structuredClone(before);
+    a.fleet[0].hubOverride='AAA';b.fleet[1].hubOverride='BBB';
+    const replies=await Promise.all([patch(a),patch(b)]);
+    assert.ok(replies.every(r=>r.ok));
+    assert.deepEqual(p.saved[key].fleet.map(v=>v.hubOverride),['AAA','BBB']);
+    a.fleet[0].hubOverride='CCC';
+    assert.equal((await patch(a)).ok,false);
+    assert.equal(p.saved[key].fleet[0].hubOverride,'AAA');
+});
+
+test('old competitor page cannot overwrite newer history from read-only collection',async t=>{
+    const key='paine42_99competitorMonitoring';
+    const before={tracking:0,tab0:{},tab2:{}};
+    const p=browser(t,{data:{[key]:{...before,tab0:{20260915:{pax:100}}}}});
+    const reply=await new Promise(resolve=>p.dispatch({type:'AES_RECORD_PATCH',key,before,after:{...before,tracking:1}},identity(),resolve));
+    assert.equal(reply.ok,true);
+    assert.deepEqual(p.saved[key],{tracking:1,tab0:{20260915:{pax:100}},tab2:{}});
+});

@@ -1,6 +1,5 @@
 /** Merge schedule history off the page's main thread, retaining the existing backup format. */
 (() => {
-    const queues = new Map<string, Promise<unknown>>();
     const record = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
     chrome.runtime.onMessage.addListener((message: unknown, sender, reply) => {
         if (!record(message) || (message.type !== 'AES_SAVE_SCHEDULE' && message.type !== 'AES_SAVE_COMPETITOR')) return false;
@@ -23,7 +22,7 @@
         const server = url.hostname.split('.')[0];
         const owner = record(message.ownerAirline) ? String(message.ownerAirline.id) : '';
         const key = competitor ? server+owner+'_'+id+'competitorMonitoring' : server + id + 'schedule';
-        const operation = (queues.get(key) || Promise.resolve()).catch(() => {}).then(async () => {
+        const operation = AESStorage.run(async () => {
             const result = await new Promise<Record<string, unknown>>((resolve, reject) => chrome.storage.local.get(competitor ? [key,server+id+'competitorMonitoring'] : key, data => {
                 if (chrome.runtime.lastError) reject(new Error('Unable to read schedule history: ' + chrome.runtime.lastError.message));
                 else resolve(data);
@@ -50,9 +49,7 @@
                 else resolve();
             }));
         });
-        queues.set(key, operation);
-        void operation.then(() => reply({ok:true}), error => reply({ok:false, error:error instanceof Error ? error.message : String(error)}))
-            .finally(() => { if (queues.get(key) === operation) queues.delete(key); });
+        void operation.then(() => reply({ok:true}), error => reply({ok:false, error:error instanceof Error ? error.message : String(error)}));
         return true;
     });
 })();

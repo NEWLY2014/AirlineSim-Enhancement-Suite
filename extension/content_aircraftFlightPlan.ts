@@ -210,7 +210,10 @@ async function afp_saveFlightPlanHubData() {
         };
     }
 
-    await afp_storageSet(updates);
+    for (const [key, value] of Object.entries(updates)) {
+        if (key === afp_getHubKey()) await afp_storageSet({[key]:value});
+        else await AES.patchRecord(key, stored[key], value);
+    }
 }
 
 function afp_watchFlightPlanHubData() {

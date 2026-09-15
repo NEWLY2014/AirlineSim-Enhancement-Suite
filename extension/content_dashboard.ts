@@ -7,21 +7,28 @@ const dashboardControlPanelExpanded: Record<string, boolean> = {};
 let routeManagementFilterTimer: number | undefined;
 let dashboardRevision = 0;
 const nativeDashboardStorage = globalThis.chrome?.storage?.local;
+const dashboardRecordBaselines = new Map<string, unknown>();
 const dashboardStorage = {
     get(keys: string | string[] | Record<string, unknown> | null, callback: (items: Record<string, unknown>) => void) {
         const revision = dashboardRevision;
         if (!AES.isPageOwner()) return;
         nativeDashboardStorage.get(keys, result => {
             if (!dashboardCallbackSucceeded(revision)) return;
+            Object.entries(result).forEach(([key,value]) => dashboardRecordBaselines.set(key,AES.cloneData(value)));
             AES.tryRun('content_dashboard', () => callback(result));
         });
     },
     set(values: Record<string, unknown>, callback: () => void) {
         const revision = dashboardRevision;
         if (!AES.isPageOwner()) return;
-        nativeDashboardStorage.set(values, () => {
-            if (dashboardCallbackSucceeded(revision)) AES.tryRun('content_dashboard', callback);
-        });
+        void Promise.all(Object.entries(values).map(async ([key,value]) => {
+            if (/(competitorMonitoring(?:Index)?|aircraftFleet)$/.test(key)) {
+                const saved=await AES.patchRecord(key,dashboardRecordBaselines.get(key),value);
+                dashboardRecordBaselines.set(key,AES.cloneData(saved));
+            } else await nativeDashboardStorage.set({[key]:value});
+        })).then(() => {
+            if (dashboardCallbackSucceeded(revision)) AES.tryRun('content_dashboard',callback);
+        }, error => AES.reportContentScriptError('content_dashboard',error));
     },
     remove(keys: string[], callback: () => void) {
         const revision = dashboardRevision;

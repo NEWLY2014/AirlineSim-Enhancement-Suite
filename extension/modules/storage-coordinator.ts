@@ -1,16 +1,57 @@
+/** One transaction queue for background read/merge/write operations. */
+class AESStorage {
+    private static pending: Array<() => void> = [];
+    private static busy = false;
+    static enqueue(action: (finish: () => void) => void) {
+        this.pending.push(() => action(() => {this.busy=false;this.drain();}));
+        this.drain();
+    }
+    static run<T>(action: () => Promise<T>): Promise<T> {
+        return new Promise<T>((resolve,reject) => this.enqueue(finish => {
+            let result: Promise<T>;
+            try {result=action();} catch(error) {result=Promise.reject(error);}
+            void result.then(resolve,reject).finally(finish);
+        }));
+    }
+    private static drain() {
+        if (this.busy || !this.pending.length) return;
+        this.busy=true;
+        this.pending.shift()!();
+    }
+    static merge(before: unknown, after: unknown, current: unknown): unknown {
+        const equal = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+        const record = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
+        if (current === undefined && (before === undefined || (Array.isArray(before) && !before.length))) return after;
+        if (equal(before, after)) return current;
+        if (equal(current, before) || equal(current, after)) return after;
+        if (record(after) && (before === undefined || record(before)) && record(current)) {
+            const result = {...current};
+            for (const key of new Set([...Object.keys(before || {}), ...Object.keys(after)])) {
+                if (['__proto__','constructor','prototype'].includes(key)) throw new Error('Invalid record field.');
+                const value = this.merge(before?.[key], after[key], current[key]);
+                if (value === undefined) delete result[key]; else result[key] = value;
+            }
+            return result;
+        }
+        if (Array.isArray(before) && Array.isArray(after) && Array.isArray(current)) {
+            if ([...before,...after,...current].every(v => typeof v === 'string')) {
+                const removed = before.filter(v => !after.includes(v));
+                return [...new Set([...current.filter(v => !removed.includes(v)), ...after.filter(v => !before.includes(v))])];
+            }
+            const keyed = (values: unknown[]): values is Array<Record<string, unknown>> => values.every(v => record(v) && v.aircraftId != null) && new Set(values.map(v => String((v as Record<string,unknown>).aircraftId))).size === values.length;
+            if (keyed(before) && keyed(after) && keyed(current)) {
+                const index = (values: Array<Record<string,unknown>>) => Object.fromEntries(values.map(v => [String(v.aircraftId), v]));
+                return Object.values(this.merge(index(before), index(after), index(current)) as Record<string,unknown>);
+            }
+        }
+        throw new Error('This record changed in another page. Refresh before retrying.');
+    }
+}
 /** Background-only mutations. Keep read/compare/write in one worker queue. */
 (() => {
-    const pending: Array<() => void> = [];
-    let busy = false;
     const record = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
     function enqueue(action: (finish: () => void) => void) {
-        pending.push(() => action(() => { busy = false; drain(); }));
-        drain();
-    }
-    function drain() {
-        if (busy || !pending.length) return;
-        busy = true;
-        pending.shift()!();
+        AESStorage.enqueue(action);
     }
     const getLocal = (key: string) => new Promise<Record<string, unknown>>((resolve, reject) => chrome.storage.local.get(key, data => {
         if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message)); else resolve(data);
@@ -22,13 +63,26 @@
         if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message)); else resolve();
     }));
     chrome.runtime.onMessage.addListener((message: unknown, sender, reply) => {
-        if (!record(message) || (message.type !== 'AES_SETTINGS_CAS' && message.type !== 'AES_FLIGHT_PLAN_JOB')) return false;
+        if (!record(message) || (message.type !== 'AES_SETTINGS_CAS' && message.type !== 'AES_FLIGHT_PLAN_JOB' && message.type !== 'AES_RECORD_PATCH')) return false;
         if (sender.id !== chrome.runtime.id || sender.frameId !== 0 || !sender.tab?.id || !sender.documentId ||
             !sender.url || !/^https:\/\/[^/]+\.airlinesim\.aero\//.test(sender.url)) {
             reply({ok:false, error:'A top-level AirlineSim page is required.'}); return false;
         }
         enqueue(finish => {
             const respond = (value: unknown) => { try { reply(value); } finally { finish(); } };
+            if (message.type === 'AES_RECORD_PATCH') {
+                void (async () => {
+                    const prefix = new URL(sender.url!).hostname.split('.')[0];
+                    const key = message.key;
+                    if (typeof key !== 'string' || !key.startsWith(prefix) || !/^(?:\d+(?:_\d+)?competitorMonitoring|\d+competitorMonitoringIndex|\d+aircraftFleet|aircraftFlights\d+|\d+aircraftFlightPlanHub\d+)$/.test(key.slice(prefix.length))) throw new Error('Invalid record scope.');
+                    const current = (await getLocal(key))[key];
+                    const value = AESStorage.merge(message.before, message.after, current);
+                    if (value === undefined) throw new Error('Cannot remove this record.');
+                    await setLocal({[key]: value});
+                    return {ok:true, value};
+                })().then(respond, error => respond({ok:false,error:String(error instanceof Error ? error.message : error)}));
+                return;
+            }
             if (message.type === 'AES_SETTINGS_CAS') {
                 if (!record(message.next)) { respond({ok:false,error:'Invalid settings.'}); return; }
                 chrome.storage.local.get('settings', result => {

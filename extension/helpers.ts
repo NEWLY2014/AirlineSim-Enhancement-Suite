@@ -1,5 +1,18 @@
 /** Shared logic */
 class AES {
+    static cloneData<T>(value: T): T {
+        return value === undefined ? value : JSON.parse(JSON.stringify(value));
+    }
+
+    static patchRecord(key: string, before: unknown, after: unknown): Promise<unknown> {
+        if (!AES.isPageOwner()) return Promise.reject(new Error('The page changed.'));
+        return new Promise((resolve, reject) => chrome.runtime.sendMessage({type:'AES_RECORD_PATCH',key,before:AES.cloneData(before),after:AES.cloneData(after)}, (reply: unknown) => {
+            if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
+            else if (!AES.isRecord(reply) || reply.ok !== true) reject(new Error(AES.isRecord(reply) ? String(reply.error) : 'Storage unavailable.'));
+            else resolve(reply.value);
+        }));
+    }
+
     /** Validate fields used by fleet pages while retaining legacy/unknown metadata. */
     static isFleetAircraft(value: unknown): value is AESModel.FleetAircraft {
         if (!AES.isRecord(value)) return false;

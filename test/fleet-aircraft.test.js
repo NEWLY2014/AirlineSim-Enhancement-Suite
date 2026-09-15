@@ -43,6 +43,7 @@ test('fleet filters hide mismatched models and clear hidden aircraft selection',
     assert.equal(aircraft[1].style.display, 'none');
     assert.equal(aircraft[1].querySelector('input').checked, false);
     p.w.$('#aes-fleet-management-root button').trigger('click');
+    await new Promise(resolve => setImmediate(resolve));
     assert.equal(aircraft[1].style.display, '');
 });
 
@@ -106,9 +107,11 @@ test('stored flight-plan HUB takes precedence and override can be saved and rese
     assert.deepEqual(p.saved.paineaircraftFlights123.hubCounts, {DDD:5});
     p.w.$('.aes-aircraft-flights-hub-input').val('bbb');
     p.w.$('button').filter((i,e) => e.textContent === 'Save HUB override').trigger('click');
+    await new Promise(resolve => setImmediate(resolve));
     assert.equal(p.saved[fleetKey].fleet[0].hubOverride, 'BBB');
     assert.equal(p.saved.paineaircraftFlights123.hubEffective, 'BBB');
     p.w.$('button').filter((i,e) => e.textContent === 'Reset to default').trigger('click');
+    await new Promise(resolve => setImmediate(resolve));
     assert.equal(p.saved.paineaircraftFlights123.hubEffective, 'DDD');
     assert.equal(p.saved[fleetKey].fleet[0].hubOverride, '');
     assert.equal(p.saved[fleetKey].extra, 'keep');
@@ -128,6 +131,7 @@ test('failed aircraft reads preserve the previous summary and failed HUB writes 
     q.failures.set = 'Write failed';
     q.w.$('.aes-aircraft-flights-hub-input').val('BBB');
     q.w.$('button').filter((i,e) => e.textContent === 'Save HUB override').trigger('click');
+    await new Promise(resolve => setImmediate(resolve));
     assert.equal(q.saved[fleetKey].fleet[0].hubOverride,'CCC');
     assert.equal(q.w.document.querySelector('#aes-aircraft-hub-effective').textContent,'CCC');
     assert.doesNotMatch(q.w.document.querySelector('.feedbackPanel').textContent,/HUB override saved/);
@@ -158,6 +162,7 @@ test('extraction fetches finished/inflight data without tabs and reports queue f
     p.load('content_aircraftFlights.js');
     await until(() => p.w.document.querySelector('.aes-aircraft-flights-block'));
     p.w.$('button').filter((i,e) => e.textContent === 'Extract finished flight data').trigger('click');
+    await new Promise(resolve => setImmediate(resolve));
     await until(() => /Collected 1\/2/.test(p.w.document.querySelector('.aes-aircraft-flights-extract-status').textContent));
     assert.deepEqual(opened.map(m => m.url), ['https://paine.airlinesim.aero/action/info/flight?id=1','https://paine.airlinesim.aero/action/info/flight?id=2']);
     assert.ok(opened.every(m => m.kind === 'read'));

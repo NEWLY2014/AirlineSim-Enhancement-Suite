@@ -9,6 +9,7 @@ const source = file => readFileSync(join(__dirname, '../../build/extension', fil
 function browser(t, { html = '', path = '/app/info/ors', data = {}, helpers = true } = {}) {
     const dom = new JSDOM(html, { url: `https://paine.airlinesim.aero${path}`, runScripts: 'outside-only', pretendToBeVisual: true });
     const w = dom.window;
+    w.structuredClone = structuredClone;
     const saved = snapshot(data);
     const calls = [];
     const failures = {};

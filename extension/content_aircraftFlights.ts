@@ -2,6 +2,7 @@
 (() => {
 //MAIN
 //Global vars
+const fleetBaselines = new WeakMap<object, unknown>();
 let aircraftFlightData: AESModel.AircraftFlightData;
 let aircraftFlightAirline: AESModel.Airline;
 let aircraftFleetKey: string;
@@ -876,13 +877,13 @@ function syncFleetHubData(callback: () => void) {
         if (changed && matches.length) {
             let pending = matches.length;
             matches.forEach(function(match) {
-                chrome.storage.local.set({ [match.key]: match.fleetData }, function() {
+                void AES.patchRecord(match.key, fleetBaselines.get(match.fleetData), match.fleetData).then(function() {
                     if (!storageCallbackSucceeded()) return;
                     pending--;
                     if (!pending) {
                         finish();
                     }
-                });
+                }, error => showAircraftFlightsNotification('Aircraft data could not be read or saved. ' + String(error), 'error'));
             });
             return;
         }
@@ -902,7 +903,7 @@ function updateHubOverride(override: string) {
         matches.forEach(function(match) {
             match.aircraft.hubOverride = override;
             match.aircraft.hubEffective = override;
-            chrome.storage.local.set({ [match.key]: match.fleetData }, function() {
+            void AES.patchRecord(match.key, fleetBaselines.get(match.fleetData), match.fleetData).then(function() {
                 if (!storageCallbackSucceeded()) return;
                 pending--;
                 if (!pending) {
@@ -913,7 +914,7 @@ function updateHubOverride(override: string) {
                         showAircraftFlightsNotification('HUB override saved', 'success');
                     });
                 }
-            });
+            }, error => showAircraftFlightsNotification('Aircraft data could not be read or saved. ' + String(error), 'error'));
         });
     });
 }
@@ -929,7 +930,7 @@ function resetHubOverride() {
         matches.forEach(function(match) {
             match.aircraft.hubOverride = '';
             match.aircraft.hubEffective = match.aircraft.hubDetected || aircraftFlightData.hubDetected || '';
-            chrome.storage.local.set({ [match.key]: match.fleetData }, function() {
+            void AES.patchRecord(match.key, fleetBaselines.get(match.fleetData), match.fleetData).then(function() {
                 if (!storageCallbackSucceeded()) return;
                 pending--;
                 if (!pending) {
@@ -940,7 +941,7 @@ function resetHubOverride() {
                         showAircraftFlightsNotification('Reset to detected HUB', 'success');
                     });
                 }
-            });
+            }, error => showAircraftFlightsNotification('Aircraft data could not be read or saved. ' + String(error), 'error'));
         });
     });
 }
@@ -974,6 +975,7 @@ function resolveAircraftFleetMatches(callback: (matches: AESModel.AircraftFleetM
                 });
             }
         }
+        matches.forEach(match => fleetBaselines.set(match.fleetData, AES.cloneData(match.fleetData)));
         callback(matches);
     });
 }

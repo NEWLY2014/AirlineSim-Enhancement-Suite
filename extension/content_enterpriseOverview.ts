@@ -6,6 +6,7 @@ var server: string;
 var airline: AESModel.Airline;
 var ownerAirline: AESModel.Airline;
 var activeTab: string;
+let compBaseline: unknown;
 var compData: AESModel.CompetitorRecord;
 let summaryFeedback: ReturnType<typeof AESRead.feedback>[] = [];
 let summaryRevision = 0;
@@ -14,7 +15,7 @@ async function refreshCompetitorSummary(success = false) {
     const stored = await chrome.storage.local.get([compData.key,server+airline.id+'schedule']);
     const current = () => context() && revision === summaryRevision && feedback === summaryFeedback;
     if(!current()) return;
-    if(AES.isRecord(stored[compData.key])) Object.assign(compData,stored[compData.key]);
+    if(AES.isRecord(stored[compData.key])) {Object.assign(compData,stored[compData.key]);compBaseline=AES.cloneData(compData);}
     const schedule = stored[server+airline.id+'schedule'];
     const dates = AES.isRecord(schedule) && AES.isRecord(schedule.date) ? getCompetitorHistoryDates(schedule.date) : [];
     const messages = [displayOverviewRow().text(),displayFactsAndFiguresRow().text(),
@@ -46,6 +47,7 @@ function initializeEnterpriseOverview() {
             if (!AES.isPageOwner()) return;
             if (chrome.runtime.lastError) throw new Error(chrome.runtime.lastError.message);
             compData = AES.getCompetitorPageData(compMonitoringData[key] || compMonitoringData[legacyKey], server, ownerAirline, airline);
+            compBaseline = AES.cloneData(compMonitoringData[key]);
             displayMain();
         });
     });
@@ -143,9 +145,7 @@ function updateCompetitorMonitoringIndex(tracking: boolean) {
             });
         }
 
-        chrome.storage.local.set({ [indexKey]: index }, function() {
-            if (chrome.runtime.lastError) AES.reportContentScriptError("content_enterpriseOverview", new Error(chrome.runtime.lastError.message));
-        });
+        void AES.patchRecord(indexKey,result[indexKey],index).catch(error => AES.reportContentScriptError("content_enterpriseOverview",error));
     });
 }
 
@@ -393,13 +393,10 @@ function getCompetitorHistoryDates(history: Record<string, unknown>): string[] {
 }
 
 function saveCompetitorRecord(onSuccess: () => void, onFailure: (error: Error) => void) {
-    chrome.storage.local.set({ [compData.key]: compData }, function() {
-        if (chrome.runtime.lastError) {
-            onFailure(new Error('Unable to save competitor data: ' + chrome.runtime.lastError.message));
-            return;
-        }
-        if (AES.isPageOwner()) AES.tryRun("content_enterpriseOverview", onSuccess);
-    });
+    void AES.patchRecord(compData.key, compBaseline, compData).then(value => {
+        if (AES.isRecord(value)) {Object.assign(compData,value);compBaseline=AES.cloneData(compData);}
+        if (AES.isPageOwner()) AES.tryRun('content_enterpriseOverview', onSuccess);
+    }, onFailure);
 }
 
 })();

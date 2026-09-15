@@ -1,4 +1,4 @@
-const {runInNewContext} = require('node:vm');
+const {runInNewContext, createContext, runInContext} = require('node:vm');
 const {readFileSync} = require('node:fs');
 const {join} = require('node:path');
 const {webcrypto} = require('node:crypto');
@@ -27,8 +27,9 @@ function coordinator(chrome, {session = {}, liveTabs = null} = {}) {
             }
         }
     };
+    const context = createContext({chrome:workerChrome,URL,crypto:webcrypto});
     for (const file of ['storage-coordinator.js','schedule-storage.js']) {
-        runInNewContext(readFileSync(join(__dirname,'../../build/extension/modules/'+file),'utf8'), {chrome:workerChrome,URL,crypto:webcrypto});
+        runInContext(readFileSync(join(__dirname,'../../build/extension/modules/'+file),'utf8'), context);
     }
     return (message,sender,reply) => {
         let answered = false;
