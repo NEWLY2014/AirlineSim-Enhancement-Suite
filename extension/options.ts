@@ -437,77 +437,14 @@ function displayRestoreRecovery(value: unknown) {
 }
 
 function clearOldData() {
-    showStatusMessage("Clearing old data...", "info");
-
-    chrome.storage.local.get(null, function (items) {
-        if (chrome.runtime.lastError) {
-            showStatusMessage("Error reading data: " + chrome.runtime.lastError.message, "error");
+    showStatusMessage('Clearing old data...', 'info');
+    chrome.runtime.sendMessage({type:'AES_PRUNE_HISTORY'}, (response: unknown) => {
+        if (chrome.runtime.lastError || !isOptionsRecord(response) || response.ok !== true) {
+            showStatusMessage('Error clearing old data: ' + (chrome.runtime.lastError?.message || (isOptionsRecord(response) ? response.error : 'Storage unavailable.')), 'error');
             return;
         }
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        const cutoffDate = thirtyDaysAgo.getTime();
-
-        const keysToRemove: string[] = [];
-
-        for (let key in items) {
-            const item = items[key];
-
-            // Skip settings
-            if (key === "settings" || key === RESTORE_RECOVERY_KEY) continue;
-
-            if (isLogStorageItem(key, item)) {
-                const itemDate = parseStorageDateKey(
-                    (isOptionsRecord(item) && item.date) || key.replace(/^aesLog_/, "")
-                );
-                if (itemDate && itemDate.getTime() < cutoffDate) {
-                    keysToRemove.push(key);
-                }
-                continue;
-            }
-
-            // Check if item has date information
-            if (isOptionsRecord(item) && isOptionsRecord(item.date)) {
-                // For items with date objects (like schedule data)
-                let hasRecentData = false;
-                for (let dateKey in item.date) {
-                    const itemDate = parseStorageDateKey(dateKey);
-                    if (!itemDate) {
-                        hasRecentData = true;
-                        break;
-                    }
-                    if (itemDate.getTime() > cutoffDate) {
-                        hasRecentData = true;
-                        break;
-                    }
-                }
-                if (!hasRecentData) {
-                    keysToRemove.push(key);
-                }
-            } else if (isOptionsRecord(item) && !item.date && (typeof item.updateTime === "string" || typeof item.updateTime === "number")) {
-                // For items with updateTime
-                const itemDate = new Date(item.updateTime);
-                if (itemDate.getTime() < cutoffDate) {
-                    keysToRemove.push(key);
-                }
-            }
-        }
-
-        if (keysToRemove.length > 0) {
-            chrome.storage.local.remove(keysToRemove, function () {
-                if (chrome.runtime.lastError) {
-                    showStatusMessage("Error clearing old data: " + chrome.runtime.lastError.message, "error");
-                    return;
-                }
-                showStatusMessage(
-                    `Cleared ${keysToRemove.length} old data items.`,
-                    "success"
-                );
-                setTimeout(() => location.reload(), 1500);
-            });
-        } else {
-            showStatusMessage("No old data found to clear.", "info");
-        }
+        showStatusMessage('Cleared '+response.snapshots+' old snapshots and '+response.records+' old records.', 'success');
+        setTimeout(() => location.reload(),1500);
     });
 }
 

@@ -63,6 +63,50 @@ class AESStorage {
         if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message)); else resolve();
     }));
     chrome.runtime.onMessage.addListener((message: unknown, sender, reply) => {
+        if (!record(message) || message.type !== 'AES_PRUNE_HISTORY') return false;
+        if (sender.id !== chrome.runtime.id || sender.url !== 'chrome-extension://' + chrome.runtime.id + '/options.html') {
+            reply({ok:false,error:'Open AES options to clean history.'});return false;
+        }
+        void AESStorage.run(async () => {
+            const stored = await new Promise<Record<string,unknown>>((resolve,reject) => chrome.storage.local.get(null, data => {
+                if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));else resolve(data);
+            }));
+            const cutoff = new Date();cutoff.setDate(cutoff.getDate()-30);
+            const old = (value: unknown) => {
+                if (typeof value !== 'string' && typeof value !== 'number') return false;
+                const text=String(value);
+                const date=/^\d{8}$/.test(text) ? new Date(Number(text.slice(0,4)),Number(text.slice(4,6))-1,Number(text.slice(6,8))) : new Date(text);
+                if (/^\d{8}$/.test(text) && (date.getFullYear()!==Number(text.slice(0,4)) || date.getMonth()+1!==Number(text.slice(4,6)) || date.getDate()!==Number(text.slice(6,8)))) return false;
+                return Number.isFinite(date.getTime()) && date.getTime()<cutoff.getTime();
+            };
+            const updates: Record<string,unknown> = {}, removals: string[] = [];
+            let snapshots=0;
+            for (const [key,item] of Object.entries(stored)) {
+                if (key==='settings' || key==='aesRestoreRecoveryV1' || !record(item)) continue;
+                if (key.startsWith('aesLog_') || item.type==='log') {
+                    if (old(item.date || key.slice(7))) removals.push(key);
+                    continue;
+                }
+                const next={...item};let changed=false;
+                for (const field of ['date','tab0','tab2']) {
+                    if (!record(item[field])) continue;
+                    const entries=Object.entries(item[field]);
+                    const kept=entries.filter(([date]) => !old(date));
+                    if (kept.length !== entries.length) {next[field]=Object.fromEntries(kept);snapshots+=entries.length-kept.length;changed=true;}
+                }
+                if (record(next.date) && !Object.keys(next.date).length) removals.push(key);
+                else if (!item.date && old(item.updateTime)) removals.push(key);
+                else if (changed) updates[key]=next;
+            }
+            if (Object.keys(updates).length) await setLocal(updates);
+            if (removals.length) await new Promise<void>((resolve,reject) => chrome.storage.local.remove(removals, () => {
+                if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));else resolve();
+            }));
+            return {ok:true,records:removals.length,snapshots};
+        }).then(reply,error=>reply({ok:false,error:String(error)}));
+        return true;
+    });
+    chrome.runtime.onMessage.addListener((message: unknown, sender, reply) => {
         if (!record(message) || (message.type !== 'AES_SETTINGS_CAS' && message.type !== 'AES_FLIGHT_PLAN_JOB' && message.type !== 'AES_RECORD_PATCH')) return false;
         if (sender.id !== chrome.runtime.id || sender.frameId !== 0 || !sender.tab?.id || !sender.documentId ||
             !sender.url || !/^https:\/\/[^/]+\.airlinesim\.aero\//.test(sender.url)) {

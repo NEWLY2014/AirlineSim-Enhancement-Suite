@@ -4,6 +4,7 @@ const { browser, until, source } = require('./support/browser.cjs');
 
 async function options(t, data) {
     const p = browser(t, { html: source('options.html'), helpers: false, data });
+    p.sender.url='chrome-extension://aes-test/options.html';
     const downloads = [];
     p.w.Blob = Blob;
     p.w.URL.createObjectURL = blob => { downloads.push(blob); return 'blob:aes-test'; };
@@ -82,7 +83,9 @@ test('old-data cleanup preserves settings, recent dates and unrecognized date ke
         mixed: { date: { '20000101': {}, [today]: {} } }, unknown: { date: { 'not-a-date': {} } },
         aesLog_20000101: { type: 'log', date: '20000101' }, recent: { updateTime: today } });
     p.run('clearOldData()');
+    await new Promise(resolve=>setImmediate(resolve));
     assert.deepEqual(Object.keys(p.saved).sort(), ['mixed', 'recent', 'settings', 'unknown']);
+    assert.deepEqual(p.saved.mixed.date,{[today]:{}});
 });
 
 test('malformed backup envelopes are rejected before replacement can clear data', async t => {
@@ -131,6 +134,7 @@ test('malformed stored entries can be listed and unknown date layouts are retain
         unexpected: { date: ['20260908'] }, primitive: 42 });
     assert.equal(p.w.document.querySelector('#aes-log-file-select').options.length, 1);
     p.run('clearOldData()');
+    await new Promise(resolve=>setImmediate(resolve));
     assert.ok('unknown' in p.saved);
     assert.ok('unexpected' in p.saved);
     assert.ok('primitive' in p.saved);
@@ -147,4 +151,12 @@ test('error status cancels a pending success-message timer', async t => {
     p.run('showStatusMessage("Failed", "error")');
     assert.equal(timers.size, 0);
     assert.match(p.w.document.querySelector('#aes-status-message').className, /status-error/);
+});
+
+test('history cleanup prunes competitor dates without removing tracking metadata',async t=>{
+    const date=new Date().toISOString();
+    const p=await options(t,{competitor:{tracking:1,extra:'keep',tab0:{20000101:{old:true},[date]:{pax:100}},tab2:{20000102:{old:true}}}});
+    p.run('clearOldData()');
+    await new Promise(resolve=>setImmediate(resolve));
+    assert.deepEqual(p.saved.competitor,{tracking:1,extra:'keep',tab0:{[date]:{pax:100}},tab2:{}});
 });
