@@ -34,3 +34,29 @@ test('schedule comparison follows the game theme independently of system colors'
         await page.getByRole('button',{name:'Close',exact:true}).click();
     }
 });
+
+test('large schedule comparisons yield during comparison and sorting, and support cancellation',async t=>{
+    const page=await pageFor(t);
+    await page.addScriptTag({path:'build/extension/modules/schedule-diff.js'});
+    const result=await page.evaluate(async()=>{
+        const flights={},next={};
+        for(let n=50000;n>0;n--){
+            flights['WN '+n]={paxFreq:7,cargoFreq:0,valid:'Now',remark:'',services:[{days:'1234567',departure:'08:00',arrival:'10:00',aircraft:'A320',valid:'Now',remark:''}]};
+            next['WN '+n]={...flights['WN '+n],paxFreq:6};
+        }
+        const capture=flightNumber=>({id:'x',label:'test',schedule:[{origin:'AAA',destination:'BBB',flightNumber}]});
+        const a=capture(flights),b=capture(next);
+        await new Promise(resolve=>requestAnimationFrame(resolve));
+        let beats=0,last=performance.now(),gap=0;
+        let running=true;
+        const beat=()=>{if(!running)return;const now=performance.now();gap=Math.max(gap,now-last);last=now;beats++;requestAnimationFrame(beat);};
+        requestAnimationFrame(beat);
+        const compared=await AESScheduleDiff.compare(a,b);running=false;
+        let current=true;const pending=AESScheduleDiff.compare(a,b,()=>current);requestAnimationFrame(()=>{current=false});
+        let cancelled=false;try{await pending}catch{cancelled=true}
+        return {beats,gap,changes:compared.changes.length,first:compared.changes[0].flight,last:compared.changes.at(-1).flight,cancelled};
+    });
+    assert.equal(result.changes,50000);assert.equal(result.first,'WN 1');assert.equal(result.last,'WN 50000');
+    assert.ok(result.beats>2,JSON.stringify(result));assert.ok(result.gap<100,JSON.stringify(result));assert.equal(result.cancelled,true);
+    t.diagnostic(JSON.stringify(result));
+});

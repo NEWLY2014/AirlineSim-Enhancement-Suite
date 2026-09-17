@@ -93,7 +93,7 @@ test('Chrome performs read-only batches in the initiating pages with shared paci
     await b.getByRole('button',{name:'View changes',exact:true}).click();
     const diff=b.locator('.aes-schedule-diff[open]');
     await diff.waitFor();
-    assert.match(await diff.locator('[role="status"]').textContent(),/1 changed/);
+    await diff.locator('[role="status"]').filter({hasText:'1 changed'}).waitFor();
     assert.match(await diff.locator('tbody').textContent(),/Mon Wed Fri/);
     assert.equal(await diff.getByLabel('Previous snapshot').locator('option').count(),2);
     await diff.getByRole('button',{name:'Close',exact:true}).click();
