@@ -4,13 +4,38 @@ class AES {
         return value === undefined ? value : JSON.parse(JSON.stringify(value));
     }
 
-    static patchRecord(key: string, before: unknown, after: unknown): Promise<unknown> {
-        if (!AES.isPageOwner()) return Promise.reject(new Error('The page changed.'));
-        return new Promise((resolve, reject) => chrome.runtime.sendMessage({type:'AES_RECORD_PATCH',key,before:AES.cloneData(before),after:AES.cloneData(after)}, (reply: unknown) => {
-            if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
-            else if (!AES.isRecord(reply) || reply.ok !== true) reject(new Error(AES.isRecord(reply) ? String(reply.error) : 'Storage unavailable.'));
-            else resolve(reply.value);
-        }));
+    static async patchRecord(key: string, before: unknown, after: unknown): Promise<unknown> {
+        const message = {type:'AES_RECORD_PATCH',key,before:AES.cloneData(before),after:AES.cloneData(after)};
+        const href = location.href;
+        const current = () => AES.isPageOwner() && location.href === href;
+        for (let attempt = 0; attempt < 2; attempt++) {
+            if (!current()) throw new Error('The page changed.');
+            const result = await new Promise<{reply?: unknown; transportError?: string}>(resolve => {
+                try {
+                    chrome.runtime.sendMessage(message, (reply: unknown) => {
+                        const error = chrome.runtime.lastError;
+                        resolve(error ? {transportError:error.message || 'Extension connection failed.'} : {reply});
+                    });
+                } catch (error) {
+                    resolve({transportError:error instanceof Error ? error.message : String(error)});
+                }
+            });
+            if (!current()) throw new Error('The page changed.');
+            if (result.transportError || result.reply === undefined) {
+                const error = result.transportError || 'The extension background did not respond.';
+                const disconnected = /message (?:port|channel) closed|receiving end does not exist|could not establish connection|extension context invalidated|background did not respond/i.test(error);
+                if (!disconnected) throw new Error(error);
+                // Record patches are idempotent: a lost acknowledgement may be retried
+                // through the same merge queue without bypassing conflict protection.
+                if (!attempt) {await AES.sleep(150);continue;}
+                throw new Error('AES background is unavailable or outdated. Reload AES on chrome://extensions, then reload this game page. ' + error);
+            }
+            if (!AES.isRecord(result.reply) || result.reply.ok !== true) {
+                throw new Error(AES.isRecord(result.reply) ? String(result.reply.error) : 'Storage unavailable.');
+            }
+            return result.reply.value;
+        }
+        throw new Error('AES background did not respond.');
     }
 
     /** Validate fields used by fleet pages while retaining legacy/unknown metadata. */

@@ -242,3 +242,55 @@ test('summary write failure cannot produce collection success and exposes error 
     assert.match(p.w.document.querySelector('.aes-read-details').textContent,/Summary unavailable/);
     assert.doesNotMatch(p.w.document.querySelector('.aes-aircraft-flights-extract-status').textContent,/refreshed/);
 });
+
+test('fleet save reconnects after a closed message port without losing other fleet data',async t=>{
+    const p=fleet(t,aircraftRow(123,'AA-123'),{[fleetKey]:{fleet:[{aircraftId:9,registration:'OTHER',fleet:'Other'}]}});
+    const send=p.w.chrome.runtime.sendMessage;
+    let requests=0;
+    p.w.chrome.runtime.sendMessage=(message,reply)=>{
+        if(message.type==='AES_RECORD_PATCH' && ++requests===1){
+            p.w.chrome.runtime.lastError={message:'The message port closed before a response was received.'};
+            reply();delete p.w.chrome.runtime.lastError;return;
+        }
+        send(message,reply);
+    };
+    p.load('content_fleetManagement.js');
+    await until(()=>p.w.document.querySelector('#aes-fleet-management-root'));
+    assert.equal(requests,2);
+    assert.deepEqual(p.saved[fleetKey].fleet.map(a=>a.aircraftId),[123,9]);
+    assert.equal(p.errors.length,0);
+});
+
+test('an outdated background produces actionable recovery instructions and does not write locally',async t=>{
+    const before={fleet:[{aircraftId:9,registration:'OTHER',fleet:'Other'}]};
+    const p=fleet(t,aircraftRow(123,'AA-123'),{[fleetKey]:before});
+    let requests=0;
+    p.w.chrome.runtime.sendMessage=(message,reply)=>{
+        requests++;
+        p.w.chrome.runtime.lastError={message:'The message port closed before a response was received.'};
+        reply();delete p.w.chrome.runtime.lastError;
+    };
+    p.load('content_fleetManagement.js');
+    await until(()=>p.errors.length);
+    assert.equal(requests,2);
+    assert.match(String(p.errors.flat().join(' ')),/Reload AES on chrome:\/\/extensions/);
+    assert.deepEqual(p.saved[fleetKey],before);
+});
+
+test('lost acknowledgement retries an already saved patch without duplicating aircraft',async t=>{
+    const p=fleet(t,aircraftRow(123,'AA-123'));
+    const send=p.w.chrome.runtime.sendMessage;
+    let requests=0;
+    p.w.chrome.runtime.sendMessage=(message,reply)=>{
+        if(message.type==='AES_RECORD_PATCH' && ++requests===1){
+            send(message,()=>{
+                p.w.chrome.runtime.lastError={message:'The message port closed before a response was received.'};
+                reply();delete p.w.chrome.runtime.lastError;
+            });return;
+        }
+        send(message,reply);
+    };
+    p.load('content_fleetManagement.js');
+    await until(()=>p.w.document.querySelector('#aes-fleet-management-root'));
+    assert.equal(requests,2);assert.equal(p.saved[fleetKey].fleet.length,1);
+});
