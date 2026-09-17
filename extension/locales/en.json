@@ -722,5 +722,6 @@
   "Unable to read schedule history:": "Unable to read schedule history:",
   "Unable to save schedule:": "Unable to save schedule:",
   "Page queue unavailable:": "Page queue unavailable:",
-  "({0} failed)": "({0} failed)"
+  "({0} failed)": "({0} failed)",
+  "General Settings": "General Settings"
 }

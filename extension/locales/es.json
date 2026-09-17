@@ -722,5 +722,6 @@
   "Unable to read schedule history:": "No se puede leer el historial de horarios:",
   "Unable to save schedule:": "No se pueden guardar los horarios:",
   "Page queue unavailable:": "Cola de páginas no disponible:",
-  "({0} failed)": "({0} fallidos)"
+  "({0} failed)": "({0} fallidos)",
+  "General Settings": "Configuración general"
 }

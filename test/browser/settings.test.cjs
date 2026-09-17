@@ -41,6 +41,10 @@ test('settings tabs preserve drafts, support the keyboard and open extension bac
     assert.equal(await aes.getAttribute('aria-selected'),'true');
     assert.equal(await page.locator('.tab-content').isVisible(),false);
     assert.deepEqual(await page.locator('.nav-tabs').boundingBox(),before);
+    await page.getByRole('tab',{name:'General Settings',exact:true}).waitFor();
+    assert.equal(await page.locator('#aes-language').isVisible(),true);
+    await page.getByRole('tab',{name:'Inventory Pricing',exact:true}).click();
+    assert.equal(await page.locator('#aes-language').isVisible(),false);
     await page.locator('#aes-input-invPricing-min-price').fill('73');
     await page.getByRole('tab',{name:'Flight Info',exact:true}).click();
     await page.getByRole('tab',{name:'Inventory Pricing',exact:true}).click();
@@ -61,7 +65,7 @@ test('settings tabs preserve drafts, support the keyboard and open extension bac
         const messages=JSON.parse(readFileSync('extension/locales/'+file));
         await worker.evaluate(()=>chrome.storage.local.set({aesLanguage:'auto'}));
         await page.reload();await page.locator('#aes-settings-tab').click();
-        await page.locator('#aes-settings-group-0').click();
+        await page.locator('#aes-settings-group-1').click();
         assert.equal(await page.locator('#aes-settings-tab').textContent(),messages['AES Settings']);
         assert.equal(await page.locator('#aes-btn-invPricing-save').textContent(),messages.Save);
         assert.equal(await page.getByRole('tab',{name:'General settings',exact:true}).count(),1);
@@ -69,8 +73,12 @@ test('settings tabs preserve drafts, support the keyboard and open extension bac
         assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,gameLanguage);
     }
     await page.locator('#aes-input-invPricing-min-price').fill('79');
+    await page.locator('#aes-settings-group-0').click();
     await page.locator('#aes-language').selectOption('fr');
     await page.waitForFunction(()=>document.querySelector('.aes-language-control [role="status"]').textContent.length>0);
+    assert.equal(await page.locator('.aes-language-control [role="status"]').textContent(),JSON.parse(readFileSync('extension/locales/fr.json'))['Language saved. Reload this page to apply.']);
+    assert.equal(await page.locator('.aes-language-control [role="status"]').getAttribute('lang'),'fr');
+    await page.locator('#aes-settings-group-1').click();
     assert.equal(await page.locator('#aes-input-invPricing-min-price').inputValue(),'79');
     assert.equal(await worker.evaluate(()=>chrome.storage.local.get('aesLanguage').then(v=>v.aesLanguage)),'fr');
     await page.reload();await page.locator('#aes-settings-tab').click();

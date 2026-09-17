@@ -722,5 +722,6 @@
   "Unable to read schedule history:": "Impossible de lire l’historique des horaires :",
   "Unable to save schedule:": "Impossible d’enregistrer les horaires :",
   "Page queue unavailable:": "File de pages indisponible :",
-  "({0} failed)": "({0} échecs)"
+  "({0} failed)": "({0} échecs)",
+  "General Settings": "Paramètres généraux"
 }

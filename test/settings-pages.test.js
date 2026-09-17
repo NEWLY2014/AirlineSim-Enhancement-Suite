@@ -17,8 +17,8 @@ test('settings edits preserve unrelated and newly stored preferences', async t =
     assert.equal(p.saved.settings.invPricing.autoPriceUpdate, 1);
     assert.equal(p.saved.settings.addedAfterLoad, 'keep');
     assert.deepEqual(p.saved.settings.custom, { keep: true });
-    p.w.document.querySelector('#aes-settings-group-1').click();
-    p.w.document.querySelector('#aes-settings-section-1 input').click();
+    p.w.document.querySelector('#aes-settings-group-2').click();
+    p.w.document.querySelector('#aes-settings-section-2 input').click();
     assert.equal(p.saved.settings.flightInfo.autoClose, 1);
     assert.equal(p.saved.settings.invPricing.autoPriceUpdate, 1);
 });
@@ -149,7 +149,7 @@ test('native settings tab integration restores the host DOM on ownership loss',a
     const p=browser(t,{html:header+'<div class="bootstrap container-fluid"><h1>Settings</h1>'+native+'</div>',path:'/app/enterprise/settings',data:{settings:{settingsSection:'Flight Info'}}});
     p.load('content_settings.js');await until(()=>p.w.document.querySelector('#aes-settings-tab'));
     assert.equal(p.w.document.querySelector('#aes-settings-root').hidden,true);
-    assert.equal(p.w.document.querySelector('#aes-settings-group-1').getAttribute('aria-selected'),'true');
+    assert.equal(p.w.document.querySelector('#aes-settings-group-2').getAttribute('aria-selected'),'true');
     p.w.document.querySelector('#aes-settings-tab').click();
     assert.equal(p.w.document.querySelector('.tab-content').hidden,true);
     assert.equal(p.calls.length,0);

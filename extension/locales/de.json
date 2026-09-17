@@ -722,5 +722,6 @@
   "Unable to read schedule history:": "Flugplanverlauf kann nicht gelesen werden:",
   "Unable to save schedule:": "Flugplan kann nicht gespeichert werden:",
   "Page queue unavailable:": "Seitenwarteschlange nicht verfügbar:",
-  "({0} failed)": "({0} fehlgeschlagen)"
+  "({0} failed)": "({0} fehlgeschlagen)",
+  "General Settings": "Allgemeine Einstellungen"
 }

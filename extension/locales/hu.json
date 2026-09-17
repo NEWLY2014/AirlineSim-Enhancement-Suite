@@ -722,5 +722,6 @@
   "Unable to read schedule history:": "A menetrendelőzmények nem olvashatók:",
   "Unable to save schedule:": "A menetrend nem menthető:",
   "Page queue unavailable:": "Az oldalsor nem érhető el:",
-  "({0} failed)": "({0} sikertelen)"
+  "({0} failed)": "({0} sikertelen)",
+  "General Settings": "Általános beállítások"
 }

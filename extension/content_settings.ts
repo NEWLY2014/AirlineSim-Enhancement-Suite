@@ -86,15 +86,17 @@ function displaySettings() {
     backup.on('click',()=>chrome.runtime.sendMessage({type:'AES_OPEN_OPTIONS'},response=>{
         if(chrome.runtime.lastError || !response?.ok) feedback.text(AESI18n.t('Unable to open Backup & Restore. Open AES extension options from Chrome.'));
     }));
-    toolbar.append(groups,backup);root.append(AESI18n.selector(),toolbar,feedback);
+    toolbar.append(groups,backup);root.append(toolbar,feedback);
     const panels: JQuery[]=[],buttons: JQuery[]=[];
-    const names=['Inventory Pricing','Flight Info'];
+    const names=['General Settings','Inventory Pricing','Flight Info'];
     names.forEach((name,index)=>{
         const button=$('<button type="button" role="tab" class="btn btn-default"></button>').attr({id:'aes-settings-group-'+index,'aria-controls':'aes-settings-section-'+index}).text(AESI18n.t(name));
         const panel=$('<div role="tabpanel"></div>').attr({id:'aes-settings-section-'+index,'aria-labelledby':'aes-settings-group-'+index});
         groups.append(button);root.append(panel);panels.push(panel);buttons.push(button);
         settingsArea=panel;
-        if(index===0) displayInvPricingSettings();else displayFlightInfoSettings();
+        if(name==='General Settings') {
+            panel.append($('<h3></h3>').text(AESI18n.t('General Settings')), $('<div class="as-panel"></div>').append(AESI18n.selector()));
+        } else if(name==='Inventory Pricing') displayInvPricingSettings();else displayFlightInfoSettings();
         button.on('click',()=>{
             showGroup(index);
             AES.updateSettings(current=>{current.settingsSection=name;},updated=>{settings=updated;});
@@ -105,7 +107,7 @@ function displaySettings() {
         buttons.forEach((button,i)=>button.attr({'aria-selected':String(i===index),tabindex:i===index ? '0' : '-1'}).toggleClass('active',i===index));
     }
     bindTabKeys(groups);
-    showGroup(settings.settingsSection==='Flight Info' ? 1 : 0);
+    showGroup(Math.max(0,names.indexOf(String(settings.settingsSection || ''))));
     activate(!nativeTabs.length);
     AES.markOwnedElements([root[0],top[0]]);
     cleanupSettings=()=>{

@@ -722,5 +722,6 @@
   "Unable to read schedule history:": "Kan dienstregelingsgeschiedenis niet lezen:",
   "Unable to save schedule:": "Kan dienstregeling niet opslaan:",
   "Page queue unavailable:": "Paginawachtrij niet beschikbaar:",
-  "({0} failed)": "({0} mislukt)"
+  "({0} failed)": "({0} mislukt)",
+  "General Settings": "Algemene instellingen"
 }

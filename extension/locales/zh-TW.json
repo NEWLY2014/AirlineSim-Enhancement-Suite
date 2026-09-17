@@ -722,5 +722,6 @@
   "Unable to read schedule history:": "無法讀取時刻表歷史紀錄：",
   "Unable to save schedule:": "無法儲存時刻表：",
   "Page queue unavailable:": "頁面佇列無法使用：",
-  "({0} failed)": "（{0} 筆失敗）"
+  "({0} failed)": "（{0} 筆失敗）",
+  "General Settings": "一般設定"
 }

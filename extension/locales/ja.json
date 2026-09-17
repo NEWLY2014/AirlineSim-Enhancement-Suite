@@ -722,5 +722,6 @@
   "Unable to read schedule history:": "スケジュール履歴を読み込めません：",
   "Unable to save schedule:": "スケジュールを保存できません：",
   "Page queue unavailable:": "ページキューを利用できません：",
-  "({0} failed)": "（{0} 件失敗）"
+  "({0} failed)": "（{0} 件失敗）",
+  "General Settings": "一般設定"
 }

@@ -722,5 +722,6 @@
   "Unable to read schedule history:": "Nie można odczytać historii rozkładu:",
   "Unable to save schedule:": "Nie można zapisać rozkładu:",
   "Page queue unavailable:": "Kolejka stron jest niedostępna:",
-  "({0} failed)": "({0} nieudanych)"
+  "({0} failed)": "({0} nieudanych)",
+  "General Settings": "Ustawienia ogólne"
 }
