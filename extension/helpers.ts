@@ -451,7 +451,7 @@ class AES {
         }
 
         valueEl.innerText = formattedValue
-        currencyEl.innerText = " AS$"
+        currencyEl.innerText = AESI18n.t(" AS$")
 
         container.className = containerClasses
         container.append(indicatorEl, valueEl, currencyEl)
@@ -868,18 +868,20 @@ class AES {
         AES.#installContentScriptErrorReporter(scriptName);
 
         const run = function() {
-            // The new React header initially renders an empty enterprise selector.
-            // Page tables can already exist at that point; wait before choosing
-            // storage keys so the first load never saves under an empty airline.
-            if (!scriptName.startsWith('module:') && document.getElementById('header') &&
-                AES.getFrontendSettings().fixedEnterpriseId && !AES.getNavbarAirline().displayName) {
-                AES.waitForElement(() => !!AES.getNavbarAirline().displayName, initializer, {
-                    scriptName,
-                    errorMessage: 'Current airline header did not finish loading'
-                });
-                return;
-            }
-            AES.tryRun(scriptName, initializer);
+            AESI18n.whenReady(()=>{
+                // The new React header initially renders an empty enterprise selector.
+                // Page tables can already exist at that point; wait before choosing
+                // storage keys so the first load never saves under an empty airline.
+                if (!scriptName.startsWith('module:') && document.getElementById('header') &&
+                    AES.getFrontendSettings().fixedEnterpriseId && !AES.getNavbarAirline().displayName) {
+                    AES.waitForElement(() => !!AES.getNavbarAirline().displayName, initializer, {
+                        scriptName,
+                        errorMessage: 'Current airline header did not finish loading'
+                    });
+                    return;
+                }
+                AES.tryRun(scriptName, initializer);
+            });
         };
 
         if (options && options.ready === false) {

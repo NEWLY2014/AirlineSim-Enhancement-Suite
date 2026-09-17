@@ -363,10 +363,10 @@ function afp_isEmptyFlightPlan() {
 function afp_getTemplateSummary() {
     let template = aircraftFlightPlanState.template;
     if (!template || !Array.isArray(template.flights) || !template.flights.length) {
-        return aircraftFlightPlanState.templateStale ? 'Template needs re-extract' : 'No saved template';
+        return aircraftFlightPlanState.templateStale ? AESI18n.t('Template needs re-extract') : AESI18n.t('No saved template');
     }
 
-    return template.sourceRegistration + ' / ' + template.sourceModel + ' / ' + template.flights.length + ' flights';
+    return AESI18n.t("{0} / {1} / {2} flights", {"0": template.sourceRegistration, "1": template.sourceModel, "2": template.flights.length});
 }
 
 function afp_getJobSummary() {
@@ -378,13 +378,13 @@ function afp_getJobSummary() {
     let total = job.entries ? job.entries.length : 0;
     let current = Math.min(job.currentIndex + 1, total);
     if (job.status === 'done') {
-        return 'Scheduling complete';
+        return AESI18n.t('Scheduling complete');
     }
     if (job.status === 'error') {
-        return 'Scheduling stopped: ' + (job.errorMessage || 'Unknown error');
+        return AESI18n.t("Scheduling stopped: {0}", {"0": (job.errorMessage || 'Unknown error')});
     }
 
-    return 'Scheduling ' + current + ' / ' + total + ' on ' + (job.targetRegistration || 'target aircraft');
+    return AESI18n.t("Scheduling {0} / {1} on {2}", {"0": current, "1": total, "2": (job.targetRegistration || 'target aircraft')});
 }
 
 function afp_renderPanel() {
@@ -403,12 +403,12 @@ function afp_renderPanel() {
     let jobOnOtherAircraft = !!(job && jobIsActive && String(job.targetAircraftId) !== String(aircraftFlightPlanState.aircraft.id));
     let canStart = !aircraftFlightPlanState.jobInvalid && !startingJob && !aircraftFlightPlanState.processingJob && hasTemplate && isEmpty && !aircraftFlightPlanState.extracting && !jobOnOtherAircraft && !jobOnCurrentAircraft;
 
-    let extractBtn = $('<button type="button" class="btn btn-default"></button>').text(aircraftFlightPlanState.extracting ? 'Extracting...' : 'Extract template').prop('disabled', aircraftFlightPlanState.extracting);
-    let deleteBtn = $('<button type="button" class="btn btn-default"></button>').text('Delete saved template').prop('disabled', !hasTemplate || aircraftFlightPlanState.extracting);
+    let extractBtn = $('<button type="button" class="btn btn-default"></button>').text(aircraftFlightPlanState.extracting ? AESI18n.t('Extracting...') : AESI18n.t('Extract template')).prop('disabled', aircraftFlightPlanState.extracting);
+    let deleteBtn = $('<button type="button" class="btn btn-default"></button>').text(AESI18n.t('Delete saved template')).prop('disabled', !hasTemplate || aircraftFlightPlanState.extracting);
     let scheduleBtn = $('<button type="button" class="btn btn-default"></button>')
-        .text(jobIsActive || aircraftFlightPlanState.jobInvalid ? 'Stop scheduling' : 'Start scheduling')
+        .text(jobIsActive || aircraftFlightPlanState.jobInvalid ? AESI18n.t('Stop scheduling') : AESI18n.t('Start scheduling'))
         .prop('disabled', jobIsActive || aircraftFlightPlanState.jobInvalid ? false : !canStart);
-    let offsetButtons = $('<div class="btn-group aes-aircraft-flight-plan-offset-group" role="group" aria-label="Offset days"></div>');
+    let offsetButtons = $(AESI18n.html('<div class="btn-group aes-aircraft-flight-plan-offset-group" role="group" aria-label="Offset days"></div>'));
     let offsetButtonsDisabled = aircraftFlightPlanState.extracting || jobOnCurrentAircraft || jobOnOtherAircraft;
 
     for (let i = 1; i <= 6; i++) {
@@ -456,29 +456,29 @@ function afp_renderPanel() {
     }
 
     let panel = $('<div id="aes-aircraft-flight-plan-panel" class="as-panel aes-aircraft-flight-plan-panel"></div>').append(
-        $('<div class="aes-aircraft-flight-plan-title"></div>').text('AES Flight Plan Assistant'),
+        $('<div class="aes-aircraft-flight-plan-title"></div>').text(AESI18n.t('AES Flight Plan Assistant')),
         $('<div class="aes-aircraft-flight-plan-main-row"></div>').append(
             $('<div class="aes-aircraft-flight-plan-summary"></div>').append(
                 $('<div class="aes-aircraft-flight-plan-summary-row"></div>').append(
-                    $('<strong></strong>').text('Template: '),
+                    $('<strong></strong>').text(AESI18n.t('Template: ')),
                     $('<span></span>').text(afp_getTemplateSummary())
                 ),
                 $('<div class="aes-aircraft-flight-plan-summary-row"></div>').append(
-                    $('<strong></strong>').text('Target: '),
-                    $('<span></span>').text(aircraftFlightPlanState.aircraft.registration + ' / ' + aircraftFlightPlanState.aircraft.model + (isEmpty ? ' / Empty plan' : ' / Existing assignments'))
+                    $('<strong></strong>').text(AESI18n.t('Target: ')),
+                    $('<span></span>').text(aircraftFlightPlanState.aircraft.registration + ' / ' + aircraftFlightPlanState.aircraft.model + (isEmpty ? AESI18n.t(' / Empty plan') : AESI18n.t(' / Existing assignments')))
                 )
             ),
             $('<div class="aes-aircraft-flight-plan-actions"></div>').append(
                 $('<div class="btn-group aes-dashboard-control-actions"></div>').append(extractBtn, deleteBtn)
             ),
             $('<div class="aes-aircraft-flight-plan-start"></div>').append(
-                $('<label class="control-label aes-aircraft-flight-plan-label"></label>').text('Offset'),
+                $('<label class="control-label aes-aircraft-flight-plan-label"></label>').text(AESI18n.t('Offset')),
                 offsetButtons,
                 scheduleBtn
             )
         ),
         job ? $('<div class="aes-aircraft-flight-plan-job"></div>').text(afp_getJobSummary()) : $(),
-        $('<div id="aes-aircraft-flight-plan-hint" class="aes-aircraft-flight-plan-hint"></div>').text(hint || ''),
+        $('<div id="aes-aircraft-flight-plan-hint" class="aes-aircraft-flight-plan-hint"></div>').text(AESI18n.t(hint || '')),
         $('<div id="aes-aircraft-flight-plan-runtime" class="' + (aircraftFlightPlanState.runtimeMessage ? aircraftFlightPlanState.runtimeType : '') + '"></div>').text(aircraftFlightPlanState.runtimeMessage || '')
     );
 
@@ -858,12 +858,12 @@ async function afp_extractTemplate() {
     let entries = afp_getUniqueFlightEntries();
     if (!entries.length) {
         afp_notify('No assigned flights found to extract.', 'error');
-        afp_setRuntimeMessage('No assigned flights found to extract.', 'error');
+        afp_setRuntimeMessage(AESI18n.t('No assigned flights found to extract.'), 'error');
         return;
     }
 
     aircraftFlightPlanState.extracting = true;
-    afp_setRuntimeMessage('Extracting template...', 'warning');
+    afp_setRuntimeMessage(AESI18n.t('Extracting template...'), 'warning');
     afp_renderPanel();
 
     try {
@@ -882,10 +882,10 @@ async function afp_extractTemplate() {
         aircraftFlightPlanState.template = template;
         aircraftFlightPlanState.templateStale = false;
         afp_notify('Flight plan template extracted.', 'success');
-        afp_setRuntimeMessage('Template extracted.', 'success');
+        afp_setRuntimeMessage(AESI18n.t('Template extracted.'), 'success');
     } catch (error) {
         afp_notify(error instanceof Error ? error.message : 'Template extraction failed.', 'error');
-        afp_setRuntimeMessage(error instanceof Error ? error.message : 'Template extraction failed.', 'error');
+        afp_setRuntimeMessage(error instanceof Error ? error.message : AESI18n.t('Template extraction failed.'), 'error');
     } finally {
         aircraftFlightPlanState.extracting = false;
         afp_renderPanel();
@@ -896,7 +896,7 @@ async function afp_deleteTemplate() {
     await afp_storageRemove([afp_getTemplateKey()]);
     aircraftFlightPlanState.template = null;
     afp_notify('Saved template deleted.', 'success');
-    afp_setRuntimeMessage('Saved template deleted.', 'success');
+    afp_setRuntimeMessage(AESI18n.t('Saved template deleted.'), 'success');
     afp_renderPanel();
 }
 
@@ -910,13 +910,13 @@ async function afp_startScheduling(offsetDays: number) {
 
         if (!aircraftFlightPlanState.template || !aircraftFlightPlanState.template.flights || !aircraftFlightPlanState.template.flights.length) {
             afp_notify('Extract a template first.', 'error');
-            afp_setRuntimeMessage('Extract a template first.', 'error');
+            afp_setRuntimeMessage(AESI18n.t('Extract a template first.'), 'error');
             return;
         }
 
         if (!afp_isEmptyFlightPlan()) {
             afp_notify('Target flight plan must be empty.', 'error');
-            afp_setRuntimeMessage('Target flight plan must be empty.', 'error');
+            afp_setRuntimeMessage(AESI18n.t('Target flight plan must be empty.'), 'error');
             return;
         }
 
@@ -937,7 +937,7 @@ async function afp_startScheduling(offsetDays: number) {
 
         await afp_jobMessage('create', job);
         aircraftFlightPlanState.job = job;
-        afp_setRuntimeMessage('Scheduling started.', 'warning');
+        afp_setRuntimeMessage(AESI18n.t('Scheduling started.'), 'warning');
         afp_renderPanel();
         await afp_resumePendingJob();
     } finally {
@@ -955,7 +955,7 @@ async function afp_clearJob(notifyUser: boolean) {
     aircraftFlightPlanState.jobInvalid = false;
     if (notifyUser) {
         afp_notify('Scheduling job cleared.', 'success');
-        afp_setRuntimeMessage('Scheduling job cleared.', 'success');
+        afp_setRuntimeMessage(AESI18n.t('Scheduling job cleared.'), 'success');
     }
     afp_renderPanel();
 }
@@ -1459,7 +1459,7 @@ async function afp_saveJob() {
 async function afp_completeJob() {
     await afp_clearJob(false);
     afp_notify('Flight plan scheduling completed.', 'success');
-    afp_setRuntimeMessage('Flight plan scheduling completed.', 'success');
+    afp_setRuntimeMessage(AESI18n.t('Flight plan scheduling completed.'), 'success');
     afp_renderPanel();
 }
 
@@ -1520,13 +1520,13 @@ async function afp_processJob() {
             job.status = 'waitForSelection';
             await afp_saveJob();
             afp_renderPanel();
-            afp_setRuntimeMessage('Loading ' + entry.flightCode + '...', 'warning');
+            afp_setRuntimeMessage(AESI18n.t("Loading {0}...", {"0": entry.flightCode}), 'warning');
             afp_selectExistingFlight(entry);
             return;
         }
 
         if (job.status === 'applying') {
-            afp_setRuntimeMessage('Applying ' + entry.flightCode + '...', 'warning');
+            afp_setRuntimeMessage(AESI18n.t("Applying {0}...", {"0": entry.flightCode}), 'warning');
             await afp_applyFlightEntryToPlanner(entry, job.offsetDays);
             afp_assertJobAction();
             job.status = 'waitForApply';
@@ -1557,7 +1557,7 @@ async function afp_processJob() {
         }
 
         if (job.status === 'correcting') {
-            afp_setRuntimeMessage('Correcting arrival time for ' + entry.flightCode + '...', 'warning');
+            afp_setRuntimeMessage(AESI18n.t("Correcting arrival time for {0}...", {"0": entry.flightCode}), 'warning');
             if (job.correctionUrl !== location.href || job.correctionIndex !== job.currentIndex) {
                 const previousForm = afp_getPlannerForm()[0];
                 const previousAction = afp_getPlannerForm().attr('action');
@@ -1636,7 +1636,7 @@ async function afp_resumePendingJob() {
                 await afp_failJob(error instanceof Error ? error.message : 'Scheduling failed.');
             } catch (saveError) {
                 if (!(saveError instanceof FlightPlanCancelled)) {
-                    afp_setRuntimeMessage('Scheduling stopped: could not save job status. Please reload before retrying.', 'error');
+                    afp_setRuntimeMessage(AESI18n.t('Scheduling stopped: could not save job status. Please reload before retrying.'), 'error');
                     AES.reportContentScriptError('content_aircraftFlightPlan', saveError);
                 }
             }

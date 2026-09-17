@@ -947,3 +947,6 @@
 .aes-settings-groups [aria-selected="true"] { font-weight: bold; box-shadow: inset 0 -3px currentColor; }
 #aes-settings-tab:focus-visible, .aes-settings-groups button:focus-visible { outline: 2px solid currentColor; outline-offset: -2px; }
 .aes-settings-feedback:empty { display: none; }
+
+.aes-language-control { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; margin-bottom: 16px; }
+.aes-language-control select { width: auto; max-width: 100%; }

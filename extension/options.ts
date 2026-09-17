@@ -19,6 +19,9 @@ function isBackupEnvelope(value: unknown): value is AESModel.BackupEnvelope {
 }
 
 $(function () {
+    AESI18n.whenReady(()=>{
+    AESI18n.localize(document.body);
+    document.title='AES · '+AESI18n.t('Import/Export');
     //Get saved data
     chrome.storage.local.get(null, function (items) {
         allStorageData = items;
@@ -32,6 +35,7 @@ $(function () {
         // Display available log files
         displayLogFiles();
         displayRestoreRecovery(items[RESTORE_RECOVERY_KEY]);
+    });
     });
 });
 //Functions
@@ -54,7 +58,7 @@ function initializeBackupRestore() {
         if (file) {
             $("#aes-restore-btn").prop("disabled", false);
             $("#aes-selected-file-name").text(file.name);
-            showStatusMessage("File selected: " + file.name, "info");
+            showStatusMessage(AESI18n.t("File selected: {0}", {"0": file.name}), "info");
         } else {
             $("#aes-restore-btn").prop("disabled", true);
             $("#aes-selected-file-name").text("");
@@ -75,7 +79,7 @@ function initializeBackupRestore() {
     $("#aes-clear-logs-btn").click(function () {
         if (
             confirm(
-                "Are you sure you want to clear all AES logs? This action cannot be undone."
+                AESI18n.t("Are you sure you want to clear all AES logs? This action cannot be undone.")
             )
         ) {
             clearLogData();
@@ -86,7 +90,7 @@ function initializeBackupRestore() {
     $("#aes-clear-old-data-btn").click(function () {
         if (
             confirm(
-                "Are you sure you want to clear data older than 30 days? This action cannot be undone."
+                AESI18n.t("Are you sure you want to clear data older than 30 days? This action cannot be undone.")
             )
         ) {
             clearOldData();
@@ -97,12 +101,12 @@ function initializeBackupRestore() {
     $("#aes-clear-all-data-btn").click(function () {
         if (
             confirm(
-                "Are you sure you want to clear ALL data? This action cannot be undone.\n\nConsider creating a backup first."
+                AESI18n.t("Are you sure you want to clear ALL data? This action cannot be undone.\n\nConsider creating a backup first.")
             )
         ) {
             if (
                 confirm(
-                    "This will permanently delete all your AES data. Are you absolutely sure?"
+                    AESI18n.t("This will permanently delete all your AES data. Are you absolutely sure?")
                 )
             ) {
                 clearAllData();
@@ -116,7 +120,7 @@ function displayDataStatistics() {
 
     if (stats.totalItems === 0) {
         $("#aes-stats-content").html(
-            '<p class="text-muted">No data found. Start using AES to see statistics here.</p>'
+            AESI18n.html('<p class="text-muted">No data found. Start using AES to see statistics here.</p>')
         );
         return;
     }
@@ -139,7 +143,7 @@ function displayDataStatistics() {
 function buildStatItem(label: string, value: string | number) {
     return `
         <div class="aes-stat">
-            <span class="aes-stat-label">${label}</span>
+            <span class="aes-stat-label">${AESI18n.t(label)}</span>
             <span class="aes-stat-value">${value}</span>
         </div>
     `;
@@ -166,7 +170,7 @@ function analyzeStorageData(data: AESModel.StorageSnapshot) {
         const jsonSize = (JSON.stringify(item)?.length || 0);
         stats.estimatedSize += jsonSize;
 
-        if (key === "settings") {
+        if (["settings", "aesLanguage", "aesGameLanguage"].includes(key)) {
             stats.settings++;
         } else if (isLogStorageItem(key, item)) {
             stats.logs++;
@@ -203,14 +207,14 @@ function analyzeStorageData(data: AESModel.StorageSnapshot) {
 function createBackup() {
     const backupType = $("#aes-backup-type").val();
     if (!isBackupType(backupType)) {
-        showStatusMessage("Please select a backup type.", "error");
+        showStatusMessage(AESI18n.t("Please select a backup type."), "error");
         return;
     }
-    showStatusMessage("Creating backup...", "info");
+    showStatusMessage(AESI18n.t("Creating backup..."), "info");
 
     chrome.storage.local.get(null, function (items) {
         if (chrome.runtime.lastError) {
-            showStatusMessage("Error reading data: " + chrome.runtime.lastError.message, "error");
+            showStatusMessage(AESI18n.t("Error reading data: {0}", {"0": chrome.runtime.lastError.message}), "error");
             return;
         }
         let backupData: AESModel.StorageSnapshot = {};
@@ -224,7 +228,7 @@ function createBackup() {
 
                 switch (backupType) {
                     case "settings":
-                        if (key === "settings") {
+                        if (["settings", "aesLanguage", "aesGameLanguage"].includes(key)) {
                             backupData[key] = item;
                         }
                         break;
@@ -280,7 +284,7 @@ function createBackup() {
         // Download backup file
         downloadBackup(backup, backupType);
         showStatusMessage(
-            `Backup created successfully! ${backup.metadata.itemCount} items exported.`,
+            AESI18n.t("Backup created successfully! {0} items exported.", {"0": backup.metadata.itemCount}),
             "success"
         );
     });
@@ -312,11 +316,11 @@ function restoreData() {
     const restoreMode = $("#aes-restore-mode").val();
 
     if (!file) {
-        showStatusMessage("Please select a backup file first.", "error");
+        showStatusMessage(AESI18n.t("Please select a backup file first."), "error");
         return;
     }
 
-    showStatusMessage("Reading backup file...", "info");
+    showStatusMessage(AESI18n.t("Reading backup file..."), "info");
 
     const reader = new FileReader();
     reader.onload = function () {
@@ -330,7 +334,7 @@ function restoreData() {
             }
 
             showStatusMessage(
-                `Restoring ${Object.keys(backup.data).length} items...`,
+                AESI18n.t("Restoring {0} items...", {"0": Object.keys(backup.data).length}),
                 "info"
             );
 
@@ -341,13 +345,12 @@ function restoreData() {
                 chrome.storage.local.set(backup.data, function () {
                     if (chrome.runtime.lastError) {
                         showStatusMessage(
-                            "Error restoring data: " +
-                                chrome.runtime.lastError.message,
+                            AESI18n.t("Error restoring data: {0}", {"0": chrome.runtime.lastError.message}),
                             "error"
                         );
                     } else {
                         showStatusMessage(
-                            "Data merged successfully! Please refresh the page.",
+                            AESI18n.t("Data merged successfully! Please refresh the page."),
                             "success"
                         );
                         setTimeout(() => location.reload(), 2000);
@@ -356,14 +359,14 @@ function restoreData() {
             }
         } catch (error) {
             showStatusMessage(
-                "Error reading backup file: " + (error instanceof Error ? error.message : String(error)),
+                AESI18n.t("Error reading backup file: {0}", {"0": (error instanceof Error ? error.message : String(error))}),
                 "error"
             );
         }
     };
 
     reader.onerror = function () {
-        showStatusMessage("Error reading backup file: " + (reader.error?.message || "Unable to read file"), "error");
+        showStatusMessage(AESI18n.t("Error reading backup file: {0}", {"0": (reader.error?.message || "Unable to read file")}), "error");
     };
     reader.readAsText(file);
 }
@@ -412,38 +415,38 @@ async function replaceStorageData(data: AESModel.StorageSnapshot) {
         displayRestoreRecovery(recovery);
         await writeReplacement(data);
         $('#aes-restore-recovery').remove();
-        showStatusMessage('Data restored successfully! Please refresh the page.', 'success');
+        showStatusMessage(AESI18n.t('Data restored successfully! Please refresh the page.'), 'success');
         setTimeout(() => location.reload(), 2000);
     } catch (error) {
-        showStatusMessage('Restore did not complete. Original data is retained or available through recovery. ' + (error instanceof Error ? error.message : String(error)), 'error');
+        showStatusMessage(AESI18n.t("Restore did not complete. Original data is retained or available through recovery. {0}", {"0": (error instanceof Error ? error.message : String(error))}), 'error');
     } finally { restoreBusy = false; }
 }
 function displayRestoreRecovery(value: unknown) {
     if (!isOptionsRecord(value) || !isOptionsRecord(value.previous)) return;
     $('#aes-restore-recovery').remove();
     const previous = value.previous;
-    const button = $('<button type="button" class="btn btn-default">Recover data from before restore</button>');
+    const button = $(AESI18n.html('<button type="button" class="btn btn-default">Recover data from before restore</button>'));
     const panel = $('<div id="aes-restore-recovery"></div>').append(
-        $('<p></p>').text('An interrupted restore has a saved recovery copy. Recover it before starting another replacement.'), button);
+        $('<p></p>').text(AESI18n.t('An interrupted restore has a saved recovery copy. Recover it before starting another replacement.')), button);
     $('#aes-status-message').after(panel);
     button.on('click', () => {
         if (restoreBusy) return;
         restoreBusy = true;button.prop('disabled',true);
         void writeReplacement(previous).then(() => {
-            panel.remove();showStatusMessage('Previous data recovered. Please refresh the page.', 'success');
-        }, error => showStatusMessage('Recovery incomplete; the recovery copy is retained. ' + String(error), 'error'))
+            panel.remove();showStatusMessage(AESI18n.t('Previous data recovered. Please refresh the page.'), 'success');
+        }, error => showStatusMessage(AESI18n.t("Recovery incomplete; the recovery copy is retained. {0}", {"0": String(error)}), 'error'))
             .finally(() => {restoreBusy=false;button.prop('disabled',false);});
     });
 }
 
 function clearOldData() {
-    showStatusMessage('Clearing old data...', 'info');
+    showStatusMessage(AESI18n.t('Clearing old data...'), 'info');
     chrome.runtime.sendMessage({type:'AES_PRUNE_HISTORY'}, (response: unknown) => {
         if (chrome.runtime.lastError || !isOptionsRecord(response) || response.ok !== true) {
-            showStatusMessage('Error clearing old data: ' + (chrome.runtime.lastError?.message || (isOptionsRecord(response) ? response.error : 'Storage unavailable.')), 'error');
+            showStatusMessage(AESI18n.t("Error clearing old data: {0}", {"0": (chrome.runtime.lastError?.message || (isOptionsRecord(response) ? response.error : 'Storage unavailable.'))}), 'error');
             return;
         }
-        showStatusMessage('Cleared '+response.snapshots+' old snapshots and '+response.records+' old records.', 'success');
+        showStatusMessage(AESI18n.t("Cleared {0} old snapshots and {1} old records.", {"0": response.snapshots, "1": response.records}), 'success');
         setTimeout(() => location.reload(),1500);
     });
 }
@@ -454,7 +457,7 @@ function displayLogFiles() {
 
     select.empty();
     if (!logs.length) {
-        select.append($("<option></option>").val("").text("No logs found"));
+        select.append($("<option></option>").val("").text(AESI18n.t("No logs found")));
         $("#aes-download-log-btn, #aes-clear-logs-btn").prop("disabled", true);
         return;
     }
@@ -469,7 +472,7 @@ function displayLogFiles() {
 function downloadSelectedLog() {
     const key = $("#aes-log-file-select").val();
     if (typeof key !== "string" || !key || !allStorageData[key]) {
-        showStatusMessage("Please select a log file first.", "error");
+        showStatusMessage(AESI18n.t("Please select a log file first."), "error");
         return;
     }
 
@@ -489,7 +492,7 @@ function downloadSelectedLog() {
     };
 
     downloadJsonFile(`aes-log-${formatLogDateForFilename(logDate)}.json`, backup);
-    showStatusMessage("Log downloaded successfully.", "success");
+    showStatusMessage(AESI18n.t("Log downloaded successfully."), "success");
 }
 
 function clearLogData() {
@@ -498,14 +501,14 @@ function clearLogData() {
     });
 
     if (!keys.length) {
-        showStatusMessage("No logs found to clear.", "info");
+        showStatusMessage(AESI18n.t("No logs found to clear."), "info");
         return;
     }
 
     chrome.storage.local.remove(keys, function () {
         if (chrome.runtime.lastError) {
             showStatusMessage(
-                "Error clearing logs: " + chrome.runtime.lastError.message,
+                AESI18n.t("Error clearing logs: {0}", {"0": chrome.runtime.lastError.message}),
                 "error"
             );
             return;
@@ -516,7 +519,7 @@ function clearLogData() {
         });
         displayDataStatistics();
         displayLogFiles();
-        showStatusMessage(`Cleared ${keys.length} log files.`, "success");
+        showStatusMessage(AESI18n.t("Cleared {0} log files.", {"0": keys.length}), "success");
     });
 }
 
@@ -558,16 +561,16 @@ function formatLogDateForFilename(date: unknown) {
 }
 
 function clearAllData() {
-    showStatusMessage("Clearing all data...", "warning");
+    showStatusMessage(AESI18n.t("Clearing all data..."), "warning");
 
     chrome.storage.local.clear(function () {
         if (chrome.runtime.lastError) {
             showStatusMessage(
-                "Error clearing data: " + chrome.runtime.lastError.message,
+                AESI18n.t("Error clearing data: {0}", {"0": chrome.runtime.lastError.message}),
                 "error"
             );
         } else {
-            showStatusMessage("All data cleared successfully!", "success");
+            showStatusMessage(AESI18n.t("All data cleared successfully!"), "success");
             setTimeout(() => location.reload(), 1500);
         }
     });

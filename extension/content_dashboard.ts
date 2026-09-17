@@ -79,7 +79,7 @@ function initializeDashboard() {
 
             const initializedSettings = settings;
             displayDashboard();
-            AES.markOwnedElements($("#aes-dashboard-root"))
+            AES.markOwnedElements($("#aes-dashboard-root").attr("lang", AESI18n.locale()))
             dashboardHandle();
             $("#aes-select-dashboard-main").change(function() {
                 dashboardHandle();
@@ -114,7 +114,7 @@ function displayDashboard() {
     }
     $("#aes-dashboard-root").remove();
     mainDiv.before(
-        `
+        AESI18n.html(`
     <div id="aes-dashboard-root">
     <h3>AirlineSim Enhancement Suite Dashboard</h3>
     <div class="as-panel">
@@ -133,7 +133,7 @@ function displayDashboard() {
     <div id="aes-div-dashboard">
     </div>
     </div>
-    `
+    `)
     );
     let normalizedDefaultDashboard = normalizeDashboardTab(settings.general.defaultDashboard);
     if (normalizedDefaultDashboard != settings.general.defaultDashboard) {
@@ -255,7 +255,7 @@ function buildDashboardControlPanel(title: string, summary: string, content: JQu
     }
 
     let toggle = $('<a style="cursor: pointer;"></a>').append(
-        $('<span></span>').text(title),
+        $('<span></span>').text(AESI18n.t(title)),
         $('<span class="aes-dashboard-control-summary"></span>').text(summary ? ' ' + summary : '')
     );
     toggle.click(function() {
@@ -283,7 +283,7 @@ function buildDashboardColumnsPicker<C extends object>(columns: C[], options: {
     let content = $('<div class="aes-dashboard-columns"></div>');
     for (let group in groups) {
         let groupDiv = $('<div class="aes-dashboard-column-group"></div>');
-        groupDiv.append($('<div class="aes-dashboard-column-group-title"></div>').text(group));
+        groupDiv.append($('<div class="aes-dashboard-column-group-title"></div>').text(AESI18n.t(group)));
         let grid = $('<div class="aes-dashboard-column-grid"></div>');
 
         groups[group].forEach(function(col) {
@@ -293,7 +293,7 @@ function buildDashboardColumnsPicker<C extends object>(columns: C[], options: {
                 options.onChange(col, $(this).prop('checked'));
             });
 
-            grid.append($('<label class="aes-dashboard-column-choice"></label>').append(input, $('<span></span>').text(String(col[options.labelField] || ''))));
+            grid.append($('<label class="aes-dashboard-column-choice"></label>').append(input, $('<span></span>').text(AESI18n.t(String(col[options.labelField] || '')))));
         });
 
         groupDiv.append(grid);
@@ -323,7 +323,7 @@ function formatDashboardCell(type: string | undefined, value: AESModel.Dashboard
             if (Number(value) < 0) {
                 span.addClass('bad');
             }
-            span.text(text + new Intl.NumberFormat().format(Number(value)) + ' AS$');
+            span.text(AESI18n.t("{0}{1} AS$", {"0": text, "1": new Intl.NumberFormat().format(Number(value))}));
             return span;
         }
         case 'scheduleState': {
@@ -379,19 +379,19 @@ function buildDashboardTable(options: AESModel.DashboardTableOptions) {
     }
 
     for (let category in categoryCounts) {
-        categoryCells.push($('<th colspan="' + categoryCounts[category] + '"></th>').text(category));
+        categoryCells.push($('<th colspan="' + categoryCounts[category] + '"></th>').text(AESI18n.t(category)));
     }
 
     visibleColumns.forEach(function(column) {
         if (column.sortable) {
             let columnClass = getDashboardColumnClass(options.columnPrefix || '', column);
-            let sort = $('<button type="button" class="aes-table-sort"></button>').text(column.title);
+            let sort = $('<button type="button" class="aes-table-sort"></button>').text(AESI18n.t(column.title));
             sort.click(function() {
                 sortDashboardTable(tableHtml, columnClass, column.number);
             });
             headerCells.push($('<th scope="col" aria-sort="none"></th>').attr('data-aes-sort-column',columnClass).append(sort));
         } else {
-            headerCells.push($('<th></th>').text(column.title));
+            headerCells.push($('<th></th>').text(AESI18n.t(column.title)));
         }
     });
 
@@ -449,7 +449,7 @@ function buildDashboardTable(options: AESModel.DashboardTableOptions) {
 function buildDashboardTableFooter(options: AESModel.DashboardTableOptions, visibleColumns: AESModel.DashboardColumn[]) {
     let cells = [];
     if (options.selectable) {
-        cells.push('<th>Average</th>');
+        cells.push(AESI18n.html('<th>Average</th>'));
     }
 
     visibleColumns.forEach(function(column) {
@@ -623,16 +623,16 @@ function buildDashboardFilterPanel(options: AESModel.DashboardFilterPanelOptions
     options.columns.filter(function(column) {
         return column.filterable !== false;
     }).forEach(function(column) {
-        columnOptions.push($('<option></option>').val(column.filterValue || column.data).text(column.title));
+        columnOptions.push($('<option></option>').val(column.filterValue || column.data).text(AESI18n.t(column.title)));
     });
     let columnSelect = $('<select class="form-control"></select>').append(...columnOptions);
     let operationSelect = $('<select class="form-control"></select>');
     updateOperationOptions();
     columnSelect.change(updateOperationOptions);
     let input = $('<input type="text" class="form-control" style="min-width: 50px;">');
-    let addBtn = $('<button type="button" class="btn btn-default"></button>').text('Add');
+    let addBtn = $('<button type="button" class="btn btn-default"></button>').text(AESI18n.t('Add'));
     addBtn.click(function() {
-        tbody.append($('<tr></tr>').append(addFilterRow(String($('option:selected', columnSelect).val() || ''), $('option:selected', columnSelect).text(), $('option:selected', operationSelect).text(), String(input.val() || ''))));
+        tbody.append($('<tr></tr>').append(addFilterRow(String($('option:selected', columnSelect).val() || ''), $('option:selected', columnSelect).text(), String(operationSelect.val() || ''), String(input.val() || ''))));
         updateSummary();
     });
 
@@ -643,11 +643,11 @@ function buildDashboardFilterPanel(options: AESModel.DashboardFilterPanelOptions
         $('<td></td>').append(addBtn)
     ));
     let table = $('<table class="table table-bordered table-striped table-hover"></table>').append(
-        $('<thead></thead>').append('<tr><th>Column</th><th class="aes-dashboard-filter-operation">Operation</th><th>Value</th><th></th></tr>'),
+        $('<thead></thead>').append(AESI18n.html('<tr><th>Column</th><th class="aes-dashboard-filter-operation">Operation</th><th>Value</th><th></th></tr>')),
         tbody,
         tfoot
     );
-    let applyBtn = $('<button type="button" class="btn btn-default">Apply filter</button>');
+    let applyBtn = $(AESI18n.html('<button type="button" class="btn btn-default">Apply filter</button>'));
     let status = $('<span class="aes-dashboard-filter-status"></span>');
     applyBtn.click(function() {
         let filters = serializeFilters();
@@ -659,12 +659,12 @@ function buildDashboardFilterPanel(options: AESModel.DashboardFilterPanelOptions
         $('<div class="as-table-well aes-dashboard-filter-table"></div>').append(table),
         $('<div class="aes-dashboard-control-actions"></div>').append(applyBtn, status)
     );
-    let panel = buildDashboardControlPanel('Filters', options.filters.length ? options.filters.length + ' active' : 'No active filters', content, false);
+    let panel = buildDashboardControlPanel('Filters', options.filters.length ? AESI18n.t('{0} active', {0:options.filters.length}) : AESI18n.t('No active filters'), content, false);
     updateSummary();
     return panel;
 
     function addFilterRow(titleCode: string, title: string, operation: string, value: string) {
-        let deleteBtn = $('<button type="button" class="btn btn-xs btn-default">Remove</button>');
+        let deleteBtn = $(AESI18n.html('<button type="button" class="btn btn-xs btn-default">Remove</button>'));
         deleteBtn.click(function() {
             $(this).closest("tr").remove();
             updateSummary();
@@ -672,9 +672,9 @@ function buildDashboardFilterPanel(options: AESModel.DashboardFilterPanelOptions
         return [
             $('<td></td>').append(
                 $('<input type="hidden">').val(titleCode),
-                document.createTextNode(title)
+                document.createTextNode(AESI18n.t(title))
             ),
-            $('<td class="aes-dashboard-filter-operation"></td>').text(operation),
+            $('<td class="aes-dashboard-filter-operation"></td>').attr('data-operation', operation).text(AESI18n.t(operation)),
             $('<td></td>').text(value),
             $('<td></td>').append(deleteBtn)
         ];
@@ -685,8 +685,8 @@ function buildDashboardFilterPanel(options: AESModel.DashboardFilterPanelOptions
             let cells = $(this).children('td');
             return {
                 [options.valueField]: String(cells.eq(0).find('input[type="hidden"]').val() || ''),
-                [options.labelField]: cells.eq(0).text(),
-                operation: cells.eq(1).text(),
+                [options.labelField]: options.columns.find(column => (column.filterValue || column.data) === cells.eq(0).find('input').val())?.title || cells.eq(0).text(),
+                operation: cells.eq(1).attr('data-operation') || cells.eq(1).text(),
                 value: cells.eq(2).text()
             };
         }).toArray();
@@ -694,7 +694,7 @@ function buildDashboardFilterPanel(options: AESModel.DashboardFilterPanelOptions
 
     function updateSummary() {
         let count = $('tbody tr', table).length;
-        $('.aes-dashboard-control-summary', panel).text(count ? ' ' + count + ' active' : ' No active filters');
+        $('.aes-dashboard-control-summary', panel).text(count ? AESI18n.t(" {0} active", {"0": count}) : AESI18n.t(' No active filters'));
     }
 
     function updateOperationOptions() {
@@ -710,7 +710,7 @@ function buildDashboardFilterPanel(options: AESModel.DashboardFilterPanelOptions
         }
         let currentOperation = String(operationSelect.val() || '');
         operationSelect.empty().append(operations.map(function(operation) {
-            return $('<option></option>').text(operation);
+            return $('<option></option>').val(operation).text(AESI18n.t(operation));
         }));
         if (operations.indexOf(currentOperation) != -1) {
             operationSelect.val(currentOperation);
@@ -731,15 +731,15 @@ function buildGeneratedDashboardTableSettings(tableOptionsRule: AESModel.Dashboa
         valueField: 'titlecode',
         labelField: 'title',
         onApply: function(filter, status) {
-            status.removeClass('good bad warning').addClass('warning').text('Saving...');
+            status.removeClass('good bad warning').addClass('warning').text(AESI18n.t('Saving...'));
             settings[tableOptionsRule.tableSettingStorage].filter = filter;
             updateDashboardSettings(function(currentSettings) {
                 currentSettings[tableOptionsRule.tableSettingStorage].filter = filter;
             }, function(updatedSettings) {
                 settings = updatedSettings;
-                status.removeClass('good bad warning').addClass('warning').text('Filtering...');
+                status.removeClass('good bad warning').addClass('warning').text(AESI18n.t('Filtering...'));
                 applyDashboardTableFilters(table, filter, tableOptionsRule.column, 'titlecode', tableOptionsRule.columnPrefix);
-                status.removeClass('good bad warning').addClass('good').text('Done');
+                status.removeClass('good bad warning').addClass('good').text(AESI18n.t('Done'));
             });
         }
     })));
@@ -762,11 +762,11 @@ function buildGeneratedDashboardActions(tableOptionsRule: AESModel.DashboardGene
 function buildGeneratedDashboardAction(value: string, tableOptionsRule: AESModel.DashboardGeneratedTableOptions, table: JQuery) {
     switch (value) {
         case 'selectFirstTen':
-            return $('<button type="button" class="btn btn-default">Select first 10</button>').click(function() {
+            return $(AESI18n.html('<button type="button" class="btn btn-default">Select first 10</button>')).click(function() {
                 setVisibleDashboardRowsChecked(table, true, 10);
             });
         case 'openAircraft':
-            return $('<button type="button" class="btn btn-default">Open aircraft (max 10)</button>').click(function() {
+            return $(AESI18n.html('<button type="button" class="btn btn-default">Open aircraft (max 10)</button>')).click(function() {
                 let btn = $(this);
                 let urls = getSelectedDashboardRows(table).filter(function(rowData) {
                     return !!rowData.aircraftId;
@@ -774,8 +774,8 @@ function buildGeneratedDashboardAction(value: string, tableOptionsRule: AESModel
                     return 'https://' + server + '.airlinesim.aero/app/fleets/aircraft/' + rowData.aircraftId + '/1';
                 });
                 if (!urls.length) {
-                    btn.removeClass('btn-warning').addClass('btn-default').text('No delivered aircraft selected').delay(900).queue(function(next) {
-                        $(this).text('Open aircraft (max 10)');
+                    btn.removeClass('btn-warning').addClass('btn-default').text(AESI18n.t('No delivered aircraft selected')).delay(900).queue(function(next) {
+                        $(this).text(AESI18n.t('Open aircraft (max 10)'));
                         next();
                     });
                     return;
@@ -783,11 +783,11 @@ function buildGeneratedDashboardAction(value: string, tableOptionsRule: AESModel
                 queueDashboardPages(urls, btn[0]);
             });
         case 'reloadTableAircraftProfit':
-            return $('<button type="button" class="btn btn-default">Reload table</button>').click(function() {
+            return $(AESI18n.html('<button type="button" class="btn btn-default">Reload table</button>')).click(function() {
                 displayAircraftProfitability();
             });
         case 'removeAircraft':
-            return $('<button type="button" class="btn btn-default aes-dashboard-confirm-action">Remove aircraft</button>').click(function() {
+            return $(AESI18n.html('<button type="button" class="btn btn-default aes-dashboard-confirm-action">Remove aircraft</button>')).click(function() {
                 let btn = $(this);
                 let selectedRows = getSelectedDashboardRows(table);
                 let aircraftIds = selectedRows.map(function(rowData) {
@@ -804,14 +804,14 @@ function buildGeneratedDashboardAction(value: string, tableOptionsRule: AESModel
                     return server + 'aircraftFlights' + id;
                 });
                 if (!selectedRows.length) {
-                    btn.removeClass('btn-warning').addClass('btn-default').text('Select aircraft first').delay(900).queue(function(next) {
-                        $(this).text('Remove aircraft');
+                    btn.removeClass('btn-warning').addClass('btn-default').text(AESI18n.t('Select aircraft first')).delay(900).queue(function(next) {
+                        $(this).text(AESI18n.t('Remove aircraft'));
                         next();
                     });
                     return;
                 }
                 if (!btn.data('confirm')) {
-                    btn.data('confirm', true).removeClass('btn-default').addClass('btn-warning').text('Confirm remove ' + selectedRows.length);
+                    btn.data('confirm', true).removeClass('btn-default').addClass('btn-warning').text(AESI18n.t("Confirm remove {0}", {"0": selectedRows.length}));
                     return;
                 }
 
@@ -829,13 +829,13 @@ function buildGeneratedDashboardAction(value: string, tableOptionsRule: AESModel
                     dashboardStorage.set({ [fleetKey]: storedFleetData }, function() {
                         removeCheckedDashboardRows(table);
                         updateDashboardTableFooter(table);
-                        btn.data('confirm', false).removeClass('btn-warning').addClass('btn-default').text('Remove aircraft');
+                        btn.data('confirm', false).removeClass('btn-warning').addClass('btn-default').text(AESI18n.t('Remove aircraft'));
                         dashboardStorage.remove(aircraftKeys, function() {});
                     });
                 });
             });
         case 'hideSelected':
-            return $('<button type="button" class="btn btn-default">Hide checked</button>').click(function() {
+            return $(AESI18n.html('<button type="button" class="btn btn-default">Hide checked</button>')).click(function() {
                 removeCheckedDashboardRows(table);
                 updateDashboardTableFooter(table);
             });
@@ -944,7 +944,7 @@ function buildGeneratedDashboardColumns(tableOptionsRule: AESModel.DashboardGene
             });
         }
     });
-    return buildDashboardControlPanel('Columns', visibleCount + ' shown', picker, false);
+    return buildDashboardControlPanel('Columns', AESI18n.t('{0} shown', {0:visibleCount}), picker, false);
 }
 
 //Route Management Dashboard
@@ -962,7 +962,7 @@ function displayRouteManagement() {
     let mainDiv = $("#aes-div-dashboard");
     //Build layout
     mainDiv.empty();
-    let title = $('<h3></h3>').text('Route Management');
+    let title = $('<h3></h3>').text(AESI18n.t('Route Management'));
     let div = $('<div id="aes-div-dashboard-routeManagement" class="as-panel"></div>');
     mainDiv.append(title, div);
     //Get schedule
@@ -1054,22 +1054,22 @@ function buildRouteManagementActions() {
     const actionDefinitions = [
         {
             key: 'selectFirstTen',
-            label: 'Select first 10',
+            label: AESI18n.t('Select first 10'),
             handler: selectFirstRouteManagementRows
         },
         {
             key: 'hideChecked',
-            label: 'Hide checked',
+            label: AESI18n.t('Hide checked'),
             handler: hideSelectedRouteManagementRows
         },
         {
             key: 'openInventory',
-            label: 'Open inventory (max 10)',
+            label: AESI18n.t('Open inventory (max 10)'),
             handler: openSelectedRouteManagementInventories
         },
         {
             key: 'reloadTable',
-            label: 'Reload table',
+            label: AESI18n.t('Reload table'),
             handler: displayRouteManagement
         }
     ];
@@ -1106,13 +1106,13 @@ function queueDashboardPages(urls: string[], button?: HTMLElement) {
         try {
             let opened = 0;
             for (const url of urls) {
-                progress.text(' Waiting to open ' + (opened + 1) + '/' + urls.length + '...');
+                progress.text(AESI18n.t(" Waiting to open {0}/{1}...", {"0": (opened + 1), "1": urls.length}));
                 await AES.queuePage(url, 'open', () => AES.isPageOwner() && revision === dashboardRevision);
                 opened++;
             }
-            progress.text(' Opened ' + opened + ' pages.');
+            progress.text(AESI18n.t(" Opened {0} pages.", {"0": opened}));
         } catch (error) {
-            progress.text(' Page opening stopped.');
+            progress.text(AESI18n.t(' Page opening stopped.'));
             if (AES.isPageOwner()) AES.reportContentScriptError('page_queue', error);
         }
         finally { if (button instanceof HTMLButtonElement) button.disabled = false; }
@@ -1152,7 +1152,7 @@ function getRouteManagementDashboardColumns() {
             visible: col.show,
             sortable: 1,
             render: col.value === 'actionInventory' ? (row: AESModel.DashboardRow) =>
-                $('<a class="btn btn-xs btn-default"></a>').text('Inventory')
+                $('<a class="btn btn-xs btn-default"></a>').text(AESI18n.t('Inventory'))
                     .attr('href', '/app/com/inventory/' + encodeURIComponent(String(row.rowId || ''))) : undefined
         };
     });
@@ -1169,16 +1169,16 @@ function displayRouteManagementFilters() {
             valueField: 'filterValue',
             labelField: 'title',
             onApply: function(filter, status) {
-                status.removeClass('good bad warning').addClass('warning').text('Saving...');
+                status.removeClass('good bad warning').addClass('warning').text(AESI18n.t('Saving...'));
                 settings.routeManagement.filter = filter;
                 updateDashboardSettings(function(currentSettings) {
                     currentSettings.routeManagement = currentSettings.routeManagement || AESDashboardDefaults.getDefaultRouteManagementSettings();
                     currentSettings.routeManagement.filter = filter;
                 }, function(updatedSettings) {
                     settings = updatedSettings;
-                    status.removeClass('good bad warning').addClass('warning').text('Filtering...');
+                    status.removeClass('good bad warning').addClass('warning').text(AESI18n.t('Filtering...'));
                     routeManagementApplyFilter();
-                    status.removeClass('good bad warning').addClass('good').text('Done');
+                    status.removeClass('good bad warning').addClass('good').text(AESI18n.t('Done'));
                 });
             }
         })
@@ -1216,7 +1216,7 @@ function displayRouteManagementColumns(scheduleData: AESModel.DashboardSchedule)
         }
     });
     let div = $('<div class="col-md-4"></div>').append(
-        buildDashboardControlPanel('Columns', visibleCount + ' shown', picker, false)
+        buildDashboardControlPanel('Columns', AESI18n.t('{0} shown', {0:visibleCount}), picker, false)
     );
     return div;
 }
@@ -1611,9 +1611,9 @@ function displayGeneral() {
 
     //Table
     //Head cells
-    let th1 = $('<th>Area</th>');
-    let th2 = $('<th>Status</th>');
-    let th3 = $('<th>Action</th>');
+    let th1 = $(AESI18n.html('<th>Area</th>'));
+    let th2 = $(AESI18n.html('<th>Status</th>'));
+    let th3 = $(AESI18n.html('<th>Action</th>'));
     let headRow = $('<tr></tr>').append(th1, th2, th3);
     let thead = $('<thead></thead>').append(headRow);
     //Body cells
@@ -1625,7 +1625,7 @@ function displayGeneral() {
     let table = $('<table class="table table-bordered table-striped table-hover"></table>').append(thead, tbody);
     //Build layout
     let divTable = $('<div class="as-table-well"></div>').append(table);
-    let title = $('<h3></h3>').text('General');
+    let title = $('<h3></h3>').text(AESI18n.t('General'));
     let div = $('<div id="aes-div-dashboard-general" class="as-panel"></div>').append(divTable);
     mainDiv.append(title, div);
 }
@@ -1635,7 +1635,7 @@ function displayCompetitorMonitoring() {
     if (!AES.isPageOwner()) return;
     dashboardRevision++;
     //Div
-    let div = $('<div id="aes-div-dashboard-competitorMonitoring" class="as-panel"></div>').append('<p class="warning">Loading competitor monitoring data...</p>');
+    let div = $('<div id="aes-div-dashboard-competitorMonitoring" class="as-panel"></div>').append(AESI18n.html('<p class="warning">Loading competitor monitoring data...</p>'));
 
     //Check Competitor Monitoring Settings
     ensureCompetitorMonitoringSettings();
@@ -1646,7 +1646,7 @@ function displayCompetitorMonitoring() {
     let mainDiv = $("#aes-div-dashboard");
     //Build layout
     mainDiv.empty();
-    let title = $('<h3></h3>').text('Competitor Monitoring');
+    let title = $('<h3></h3>').text(AESI18n.t('Competitor Monitoring'));
     mainDiv.append(title, div);
 
 }
@@ -1919,7 +1919,7 @@ function displayCompetitorMonitoringAirlinesTable(div: JQuery) {
                     displayCompetitorMonitoringAirlinesTableFilters(null, tableColumns),
                     displayCompetitorMonitoringAirlinesTableColumns()
                 );
-                div.append(divRow, '<p><span class="warning">No airlines marked for competitor monitoring. Open airline info page to mark airline for tracking.</span></p>');
+                div.append(divRow, AESI18n.html('<p><span class="warning">No airlines marked for competitor monitoring. Open airline info page to mark airline for tracking.</span></p>'));
                 return;
             }
 
@@ -2076,8 +2076,8 @@ function displayCompetitorMonitoringAirlineScheduleTable(mainDiv: JQuery, schedu
     if (data.scheduleDateUse) {
         let columns = [
             {
-                category: 'Schedule',
-                title: 'Origin',
+                category: AESI18n.t('Schedule'),
+                title: AESI18n.t('Origin'),
                 data: 'schedOrigin',
                 className: 'aes-comp-sched-schedOrigin',
                 visible: 1,
@@ -2085,8 +2085,8 @@ function displayCompetitorMonitoringAirlineScheduleTable(mainDiv: JQuery, schedu
                 number: 0,
 	      },
             {
-                category: 'Schedule',
-                title: 'Destination',
+                category: AESI18n.t('Schedule'),
+                title: AESI18n.t('Destination'),
                 data: 'schedDestination',
                 className: 'aes-comp-sched-schedDestination',
                 visible: 1,
@@ -2094,8 +2094,8 @@ function displayCompetitorMonitoringAirlineScheduleTable(mainDiv: JQuery, schedu
                 number: 0,
 	      },
             {
-                category: 'Schedule',
-                title: 'Hub',
+                category: AESI18n.t('Schedule'),
+                title: AESI18n.t('Hub'),
                 data: 'schedHub',
                 className: 'aes-comp-sched-schedHub',
                 visible: 1,
@@ -2103,7 +2103,7 @@ function displayCompetitorMonitoringAirlineScheduleTable(mainDiv: JQuery, schedu
                 number: 0,
 	      },
             {
-                category: 'Schedule',
+                category: AESI18n.t('Schedule'),
                 title: 'OD',
                 data: 'schedOd',
                 className: 'aes-comp-sched-schedOd',
@@ -2112,8 +2112,8 @@ function displayCompetitorMonitoringAirlineScheduleTable(mainDiv: JQuery, schedu
                 number: 0,
 	      },
             {
-                category: 'Schedule',
-                title: 'Direction',
+                category: AESI18n.t('Schedule'),
+                title: AESI18n.t('Direction'),
                 data: 'schedDir',
                 className: 'aes-comp-sched-schedDir',
                 visible: 1,
@@ -2121,8 +2121,8 @@ function displayCompetitorMonitoringAirlineScheduleTable(mainDiv: JQuery, schedu
                 number: 0,
 	      },
             {
-                category: 'Schedule',
-                title: '# of flight numbers',
+                category: AESI18n.t('Schedule'),
+                title: AESI18n.t('# of flight numbers'),
                 data: 'schedFltNr',
                 className: 'aes-comp-sched-schedFltNr',
                 visible: 1,
@@ -2130,8 +2130,8 @@ function displayCompetitorMonitoringAirlineScheduleTable(mainDiv: JQuery, schedu
                 number: 1,
 	      },
             {
-                category: 'Schedule',
-                title: 'PAX frequency',
+                category: AESI18n.t('Schedule'),
+                title: AESI18n.t('PAX frequency'),
                 data: 'schedPaxFreq',
                 className: 'aes-comp-sched-schedPaxFreq',
                 visible: 1,
@@ -2139,8 +2139,8 @@ function displayCompetitorMonitoringAirlineScheduleTable(mainDiv: JQuery, schedu
                 number: 1,
 	      },
             {
-                category: 'Schedule',
-                title: 'Cargo frequency',
+                category: AESI18n.t('Schedule'),
+                title: AESI18n.t('Cargo frequency'),
                 data: 'schedCargoFreq',
                 className: 'aes-comp-sched-schedCargoFreq',
                 visible: 1,
@@ -2148,8 +2148,8 @@ function displayCompetitorMonitoringAirlineScheduleTable(mainDiv: JQuery, schedu
                 number: 1,
 	      },
             {
-                category: 'Schedule',
-                title: 'Total Frequency',
+                category: AESI18n.t('Schedule'),
+                title: AESI18n.t('Total Frequency'),
                 data: 'schedTotalFreq',
                 className: 'aes-comp-sched-schedTotalFreq',
                 visible: 1,
@@ -2194,12 +2194,12 @@ function displayCompetitorMonitoringAirlineScheduleTable(mainDiv: JQuery, schedu
 
     //Build layout
     if (!table) {
-        table = $('<table id="aes-table-competitorMonitoring-airline-schedule" class="table table-bordered table-striped table-hover"></table>').append('<tbody><tr><td><span class="warning">No schedule found</span></td></tr></tbody>');
+        table = $('<table id="aes-table-competitorMonitoring-airline-schedule" class="table table-bordered table-striped table-hover"></table>').append(AESI18n.html('<tbody><tr><td><span class="warning">No schedule found</span></td></tr></tbody>'));
     }
     let tableWell = $('<div style="overflow-x:auto;" class="as-table-well"></div>').append(table);
-    let button = $('<button type="button" class="btn btn-default">Back to overview</button>');
+    let button = $(AESI18n.html('<button type="button" class="btn btn-default">Back to overview</button>'));
     let panelDiv = $('<div class="as-panel"></div>').append(button, tableWell);
-    let heading = $('<h4></h4>').text(data.airlineName + ' ' + data.airlineCode + ' schedule');
+    let heading = $('<h4></h4>').text(AESI18n.t("{0} {1} schedule", {"0": data.airlineName, "1": data.airlineCode}));
     let div = $('<div id="aes-compMonitor-schedule"></div>').append(heading, panelDiv);
     mainDiv.after(div);
     //Button clicks
@@ -2235,7 +2235,7 @@ function displayCompetitorMonitoringAirlinesTableColumns() {
         }
     });
     let div = $('<div class="col-md-4"></div>').append(
-        buildDashboardControlPanel('Columns', visibleCount + ' shown', picker, false)
+        buildDashboardControlPanel('Columns', AESI18n.t('{0} shown', {0:visibleCount}), picker, false)
     );
     return div;
 }
@@ -2249,19 +2249,19 @@ function displayCompetitorMonitoringAirlinesTableFilters(table: JQuery | null, c
         valueField: 'data',
         labelField: 'title',
         onApply: function(filter, status) {
-            status.removeClass('good bad warning').addClass('warning').text('Saving...');
+            status.removeClass('good bad warning').addClass('warning').text(AESI18n.t('Saving...'));
             settings.competitorMonitoring.filter = filter;
             updateDashboardSettings(function(currentSettings) {
                 currentSettings.competitorMonitoring.filter = filter;
             }, function(updatedSettings) {
                 settings = updatedSettings;
                 if (!table) {
-                    status.removeClass('good bad warning').addClass('good').text('Saved');
+                    status.removeClass('good bad warning').addClass('good').text(AESI18n.t('Saved'));
                     return;
                 }
-                status.removeClass('good bad warning').addClass('warning').text('Filtering...');
+                status.removeClass('good bad warning').addClass('warning').text(AESI18n.t('Filtering...'));
                 applyDashboardTableFilters(table, filter, columns, 'data');
-                status.removeClass('good bad warning').addClass('good').text('Done');
+                status.removeClass('good bad warning').addClass('good').text(AESI18n.t('Done'));
             });
         }
     }));
@@ -2270,14 +2270,14 @@ function displayCompetitorMonitoringAirlinesTableFilters(table: JQuery | null, c
 
 function displayCompetitorMonitoringAirlinesTableOptions(table?: JQuery, compAirlinesSchedule: Record<string, AESModel.DashboardSchedule> = {}, mainDiv: JQuery = $(), removeCompetitorFromIndex: (id: string) => void = () => {}, columns: AESModel.DashboardColumn[] = []) {
     let actions = $('<div class="btn-group aes-dashboard-control-actions"></div>');
-    let openAirlineBtn = $('<button type="button" class="btn btn-default">Open airline page</button>');
-    let showScheduleBtn = $('<button type="button" class="btn btn-default">Show airline schedule</button>');
-    let removeBtn = $('<button type="button" class="btn btn-default aes-dashboard-confirm-action">Remove airline</button>');
-    let reloadBtn = $('<button type="button" class="btn btn-default">Reload table</button>');
-    const refreshBtn = $('<button type="button" class="btn btn-default">Refresh selected data</button>');
+    let openAirlineBtn = $(AESI18n.html('<button type="button" class="btn btn-default">Open airline page</button>'));
+    let showScheduleBtn = $(AESI18n.html('<button type="button" class="btn btn-default">Show airline schedule</button>'));
+    let removeBtn = $(AESI18n.html('<button type="button" class="btn btn-default aes-dashboard-confirm-action">Remove airline</button>'));
+    let reloadBtn = $(AESI18n.html('<button type="button" class="btn btn-default">Reload table</button>'));
+    const refreshBtn = $(AESI18n.html('<button type="button" class="btn btn-default">Refresh selected data</button>'));
     const actionContent = $('<div></div>').append(actions);
     const feedback = AESRead.feedback(actionContent);
-    const changesBtn=$('<button type="button" class="btn btn-default" title="Select one airline to compare saved schedules">View changes</button>').prop('disabled',true);
+    const changesBtn=$(AESI18n.html('<button type="button" class="btn btn-default" title="Select one airline to compare saved schedules">View changes</button>')).prop('disabled',true);
     actions.append(openAirlineBtn,refreshBtn,showScheduleBtn,changesBtn,removeBtn,reloadBtn);
     table?.on('click.aesScheduleDiff change.aesScheduleDiff', 'input',()=>changesBtn.prop('disabled',getSelectedCompetitorRows(table).length!==1));
     changesBtn.on('click',async()=>{
@@ -2316,7 +2316,7 @@ function displayCompetitorMonitoringAirlinesTableOptions(table?: JQuery, compAir
         }
         if(current()){
             controls.forEach((control,i)=>$(control).prop('disabled',disabled[i]));
-            feedback.show('Updated '+complete+', failed '+failed+'.',failed ? 'warning' : 'good',errors.join('\n'));
+            feedback.show(AESI18n.t('Updated {0}, failed {1}.', {0:complete,1:failed}),failed ? 'warning' : 'good',errors.join('\n'));
             if(!failed) feedback.settle('Data updated just now.',current);
         }
         async function refreshRow(row: AESModel.DashboardRow) {
@@ -2373,14 +2373,14 @@ function displayCompetitorMonitoringAirlinesTableOptions(table?: JQuery, compAir
         let btn = $(this);
         let rows = getSelectedCompetitorRows(table);
         if (!rows.length) {
-            btn.removeClass('btn-warning').addClass('btn-default').text('Select airline first').delay(900).queue(function(next) {
-                $(this).text('Remove airline');
+            btn.removeClass('btn-warning').addClass('btn-default').text(AESI18n.t('Select airline first')).delay(900).queue(function(next) {
+                $(this).text(AESI18n.t('Remove airline'));
                 next();
             });
             return;
         }
         if (!btn.data('confirm')) {
-            btn.data('confirm', true).removeClass('btn-default').addClass('btn-warning').text('Confirm remove ' + rows.length);
+            btn.data('confirm', true).removeClass('btn-default').addClass('btn-warning').text(AESI18n.t("Confirm remove {0}", {"0": rows.length}));
             return;
         }
 
@@ -2402,7 +2402,7 @@ function displayCompetitorMonitoringAirlinesTableOptions(table?: JQuery, compAir
                     $('#aes-compMon-row-' + rowData.airlineId, table).remove();
                     removeCompetitorFromIndex(String(rowData.airlineId));
                 });
-                btn.data('confirm', false).removeClass('btn-warning').addClass('btn-default').text('Remove airline');
+                btn.data('confirm', false).removeClass('btn-warning').addClass('btn-default').text(AESI18n.t('Remove airline'));
             });
         });
     });
@@ -2541,14 +2541,14 @@ function displayAircraftProfitability() {
     }
     let mainDiv = $("#aes-div-dashboard");
     mainDiv.empty();
-    let title = $('<h3></h3>').text('Aircraft Profitability');
-    let div = $('<div class="as-panel"></div>').append('<p class="warning">Loading aircraft profitability data...</p>');
+    let title = $('<h3></h3>').text(AESI18n.t('Aircraft Profitability'));
+    let div = $('<div class="as-panel"></div>').append(AESI18n.html('<p class="warning">Loading aircraft profitability data...</p>'));
     mainDiv.append(title, div);
     //columns
     let columns = [
         {
-            category: 'Aircraft',
-            title: 'Aircraft ID',
+            category: AESI18n.t('Aircraft'),
+            title: AESI18n.t('Aircraft ID'),
             data: 'aircraftId',
             sortable: 1,
             visible: 1,
@@ -2556,125 +2556,125 @@ function displayAircraftProfitability() {
             id: 1
     },
         {
-            category: 'Aircraft',
-            title: 'Registration',
+            category: AESI18n.t('Aircraft'),
+            title: AESI18n.t('Registration'),
             data: 'registration',
             sortable: 1,
             visible: 1
     },
         {
-            category: 'Aircraft',
-            title: 'Model',
+            category: AESI18n.t('Aircraft'),
+            title: AESI18n.t('Model'),
             data: 'equipment',
             sortable: 1,
             visible: 1
     },
         {
-            category: 'Aircraft',
-            title: 'Delivered',
+            category: AESI18n.t('Aircraft'),
+            title: AESI18n.t('Delivered'),
             data: 'delivered',
             sortable: 1,
             visible: 1
     },
         {
-            category: 'Aircraft',
-            title: 'Ownership',
+            category: AESI18n.t('Aircraft'),
+            title: AESI18n.t('Ownership'),
             data: 'ownership',
             sortable: 1,
             visible: 1
     },
         {
-            category: 'Aircraft',
-            title: 'Y seats',
+            category: AESI18n.t('Aircraft'),
+            title: AESI18n.t('Y seats'),
             data: 'seatY',
             sortable: 1,
             visible: 1,
             number: 1
     },
         {
-            category: 'Aircraft',
-            title: 'C seats',
+            category: AESI18n.t('Aircraft'),
+            title: AESI18n.t('C seats'),
             data: 'seatC',
             sortable: 1,
             visible: 1,
             number: 1
     },
         {
-            category: 'Aircraft',
-            title: 'F seats',
+            category: AESI18n.t('Aircraft'),
+            title: AESI18n.t('F seats'),
             data: 'seatF',
             sortable: 1,
             visible: 1,
             number: 1
     },
         {
-            category: 'Aircraft',
-            title: 'Seat config',
+            category: AESI18n.t('Aircraft'),
+            title: AESI18n.t('Seat config'),
             data: 'seatConfig',
             sortable: 1,
             visible: 1
     },
         {
-            category: 'Aircraft',
-            title: 'Total seats',
+            category: AESI18n.t('Aircraft'),
+            title: AESI18n.t('Total seats'),
             data: 'totalSeats',
             sortable: 1,
             visible: 1,
             number: 1
     },
         {
-            category: 'Aircraft',
-            title: 'Pure cargo',
+            category: AESI18n.t('Aircraft'),
+            title: AESI18n.t('Pure cargo'),
             data: 'pureCargo',
             sortable: 1,
             visible: 1
     },
         {
-            category: 'Aircraft',
-            title: 'Pilots',
+            category: AESI18n.t('Aircraft'),
+            title: AESI18n.t('Pilots'),
             data: 'pilotAssignedLabel',
             sortable: 1,
             visible: 1
     },
         {
-            category: 'Aircraft',
-            title: 'Schedule',
+            category: AESI18n.t('Aircraft'),
+            title: AESI18n.t('Schedule'),
             data: 'scheduleStateLabel',
             sortable: 1,
             visible: 1,
             format: 'scheduleState'
     },
         {
-            category: 'Aircraft',
-            title: 'HUB',
+            category: AESI18n.t('Aircraft'),
+            title: AESI18n.t('HUB'),
             data: 'hubEffective',
             sortable: 1,
             visible: 1
     },
         {
-            category: 'Aircraft',
-            title: 'Fleet',
+            category: AESI18n.t('Aircraft'),
+            title: AESI18n.t('Fleet'),
             data: 'fleet',
             sortable: 1,
             visible: 1
     },
         {
-            category: 'Aircraft',
-            title: 'Nickname',
+            category: AESI18n.t('Aircraft'),
+            title: AESI18n.t('Nickname'),
             data: 'nickname',
             sortable: 1,
             visible: 1
     },
         {
-            category: 'Aircraft',
-            title: 'Note',
+            category: AESI18n.t('Aircraft'),
+            title: AESI18n.t('Note'),
             data: 'note',
             sortable: 1,
             visible: 1
     },
         {
-            category: 'Aircraft',
-            title: 'Age',
+            category: AESI18n.t('Aircraft'),
+            title: AESI18n.t('Age'),
             data: 'age',
             sortable: 1,
             visible: 1,
@@ -2682,47 +2682,47 @@ function displayAircraftProfitability() {
             aggregate: 'average'
     },
         {
-            category: 'Aircraft',
-            title: 'Maintenance',
+            category: AESI18n.t('Aircraft'),
+            title: AESI18n.t('Maintenance'),
             data: 'maintenance',
             sortable: 1,
             visible: 1,
             number: 1
     },
         {
-            category: 'Aircraft',
-            title: 'Date',
+            category: AESI18n.t('Aircraft'),
+            title: AESI18n.t('Date'),
             data: 'dateAircraft',
             sortable: 1,
             visible: 1
     },
         {
-            category: 'Profit',
-            title: 'Total flights',
+            category: AESI18n.t('Profit'),
+            title: AESI18n.t('Total flights'),
             data: 'totalFlights',
             sortable: 1,
             visible: 1,
             number: 1
     },
         {
-            category: 'Profit',
-            title: 'Finished flights',
+            category: AESI18n.t('Profit'),
+            title: AESI18n.t('Finished flights'),
             data: 'finishedFlights',
             sortable: 1,
             visible: 1,
             number: 1
     },
         {
-            category: 'Profit',
-            title: 'Profit/loss flights',
+            category: AESI18n.t('Profit'),
+            title: AESI18n.t('Profit/loss flights'),
             data: 'profitFlights',
             sortable: 1,
             visible: 1,
             number: 1
     },
         {
-            category: 'Profit',
-            title: 'Profit',
+            category: AESI18n.t('Profit'),
+            title: AESI18n.t('Profit'),
             data: 'profit',
             sortable: 1,
             visible: 1,
@@ -2730,8 +2730,8 @@ function displayAircraftProfitability() {
             format: 'money'
     },
         {
-            category: 'Profit',
-            title: 'Profit extract date',
+            category: AESI18n.t('Profit'),
+            title: AESI18n.t('Profit extract date'),
             data: 'dateProfit',
             sortable: 1,
             visible: 1
@@ -2811,7 +2811,7 @@ function displayAircraftProfitability() {
                             }
                         });
                     } else {
-                        tableDiv = $('<p class="warning"></p>').text('No aircraft data in memory. Open fleet management to extract aircraft data.')
+                        tableDiv = $('<p class="warning"></p>').text(AESI18n.t('No aircraft data in memory. Open fleet management to extract aircraft data.'))
                     }
                     renderAircraftProfitabilityPanel(tableDiv);
                 } catch (error) {
@@ -2833,7 +2833,7 @@ function displayAircraftProfitability() {
         let div = $('<div class="as-panel"></div>').append(tableDiv);
         let mainDiv = $("#aes-div-dashboard");
         mainDiv.empty();
-        let title = $('<h3></h3>').text('Aircraft Profitability');
+        let title = $('<h3></h3>').text(AESI18n.t('Aircraft Profitability'));
         mainDiv.append(title, div);
     }
 
@@ -2971,7 +2971,7 @@ function generateTable(tableOptionsRule: AESModel.DashboardGeneratedTableOptions
 }
 //Display general helper functions
 function generalAddScheduleRow(tbody: JQuery) {
-    let td1 = $('<td></td>').text("Schedule");
+    let td1 = $('<td></td>').text(AESI18n.t("Schedule"));
     let td2 = $('<td></td>');
     let td3 = $('<td></td>');
     let row = $('<tr></tr>').append(td1, td2, td3);
@@ -2983,7 +2983,7 @@ function generalAddScheduleRow(tbody: JQuery) {
         if (scheduleData) {
             let lastUpdate = getDate('schedule', scheduleData.date);
             let diff = AES.getDateDiff([todayDate.date, lastUpdate]);
-            let span = $('<span></span>').text('Last schedule extract ' + AES.formatDateString(lastUpdate) + ' (' + diff + ' days ago).');
+            let span = $('<span></span>').text(AESI18n.t("Last schedule extract {0} ({1} days ago).", {"0": AES.formatDateString(lastUpdate), "1": diff}));
             if (diff >= 0 && diff < 7) {
                 span.addClass('good');
             } else {
@@ -2996,14 +2996,14 @@ function generalAddScheduleRow(tbody: JQuery) {
 
         } else {
             //no schedule
-            td2.html('<span class="bad">No Schedule data found. Extract schedule or some AES parts will not work</span>');
+            td2.html(AESI18n.html('<span class="bad">No Schedule data found. Extract schedule or some AES parts will not work</span>'));
             generalUpdateScheduleAction(td3);
         }
     });
 }
 
 function generalUpdateScheduleAction(td3: JQuery) {
-    let btn = $('<button type="button" class="btn btn-default">Extract schedule data</button>');
+    let btn = $(AESI18n.html('<button type="button" class="btn btn-default">Extract schedule data</button>'));
     const statusCell = td3.closest('tr').children('td').eq(1);
     let savedTimer: number | undefined;
     const status = $('<span role="status"></span>');
@@ -3013,13 +3013,13 @@ function generalUpdateScheduleAction(td3: JQuery) {
         const current = () => context() && revision === dashboardRevision;
         window.clearTimeout(savedTimer);
         statusCell.empty().append(status);
-        btn.prop('disabled',true);status.removeClass().addClass('warning').text('Fetching schedule...');
+        btn.prop('disabled',true);status.removeClass().addClass('warning').text(AESI18n.t('Fetching schedule...'));
         try {
             await AESRead.collectSchedule(airline, message => {if(current())status.text(message);},current);
             if (current()) {
-                status.removeClass().addClass('good').text('Schedule saved.');
+                status.removeClass().addClass('good').text(AESI18n.t('Schedule saved.'));
                 savedTimer = window.setTimeout(() => {
-                    if (current() && status[0].isConnected) status.removeClass().text('Schedule saved just now.');
+                    if (current() && status[0].isConnected) status.removeClass().text(AESI18n.t('Schedule saved just now.'));
                 }, 5000);
             }
         } catch (error) {
@@ -3031,7 +3031,7 @@ function generalUpdateScheduleAction(td3: JQuery) {
 
 function generalAddPersonnelManagementRow(tbody: JQuery) {
     let td = [];
-    td.push($('<td></td>').text("Personnel Management"));
+    td.push($('<td></td>').text(AESI18n.t("Personnel Management")));
     td.push($('<td></td>'));
     td.push($('<td></td>'));
     let row = $('<tr></tr>').append(...td);
@@ -3043,7 +3043,7 @@ function generalAddPersonnelManagementRow(tbody: JQuery) {
         if (personnelManagementData) {
             let lastUpdate = String(personnelManagementData.date || '');
             let diff = AES.getDateDiff([todayDate.date, lastUpdate]);
-            let span = $('<span></span>').text('Last personnel salary update: ' + AES.formatDateString(lastUpdate) + ' (' + diff + ' days ago).');
+            let span = $('<span></span>').text(AESI18n.t("Last personnel salary update: {0} ({1} days ago).", {"0": AES.formatDateString(lastUpdate), "1": diff}));
             if (diff >= 0 && diff < 7) {
                 span.addClass('good');
             } else {
@@ -3052,12 +3052,12 @@ function generalAddPersonnelManagementRow(tbody: JQuery) {
             td[1].append(span);
         } else {
             //no schedule
-            td[1].html('<span class="bad">No personnel salary update date found.</span>');
+            td[1].html(AESI18n.html('<span class="bad">No personnel salary update date found.</span>'));
         }
     });
 
     //Action
-    let btn = $('<button type="button" class="btn btn-default">Open personnel management</button>');
+    let btn = $(AESI18n.html('<button type="button" class="btn btn-default">Open personnel management</button>'));
     btn.click(function() {
         window.location.assign('/action/enterprise/staffOverview');
     });

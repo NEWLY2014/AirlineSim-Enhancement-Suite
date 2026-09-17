@@ -161,10 +161,10 @@ function display() {
     highlightSequenceIssueFlights(sequenceValidation.issues);
     //Table
     let tableWell = $('<div class="as-table-well aes-aircraft-flights-summary aes-aircraft-flights-table"></div>').append(buildTable(sequenceValidation));
-    let btn = $('<button type="button" class="btn btn-default aes-aircraft-flights-extract-btn"></button>').text('Extract all flight data');
-    let btn1 = $('<button type="button" class="btn btn-default aes-aircraft-flights-extract-btn"></button>').text('Extract finished flight data');
-    let saveOverrideBtn = $('<button type="button" class="btn btn-default"></button>').text('Save HUB override');
-    let resetOverrideBtn = $('<button type="button" class="btn btn-default"></button>').text('Reset to default');
+    let btn = $('<button type="button" class="btn btn-default aes-aircraft-flights-extract-btn"></button>').text(AESI18n.t('Extract all flight data'));
+    let btn1 = $('<button type="button" class="btn btn-default aes-aircraft-flights-extract-btn"></button>').text(AESI18n.t('Extract finished flight data'));
+    let saveOverrideBtn = $('<button type="button" class="btn btn-default"></button>').text(AESI18n.t('Save HUB override'));
+    let resetOverrideBtn = $('<button type="button" class="btn btn-default"></button>').text(AESI18n.t('Reset to default'));
     let hubInput = $('<input type="text" class="form-control aes-aircraft-flights-hub-input" maxlength="3">').val((aircraftFlightData.hubOverride || '').slice(0, 3));
     let extractStatus = $('<div style="width:100%;min-width:0"></div>');
     flightFeedback = AESRead.feedback(extractStatus);
@@ -172,7 +172,7 @@ function display() {
     let toolbar = $('<div class="aes-aircraft-flights-toolbar aes-aircraft-flights-summary"></div>').append(
         $('<div class="aes-aircraft-flights-toolbar-row"></div>').append(
             $('<div class="aes-aircraft-flights-toolbar-group"></div>').append(
-                $('<label class="control-label aes-aircraft-flights-toolbar-label"></label>').text('HUB'),
+                $('<label class="control-label aes-aircraft-flights-toolbar-label"></label>').text(AESI18n.t('HUB')),
                 $('<div class="aes-aircraft-flights-toolbar-controls"></div>').append(
                     hubInput,
                     $('<div class="btn-group aes-dashboard-control-actions"></div>').append(saveOverrideBtn, resetOverrideBtn)
@@ -194,7 +194,7 @@ function display() {
     saveOverrideBtn.click(function() {
         let override = String(hubInput.val() || '').trim().toUpperCase().slice(0, 3);
         if (!override) {
-            showAircraftFlightsNotification('Enter a HUB code first', 'error');
+            showAircraftFlightsNotification(AESI18n.t('Enter a HUB code first'), 'error');
             return;
         }
         updateHubOverride(override);
@@ -207,7 +207,7 @@ function display() {
         resetHubOverride();
     });
     let content = $('<div class="aes-aircraft-flights-block"></div>').append(
-        $('<div class="aes-aircraft-flights-title"></div>').text('AES Aircraft Flights'),
+        $('<div class="aes-aircraft-flights-title"></div>').text(AESI18n.t('AES Aircraft Flights')),
         toolbar,
         tableWell
     );
@@ -239,19 +239,19 @@ async function startFlightProfitExtraction(type: 'all' | 'finished') {
     if (!flights.length) {
         setFlightExtractionState({
             failed: 0,
-            message: 'No matching flight data to extract.',
+            message: AESI18n.t('No matching flight data to extract.'),
             opened: 0,
             running: false,
             tone: 'warning',
             total: 0,
         });
-        showAircraftFlightsNotification('No matching flight data to extract.', 'warning');
+        showAircraftFlightsNotification(AESI18n.t('No matching flight data to extract.'), 'warning');
         return;
     }
 
     setFlightExtractionState({
         failed: 0,
-        message: 'Collecting flight data 0/' + flights.length + '...',
+        message: AESI18n.t("Collecting flight data 0/{0}...", {"0": flights.length}),
         opened: 0,
         running: true,
         tone: 'warning',
@@ -262,7 +262,7 @@ async function startFlightProfitExtraction(type: 'all' | 'finished') {
         const result = await extractAllFlightProfit(type, function(progress) {
             setFlightExtractionState({
                 failed: progress.failed,
-                message: 'Collecting flight data ' + progress.opened + '/' + progress.total + (progress.failed ? ' (' + progress.failed + ' failed)' : '') + '...',
+                message: AESI18n.t("Collecting flight data {0}/{1}{2}...", {"0": progress.opened, "1": progress.total, "2": (progress.failed ? ' (' + progress.failed + ' failed)' : '')}),
                 opened: progress.opened,
                 running: true,
                 tone: 'warning',
@@ -273,7 +273,7 @@ async function startFlightProfitExtraction(type: 'all' | 'finished') {
         if (result.failed) {
             setFlightExtractionState({
                 failed: result.failed,
-                message: 'Collected ' + result.opened + '/' + result.total + ' flights. Retry the failed items.',
+                message: AESI18n.t("Collected {0}/{1} flights. Retry the failed items.", {"0": result.opened, "1": result.total}),
                 opened: result.opened,
                 running: false,
                 tone: 'warning',
@@ -286,7 +286,7 @@ async function startFlightProfitExtraction(type: 'all' | 'finished') {
 
         setFlightExtractionState({
             failed: 0,
-            message: 'Collected ' + result.opened + ' flights. Profit data refreshed.',
+            message: AESI18n.t("Collected {0} flights. Profit data refreshed.", {"0": result.opened}),
             opened: result.opened,
             running: false,
             tone: 'good',
@@ -294,13 +294,13 @@ async function startFlightProfitExtraction(type: 'all' | 'finished') {
         });
         const current = AESRead.context();
         flightFeedbackTimer = window.setTimeout(()=>{
-            if(current() && !aircraftFlightExtractionState.running) setFlightExtractionState({message:'Profit updated just now.',tone:''});
+            if(current() && !aircraftFlightExtractionState.running) setFlightExtractionState({message:AESI18n.t('Profit updated just now.'),tone:''});
         },5000);
     } catch (error) {
         flightFailureDetails = error instanceof Error ? error.message : String(error);
         setFlightExtractionState({
             failed: 0,
-            message: 'Flight data extraction failed. Try again.',
+            message: AESI18n.t('Flight data extraction failed. Try again.'),
             opened: 0,
             running: false,
             tone: 'bad',
@@ -401,7 +401,7 @@ function displayFlightProfit() {
     let table = $('#aircraft-flight-instances-table');
     //Head
     $('.aes-aircraft-flights-extra-header, .aes-aircraft-flights-extra-cell', table).remove();
-    let th = ['<th class="aes-aircraft-flights-extra-header">Profit/Loss</th>', '<th class="aes-aircraft-flights-extra-header">Extract date</th>'];
+    let th = [AESI18n.html('<th class="aes-aircraft-flights-extra-header">Profit/Loss</th>'), AESI18n.html('<th class="aes-aircraft-flights-extra-header">Extract date</th>')];
     let headerAnchor = $('thead tr', table).first().children('th').last();
     headerAnchor.before(...th);
     //body
@@ -510,33 +510,33 @@ function buildTable(sequenceValidation: AESModel.FlightSequenceValidation) {
     let totalProfitCell = $(formatMoney(aircraftFlightData.profit));
     let row = [];
     row.push($('<tr></tr>').append(
-        $('<th></th>').text('Aircraft Id'),
+        $('<th></th>').text(AESI18n.t('Aircraft Id')),
         $('<td></td>').text(aircraftFlightData.aircraftId),
-        $('<th></th>').text('Total flights'),
+        $('<th></th>').text(AESI18n.t('Total flights')),
         $('<td></td>').text(aircraftFlightData.totalFlights)
     ));
     row.push($('<tr></tr>').append(
-        $('<th></th>').text('Registration'),
+        $('<th></th>').text(AESI18n.t('Registration')),
         $('<td></td>').text(aircraftFlightData.registration),
-        $('<th></th>').text('Finished flights'),
+        $('<th></th>').text(AESI18n.t('Finished flights')),
         $('<td></td>').text(aircraftFlightData.finishedFlights)
     ));
     row.push($('<tr></tr>').append(
-        $('<th></th>').text('Detected HUB'),
+        $('<th></th>').text(AESI18n.t('Detected HUB')),
         $('<td id="aes-aircraft-hub-detected"></td>').text(aircraftFlightData.hubDetected || '--'),
-        $('<th></th>').text('Total aircraft profit/loss'),
+        $('<th></th>').text(AESI18n.t('Total aircraft profit/loss')),
         $('<td class="aes-text-right aes-no-text-wrap"></td>').append(totalProfitCell.contents())
     ));
     row.push($('<tr></tr>').append(
-        $('<th></th>').text('Override HUB'),
+        $('<th></th>').text(AESI18n.t('Override HUB')),
         $('<td id="aes-aircraft-hub-override"></td>').text(aircraftFlightData.hubOverride || '--'),
-        $('<th></th>').text('Sequence check'),
+        $('<th></th>').text(AESI18n.t('Sequence check')),
         buildSequenceValidationCell(sequenceValidation)
     ));
     row.push($('<tr></tr>').append(
-        $('<th></th>').text('Current HUB'),
+        $('<th></th>').text(AESI18n.t('Current HUB')),
         $('<td id="aes-aircraft-hub-effective"></td>').text(aircraftFlightData.hubEffective || aircraftFlightData.hubDetected || '--'),
-        $('<th></th>').text('Data save time'),
+        $('<th></th>').text(AESI18n.t('Data save time')),
         $('<td></td>').text(AES.formatDateString(aircraftFlightData.date) + ' ' + aircraftFlightData.time)
     ));
 
@@ -552,7 +552,7 @@ function buildSequenceValidationCell(validation: AESModel.FlightSequenceValidati
 
     const cell = $('<td class="aes-aircraft-flights-sequence-cell"></td>').append(
         $('<span></span>').addClass(statusClass).text(statusText),
-        $('<span class="aes-aircraft-flights-sequence-checked"></span>').text(' · ' + validation.checkedCount + ' checked')
+        $('<span class="aes-aircraft-flights-sequence-checked"></span>').text(AESI18n.t(" · {0} checked", {"0": validation.checkedCount}))
     );
 
     if (validation.issues.length) {
@@ -569,7 +569,7 @@ function buildSequenceIssueList(issues: AESModel.FlightSequenceIssue[]) {
         list.append($('<li></li>').text(issue.message));
     });
     if (issues.length > maxVisibleIssues) {
-        list.append($('<li></li>').text((issues.length - maxVisibleIssues) + ' more issue(s) not shown.'));
+        list.append($('<li></li>').text(AESI18n.t("{0} more issue(s) not shown.", {"0": (issues.length - maxVisibleIssues)})));
     }
     return list;
 }
@@ -883,7 +883,7 @@ function syncFleetHubData(callback: () => void) {
                     if (!pending) {
                         finish();
                     }
-                }, error => showAircraftFlightsNotification('Aircraft data could not be read or saved. ' + String(error), 'error'));
+                }, error => showAircraftFlightsNotification(AESI18n.t("Aircraft data could not be read or saved. {0}", {"0": String(error)}), 'error'));
             });
             return;
         }
@@ -895,7 +895,7 @@ function syncFleetHubData(callback: () => void) {
 function updateHubOverride(override: string) {
     resolveAircraftFleetMatches(function(matches) {
         if (!matches.length) {
-            showAircraftFlightsNotification('Extract fleet data first', 'error');
+            showAircraftFlightsNotification(AESI18n.t('Extract fleet data first'), 'error');
             return;
         }
 
@@ -911,10 +911,10 @@ function updateHubOverride(override: string) {
                     aircraftFlightData.hubEffective = override;
                     persistAircraftFlightSummary(function() {
                         refreshHubSummary();
-                        showAircraftFlightsNotification('HUB override saved', 'success');
+                        showAircraftFlightsNotification(AESI18n.t('HUB override saved'), 'success');
                     });
                 }
-            }, error => showAircraftFlightsNotification('Aircraft data could not be read or saved. ' + String(error), 'error'));
+            }, error => showAircraftFlightsNotification(AESI18n.t("Aircraft data could not be read or saved. {0}", {"0": String(error)}), 'error'));
         });
     });
 }
@@ -922,7 +922,7 @@ function updateHubOverride(override: string) {
 function resetHubOverride() {
     resolveAircraftFleetMatches(function(matches) {
         if (!matches.length) {
-            showAircraftFlightsNotification('Extract fleet data first', 'error');
+            showAircraftFlightsNotification(AESI18n.t('Extract fleet data first'), 'error');
             return;
         }
 
@@ -938,10 +938,10 @@ function resetHubOverride() {
                     aircraftFlightData.hubEffective = aircraftFlightData.hubDetected || '';
                     persistAircraftFlightSummary(function() {
                         refreshHubSummary();
-                        showAircraftFlightsNotification('Reset to detected HUB', 'success');
+                        showAircraftFlightsNotification(AESI18n.t('Reset to detected HUB'), 'success');
                     });
                 }
-            }, error => showAircraftFlightsNotification('Aircraft data could not be read or saved. ' + String(error), 'error'));
+            }, error => showAircraftFlightsNotification(AESI18n.t("Aircraft data could not be read or saved. {0}", {"0": String(error)}), 'error'));
         });
     });
 }
@@ -1013,7 +1013,7 @@ function formatMoney(value: number) {
     }
 
     valueEl.innerText = formattedValue
-    currencyEl.innerText = " AS$"
+    currencyEl.innerText = AESI18n.t(" AS$")
 
     container.classList.add("aes-text-right", "aes-no-text-wrap")
     container.append(indicatorEl, valueEl, currencyEl)
@@ -1026,7 +1026,7 @@ function storageCallbackSucceeded() {
     if (!AES.isPageOwner()) return false;
     if (error) {
         AES.reportContentScriptError('content_aircraftFlights', new Error(error.message));
-        showAircraftFlightsNotification('Aircraft data could not be read or saved. Please retry or reload.', 'error');
+        showAircraftFlightsNotification(AESI18n.t('Aircraft data could not be read or saved. Please retry or reload.'), 'error');
         return false;
     }
     return true;

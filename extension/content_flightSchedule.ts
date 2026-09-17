@@ -38,8 +38,8 @@ if (FLIGHT_SCHEDULE_SCRIPT_ENABLED) {
 //FUNCTIONS
 function initializeFlightSchedule(result: Record<string, unknown>) {
     settings = AES.isRecord(result.settings) ? result.settings : {};
-    let label = $('<h3 id="aes-schedule-heading"></h3>').text('AES Schedule');
-    let btn = $('<button class="btn btn-default" id="aes-extractSchedule-btn"></button>').text('Extract Schedule');
+    let label = $('<h3 id="aes-schedule-heading"></h3>').text(AESI18n.t('AES Schedule'));
+    let btn = $(AESI18n.html('<button class="btn btn-default" id="aes-extractSchedule-btn"></button>')).text(AESI18n.t('Extract Schedule'));
     let panel = $('<div id="aes-panel-schedule" class="as-panel"></div>').append(btn);
     AES.markOwnedElements([label[0], panel[0]]);
     //Main DIv
@@ -92,7 +92,7 @@ async function extractSchedule() {
     extracting = true;
     // Update UI
     $('#aes-schedule-status').remove();
-    let span = $('<span id="aes-schedule-status" class="warning"></span>').text('Extracting...');
+    let span = $('<span id="aes-schedule-status" class="warning"></span>').text(AESI18n.t('Extracting...'));
     $('#aes-panel-schedule').append(span);
     const button = $('#aes-extractSchedule-btn').prop('disabled', true);
     const fail = (message: string) => {
@@ -122,7 +122,7 @@ async function extractSchedule() {
             if (scheduleChanged) throw new Error('Schedule changed during extraction. Please try again.');
             return AES.isPageOwner();
         });
-        span.text('Saving ' + schedule.length.toLocaleString() + ' routes...');
+        span.text(AESI18n.t("Saving {0} routes...", {"0": schedule.length.toLocaleString()}));
         await yieldToPage();
         await AESRead.save({type:'AES_SAVE_SCHEDULE',airline,
             snapshot:{date:date.date,updateTime:date.time,schedule}}, () => AES.isPageOwner());
@@ -137,7 +137,7 @@ async function extractSchedule() {
             if (!AES.isPageOwner()) return;
             competitor.autoExtract = 0;
         }
-        span.removeClass().addClass('good').text('Schedule extracted!');
+        span.removeClass().addClass('good').text(AESI18n.t('Schedule extracted!'));
         button.remove();
         if (competitor && automatedCompetitorSave) {
             void AES.queuePage('./' + airline.id + '?tab=0', 'navigate').catch(error => AES.reportContentScriptError('page_queue', error));

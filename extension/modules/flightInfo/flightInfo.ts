@@ -99,7 +99,7 @@ class FlightInfo {
      */
     #createHeading() {
         const heading = document.createElement('h3');
-        heading.textContent = 'AES Flight Information';
+        heading.textContent = AESI18n.t('AES Flight Information');
         return heading;
     }
 
@@ -159,7 +159,7 @@ class FlightInfo {
         labels.forEach(label => {
             const th = document.createElement('th');
             th.className = 'aes-text-right';
-            th.textContent = label;
+            th.textContent = AESI18n.t(label);
             row.appendChild(th);
         });
         thead.appendChild(row);

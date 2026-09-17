@@ -151,7 +151,7 @@ function updateCompetitorMonitoringIndex(tracking: boolean) {
 
 function displayAutomation(actionBar: JQuery) {
     if (!compData.autoExtract) { //
-        let btn = $('<button type="button" class="btn btn-default">save all tab data</button>');
+        let btn = $(AESI18n.html('<button type="button" class="btn btn-default">save all tab data</button>'));
         btn.on('click', async function() {
             if (btn.prop('disabled')) return;
             const context = AESRead.context(), feedback = summaryFeedback;
@@ -180,7 +180,7 @@ function displayAutomation(actionBar: JQuery) {
         let li = $('<li></li>').append(btn);
         actionBar.append(li);
     } else {
-        let span = $('<span></span>').addClass('warning').text('Please wait... extracting all tab info...');
+        let span = $('<span></span>').addClass('warning').text(AESI18n.t('Please wait... extracting all tab info...'));
         let li = $('<li></li>').append(span);
         actionBar.append(li);
     }
@@ -188,9 +188,9 @@ function displayAutomation(actionBar: JQuery) {
 
 function displayCompetitorMonitoring(div: JQuery) {
     let th = [];
-    th.push('<th>Overview</th>');
-    th.push('<th>Facts and Figures</th>');
-    th.push('<th>Schedule</th>');
+    th.push(AESI18n.html('<th>Overview</th>'));
+    th.push(AESI18n.html('<th>Facts and Figures</th>'));
+    th.push(AESI18n.html('<th>Schedule</th>'));
     let headRow = $('<tr></tr>').append(...th);
     let thead = $('<thead></thead>').append(headRow);
     //body
@@ -217,11 +217,11 @@ function displayTab0(actionBar: JQuery) {
     let data = getTab0Data();
     //Save Data
     let span = $('<span></span>');
-    let btnSave = $('<button id="aes-btn-save-tab0-data" type="button" class="btn btn-default">save competitor overview data</button>');
+    let btnSave = $(AESI18n.html('<button id="aes-btn-save-tab0-data" type="button" class="btn btn-default">save competitor overview data</button>'));
 
     btnSave.click(function() {
         btnSave.prop('disabled', true);
-        span.removeClass().addClass('warning').text('saving data...');
+        span.removeClass().addClass('warning').text(AESI18n.t('saving data...'));
         let time = AES.getServerDate()
 
         const previous = compData.tab0[time.date];
@@ -231,7 +231,7 @@ function displayTab0(actionBar: JQuery) {
         saveCompetitorRecord(function() {
             btnSave.remove();
             void refreshCompetitorSummary().catch(error=>AES.reportContentScriptError("content_enterpriseOverview",error));
-            span.removeClass().addClass("good").text("Overview Tab data Saved!");
+            span.removeClass().addClass("good").text(AESI18n.t("Overview Tab data Saved!"));
             if (compData.autoExtract) void AES.queuePage('./' + airline.id + '?tab=2', 'navigate').catch(error => AES.reportContentScriptError('page_queue', error));
         }, function(error) {
             if (previous === undefined) delete compData.tab0[time.date];
@@ -253,7 +253,7 @@ function displayTab2(actionBar: JQuery) {
     let data = getTab2Data();
     //Save Data
     let span = $('<span></span>');
-    let btnSave = $('<button type="button" class="btn btn-default">save fact and figures data</button>');
+    let btnSave = $(AESI18n.html('<button type="button" class="btn btn-default">save fact and figures data</button>'));
 
     //Check if this week already saved
     let update = 1;
@@ -270,7 +270,7 @@ function displayTab2(actionBar: JQuery) {
     if (update) {
         btnSave.click(function() {
             btnSave.prop('disabled', true);
-            span.removeClass().addClass('warning').text('saving data...');
+            span.removeClass().addClass('warning').text(AESI18n.t('saving data...'));
             let time = AES.getServerDate()
 
             const previous = compData.tab2[time.date];
@@ -280,7 +280,7 @@ function displayTab2(actionBar: JQuery) {
             saveCompetitorRecord(function() {
                 btnSave.remove();
                 void refreshCompetitorSummary().catch(error=>AES.reportContentScriptError("content_enterpriseOverview",error));
-                span.removeClass().addClass("good").text("Fact and figures Tab data Saved!");
+                span.removeClass().addClass("good").text(AESI18n.t("Fact and figures Tab data Saved!"));
                 if (compData.autoExtract) void AES.queuePage('./' + airline.id + '?tab=3', 'navigate').catch(error => AES.reportContentScriptError('page_queue', error));
             }, function(error) {
                 if (previous === undefined) delete compData.tab2[time.date];
@@ -291,7 +291,7 @@ function displayTab2(actionBar: JQuery) {
         });
         li = $('<li></li>').append(span, btnSave);
     } else {
-        span.addClass('good').text('The current week facts and figures data is already saved');
+        span.addClass('good').text(AESI18n.t('The current week facts and figures data is already saved'));
         li = $('<li></li>').append(span);
     }
 
@@ -313,14 +313,14 @@ function displayOverviewRow() {
     const dates = getCompetitorHistoryDates(compData.tab0);
     if (dates.length) {
         let diff = AES.getDateDiff([AES.getServerDate().date, dates[0]]);
-        span.text('Last overview extract ' + AES.formatDateString(dates[0]) + ' (' + diff + ' days ago)');
+        span.text(AESI18n.t("Last overview extract {0} ({1} days ago)", {"0": AES.formatDateString(dates[0]), "1": diff}));
         if (diff >= 0 && diff < 7) {
             span.addClass('good');
         } else {
             span.addClass('warning');
         }
     } else {
-        span.addClass('bad').text('No Overview data')
+        span.addClass('bad').text(AESI18n.t('No Overview data'))
     }
     return span;
 }
@@ -331,14 +331,14 @@ function displayFactsAndFiguresRow() {
     if (dates.length) {
         let diff = AES.getDateDiff([AES.getServerDate().date, dates[0]]);
         const latest = compData.tab2[dates[0]];
-        span.text('Last facts and figures extract for week ' + formatWeekDate(AES.isRecord(latest) ? latest.week : undefined) + ' done on ' + AES.formatDateString(dates[0]) + ' (' + diff + ' days ago)');
+        span.text(AESI18n.t("Last facts and figures extract for week {0} done on {1} ({2} days ago)", {"0": formatWeekDate(AES.isRecord(latest) ? latest.week : undefined), "1": AES.formatDateString(dates[0]), "2": diff}));
         if (diff >= 0 && diff < 7) {
             span.addClass('good');
         } else {
             span.addClass('warning');
         }
     } else {
-        span.addClass('bad').text('No facts and figures data');
+        span.addClass('bad').text(AESI18n.t('No facts and figures data'));
     }
     return span;
 }
@@ -349,18 +349,18 @@ function displayScheduleRow() {
     if (dates.length) {
         const overview = compData.tab0[dates[0]];
         const id = AES.isRecord(overview) ? overview.id : undefined;
-        if (typeof id !== "string" && typeof id !== "number") return span.addClass('bad').text('No Schedule data found.');
+        if (typeof id !== "string" && typeof id !== "number") return span.addClass('bad').text(AESI18n.t('No Schedule data found.'));
         let scheduleKey = server + id + 'schedule';
         chrome.storage.local.get([scheduleKey], function(result) {
             let scheduleData = result[scheduleKey];
             if (AES.isRecord(scheduleData) && AES.isRecord(scheduleData.date)) {
                 const scheduleDates = getCompetitorHistoryDates(scheduleData.date);
                 if (!scheduleDates.length) {
-                    span.addClass('bad').text('No Schedule data found.');
+                    span.addClass('bad').text(AESI18n.t('No Schedule data found.'));
                     return;
                 }
                 let diff = AES.getDateDiff([AES.getServerDate().date, scheduleDates[0]]);
-                span.text('Last schedule extract ' + AES.formatDateString(scheduleDates[0]) + ' (' + diff + ' days ago)');
+                span.text(AESI18n.t("Last schedule extract {0} ({1} days ago)", {"0": AES.formatDateString(scheduleDates[0]), "1": diff}));
                 if (diff >= 0 && diff < 7) {
                     span.addClass('good');
                 } else {
@@ -368,11 +368,11 @@ function displayScheduleRow() {
                 }
             } else {
                 //no schedule
-                span.addClass('bad').text('No Schedule data found.');
+                span.addClass('bad').text(AESI18n.t('No Schedule data found.'));
             }
         });
     } else {
-        span.addClass('bad').text('Extract overview to see schedule data');
+        span.addClass('bad').text(AESI18n.t('Extract overview to see schedule data'));
     }
     return span;
 

@@ -929,7 +929,7 @@ function displayAnalysis(analysis: AESModel.InventoryAnalysis, prices: AESModel.
     //Build table
     let mainDiv = $(".container-fluid .row .col-md-10 div .as-panel:eq(0)");
     mainDiv.after(
-        `
+        AESI18n.html(`
     <h3 id="aes-h3-analysis">Analysis (today's snapshot)</h3>
     <div id="aes-div-analysis" >
       <div class="as-panel">
@@ -939,20 +939,20 @@ function displayAnalysis(analysis: AESModel.InventoryAnalysis, prices: AESModel.
         </div>
       </div>
     </div>
-    `
+    `)
     );
 
     //Table head
     let th = [];
     th.push('<th>SC</th>');
-    th.push('<th>Note</th>');
-    th.push('<th class="aes-text-right">Analysis Price</th>');
-    th.push('<th class="aes-text-right">Load</th>');
-    th.push('<th class="aes-text-right">Index</th>');
-    th.push('<th class="aes-text-right">Current Price</th>');
-    th.push('<th>Recommendation</th>');
+    th.push(AESI18n.html('<th>Note</th>'));
+    th.push(AESI18n.html('<th class="aes-text-right">Analysis Price</th>'));
+    th.push(AESI18n.html('<th class="aes-text-right">Load</th>'));
+    th.push(AESI18n.html('<th class="aes-text-right">Index</th>'));
+    th.push(AESI18n.html('<th class="aes-text-right">Current Price</th>'));
+    th.push(AESI18n.html('<th>Recommendation</th>'));
     if (settings.invPricing.showReferenceRecommendation) {
-        th.push('<th>Reference</th>');
+        th.push(AESI18n.html('<th>Reference</th>'));
     }
     let headRow = $('<tr></tr>').append(...th);
     let thead = $('<thead></thead>').append(headRow);
@@ -980,7 +980,7 @@ function displayAnalysis(analysis: AESModel.InventoryAnalysis, prices: AESModel.
     footRow.push('<tr><td colspan="' + (settings.invPricing.showReferenceRecommendation ? 8 : 7) + '"></td></tr>');
     //Total PAX
     let tf = [];
-    tf.push('<th>Total PAX</th>');
+    tf.push(AESI18n.html('<th>Total PAX</th>'));
     tf.push('<td colspan="2"></td>');
     tf.push($('<td class="aes-text-right"></td>').html(analysis.displayTotalLoad('pax')));
     tf.push($('<td class="aes-text-right"></td>').append(analysis.displayTotalIndex('pax')));
@@ -988,7 +988,7 @@ function displayAnalysis(analysis: AESModel.InventoryAnalysis, prices: AESModel.
     footRow.push($('<tr></tr>').append(...tf));
     //Total
     tf = [];
-    tf.push('<th>Total PAX+Cargo</th>');
+    tf.push(AESI18n.html('<th>Total PAX+Cargo</th>'));
     tf.push('<td colspan="2"></td>');
     tf.push($('<td class="aes-text-right"></td>').html(analysis.displayTotalLoad('all')));
     tf.push($('<td class="aes-text-right"></td>').append(analysis.displayTotalIndex('all')));
@@ -1018,22 +1018,22 @@ function displayAnalysis(analysis: AESModel.InventoryAnalysis, prices: AESModel.
                 await chrome.storage.local.set({[next.key]: next});
                 if (!isInventoryCurrent(revision)) return;
                 pricingData = next;
-                invPricingAnalysisBarSpan.removeClass().addClass('good').text('Data Saved!');
+                invPricingAnalysisBarSpan.removeClass().addClass('good').text(AESI18n.t('Data Saved!'));
                 if (settings.invPricing.autoClose) window.close();
             }, invPricingAnalysisBarSpan, revision);
         });
 
         //Update prices
-        let applyNewPriceInvPricingBtn = $('<button class="btn btn-default" id="aes-btn-invPricing-apply-new-prices">apply new prices (and save data)</button>');
+        let applyNewPriceInvPricingBtn = $(AESI18n.html('<button class="btn btn-default" id="aes-btn-invPricing-apply-new-prices">apply new prices (and save data)</button>'));
         $(applyNewPriceInvPricingBtn).click(function() {
 
-            invPricingAnalysisBarSpan.text('Updating prices...');
+            invPricingAnalysisBarSpan.text(AESI18n.t('Updating prices...'));
             runInventoryAction(() => submitPendingPricingUpdate(getTargetPricingUpdates(prices, false), invPricingAnalysisBarSpan, revision), invPricingAnalysisBarSpan, revision);
         });
-        let applyReferencePriceInvPricingBtn = $('<button class="btn btn-default" id="aes-btn-invPricing-apply-reference-prices">apply reference prices (and save data)</button>');
+        let applyReferencePriceInvPricingBtn = $(AESI18n.html('<button class="btn btn-default" id="aes-btn-invPricing-apply-reference-prices">apply reference prices (and save data)</button>'));
         $(applyReferencePriceInvPricingBtn).click(function() {
 
-            invPricingAnalysisBarSpan.text('Updating prices...');
+            invPricingAnalysisBarSpan.text(AESI18n.t('Updating prices...'));
             for (const cmp of cabins) {
                 if (!analysis.data[cmp].newPrice && analysis.data[cmp].referenceNewPrice) {
                     prices[cmp].newPriceInput.value = String(analysis.data[cmp].referenceNewPrice);
@@ -1055,7 +1055,7 @@ function displayAnalysis(analysis: AESModel.InventoryAnalysis, prices: AESModel.
             //Today data does exist
             if (getSnapshot(todayDate).pricingUpdated) {
                 //Today pricing updated
-                invPricingAnalysisBarSpan.text("Today prices have been updated at: " + getSnapshot(todayDate).updateTime);
+                invPricingAnalysisBarSpan.text(AESI18n.t("Today prices have been updated at: {0}", {"0": getSnapshot(todayDate).updateTime}));
 
                 //Automation
                 if (settings.invPricing.autoClose) {
@@ -1064,11 +1064,11 @@ function displayAnalysis(analysis: AESModel.InventoryAnalysis, prices: AESModel.
             } else {
                 //Today pricing not updated
                 if (hasPendingUpdate(todayDate)) {
-                    invPricingAnalysisBarSpan.text("Price update submitted but not confirmed. Check the target prices and retry if needed.");
+                    invPricingAnalysisBarSpan.text(AESI18n.t("Price update submitted but not confirmed. Check the target prices and retry if needed."));
                 } else {
-                    invPricingAnalysisBarSpan.text("Today's snapshot data saved at: " + getSnapshot(todayDate).updateTime);
+                    invPricingAnalysisBarSpan.text(AESI18n.t("Today's snapshot data saved at: {0}", {"0": getSnapshot(todayDate).updateTime}));
                 }
-                $(invPricingAnalysisBar).append($('<li></li>').append(saveInvPricingBtn.text("save snapshot data again")));
+                $(invPricingAnalysisBar).append($('<li></li>').append(saveInvPricingBtn.text(AESI18n.t("save snapshot data again"))));
                 if (analysis.hasValue('newPrice')) {
                     $(invPricingAnalysisBar).append($('<li></li>').append(applyNewPriceInvPricingBtn));
                 }
@@ -1078,7 +1078,7 @@ function displayAnalysis(analysis: AESModel.InventoryAnalysis, prices: AESModel.
             }
         } else {
             //Today data does not exist
-            $(invPricingAnalysisBar).append($('<li></li>').append(saveInvPricingBtn.text("save snapshot data")));
+            $(invPricingAnalysisBar).append($('<li></li>').append(saveInvPricingBtn.text(AESI18n.t("save snapshot data"))));
             if (analysis.hasValue('newPrice')) {
                 $(invPricingAnalysisBar).append($('<li></li>').append(applyNewPriceInvPricingBtn));
             }
@@ -1132,7 +1132,7 @@ function watchNativePriceSubmission() {
         void runInventoryAction(async () => {
             const signature = priceFormSignature(form);
             const current = () => isInventoryCurrent(revision) && form.isConnected && signature === priceFormSignature(form);
-            status.text('Waiting in the page queue to submit prices...');
+            status.text(AESI18n.t('Waiting in the page queue to submit prices...'));
             const slot = await AES.queuePage(location.href, 'price', current);
             try {
                 if (!current() || Date.now() >= (slot.expires || 0)) throw new Error('Prices or page changed while waiting. Please review and retry.');
@@ -1140,7 +1140,7 @@ function watchNativePriceSubmission() {
                 try { form.requestSubmit(submitter instanceof HTMLButtonElement || submitter instanceof HTMLInputElement ? submitter : undefined); }
                 finally { authorizedPriceSubmit = false; }
                 void slot.complete();
-                status.text('Price submission dispatched.');
+                status.text(AESI18n.t('Price submission dispatched.'));
             } catch (error) { await slot.cancel(); throw error; }
         }, status, revision);
     }, true);
@@ -1153,7 +1153,7 @@ async function submitPendingPricingUpdate(targetPrices: Partial<Record<AESModel.
     if (!submitter || !form) throw new Error('Price submission form is unavailable.');
     const signature = priceFormSignature(form);
     const current = () => isInventoryCurrent(revision) && form.isConnected && signature === priceFormSignature(form);
-    status.text('Waiting in the page queue to submit prices...');
+    status.text(AESI18n.t('Waiting in the page queue to submit prices...'));
     const slot = await AES.queuePage(location.href, 'price', current);
     try {
         if (!current()) throw new Error('Prices changed while waiting. Please review and retry.');
@@ -1175,7 +1175,7 @@ async function submitPendingPricingUpdate(targetPrices: Partial<Record<AESModel.
         authorizedPriceSubmit = true;
         try { $(submitter).trigger('click'); } finally { authorizedPriceSubmit = false; }
         void slot.complete();
-        status.removeClass().addClass('warning').text('Price update submitted but not confirmed.');
+        status.removeClass().addClass('warning').text(AESI18n.t('Price update submitted but not confirmed.'));
     } catch (error) { await slot.cancel(); throw error; }
 }
 
@@ -1189,7 +1189,7 @@ async function runInventoryAction(action: () => Promise<void>, status: JQuery, r
     $('#aes-div-analysis button').prop('disabled', true);
     try { await action(); }
     catch (error) {
-        if (isInventoryCurrent(revision)) status.removeClass().addClass('bad').text('Unable to save inventory data. Prices were not submitted. ' + (error instanceof Error ? error.message : ''));
+        if (isInventoryCurrent(revision)) status.removeClass().addClass('bad').text(AESI18n.t("Unable to save inventory data. Prices were not submitted. {0}", {"0": (error instanceof Error ? error.message : '')}));
     } finally {
         inventoryActionPending = false;
         if (isInventoryCurrent(revision)) $('#aes-div-analysis button').prop('disabled', false);
@@ -1212,18 +1212,18 @@ function displayHistory(analysis: AESModel.InventoryAnalysis) {
     if (dates.length) {
         //Build Div
         let mainDiv = $("#aes-div-analysis");
-        mainDiv.after('<h3 id="aes-h3-history">Historical Data</h3><div id="aes-div-invPricing-historicalData" class="as-panel"></div>');
+        mainDiv.after(AESI18n.html('<h3 id="aes-h3-history">Historical Data</h3><div id="aes-div-invPricing-historicalData" class="as-panel"></div>'));
 
         //History Options
-        let fieldset = $('<fieldset></fieldset>').html('<legend>History Options</legend>');
+        let fieldset = $('<fieldset></fieldset>').html(AESI18n.html('<legend>History Options</legend>'));
         //Hide Now
-        let option1 = $('<div class="checkbox"></div>').html('<label><input id="aes-check-inventory-history-showNow" type="checkbox"> Show "Now" column</label>');
+        let option1 = $('<div class="checkbox"></div>').html(AESI18n.html('<label><input id="aes-check-inventory-history-showNow" type="checkbox"> Show "Now" column</label>'));
         //Show only Priced
-        let option2 = $('<div class="checkbox"></div>').html('<label><input id="aes-check-inventory-history-showOnlyPricing" type="checkbox"> Show only dates when pricing changed</label>');
+        let option2 = $('<div class="checkbox"></div>').html(AESI18n.html('<label><input id="aes-check-inventory-history-showOnlyPricing" type="checkbox"> Show only dates when pricing changed</label>'));
 
         //Number of records
-        let option3 = $('<select id="aes-select-inventory-history-numberPastDates" class="form-control input-sm"></select>').html('<option value="5">5 past dates</option><option value="10">10 past dates</option><option value="all">All past dates</option>')
-        let wrapper = $('<div class="form-group"></div>').append('<label class="control-label"><span>Number of past dates</span></label>', option3);
+        let option3 = $(AESI18n.html('<select id="aes-select-inventory-history-numberPastDates" class="form-control input-sm"></select>')).html(AESI18n.html('<option value="5">5 past dates</option><option value="10">10 past dates</option><option value="all">All past dates</option>'))
+        let wrapper = $('<div class="form-group"></div>').append(AESI18n.html('<label class="control-label"><span>Number of past dates</span></label>'), option3);
 
         fieldset.append(option1, option2, wrapper);
         $("#aes-div-invPricing-historicalData").append(fieldset);
@@ -1334,28 +1334,28 @@ function buildHistoryTable() {
         let th1 = ['<th>SC</th>'];
         if (showNow) {
             // The moment of opening the inv tab
-            th.push($('<th colspan="5"></th>').text('Now'));
-            th1.push('<th class="text-nowrap aes-text-right">Price</th>');
+            th.push($('<th colspan="5"></th>').text(AESI18n.t('Now')));
+            th1.push(AESI18n.html('<th class="text-nowrap aes-text-right">Price</th>'));
             th1.push('<th class="text-nowrap">&Delta; %</th>');
-            th1.push('<th class="text-nowrap">Load</th>');
+            th1.push(AESI18n.html('<th class="text-nowrap">Load</th>'));
             th1.push('<th class="text-nowrap">&Delta; %</th>');
-            th1.push('<th class="text-nowrap aes-text-right">Index</th>');
+            th1.push(AESI18n.html('<th class="text-nowrap aes-text-right">Index</th>'));
         }
         for (let i = 0; i < dates.length; i++) {
             const isOldest = i === dates.length - 1;
             let date = dates[i];
             if (!isOldest) {
                 th.push($('<th colspan="5"></th>').text(AES.formatDateString(date) || date));
-                th1.push('<th class="text-nowrap aes-text-right">Price</th>');
+                th1.push(AESI18n.html('<th class="text-nowrap aes-text-right">Price</th>'));
                 th1.push('<th class="text-nowrap text-right">&Delta; %</th>');
-                th1.push('<th class="text-nowrap text-right">Load</th>');
+                th1.push(AESI18n.html('<th class="text-nowrap text-right">Load</th>'));
                 th1.push('<th class="text-nowrap text-right">&Delta; %</th>');
-                th1.push('<th class="text-nowrap text-right">Index</th>');
+                th1.push(AESI18n.html('<th class="text-nowrap text-right">Index</th>'));
             } else {
                 th.push($('<th colspan="3"></th>').text(AES.formatDateString(date) || date));
-                th1.push('<th class="text-nowrap text-right">Price</th>');
-                th1.push('<th class="text-nowrap text-right">Load</th>');
-                th1.push('<th class="text-nowrap text-right">Index</th>');
+                th1.push(AESI18n.html('<th class="text-nowrap text-right">Price</th>'));
+                th1.push(AESI18n.html('<th class="text-nowrap text-right">Load</th>'));
+                th1.push(AESI18n.html('<th class="text-nowrap text-right">Index</th>'));
             }
         }
 
@@ -1415,7 +1415,7 @@ function buildHistoryTable() {
         //Total PAX
         footerRows.forEach(function(type) {
             let tf = [];
-            tf.push($('<th></th>').text(historyDisplayTotalText(type)));
+            tf.push($('<th></th>').text(AESI18n.t(historyDisplayTotalText(type))));
             if (showNow) {
                 //Now
                 let data = analysis.data;
@@ -1454,13 +1454,13 @@ function buildHistoryTable() {
 
 function displayValidationError() {
     let p = [];
-    p.push($('<p></p>').text('AES Inventory Pricing Module could not be loaded because of errors:'));
+    p.push($('<p></p>').text(AESI18n.t('AES Inventory Pricing Module could not be loaded because of errors:')));
     aesmodule.errors.forEach(function(error) {
         p.push($('<p class="bad"></p>').append($('<b></b>').text(error)));
     });
-    p.push($('<p class="warning"></p>').text('Adjust the inventory view and AES will reload automatically.'));
+    p.push($('<p class="warning"></p>').text(AESI18n.t('Adjust the inventory view and AES will reload automatically.')));
     let panel = $('<div id="aes-panel-validation" class="as-panel"></div>').append(...p);
-    let h2 = $('<h3 id="aes-h3-validation"></h3>').text('AES Inventory Pricing Module');
+    let h2 = $('<h3 id="aes-h3-validation"></h3>').text(AESI18n.t('AES Inventory Pricing Module'));
     $('h1:eq(0)').after(h2, panel)
 }
 

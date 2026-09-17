@@ -7,3 +7,5 @@
 document.getElementById("aes-openOptions-btn")?.addEventListener('click', function() {
   chrome.runtime.openOptionsPage()
 });
+
+AESI18n.whenReady(()=>AESI18n.localize(document.body));

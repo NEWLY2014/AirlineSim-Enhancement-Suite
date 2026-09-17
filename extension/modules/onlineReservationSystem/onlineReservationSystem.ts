@@ -148,7 +148,7 @@ class OnlineReservationSystem {
 
         const diffTh = document.createElement('th');
         diffTh.className = 'aes-ors-difference';
-        diffTh.textContent = 'Difference';
+        diffTh.textContent = AESI18n.t('Difference');
         ths[ratingThIdx].after(diffTh);
         return ratingThIdx;
     }

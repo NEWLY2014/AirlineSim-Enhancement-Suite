@@ -50,7 +50,7 @@ class AESNotification {
      */
     #createContent(text: string) {
         const content = document.createElement("span")
-        content.innerText = ` ${text}`
+        content.innerText = ` ${AESI18n.t(text)}`
 
         return content
     }

@@ -97,10 +97,10 @@ class AESMenu {
         menu.hidden = true
         const menuItems = []
         const content = [{
-            label: "Community",
+            label: AESI18n.t("Community"),
             isHeader: true
         },{
-            label: "Forum Topic",
+            label: AESI18n.t("Forum Topic"),
             href: "https://forums.airlinesim.aero/t/introducing-airlinesim-enhancement-suite-beta/",
             newWindow: true
         },{
@@ -110,15 +110,15 @@ class AESMenu {
         },{
             isDivider: true
         },{
-            label: "Support",
+            label: AESI18n.t("Support"),
             isHeader: true
         },{
-            label: "Report a Bug",
+            label: AESI18n.t("Report a Bug"),
             href: `https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/issues/new?body=AES:%20v${chrome.runtime.getManifest().version_name}%0AChrome:%20v${window.navigator.userAgent.match(/Chrom(?:e|ium)\/([0-9]+)/)?.[1] || 'unknown'}%0A%0A`,
             newWindow: true,
             icon: { className: "fa-bug" }
         },{
-            label: "Handbook",
+            label: AESI18n.t("Handbook"),
             href: "https://docs.google.com/document/d/1hzMHb3hTBXSZNtuDKoBuvx1HP9CgB7wVYR59yDYympg/",
             newWindow: true,
             icon: { className: "fa-book" }
@@ -130,7 +130,7 @@ class AESMenu {
         },{
             isDivider: true
         },{
-            label: "About AES",
+            label: AESI18n.t("About AES"),
             icon: { className: "fa-info" },
             data: {
                 toggle: "modal",

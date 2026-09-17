@@ -439,7 +439,7 @@ function fltmng_display() {
 
     let panel = $('<div class="as-panel"></div>').append(...p);
     //Header
-    let h = $('<h3></h3>').text('AES Fleet Management');
+    let h = $('<h3></h3>').text(AESI18n.t('AES Fleet Management'));
     let div = $('<div id="aes-fleet-management-root"></div>').append(h, panel);
     AES.markOwnedElements(div);
     let insertionTarget = $('.as-page-fleet-management > h1:eq(0)');
@@ -466,11 +466,11 @@ function fltmng_displayAircraftProfit() {
         $('thead tr:eq(0) th:eq(2)', table).html().replace('Aircraft model', 'Model')
     );
     $('thead tr:eq(0) th:eq(2)', table).after(
-        $('<th rowspan="2" class="aes-fleet-extra-header">HUB</th>')
+        $(AESI18n.html('<th rowspan="2" class="aes-fleet-extra-header">HUB</th>'))
     );
     $('thead tr:eq(0)', table).append(
-        $('<th rowspan="2" class="aes-fleet-extra-header">Profit/Loss</th>'),
-        $('<th rowspan="2" class="aes-fleet-extra-header">Extract date</th>')
+        $(AESI18n.html('<th rowspan="2" class="aes-fleet-extra-header">Profit/Loss</th>')),
+        $(AESI18n.html('<th rowspan="2" class="aes-fleet-extra-header">Extract date</th>'))
     );
     //Body
     $<HTMLTableRowElement>('tbody tr', table).each(function() {
@@ -633,7 +633,7 @@ function fltmng_displaySavedAircrafts() {
 }
 
 function fltmng_displayNewUpdates() {
-    let span = $('<span class="good"></span>').text('Updated aircraft data for ' + aircraftData.length + ' from ' + currentFleet);
+    let span = $('<span class="good"></span>').text(AESI18n.t("Updated aircraft data for {0} from {1}", {"0": aircraftData.length, "1": currentFleet}));
     return span;
 }
 
@@ -642,21 +642,21 @@ function fltmng_buildFilterPanel() {
     let hubSelect = fltmng_buildFilterSelect('All HUBs', fltmng_getUniqueAircraftHubValues());
     let seatConfigSelect = fltmng_buildFilterSelect('All seat configs', fltmng_getUniqueAircraftValues('seatConfig'));
     let deliverySelect = fltmng_buildFilterSelect('All delivery states', [
-        { value: 'delivered', label: 'Delivered' },
-        { value: 'undelivered', label: 'Undelivered' }
+        { value: 'delivered', label: AESI18n.t('Delivered') },
+        { value: 'undelivered', label: AESI18n.t('Undelivered') }
     ]);
     let ownershipSelect = fltmng_buildFilterSelect('All ownership', [
-        { value: 'owned', label: 'Owned' },
-        { value: 'leased', label: 'Leased' }
+        { value: 'owned', label: AESI18n.t('Owned') },
+        { value: 'leased', label: AESI18n.t('Leased') }
     ]);
     let scheduleSelect = fltmng_buildFilterSelect('All schedules', [
-        { value: 'active', label: 'Active' },
-        { value: 'empty', label: 'Empty' },
-        { value: 'pending', label: 'Locked' },
-        { value: 'conflict', label: 'Conflict' },
-        { value: 'undelivered', label: 'Undelivered' }
+        { value: 'active', label: AESI18n.t('Active') },
+        { value: 'empty', label: AESI18n.t('Empty') },
+        { value: 'pending', label: AESI18n.t('Locked') },
+        { value: 'conflict', label: AESI18n.t('Conflict') },
+        { value: 'undelivered', label: AESI18n.t('Undelivered') }
     ]);
-    let resetBtn = $('<button type="button" class="btn btn-default"></button>').text('Reset filters');
+    let resetBtn = $('<button type="button" class="btn btn-default"></button>').text(AESI18n.t('Reset filters'));
     let status = $('<span class="text-muted"></span>');
 
     let form = $('<div class="row"></div>').append(
@@ -684,7 +684,7 @@ function fltmng_buildFilterPanel() {
 
     applyFilters();
     return $('<div></div>').append(
-        $('<p><strong>AES filters</strong></p>'),
+        $(AESI18n.html('<p><strong>AES filters</strong></p>')),
         form
     );
 
@@ -715,7 +715,7 @@ function fltmng_buildFilterPanel() {
             }
         });
         fltmngFilterActive = !!(equipmentSelect.val() || hubSelect.val() || seatConfigSelect.val() || deliverySelect.val() || ownershipSelect.val() || scheduleSelect.val());
-        status.text('Showing ' + visibleCount + ' of ' + aircraftData.length + ' aircraft' + (fltmngFilterActive ? '. Selection links apply to visible aircraft only.' : ''));
+        status.text(AESI18n.t("Showing {0} of {1} aircraft{2}", {"0": visibleCount, "1": aircraftData.length, "2": (fltmngFilterActive ? AESI18n.t('. Selection links apply to visible aircraft only.') : '')}));
         if (selectionStateChanged) {
             fltmng_refreshNativeSelectionState(refreshCheckbox);
         }
@@ -799,14 +799,14 @@ function fltmng_bindNativeSelectionLinks() {
 
 function fltmng_wrapFilterControl(label: string, control: JQuery) {
     return $('<div class="col-md-2 col-sm-4" style="margin-top: 8px;"></div>').append(
-        $('<label class="control-label"></label>').text(label),
+        $('<label class="control-label"></label>').text(AESI18n.t(label)),
         control
     );
 }
 
 function fltmng_buildFilterSelect(placeholder: string, values: Array<string | { value: string; label: string }>) {
     let select = $('<select class="form-control"></select>').append(
-        $('<option value=""></option>').text(placeholder)
+        $('<option value=""></option>').text(AESI18n.t(placeholder))
     );
     values.forEach(function(value) {
         if (typeof value == 'string') {

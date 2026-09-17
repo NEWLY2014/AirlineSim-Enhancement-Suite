@@ -45,16 +45,16 @@ function displayPersonnelManagement() {
     let select = $('<select id="aes-select-personnelManagement-type" class="form-control aes-personnel-management-type"></select>').append(...option);
     select.val(ensurePersonnelManagementSettings(settings).type);
 
-    let btn = $('<button type="button" class="btn btn-default aes-personnel-management-apply">Apply salaries</button>');
-    let lastUpdate = $('<span id="aes-personnel-management-last-update" class="aes-personnel-management-last-update"></span>').text('No previous update');
+    let btn = $(AESI18n.html('<button type="button" class="btn btn-default aes-personnel-management-apply">Apply salaries</button>'));
+    let lastUpdate = $('<span id="aes-personnel-management-last-update" class="aes-personnel-management-last-update"></span>').text(AESI18n.t('No previous update'));
 
     let controls = $('<div class="form-inline aes-personnel-management-controls"></div>').append(
         $('<div class="form-group aes-personnel-management-control"></div>').append(
-            $('<label class="control-label" for="aes-input-personnelManagement-value"></label>').text('Value'),
+            $('<label class="control-label" for="aes-input-personnelManagement-value"></label>').text(AESI18n.t('Value')),
             input
         ),
         $('<div class="form-group aes-personnel-management-control"></div>').append(
-            $('<label class="control-label" for="aes-select-personnelManagement-type"></label>').text('Type'),
+            $('<label class="control-label" for="aes-select-personnelManagement-type"></label>').text(AESI18n.t('Type')),
             select
         ),
         $('<div class="form-group aes-personnel-management-action"></div>').append(btn)
@@ -64,7 +64,7 @@ function displayPersonnelManagement() {
 
     //Final
     let mainDiv = getPersonnelManagementHeading();
-    let root = $('<div id="aes-personnel-management-root"></div>').append('<h3>AES Personnel Management</h3>', panel);
+    let root = $('<div id="aes-personnel-management-root"></div>').append(AESI18n.html('<h3>AES Personnel Management</h3>'), panel);
     AES.markOwnedElements(root);
     if (!mainDiv.length) {
         throw new Error("Personnel management insertion target h1 was not found");
@@ -122,7 +122,7 @@ function displayPersonnelManagement() {
             void confirmSalaryUpdate(key, result[key]);
             setPersonnelLastUpdateText(lastUpdate, result[key]);
         } else {
-            lastUpdate.text('No previous update');
+            lastUpdate.text(AESI18n.t('No previous update'));
         }
     });
 }
@@ -410,12 +410,12 @@ function updatePersonnelLastUpdate(data: unknown) {
 }
 
 function formatPersonnelLastUpdate(data: unknown) {
-    if (AES.isRecord(data) && data.pending) return 'Salary submission awaiting confirmation. Reload to check.';
+    if (AES.isRecord(data) && data.pending) return AESI18n.t('Salary submission awaiting confirmation. Reload to check.');
     if (!AES.isRecord(data) || typeof data.date !== "string" || !data.date) {
-        return 'No previous update';
+        return AESI18n.t('No previous update');
     }
 
-    return 'Last update: ' + AES.formatDateString(data.date) + (data.time ? ' ' + data.time : '');
+    return AESI18n.t("Last update: {0}{1}", {"0": AES.formatDateString(data.date), "1": (data.time ? ' ' + data.time : '')});
 }
 
 function failSalaryUpdate(message: string, options: AESModel.SalaryUpdateOptions = {}) {
@@ -462,7 +462,7 @@ async function confirmSalaryUpdate(key: string, value: unknown) {
         delete confirmed.pending;
         await chrome.storage.local.set({[key]:confirmed});
         if (AES.isPageOwner()) updatePersonnelLastUpdate(confirmed);
-    } catch(error) {showPersonnelNotification('Could not confirm salary update: '+String(error),'error');}
+    } catch(error) {showPersonnelNotification(AESI18n.t("Could not confirm salary update: {0}", {"0": String(error)}),'error');}
 }
 
 function finishSalaryUpdate(message: string | null, options: AESModel.SalaryUpdateOptions = {}, callback?: () => void) {

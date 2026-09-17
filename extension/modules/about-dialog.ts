@@ -37,7 +37,7 @@ class AboutDialog {
         container.id = "aes-about-dialog"
         container.setAttribute("role", "dialog")
         container.setAttribute("aria-modal", "true")
-        container.setAttribute("aria-label", "About AirlineSim Enhancement Suite")
+        container.setAttribute("aria-label", AESI18n.t("About AirlineSim Enhancement Suite"))
 
         return container
     }
@@ -61,7 +61,7 @@ class AboutDialog {
         icon.setAttribute("aria-hidden", "true")
         icon.innerText = "×"
         const label = document.createElement("span")
-        label.innerText = "Close"
+        label.innerText = AESI18n.t("Close")
         label.className = "sr-only"
         const button = document.createElement("button")
         button.setAttribute("type", "button")

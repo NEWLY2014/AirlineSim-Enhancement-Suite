@@ -39,8 +39,15 @@ function copyAssets(directory) {
 }
 copyAssets(source);
 
+// Compile local catalogs once; UI pages share the same translation runtime.
+const catalogs = Object.fromEntries(readdirSync(join(source, 'locales')).filter(file => file.endsWith('.json')).map(file => [file.slice(0, -5), JSON.parse(readFileSync(join(source, 'locales', file), 'utf8'))]));
+writeFileSync(join(output, 'modules/i18n-data.js'), 'const AES_I18N_CATALOG = ' + JSON.stringify(catalogs) + ';\n');
+
 // Bundle pure page dependencies without introducing additional global load ordering.
 const pageModules = {
+    'helpers.js': ['modules/i18n-data.js', 'modules/i18n.js'],
+    'options.js': ['modules/i18n-data.js', 'modules/i18n.js'],
+    'popup.js': ['modules/i18n-data.js', 'modules/i18n.js'],
     'content_dashboard.js': ['modules/dashboard-defaults.js', 'modules/dashboard-table.js', 'modules/schedule-diff.js'],
     'content_inventory.js': ['modules/inventory/data.js'],
     'content_aircraftFlightPlan.js': ['modules/flight-plan-rules.js'],

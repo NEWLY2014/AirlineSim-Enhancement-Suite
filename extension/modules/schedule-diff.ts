@@ -56,10 +56,10 @@ namespace AESScheduleDiff {
         const details=Array.isArray(data.services) ? data.services.filter(record).map(service=>fields.map(field=>{
             let value=String((service as unknown as Record<string,unknown>)[field] ?? '');
             if (!value) return '';
-            if (field==='days') value=value.split('').map(day=>days[Number(day)-1] || day).join(' ');
-            return labels[field]+': '+value;
+            if (field==='days') value=value.split('').map(day=>AESI18n.t(days[Number(day)-1] || day)).join(' ');
+            return AESI18n.t(labels[field])+': '+value;
         }).filter(Boolean).join(' · ')).sort().join('\n') : [data.valid,data.remark].filter(Boolean).join(' · ');
-        return data.paxFreq+' passenger / '+data.cargoFreq+' cargo per week'+(details ? '\n'+details : '');
+        return AESI18n.t('{0} passenger / {1} cargo per week', {0:data.paxFreq,1:data.cargoFreq})+(details ? '\n'+details : '');
     }
     export async function compare(before:Capture,after:Capture,current:()=>boolean=()=>true): Promise<{changes:Change[];limited:boolean}> {
         await pause();
@@ -107,11 +107,12 @@ namespace AESScheduleDiff {
     export function open(raw:unknown,name:string,returnFocus:HTMLElement | undefined=document.activeElement instanceof HTMLElement ? document.activeElement : undefined) {
         activeDialog?.remove();
         const items=captures(raw);
-        const dialog=$('<dialog class="aes-schedule-diff" aria-label="Schedule changes"></dialog>');
+        const dialog=$(AESI18n.html('<dialog class="aes-schedule-diff" aria-label="Schedule changes"></dialog>'));
         const theme=AES.getFrontendSettings().theme;
+        dialog.attr('lang',AESI18n.locale());
         dialog.attr('data-theme',theme==='light' || theme==='classic' ? 'light' : 'dark');
-        const close=$('<button type="button" class="btn btn-default">Close</button>');
-        dialog.append($('<div class="aes-diff-heading"></div>').append($('<h3></h3>').text('Schedule changes · '+name),close));
+        const close=$(AESI18n.html('<button type="button" class="btn btn-default">Close</button>'));
+        dialog.append($('<div class="aes-diff-heading"></div>').append($('<h3></h3>').text(AESI18n.t("Schedule changes · {0}", {"0": name})),close));
         activeDialog=dialog;
         const destroy=()=>{
             if ((dialog[0] as HTMLDialogElement).open) (dialog[0] as HTMLDialogElement).close();
@@ -122,39 +123,39 @@ namespace AESScheduleDiff {
         if (!cleanupRegistered) {AES.whenPageOwnershipLost(()=>{activeDialog?.remove();activeDialog=undefined;});cleanupRegistered=true;}
         const show=()=>{document.body.append(dialog[0]);(dialog[0] as HTMLDialogElement).showModal();close.trigger('focus');};
         if (items.length<2) {
-            dialog.append($('<p></p>').text('A comparison needs two saved schedules. Refresh this airline again after its schedule changes.'));show();return;
+            dialog.append($('<p></p>').text(AESI18n.t('A comparison needs two saved schedules. Refresh this airline again after its schedule changes.')));show();return;
         }
-        const older=$('<select class="form-control" aria-label="Previous snapshot"></select>');
-        const newer=$('<select class="form-control" aria-label="Current snapshot"></select>');
+        const older=$(AESI18n.html('<select class="form-control" aria-label="Previous snapshot"></select>'));
+        const newer=$(AESI18n.html('<select class="form-control" aria-label="Current snapshot"></select>'));
         items.forEach((item,i)=>{older.append($('<option></option>').val(i).text(item.label));newer.append($('<option></option>').val(i).text(item.label));});
         older.val(1);newer.val(0);
-        const filter=$('<select class="form-control" aria-label="Change type"><option>All changes</option><option>Added</option><option>Removed</option><option>Changed</option></select>');
-        const search=$('<input class="form-control" type="search" placeholder="Flight number or airport" aria-label="Search changes">');
+        const filter=$(AESI18n.html('<select class="form-control" aria-label="Change type"><option>All changes</option><option>Added</option><option>Removed</option><option>Changed</option></select>'));
+        const search=$(AESI18n.html('<input class="form-control" type="search" placeholder="Flight number or airport" aria-label="Search changes">'));
         dialog.append($('<div class="aes-diff-controls"></div>').append(
-            $('<label>From</label>').append(older),$('<label>To</label>').append(newer),$('<label>Show</label>').append(filter),$('<label>Search</label>').append(search)));
+            $(AESI18n.html('<label>From</label>')).append(older),$(AESI18n.html('<label>To</label>')).append(newer),$(AESI18n.html('<label>Show</label>')).append(filter),$(AESI18n.html('<label>Search</label>')).append(search)));
         const status=$('<p role="status" class="aes-diff-summary"></p>'),note=$('<p class="text-muted"></p>');
         const body=$('<tbody></tbody>');
-        const table=$('<table class="table table-bordered"><thead><tr><th>Change</th><th>Route</th><th>Flight</th><th>Before</th><th>After</th></tr></thead></table>').append(body);
-        const prev=$('<button type="button" class="btn btn-default">Previous</button>'),next=$('<button type="button" class="btn btn-default">Next</button>'),pageLabel=$('<span></span>');
-        dialog.append(status,note,$('<div class="aes-diff-table"></div>').append(table),$('<div class="aes-diff-pagination"></div>').append(prev,pageLabel,next),$('<p class="text-muted"></p>').text('Every successful collection is retained until you manually clear history in AES options. Flight number changes appear as removals and additions.'));
+        const table=$(AESI18n.html('<table class="table table-bordered"><thead><tr><th>Change</th><th>Route</th><th>Flight</th><th>Before</th><th>After</th></tr></thead></table>')).append(body);
+        const prev=$(AESI18n.html('<button type="button" class="btn btn-default">Previous</button>')),next=$(AESI18n.html('<button type="button" class="btn btn-default">Next</button>')),pageLabel=$('<span></span>');
+        dialog.append(status,note,$('<div class="aes-diff-table"></div>').append(table),$('<div class="aes-diff-pagination"></div>').append(prev,pageLabel,next),$('<p class="text-muted"></p>').text(AESI18n.t('Every successful collection is retained until you manually clear history in AES options. Flight number changes appear as removals and additions.')));
         let page=0;
         let result: Awaited<ReturnType<typeof compare>> | undefined;
         let revision=0;
         const render=()=>{
             body.empty();
             const valid=Number(older.val())>Number(newer.val());
-            if (!valid) {status.text('Choose a From snapshot older than the To snapshot.');note.text('');prev.prop('disabled',true);next.prop('disabled',true);pageLabel.text('');return;}
+            if (!valid) {status.text(AESI18n.t('Choose a From snapshot older than the To snapshot.'));note.text('');prev.prop('disabled',true);next.prop('disabled',true);pageLabel.text('');return;}
             const comparison=result;
-            if (!comparison) {status.text('Comparing schedules…');note.text('');prev.prop('disabled',true);next.prop('disabled',true);pageLabel.text('');return;}
+            if (!comparison) {status.text(AESI18n.t('Comparing schedules…'));note.text('');prev.prop('disabled',true);next.prop('disabled',true);pageLabel.text('');return;}
             const counts=(kind:string)=>comparison.changes.filter(change=>change.kind===kind).length;
             const query=String(search.val() || '').trim().toLowerCase();
             const rows=comparison.changes.filter(change=>(filter.val()==='All changes' || change.kind===filter.val()) && (change.route+' '+change.flight).toLowerCase().includes(query));
-            status.text(comparison.changes.length ? counts('Added')+' added · '+counts('Removed')+' removed · '+counts('Changed')+' changed' : 'No changes in comparable fields.');
-            note.text(comparison.limited ? 'Some snapshots lack detailed fields. Only fields available in both snapshots are compared.' : '');
-            for (const change of rows.slice(page*100,(page+1)*100)) body.append($('<tr></tr>').append(...[change.kind,change.route,change.flight,change.before,change.after].map(value=>$('<td></td>').text(value))));
-            if (!rows.length && comparison.changes.length) body.append($('<tr></tr>').append($('<td colspan="5"></td>').text('No changes match your filters.')));
+            status.text(comparison.changes.length ? AESI18n.t("{0} added · {1} removed · {2} changed", {"0": counts('Added'), "1": counts('Removed'), "2": counts('Changed')}) : AESI18n.t('No changes in comparable fields.'));
+            note.text(comparison.limited ? AESI18n.t('Some snapshots lack detailed fields. Only fields available in both snapshots are compared.') : '');
+            for (const change of rows.slice(page*100,(page+1)*100)) body.append($('<tr></tr>').append(...[AESI18n.t(change.kind),change.route,change.flight,change.before,change.after].map(value=>$('<td></td>').text(value))));
+            if (!rows.length && comparison.changes.length) body.append($('<tr></tr>').append($('<td colspan="5"></td>').text(AESI18n.t('No changes match your filters.'))));
             prev.prop('disabled',page===0);next.prop('disabled',(page+1)*100>=rows.length);
-            pageLabel.text(rows.length ? (page*100+1)+'–'+Math.min((page+1)*100,rows.length)+' of '+rows.length : '0 changes');
+            pageLabel.text(rows.length ? AESI18n.t("{0}–{1} of {2}", {"0": (page*100+1), "1": Math.min((page+1)*100,rows.length), "2": rows.length}) : AESI18n.t('0 changes'));
         };
         const refresh=async()=>{
             const request=++revision;page=0;result=undefined;render();
@@ -163,7 +164,7 @@ namespace AESScheduleDiff {
             try {
                 const compared=await compare(items[Number(older.val())],items[Number(newer.val())],current);
                 if(current()){result=compared;render();}
-            } catch(error) {if(current()) status.text('Unable to compare schedules: '+String(error));}
+            } catch(error) {if(current()) status.text(AESI18n.t("Unable to compare schedules: {0}", {"0": String(error)}));}
         };
         older.add(newer).on('change',()=>{void refresh();});
         filter.on('change',()=>{page=0;render();});search.on('input',()=>{page=0;render();});

@@ -840,8 +840,8 @@ class ReleaseNotesDialog {
         this.#currentIndex = Math.max(0, this.#versions.indexOf(version))
         this.#closeButton = this.#createCloseButton()
         this.#confirmButton = this.#createConfirmButton()
-        this.#previousButton = this.#createPageButton("Previous", "Previous release notes page")
-        this.#nextButton = this.#createPageButton("Next", "Next release notes page")
+        this.#previousButton = this.#createPageButton("Previous", "Previous release")
+        this.#nextButton = this.#createPageButton("Next", "Next release")
         this.#pageIndicator = document.createElement("span")
         this.#pageIndicator.className = "aes-release-notes-page-indicator"
         this.#container = this.#createContainer()
@@ -904,7 +904,7 @@ class ReleaseNotesDialog {
         changelogLink.href = "https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/blob/main/CHANGELOG.md"
         changelogLink.target = "_blank"
         changelogLink.rel = "noopener noreferrer"
-        changelogLink.textContent = "View full changelog"
+        changelogLink.textContent = AESI18n.t("View full changelog")
 
         const pagination = document.createElement("div")
         pagination.className = "aes-release-notes-pagination"
@@ -922,7 +922,7 @@ class ReleaseNotesDialog {
         const button = document.createElement("button")
         button.setAttribute("type", "button")
         button.className = "close aes-release-notes-close"
-        button.setAttribute("aria-label", "Close")
+        button.setAttribute("aria-label", AESI18n.t("Close"))
         button.innerHTML = "&times;"
         return button
     }
@@ -931,7 +931,7 @@ class ReleaseNotesDialog {
         const button = document.createElement("button")
         button.type = "button"
         button.className = "btn btn-primary aes-release-notes-confirm"
-        button.textContent = "Got it"
+        button.textContent = AESI18n.t("Got it")
         return button
     }
 
@@ -939,8 +939,8 @@ class ReleaseNotesDialog {
         const button = document.createElement("button")
         button.type = "button"
         button.className = "btn btn-default aes-release-notes-page-button"
-        button.textContent = text
-        button.setAttribute("aria-label", ariaLabel)
+        button.textContent = AESI18n.t(text)
+        button.setAttribute("aria-label", AESI18n.t(ariaLabel))
         return button
     }
 
@@ -952,16 +952,17 @@ class ReleaseNotesDialog {
         }
 
         const isLatestRelease = this.#currentIndex === 0
-        this.#badge.textContent = isLatestRelease ? "Latest release" : "Release history"
+        this.#badge.textContent = isLatestRelease ? AESI18n.t("Latest release") : AESI18n.t("Release history")
         this.#title.textContent = isLatestRelease
-            ? "What's new in v" + version
-            : "Release notes for v" + version
-        this.#versionLabel.textContent = "Released " + notes.releaseDate
+            ? AESI18n.t("What's new in v{0}", {0:version})
+            : AESI18n.t("Release notes for v{0}", {0:version})
+        this.#versionLabel.textContent = AESI18n.t("Released {0}", {0:notes.releaseDate})
         this.#sections.replaceChildren()
 
         notes.sections.forEach((section) => {
             const card = document.createElement("section")
             card.className = "aes-release-notes-card"
+            card.lang = "en"
             const sectionTitle = document.createElement("h4")
             sectionTitle.className = "aes-release-notes-card-title"
             sectionTitle.textContent = section.title
@@ -981,7 +982,7 @@ class ReleaseNotesDialog {
         this.#previousButton.disabled = this.#currentIndex >= this.#versions.length - 1
         this.#nextButton.disabled = this.#currentIndex === 0
         this.#pageIndicator.textContent = "v" + version
-        this.#pageIndicator.setAttribute("aria-label", "Showing release notes for version " + version)
+        this.#pageIndicator.setAttribute("aria-label", AESI18n.t("Showing release notes for version {0}", {0:version}))
         this.#body.scrollTop = 0
     }
 

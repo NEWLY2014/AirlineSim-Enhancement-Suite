@@ -41,7 +41,7 @@ function displaySettings() {
         restore.push(()=>values.forEach(([name,value])=>value===null ? element.removeAttribute(name) : element.setAttribute(name,value)));
     };
     const root=$('<section id="aes-settings-root" class="aes-settings-panel" role="tabpanel" aria-labelledby="aes-settings-tab" hidden></section>');
-    const top=$('<li id="aes-settings-tab-item"><a id="aes-settings-tab" href="#aes-settings-root" role="tab" aria-controls="aes-settings-root" aria-selected="false" tabindex="-1">AES Settings</a></li>');
+    const top=$(AESI18n.html('<li id="aes-settings-tab-item"><a id="aes-settings-tab" href="#aes-settings-root" role="tab" aria-controls="aes-settings-root" aria-selected="false" tabindex="-1">AES Settings</a></li>'));
     const tabs=nativeTabs.length ? nativeTabs : $('<ul class="nav nav-tabs"></ul>').appendTo(main[0]);
     remember(tabs[0],['role','aria-label']);tabs.attr({'role':'tablist','aria-label':'Settings'});
     for(const item of nativeItems){
@@ -60,6 +60,7 @@ function displaySettings() {
             nativeLink.setAttribute('aria-controls',nativeContent.attr('id')!);
         }
     }
+    root.attr('lang', AESI18n.locale());
     tabs.append(top);tabs.after(root);
     const activate=(showAES:boolean)=>{
         root.prop('hidden',!showAES);
@@ -79,17 +80,17 @@ function displaySettings() {
     tabs.on('keydown.aesSettings','[role="tab"]',function(event){if(event.key===' '){event.preventDefault();this.click();}});
     bindTabKeys(tabs);
     const toolbar=$('<div class="aes-settings-toolbar"></div>');
-    const groups=$('<div class="aes-settings-groups" role="tablist" aria-label="AES settings sections"></div>');
-    const backup=$('<button type="button" class="btn btn-default">Backup &amp; Restore</button>');
+    const groups=$(AESI18n.html('<div class="aes-settings-groups" role="tablist" aria-label="AES settings sections"></div>'));
+    const backup=$(AESI18n.html('<button type="button" class="btn btn-default">Backup &amp; Restore</button>'));
     const feedback=$('<span role="status" class="aes-settings-feedback"></span>');
     backup.on('click',()=>chrome.runtime.sendMessage({type:'AES_OPEN_OPTIONS'},response=>{
-        if(chrome.runtime.lastError || !response?.ok) feedback.text('Unable to open Backup & Restore. Open AES extension options from Chrome.');
+        if(chrome.runtime.lastError || !response?.ok) feedback.text(AESI18n.t('Unable to open Backup & Restore. Open AES extension options from Chrome.'));
     }));
-    toolbar.append(groups,backup);root.append(toolbar,feedback);
+    toolbar.append(groups,backup);root.append(AESI18n.selector(),toolbar,feedback);
     const panels: JQuery[]=[],buttons: JQuery[]=[];
     const names=['Inventory Pricing','Flight Info'];
     names.forEach((name,index)=>{
-        const button=$('<button type="button" role="tab" class="btn btn-default"></button>').attr({id:'aes-settings-group-'+index,'aria-controls':'aes-settings-section-'+index}).text(name);
+        const button=$('<button type="button" role="tab" class="btn btn-default"></button>').attr({id:'aes-settings-group-'+index,'aria-controls':'aes-settings-section-'+index}).text(AESI18n.t(name));
         const panel=$('<div role="tabpanel"></div>').attr({id:'aes-settings-section-'+index,'aria-labelledby':'aes-settings-group-'+index});
         groups.append(button);root.append(panel);panels.push(panel);buttons.push(button);
         settingsArea=panel;
@@ -127,11 +128,11 @@ function displayFlightInfoSettings() {
             settings = updatedSettings;
         });
     });
-    let span = $('<span></span>').text('Automatically close flight information page after extracting financial information.');
+    let span = $('<span></span>').text(AESI18n.t('Automatically close flight information page after extracting financial information.'));
     let label = $('<label></label>').append(input, span);
     let checkboxDiv = $('<div class="checkbox"></div>').append(label);
     let panelDiv = $('<div class="as-panel"></div>').append(checkboxDiv);
-    let h3 = $('<h3>Flight Information</h3>');
+    let h3 = $(AESI18n.html('<h3>Flight Information</h3>'));
     let mainDiv = settingsArea;
     mainDiv.empty();
     mainDiv.append(h3, panelDiv);
@@ -141,7 +142,7 @@ function displayInvPricingSettings() {
     let mainDiv = settingsArea;
     mainDiv.empty();
     mainDiv.append(
-        `
+        AESI18n.html(`
     <h3>Inventory Pricing</h3>
     <div class="as-panel">
       <div class="checkbox">
@@ -180,7 +181,7 @@ function displayInvPricingSettings() {
     <div id="aes-div-recSettings">
     </div>
 
-    `
+    `)
     );
 
     invPricingAutoPricingHandle();
@@ -246,7 +247,7 @@ function invPricingRecStepHandle() {
     if (selectedCabin !== "Y" && selectedCabin !== "C" && selectedCabin !== "F" && selectedCabin !== "Cargo") return;
     const cmp = selectedCabin;
     $('#aes-div-recSettings').empty().append(
-        $('<h3></h3>').text(cmp + ' Compartment Pricing Settings')
+        $('<h3></h3>').text(AESI18n.t("{0} Compartment Pricing Settings", {"0": cmp}))
     );
     let divRow = $('<div class="row as-panel"></div>')
     let divLeft = $('<div class="col-md-8"></div>')
@@ -256,7 +257,7 @@ function invPricingRecStepHandle() {
     //Table head
     let thead = $('<thead></thead>');
     let headRow = $('<tr></tr>');
-    headRow.append('<th>Name</th><th>From (Load %)</th><th>To (Load %)</th><th>Price Change %</th><th></th>');
+    headRow.append(AESI18n.html('<th>Name</th><th>From (Load %)</th><th>To (Load %)</th><th>Price Change %</th><th></th>'));
     thead.append(headRow);
     //table body
     let tbody = $('<tbody></tbody>');
@@ -269,13 +270,13 @@ function invPricingRecStepHandle() {
                 $('<span class="input-group-addon">%</span>')
             )));
         }
-        row.append('<td><a class="aes-a-invPricing-delete-row" ><span class="fa fa-trash" title="Delete row"></span></a></td>');
+        row.append(AESI18n.html('<td><a class="aes-a-invPricing-delete-row" ><span class="fa fa-trash" title="Delete row"></span></a></td>'));
         tbody.append(row);
     });
     //Table foot
     let tfoot = $('<tfoot></tfoot>');
     let footRow = $('<tr></tr>');
-    footRow.append('<td colspan="8"><span>  </span><button id="aes-button-invPricing-add-row" class="btn btn-default">Add Row</button></td>');
+    footRow.append(AESI18n.html('<td colspan="8"><span>  </span><button id="aes-button-invPricing-add-row" class="btn btn-default">Add Row</button></td>'));
     tfoot.append(footRow);
 
     table.append(thead, tbody, tfoot);
@@ -295,12 +296,12 @@ function invPricingRecStepHandle() {
         row.append('<td><div class="input-group"><input type="text" class="form-control number" style="min-width: 50px;"><span class="input-group-addon">%</span></div></td>');
         row.append('<td><div class="input-group"><input type="text" class="form-control number" style="min-width: 50px;"><span class="input-group-addon">%</span></div></td>');
         row.append('<td><div class="input-group"><input type="text" class="form-control number" style="min-width: 50px;"><span class="input-group-addon">%</span></div></td>');
-        row.append('<td><a class="aes-a-invPricing-delete-row" ><span class="fa fa-trash" title="Delete row"></span></a></td>');
+        row.append(AESI18n.html('<td><a class="aes-a-invPricing-delete-row" ><span class="fa fa-trash" title="Delete row"></span></a></td>'));
         $('#aes-table-invPricing tbody').append(row);
     });
 
     //Rights side
-    divRight.append(`
+    divRight.append(AESI18n.html(`
     <fieldset id="aes-fieldset-invPricing">
       <legend>Min Max Price</legend>
       <div class="form-group">
@@ -326,12 +327,12 @@ function invPricingRecStepHandle() {
       </div>
     </fieldset>
 
-  `);
+  `));
     //Click save button
     $("#aes-btn-invPricing-save").click(function() {
         //Feedback
         $("#aes-span-invPricing").remove();
-        let span = $('<span id="aes-span-invPricing" class="warning">Updating...</span>');
+        let span = $(AESI18n.html('<span id="aes-span-invPricing" class="warning">Updating...</span>'));
         $("#aes-fieldset-invPricing").append(span);
 
         let newSteps: AESModel.PricingStep[] = [];
@@ -361,7 +362,7 @@ function invPricingRecStepHandle() {
                 getSettingsSection(getSettingsSection(currentSettings, "invPricing"), "recommendation")[cmp] = newCmpSettings;
             }, function(updatedSettings) {
                 settings = updatedSettings;
-                $("#aes-span-invPricing").removeClass().addClass("good").text('Inventory pricing settings for ' + cmp + ' saved!')
+                $("#aes-span-invPricing").removeClass().addClass("good").text(AESI18n.t("Inventory pricing settings for {0} saved!", {"0": cmp}))
             });
         }
     });
@@ -371,25 +372,25 @@ function validInvPriSteps(newCmpSettings: AESModel.PricingRecommendation) {
     let steps = newCmpSettings.steps;
     //Check min max price
     if (!Number.isInteger(newCmpSettings.minPrice)) {
-        $("#aes-span-invPricing").removeClass().addClass("bad").text('Save Failed! Min Price is not an integer!');
+        $("#aes-span-invPricing").removeClass().addClass("bad").text(AESI18n.t('Save Failed! Min Price is not an integer!'));
         return 0;
     } else {
         if (!(newCmpSettings.minPrice >= 0 && newCmpSettings.minPrice <= 200)) {
-            $("#aes-span-invPricing").removeClass().addClass("bad").text('Save Failed! Min Price must be between 0% and 200%!');
+            $("#aes-span-invPricing").removeClass().addClass("bad").text(AESI18n.t('Save Failed! Min Price must be between 0% and 200%!'));
             return 0;
         }
     }
     if (!Number.isInteger(newCmpSettings.maxPrice)) {
-        $("#aes-span-invPricing").removeClass().addClass("bad").text('Save Failed! Max Price is not an integer!');
+        $("#aes-span-invPricing").removeClass().addClass("bad").text(AESI18n.t('Save Failed! Max Price is not an integer!'));
         return 0;
     } else {
         if (!(newCmpSettings.maxPrice >= 0 && newCmpSettings.maxPrice <= 200)) {
-            $("#aes-span-invPricing").removeClass().addClass("bad").text('Save Failed! Max Price must be between 0% and 200%!');
+            $("#aes-span-invPricing").removeClass().addClass("bad").text(AESI18n.t('Save Failed! Max Price must be between 0% and 200%!'));
             return 0;
         }
     }
     if (newCmpSettings.minPrice >= newCmpSettings.maxPrice) {
-        $("#aes-span-invPricing").removeClass().addClass("bad").text('Save Failed! Min Price must be lower than Max Price!');
+        $("#aes-span-invPricing").removeClass().addClass("bad").text(AESI18n.t('Save Failed! Min Price must be lower than Max Price!'));
         return 0;
     }
 
@@ -397,20 +398,20 @@ function validInvPriSteps(newCmpSettings: AESModel.PricingRecommendation) {
     for (let i = 0; i < steps.length; i++) {
         //Check if integer
         if (!Number.isInteger(steps[i].min)) {
-            $("#aes-span-invPricing").removeClass().addClass("bad").text('Save Failed! For row with name "' + steps[i].name + '" From value is not an integer!');
+            $("#aes-span-invPricing").removeClass().addClass("bad").text(AESI18n.t("Save Failed! For row with name \"{0}\" From value is not an integer!", {"0": steps[i].name}));
             return 0;
         }
         if (!Number.isInteger(steps[i].max)) {
-            $("#aes-span-invPricing").removeClass().addClass("bad").text('Save Failed! For row with name "' + steps[i].name + '" To value is not an integer!');
+            $("#aes-span-invPricing").removeClass().addClass("bad").text(AESI18n.t("Save Failed! For row with name \"{0}\" To value is not an integer!", {"0": steps[i].name}));
             return 0;
         }
         if (!Number.isInteger(steps[i].step)) {
-            $("#aes-span-invPricing").removeClass().addClass("bad").text('Save Failed! For row with name "' + steps[i].name + '" Price Change value is not an integer!');
+            $("#aes-span-invPricing").removeClass().addClass("bad").text(AESI18n.t("Save Failed! For row with name \"{0}\" Price Change value is not an integer!", {"0": steps[i].name}));
             return 0;
         }
         //Check if min and max correct
         if (steps[i].min >= steps[i].max) {
-            $("#aes-span-invPricing").removeClass().addClass("bad").text('Save Failed! For row with name "' + steps[i].name + '" From value can not be equal or larger than To!');
+            $("#aes-span-invPricing").removeClass().addClass("bad").text(AESI18n.t("Save Failed! For row with name \"{0}\" From value can not be equal or larger than To!", {"0": steps[i].name}));
             return 0;
         }
 
@@ -418,19 +419,19 @@ function validInvPriSteps(newCmpSettings: AESModel.PricingRecommendation) {
         if (i) {
             //not first rows
             if (steps[i].min != steps[i - 1].max) {
-                $("#aes-span-invPricing").removeClass().addClass("bad").text('Save Failed! For row with name "' + steps[i].name + '" From value must be equal to To value of row with name "' + steps[i - 1].name + '" !');
+                $("#aes-span-invPricing").removeClass().addClass("bad").text(AESI18n.t("Save Failed! For row with name \"{0}\" From value must be equal to To value of row with name \"{1}\" !", {"0": steps[i].name, "1": steps[i - 1].name}));
                 return 0;
             }
         } else {
             if (steps[i].min != 0) {
-                $("#aes-span-invPricing").removeClass().addClass("bad").text('Save Failed! For row with name "' + steps[i].name + '" From value must start at 0%!');
+                $("#aes-span-invPricing").removeClass().addClass("bad").text(AESI18n.t("Save Failed! For row with name \"{0}\" From value must start at 0%!", {"0": steps[i].name}));
                 return 0;
             }
         }
         if (i == (steps.length - 1)) {
             //Last row
             if (steps[i].max != 100) {
-                $("#aes-span-invPricing").removeClass().addClass("bad").text('Save Failed! For row with name "' + steps[i].name + '" To value must end at 100%!');
+                $("#aes-span-invPricing").removeClass().addClass("bad").text(AESI18n.t("Save Failed! For row with name \"{0}\" To value must end at 100%!", {"0": steps[i].name}));
                 return 0;
             }
         }

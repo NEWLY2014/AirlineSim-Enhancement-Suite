@@ -8,13 +8,13 @@ const {createServer}=require('node:https');
 const {execFileSync}=require('node:child_process');
 
 test('settings tabs preserve drafts, support the keyboard and open extension backup options', {timeout:60000},async t=>{
-    const profile=await mkdtemp(join(tmpdir(),'aes-settings-browser-'));let context,server;let submissions=0;
+    const profile=await mkdtemp(join(tmpdir(),'aes-settings-browser-'));let context,server;let submissions=0;let gameLanguage='en';
     t.after(async()=>{if(context)await context.close();if(server){server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}await rm(profile,{recursive:true,force:true});});
     execFileSync('openssl',['req','-x509','-newkey','rsa:2048','-nodes','-keyout',join(profile,'key.pem'),'-out',join(profile,'cert.pem'),'-days','1','-subj','/CN=paine.airlinesim.aero'],{stdio:'ignore'});
     server=createServer({key:await readFile(join(profile,'key.pem')),cert:await readFile(join(profile,'cert.pem'))},(req,res)=>{
         if(req.method==='POST' && req.headers.host==='paine.airlinesim.aero')submissions++;
         const game=req.url.includes('tab=game');
-        const html=`<script>window.frontendSettings={"fixedEnterpriseId":42,"theme":"light","server":{"time":"2026-09-17T01:00:00Z"}};</script>
+        const html=`<script>window.frontendSettings={"fixedEnterpriseId":42,"theme":"light","languageSettings":{"currentLanguageTag":"${gameLanguage}"},"server":{"time":"2026-09-17T01:00:00Z"}};</script>
         <style>.nav-tabs{display:flex;gap:20px;list-style:none}.nav-tabs a{display:block;padding:10px}.nav-tabs .active{border-bottom:2px solid}.tab-content{display:block}</style>
         <div id="header"><div><button aria-haspopup="menu"><span class="_name_test">Test Air</span></button><div role="menubar"></div></div></div>
         <div class="bootstrap container-fluid"><h1>Settings</h1><div class="as-panel"><ul class="nav nav-tabs">
@@ -50,5 +50,30 @@ test('settings tabs preserve drafts, support the keyboard and open extension bac
     await page.getByRole('tab',{name:'Game settings',exact:true}).click();
     await page.waitForURL(/tab=game/);await aes.click();
     assert.equal(await page.getByRole('tab',{name:'Flight Info',exact:true}).getAttribute('aria-selected'),'true');
+    // Exercise every supported game locale with the packaged extension, including long labels.
+    const {readdirSync,readFileSync}=require('node:fs');
+    for(const file of readdirSync('extension/locales')){
+        gameLanguage=file.slice(0,-5);
+        const messages=JSON.parse(readFileSync('extension/locales/'+file));
+        await worker.evaluate(()=>chrome.storage.local.set({aesLanguage:'auto'}));
+        await page.reload();await page.locator('#aes-settings-tab').click();
+        await page.locator('#aes-settings-group-0').click();
+        assert.equal(await page.locator('#aes-settings-tab').textContent(),messages['AES Settings']);
+        assert.equal(await page.locator('#aes-btn-invPricing-save').textContent(),messages.Save);
+        assert.equal(await page.getByRole('tab',{name:'General settings',exact:true}).count(),1);
+        assert.equal(await page.locator('#aes-input-invPricing-max-price').inputValue(),'200');
+        assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,gameLanguage);
+    }
+    await page.locator('#aes-input-invPricing-min-price').fill('79');
+    await page.locator('#aes-language').selectOption('fr');
+    await page.waitForFunction(()=>document.querySelector('.aes-language-control [role="status"]').textContent.length>0);
+    assert.equal(await page.locator('#aes-input-invPricing-min-price').inputValue(),'79');
+    assert.equal(await worker.evaluate(()=>chrome.storage.local.get('aesLanguage').then(v=>v.aesLanguage)),'fr');
+    await page.reload();await page.locator('#aes-settings-tab').click();
+    const french=JSON.parse(readFileSync('extension/locales/fr.json'));
+    assert.equal(await page.locator('#aes-settings-tab').textContent(),french['AES Settings']);
+    await options.reload();
+    await options.waitForFunction(()=>document.documentElement.lang==='fr');
+    await options.getByRole('button',{name:french['Create Backup'],exact:true}).waitFor();
     assert.equal(submissions,0);
 });

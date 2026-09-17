@@ -3,16 +3,16 @@ class AESRead {
     static feedback(host: JQuery) {
         const line = $('<div class="aes-read-feedback"></div>');
         const text = $('<span role="status"></span>');
-        const details = $('<button type="button" class="btn btn-default">Details</button>').css('visibility','hidden');
+        const details = $(AESI18n.html('<button type="button" class="btn btn-default">Details</button>')).css('visibility','hidden');
         const dialog = $('<dialog class="aes-read-details"></dialog>');
-        const body = $('<pre></pre>'), close = $('<button type="button" class="btn btn-default">Close</button>');
+        const body = $('<pre></pre>'), close = $(AESI18n.html('<button type="button" class="btn btn-default">Close</button>'));
         dialog.append(body,close);line.append(text,details,dialog);host.append(line);
         let timer: number | undefined;
         details.on('click',()=> (dialog[0] as HTMLDialogElement).showModal());
         close.on('click',()=> (dialog[0] as HTMLDialogElement).close());
         const show = (message: string, tone = '', detail = '') => {
             window.clearTimeout(timer);
-            text.removeClass('good bad warning').addClass(tone).text(message).attr('title',message);
+            text.removeClass('good bad warning').addClass(tone).text(AESI18n.t(message)).attr('title',AESI18n.t(message));
             body.text(detail);details.css('visibility',detail ? 'visible' : 'hidden');
         };
         const settle = (message: string, current: () => boolean) => {
@@ -90,7 +90,7 @@ class AESRead {
         const doc = await AESRead.fetchDocument('/app/info/enterprises/'+airline.id+'?tab=3',current);
         const schedule = await AESRead.parseSchedule(doc,progress,current);
         const time = AESRead.date(doc);
-        progress('Saving '+schedule.length.toLocaleString()+' routes...');
+        progress(AESI18n.t("Saving {0} routes...", {"0": schedule.length.toLocaleString()}));
         await AESRead.save({type:'AES_SAVE_SCHEDULE',airline,snapshot:{date:time.date,updateTime:time.time,schedule}},current);
     }
     static async parseSchedule(doc: Document, progress: (message: string) => void, current: () => boolean) {
@@ -124,7 +124,7 @@ class AESRead {
                 }
                 processed++;
                 if (needsYield()) {
-                    progress('Extracting... ' + processed.toLocaleString() + ' rows processed');
+                    progress(AESI18n.t("Extracting... {0} rows processed", {"0": processed.toLocaleString()}));
                     await yieldToPage();
                 }
             }
@@ -132,7 +132,7 @@ class AESRead {
         }
         if (!schedule.length) throw new Error('No flight segments found. Existing schedule data was kept.');
 
-        progress('Preparing ' + schedule.length.toLocaleString() + ' routes...');
+        progress(AESI18n.t("Preparing {0} routes...", {"0": schedule.length.toLocaleString()}));
         const hub: Record<string, number> = {};
         for (const route of schedule) {
             hub[route.origin] = (hub[route.origin] || 0) + 1;
@@ -151,20 +151,20 @@ class AESRead {
     }
     static async collectCompetitor(airline: AESModel.Airline, progress: (message: string) => void, current = AESRead.context()) {
         const ownerAirline = AES.getCurrentAirline();
-        progress('Fetching overview...');
+        progress(AESI18n.t('Fetching overview...'));
         const overviewDoc = await AESRead.fetchDocument('/app/info/enterprises/'+airline.id+'?tab=0',current);
         const heading = overviewDoc.querySelector('.nav-tabs')?.parentElement?.parentElement?.querySelector('h2')?.textContent?.trim();
         if (!heading) throw new Error('Enterprise heading is missing.');
         const target = {...airline, displayName:heading, name:heading.replace(/ /g,'_')};
         const overview = AESRead.overview(overviewDoc,target), overviewTime = AESRead.date(overviewDoc);
         if (!overview.rating || ![overview.pax,overview.cargo,overview.stations,overview.fleet,overview.employees].every(Number.isFinite)) throw new Error('Incomplete competitor overview.');
-        progress('Fetching facts and figures...');
+        progress(AESI18n.t('Fetching facts and figures...'));
         const factsDoc = await AESRead.fetchDocument('/app/info/enterprises/'+airline.id+'?tab=2',current);
         const facts = AESRead.facts(factsDoc), factsTime = AESRead.date(factsDoc);
         if (![facts.week,facts.airportsServed,facts.operatedFlights,facts.seatsOffered,facts.sko,facts.cargoOffered,facts.fko].every(Number.isFinite)) throw new Error('Incomplete competitor facts and figures.');
-        progress('Fetching schedule...');
+        progress(AESI18n.t('Fetching schedule...'));
         await AESRead.collectSchedule(target,progress,current);
-        progress('Saving competitor data...');
+        progress(AESI18n.t('Saving competitor data...'));
         await AESRead.save({type:'AES_SAVE_COMPETITOR',airline:target,ownerAirline,
             overview:{...overview,date:overviewTime.date,updateTime:overviewTime.time},
             facts:{...facts,date:factsTime.date,updateTime:factsTime.time}},current);
