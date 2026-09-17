@@ -150,3 +150,21 @@ This paces AES-triggered operations, including native Inventory form submissions
 intercepted on initialized pages. It does not intercept unrelated manual browser
 navigation, game resource requests, or requests from a separate installed AES copy.
 The interval is a conservative default, not a verified game firewall limit.
+
+### Localization checks
+
+`npm test` checks the nine locale catalogs and runs `scripts/audit-i18n.cjs` against
+all built first-party scripts plus options/popup markup. `npm run test:i18n` runs
+the text coverage audit alone. It checks prose in metadata, variables, templates,
+errors and markup, and rejects literal text at common UI sinks. It is a static
+coverage check, not a proof that every dynamic value is translated: runtime tests
+also exercise fleet summaries, pricing advice, filters, settings and collection
+progress across languages.
+
+Use `AESI18n.t` for authored text, with placeholders for values, or `AESI18n.html`
+for AES-authored markup. Keep stored identifiers and processing phases independent
+of translated labels. Do not translate airline names, airport codes, editable
+pricing-rule names or other user/game data. Reviewed non-UI strings and product
+names are documented in `scripts/i18n-exemptions.json`; historical release-note
+bodies keep their original language. Backend errors are translated at their UI
+boundary, while unknown browser/service diagnostic details retain their source.

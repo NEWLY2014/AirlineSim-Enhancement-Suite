@@ -6,12 +6,14 @@
     "build": "node scripts/build-extension.cjs",
     "test": "npm run build && node --test test/*.test.js",
     "package": "scripts/package-extension.sh",
-    "test:browser": "npm run build && node --test test/browser/*.test.cjs"
+    "test:browser": "npm run build && node --test test/browser/*.test.cjs",
+    "test:i18n": "npm run build && node scripts/audit-i18n.cjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",
     "@types/chrome": "^0.2.9",
     "@types/jquery": "^4.0.1",
+    "acorn": "^8.18.0",
     "jsdom": "^30.0.1",
     "typescript": "^7.0.2"
   }
