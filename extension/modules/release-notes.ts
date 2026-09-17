@@ -814,7 +814,6 @@ Object.assign(AES_RELEASE_NOTES, {
 
 class ReleaseNotesDialog {
     #container
-    #backdrop
     #badge = document.createElement("span")
     #body = document.createElement("div")
     #closeButton
@@ -846,22 +845,21 @@ class ReleaseNotesDialog {
         this.#pageIndicator = document.createElement("span")
         this.#pageIndicator.className = "aes-release-notes-page-indicator"
         this.#container = this.#createContainer()
-        this.#backdrop = this.#createBackdrop()
-        document.body.append(this.#backdrop, this.#container)
-        AES.markOwnedElements([this.#container, this.#backdrop])
+        document.body.append(this.#container)
+        AES.markOwnedElements([this.#container])
         document.body.classList.add("modal-open")
         this.#bindEvents()
         this.#renderPage()
+        this.#container.showModal()
         AES.whenPageOwnershipLost(() => this.destroy())
     }
 
     #createContainer() {
-        const container = document.createElement("div")
+        const container = document.createElement("dialog")
         container.id = "aes-release-notes-dialog"
         container.className = "bootstrap modal fade in"
-        container.setAttribute("role", "dialog")
-        container.setAttribute("aria-modal", "true")
-        container.style.display = "block"
+        this.#title.id = "aes-release-notes-title"
+        container.setAttribute("aria-labelledby", this.#title.id)
         container.classList.add("aes-release-notes-theme-" + this.#getTheme())
 
         const dialog = document.createElement("div")
@@ -918,12 +916,6 @@ class ReleaseNotesDialog {
         container.append(dialog)
 
         return container
-    }
-
-    #createBackdrop() {
-        const backdrop = document.createElement("div")
-        backdrop.className = "modal-backdrop fade in aes-release-notes-backdrop"
-        return backdrop
     }
 
     #createCloseButton() {
@@ -1013,7 +1005,8 @@ class ReleaseNotesDialog {
         const dismiss = this.dismiss.bind(this)
         this.#closeButton.addEventListener("click", dismiss)
         this.#confirmButton.addEventListener("click", dismiss)
-        this.#backdrop.addEventListener("click", dismiss)
+        this.#container.addEventListener("click", event => { if (event.target === this.#container) dismiss() })
+        this.#container.addEventListener("cancel", event => { event.preventDefault(); dismiss() })
         this.#previousButton.addEventListener("click", this.#showPreviousPage.bind(this))
         this.#nextButton.addEventListener("click", this.#showNextPage.bind(this))
         document.addEventListener("keydown", this.#onKeydown)
@@ -1021,6 +1014,7 @@ class ReleaseNotesDialog {
 
     #onKeydown = (event: KeyboardEvent) => {
         if (event.key === "Escape") {
+            event.preventDefault()
             this.dismiss()
         } else if (event.key === "ArrowLeft") {
             this.#showPreviousPage()
@@ -1037,8 +1031,8 @@ class ReleaseNotesDialog {
 
     destroy() {
         document.removeEventListener("keydown", this.#onKeydown)
+        if (this.#container.open) this.#container.close()
         this.#container.remove()
-        this.#backdrop.remove()
         document.body.classList.remove("modal-open")
     }
 

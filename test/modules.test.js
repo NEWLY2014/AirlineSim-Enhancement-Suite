@@ -8,6 +8,9 @@ test('release dialog follows theme, paginates and records the version on dismiss
     p.load('modules/release-notes.js');
     const dialog = p.w.document.querySelector('#aes-release-notes-dialog');
     assert.ok(dialog.classList.contains('aes-release-notes-theme-light'));
+    assert.equal(dialog.tagName, 'DIALOG');
+    assert.equal(dialog.open, true);
+    assert.equal(dialog.getAttribute('aria-labelledby'), dialog.querySelector('.modal-title').id);
     assert.match(dialog.querySelector('.modal-title').textContent, /0\.8\.13/);
     const [previous, next] = dialog.querySelectorAll('.aes-release-notes-page-button');
     assert.equal(next.disabled, true);

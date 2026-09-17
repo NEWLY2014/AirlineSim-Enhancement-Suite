@@ -10,6 +10,8 @@ function browser(t, { html = '', path = '/app/info/ors', data = {}, helpers = tr
     const dom = new JSDOM(html, { url: `https://paine.airlinesim.aero${path}`, runScripts: 'outside-only', pretendToBeVisual: true });
     const w = dom.window;
     w.structuredClone = structuredClone;
+    w.HTMLDialogElement.prototype.showModal = function() { this.open = true; };
+    w.HTMLDialogElement.prototype.close = function() { this.open = false; this.dispatchEvent(new w.Event("close")); };
     const saved = snapshot(data);
     const calls = [];
     const failures = {};

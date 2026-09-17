@@ -453,10 +453,7 @@
     z-index: 1051;
 }
 
-.aes-release-notes-backdrop {
-    background: rgba(0, 0, 0, 0.62);
-    z-index: 1050;
-}
+
 
 #aes-release-notes-dialog .modal-dialog {
     margin: 6vh auto;
@@ -895,8 +892,9 @@
 #aes-about-dialog .modal-content { background: inherit; color: inherit; }
 #aes-about-dialog .modal-body { position: relative; padding: 30px; }
 /* Backdrop is outside the game's scoped .bootstrap tree. */
-.aes-release-notes-backdrop { position: fixed; inset: 0; z-index: 1040; background: #0008; }
-#aes-release-notes-dialog { position: fixed; inset: 0; z-index: 1050; overflow: auto; }
+#aes-release-notes-dialog { position: fixed; inset: 0; width: 100%; height: 100%; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: transparent; color: inherit; overflow: auto; }
+#aes-release-notes-dialog::backdrop { background: #0009; }
+#aes-release-notes-dialog[open] { display: block; }
 
 /* Reserve one line for collection feedback; details open outside document flow. */
 .aes-read-feedback {
