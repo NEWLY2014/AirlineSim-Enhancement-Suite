@@ -24,3 +24,7 @@ coverage/
 *.pem
 *.zip
 *.xpi
+
+# Local agent configuration
+.agents/
+skills-lock.json
