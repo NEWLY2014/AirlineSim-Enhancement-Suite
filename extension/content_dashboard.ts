@@ -2277,7 +2277,22 @@ function displayCompetitorMonitoringAirlinesTableOptions(table?: JQuery, compAir
     const refreshBtn = $('<button type="button" class="btn btn-default">Refresh selected data</button>');
     const actionContent = $('<div></div>').append(actions);
     const feedback = AESRead.feedback(actionContent);
-    actions.append(openAirlineBtn,refreshBtn,showScheduleBtn,removeBtn,reloadBtn);
+    const changesBtn=$('<button type="button" class="btn btn-default" title="Select one airline to compare saved schedules">View changes</button>').prop('disabled',true);
+    actions.append(openAirlineBtn,refreshBtn,showScheduleBtn,changesBtn,removeBtn,reloadBtn);
+    table?.on('click.aesScheduleDiff change.aesScheduleDiff', 'input',()=>changesBtn.prop('disabled',getSelectedCompetitorRows(table).length!==1));
+    changesBtn.on('click',async()=>{
+        if (!table) return;
+        const rows=getSelectedCompetitorRows(table);
+        if (rows.length!==1) return;
+        const current=AESRead.context(), revision=dashboardRevision;
+        changesBtn.prop('disabled',true);
+        try {
+            const key=server+rows[0].airlineId+'schedule';
+            const data=await chrome.storage.local.get(key);
+            if (current() && revision===dashboardRevision) AESScheduleDiff.open(data[key],String(rows[0].airlineName || rows[0].airlineId));
+        } catch(error) {if(current()) feedback.show('Unable to load schedule changes.','bad',String(error));}
+        finally {if(current()) changesBtn.prop('disabled',getSelectedCompetitorRows(table).length!==1);}
+    });
     refreshBtn.prop('disabled',!table);
     refreshBtn.on('click',async () => {
         if (!table || refreshBtn.prop('disabled')) return;

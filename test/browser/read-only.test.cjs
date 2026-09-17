@@ -9,7 +9,7 @@ const {execFileSync}=require('node:child_process');
 const {frontend,financial,enterprise}=require('../support/read-pages.cjs');
 
 test('Chrome performs read-only batches in the initiating pages with shared pacing and no new tabs', {timeout:60000},async t=>{
-    const profile=await mkdtemp(join(tmpdir(),'aes-read-browser-'));let context,server;let failReads=false;const requests=[];
+    const profile=await mkdtemp(join(tmpdir(),'aes-read-browser-'));let context,server;let failReads=false,shortSchedule=false;const requests=[];
     t.after(async()=>{if(context)await context.close();if(server){server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}await rm(profile,{recursive:true,force:true});});
     execFileSync('openssl',['req','-x509','-newkey','rsa:2048','-nodes','-keyout',join(profile,'key.pem'),'-out',join(profile,'cert.pem'),'-days','1','-subj','/CN=paine.airlinesim.aero'],{stdio:'ignore'});
     const header=frontend()+'<div id="header"><div><button aria-haspopup="menu"><span class="_name_test">AES Airlines</span></button><div role="menubar"></div></div></div>';
@@ -22,7 +22,7 @@ test('Chrome performs read-only batches in the initiating pages with shared paci
             res.on('finish',()=>{request.finished=Date.now();});
             if(failReads){req.resume();res.writeHead(503,{'Content-Type':'text/plain'});res.end('Fixture unavailable');return;}
         }
-        const body=url.pathname.includes('/action/info/flight')?financial():url.pathname.includes('/app/info/enterprises/')?header+'<div class="bootstrap container-fluid"><h1>Enterprises</h1>'+enterprise(url.searchParams.get('tab')||'0')+'</div>':url.pathname.includes('/app/fleets/aircraft/')?aircraft:header+'<div class="bootstrap container-fluid"><h1>Dashboard</h1><div id="enterprise-dashboard"></div></div>';
+        const body=url.pathname.includes('/action/info/flight')?financial():url.pathname.includes('/app/info/enterprises/')?header+'<div class="bootstrap container-fluid"><h1>Enterprises</h1>'+enterprise(url.searchParams.get('tab')||'0').replace('1234567',shortSchedule?'135':'1234567')+'</div>':url.pathname.includes('/app/fleets/aircraft/')?aircraft:header+'<div class="bootstrap container-fluid"><h1>Dashboard</h1><div id="enterprise-dashboard"></div></div>';
         req.resume();res.writeHead(200,{'Content-Type':'text/html','Cache-Control':'no-store'});res.end(body);
     });
     await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
@@ -75,6 +75,7 @@ test('Chrome performs read-only batches in the initiating pages with shared paci
     const refreshBefore=await refresh.boundingBox();
     const feedback=b.locator('.aes-read-feedback');
     const feedbackBefore=await feedback.boundingBox();
+    shortSchedule=true;
     await refresh.click();
     await b.getByText('Updated 1, failed 0.',{exact:true}).waitFor();
     assert.deepEqual(await refresh.boundingBox(),refreshBefore);
@@ -82,6 +83,16 @@ test('Chrome performs read-only batches in the initiating pages with shared paci
     assert.equal(await b.locator('#aes-compMon-row-99 input').isChecked(),true);
     assert.equal(await b.locator('#aes-compMon-row-99 .aes-overviewTotalPax').textContent(),'1000');
     assert.equal(context.pages().length,tabCount);
+    const tableBefore=await b.locator('#aes-compMon-row-99').boundingBox();
+    await b.getByRole('button',{name:'View changes',exact:true}).click();
+    const diff=b.locator('.aes-schedule-diff[open]');
+    await diff.waitFor();
+    assert.match(await diff.locator('[role="status"]').textContent(),/1 changed/);
+    assert.match(await diff.locator('tbody').textContent(),/Mon Wed Fri/);
+    assert.equal(await diff.getByLabel('Previous snapshot').locator('option').count(),2);
+    await diff.getByRole('button',{name:'Close',exact:true}).click();
+    assert.deepEqual(await b.locator('#aes-compMon-row-99').boundingBox(),tableBefore);
+    assert.equal(await b.locator('#aes-compMon-row-99 input').isChecked(),true);
     failReads=true;
     await refresh.click();
     await b.getByText('Updated 0, failed 1.',{exact:true}).waitFor();

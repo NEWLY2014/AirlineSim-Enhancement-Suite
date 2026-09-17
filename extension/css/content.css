@@ -920,3 +920,15 @@
 .aes-read-details pre { white-space: pre-wrap; overflow-wrap: anywhere; }
 
 .aes-competitor-summary { table-layout: fixed; width: 100%; }
+
+/* Comparison stays above the dashboard; results have a bounded scroll area. */
+.aes-schedule-diff { width: min(1100px, 94vw); max-height: 90vh; padding: 20px; border: 1px solid #888; border-radius: 8px; color: inherit; background: Canvas; }
+.aes-schedule-diff::backdrop { background: rgb(0 0 0 / 45%); }
+.aes-diff-heading, .aes-diff-pagination { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.aes-diff-heading h3 { margin: 0; }
+.aes-diff-controls { display: flex; flex-wrap: wrap; gap: 12px; margin: 16px 0; }
+.aes-diff-controls label { flex: 1 1 180px; }
+.aes-diff-table { max-height: 50vh; overflow: auto; }
+.aes-diff-table th { position: sticky; top: 0; background: Canvas; }
+.aes-diff-table td { white-space: pre-line; }
+.aes-diff-pagination { margin: 12px 0; }

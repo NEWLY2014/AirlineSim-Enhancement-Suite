@@ -41,7 +41,7 @@ copyAssets(source);
 
 // Bundle pure page dependencies without introducing additional global load ordering.
 const pageModules = {
-    'content_dashboard.js': ['modules/dashboard-defaults.js', 'modules/dashboard-table.js'],
+    'content_dashboard.js': ['modules/dashboard-defaults.js', 'modules/dashboard-table.js', 'modules/schedule-diff.js'],
     'content_inventory.js': ['modules/inventory/data.js'],
     'content_aircraftFlightPlan.js': ['modules/flight-plan-rules.js'],
 };
