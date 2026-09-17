@@ -70,6 +70,12 @@ test('Chrome performs read-only batches in the initiating pages with shared paci
     const stored=await worker.evaluate(async()=>{const data=await chrome.storage.local.get(['paine42schedule','paine99schedule','paine42_99competitorMonitoring','paineflightInfo1','paineaircraftFlights123']);return {ownRoutes:data.paine42schedule.date['20260908'].schedule.length,otherRoutes:data.paine99schedule.date['20260908'].schedule.length,pax:data.paine42_99competitorMonitoring.tab0['20260908'].pax,profit:data.paineaircraftFlights123.profit,cm5:data.paineflightInfo1.money.CM5.Total};});
     assert.deepEqual(stored,{ownRoutes:1,otherRoutes:1,pax:1000,profit:200,cm5:100});
     await b.locator('#aes-select-dashboard-main').selectOption('competitorMonitoring');
+    const sortHeading=b.getByRole('button',{name:'Total pax',exact:true});
+    await sortHeading.focus();await b.keyboard.press('Enter');
+    assert.equal(await sortHeading.locator('..').getAttribute('aria-sort'),'ascending');
+    await sortHeading.locator('..').evaluate(el=>el.setAttribute('aria-sort','none'));
+    await b.keyboard.press('Space');
+    assert.equal(await sortHeading.locator('..').getAttribute('aria-sort'),'ascending');
     await b.locator('#aes-compMon-row-99 input').check();
     const refresh=b.getByRole('button',{name:'Refresh selected data',exact:true});
     const refreshBefore=await refresh.boundingBox();

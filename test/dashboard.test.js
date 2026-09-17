@@ -178,8 +178,9 @@ test('competitor collection updates existing rows and schedule cache without res
     await load(p,'#aes-compMon-row-99');
     const table=p.w.document.querySelector('#aes-table-competitorMonitoring'), row=p.w.document.querySelector('#aes-compMon-row-99');
     row.querySelector('input').click();
-    const sort=p.w.$(table).find('thead a').filter((_,el)=>el.textContent==='Total pax');
-    assert.equal(sort.length,1);sort.trigger('click');
+    const sort=p.w.$(table).find('thead .aes-table-sort').filter((_,el)=>el.textContent==='Total pax');
+    assert.equal(sort.length,1);assert.equal(sort[0].tagName,'BUTTON');sort.trigger('click');
+    assert.equal(sort.closest('th').attr('aria-sort'),'descending');
     button(p,'Refresh selected data').click();
     await until(()=>p.w.document.querySelector('.aes-read-feedback').textContent.includes('Updated 1, failed 0.'));
     assert.equal(p.w.document.querySelector('#aes-table-competitorMonitoring'),table);

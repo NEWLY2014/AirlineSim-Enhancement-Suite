@@ -19,6 +19,9 @@ namespace AESDashboardTable {
         rows.sort((a,b)=>compare(a.value,b.value)*(ascending ? 1 : -1));
         // Moving existing nodes preserves checkbox state, event handlers and row data.
         table.find('tbody').append(rows.map(item=>item.row));
+        table.find('th[data-aes-sort-column]').each((_,header)=>{
+            header.setAttribute('aria-sort',header.getAttribute('data-aes-sort-column')===columnClass ? (ascending ? 'ascending' : 'descending') : 'none');
+        });
         table.data('aesSort',{columnClass,number:numeric,ascending});
     }
 }

@@ -385,11 +385,11 @@ function buildDashboardTable(options: AESModel.DashboardTableOptions) {
     visibleColumns.forEach(function(column) {
         if (column.sortable) {
             let columnClass = getDashboardColumnClass(options.columnPrefix || '', column);
-            let sort = $('<a></a>').text(column.title);
+            let sort = $('<button type="button" class="aes-table-sort"></button>').text(column.title);
             sort.click(function() {
                 sortDashboardTable(tableHtml, columnClass, column.number);
             });
-            headerCells.push($('<th style="cursor: pointer;"></th>').append(sort));
+            headerCells.push($('<th scope="col" aria-sort="none"></th>').attr('data-aes-sort-column',columnClass).append(sort));
         } else {
             headerCells.push($('<th></th>').text(column.title));
         }
