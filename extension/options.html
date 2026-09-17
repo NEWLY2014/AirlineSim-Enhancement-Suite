@@ -157,6 +157,7 @@
                 position: absolute;
                 left: -9999px;
             }
+            .aes-status-announcer { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
             .status-message {
                 margin-top: 1rem;
                 padding: 0.75rem;
@@ -386,6 +387,8 @@
                 </div>
 
                 <div class="status-message" id="aes-status-message"></div>
+                <div class="aes-status-announcer" id="aes-status-announcement" role="status" aria-atomic="true"></div>
+                <div class="aes-status-announcer" id="aes-error-announcement" role="alert" aria-atomic="true"></div>
                 </div>
             </div>
 

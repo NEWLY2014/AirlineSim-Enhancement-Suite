@@ -167,3 +167,13 @@ test('manual cleanup removes expired captures and retains recent full snapshots'
     assert.deepEqual(Object.keys(p.saved.schedule.captures),['recent']);
     assert.deepEqual(p.saved.schedule.captures.recent.schedule,[{keep:true}]);
 });
+
+test('backup outcomes and errors use separate persistent announcement regions',async t=>{
+    const p=await options(t,{});
+    p.run('showStatusMessage("Backup saved", "success")');
+    assert.equal(p.w.document.querySelector('[role="status"]').textContent,'Backup saved');
+    assert.equal(p.w.document.querySelector('[role="alert"]').textContent,'');
+    p.run('showStatusMessage("Restore failed", "error")');
+    assert.equal(p.w.document.querySelector('[role="status"]').textContent,'');
+    assert.equal(p.w.document.querySelector('[role="alert"]').textContent,'Restore failed');
+});

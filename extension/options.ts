@@ -607,6 +607,10 @@ function showStatusMessage(message: string, type: AESModel.NotificationType | "i
 
     statusDiv.stop && statusDiv.stop(true, true);
     statusDiv.text(message).show();
+    // Persistent live regions announce outcomes without moving the user's focus.
+    const error=type === "error";
+    $("#aes-status-announcement").text(error ? "" : message);
+    $("#aes-error-announcement").text(error ? message : "");
 
     // Auto-hide after 5 seconds for success/info messages
     if (type === "success" || type === "info") {
