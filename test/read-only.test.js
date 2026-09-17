@@ -62,3 +62,14 @@ test('incomplete competitor response stops the batch before later requests or hi
     await assert.rejects(p.run("AESRead.collectCompetitor({id:'99',name:'Other',displayName:'Other',code:'OA'},()=>{})"),/Incomplete/);
     assert.equal(requests,1);assert.deepEqual(p.saved,{paine99schedule:{keep:true}});
 });
+
+for(const locale of ['en','de','es','fr','hu','nl','pl','zh-TW','ja'])test(`${locale}: competitor phases remain stable independently of translated progress`,async t=>{
+    const p=browser(t,{html,path:'/app/enterprise/dashboard',data:{aesLanguage:locale}});install(p);
+    const progress=[];p.w.reportProgress=(message,phase)=>progress.push({message,phase});
+    await p.run("AESRead.collectCompetitor({id:'99',name:'Other',displayName:'Other',code:'OA'},window.reportProgress)");
+    assert.deepEqual([...new Set(progress.map(p=>p.phase))],['overview','facts','schedule']);
+    const messages=require('../extension/locales/'+locale+'.json');
+    assert.equal(progress[0].message,messages['Fetching overview...']);
+    assert.ok(progress.some(p=>p.phase==='facts' && p.message===messages['Fetching facts and figures...']));
+    assert.ok(p.saved.paine99schedule);
+});

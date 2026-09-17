@@ -163,10 +163,10 @@ function displayAutomation(actionBar: JQuery) {
             feedback.forEach(item=>item.show('Waiting…'));
             let stage = 0;
             try {
-                await AESRead.collectCompetitor(airline,message => {
+                await AESRead.collectCompetitor(airline,(message,phase) => {
                     if(!current())return;
-                    if(message.startsWith('Fetching facts'))stage=1;
-                    if(message.startsWith('Fetching schedule'))stage=2;
+                    if(phase==='facts')stage=1;
+                    if(phase==='schedule')stage=2;
                     feedback[stage].show(message,'warning');
                 },current);
                 await refreshCompetitorSummary(true);

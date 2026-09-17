@@ -149,22 +149,22 @@ class AESRead {
         if (!current()) throw new Error('The requesting page or airline changed.');
         return schedule;
     }
-    static async collectCompetitor(airline: AESModel.Airline, progress: (message: string) => void, current = AESRead.context()) {
+    static async collectCompetitor(airline: AESModel.Airline, progress: (message: string, phase: 'overview' | 'facts' | 'schedule') => void, current = AESRead.context()) {
         const ownerAirline = AES.getCurrentAirline();
-        progress(AESI18n.t('Fetching overview...'));
+        progress(AESI18n.t('Fetching overview...'),'overview');
         const overviewDoc = await AESRead.fetchDocument('/app/info/enterprises/'+airline.id+'?tab=0',current);
         const heading = overviewDoc.querySelector('.nav-tabs')?.parentElement?.parentElement?.querySelector('h2')?.textContent?.trim();
         if (!heading) throw new Error('Enterprise heading is missing.');
         const target = {...airline, displayName:heading, name:heading.replace(/ /g,'_')};
         const overview = AESRead.overview(overviewDoc,target), overviewTime = AESRead.date(overviewDoc);
         if (!overview.rating || ![overview.pax,overview.cargo,overview.stations,overview.fleet,overview.employees].every(Number.isFinite)) throw new Error('Incomplete competitor overview.');
-        progress(AESI18n.t('Fetching facts and figures...'));
+        progress(AESI18n.t('Fetching facts and figures...'),'facts');
         const factsDoc = await AESRead.fetchDocument('/app/info/enterprises/'+airline.id+'?tab=2',current);
         const facts = AESRead.facts(factsDoc), factsTime = AESRead.date(factsDoc);
         if (![facts.week,facts.airportsServed,facts.operatedFlights,facts.seatsOffered,facts.sko,facts.cargoOffered,facts.fko].every(Number.isFinite)) throw new Error('Incomplete competitor facts and figures.');
-        progress(AESI18n.t('Fetching schedule...'));
-        await AESRead.collectSchedule(target,progress,current);
-        progress(AESI18n.t('Saving competitor data...'));
+        progress(AESI18n.t('Fetching schedule...'),'schedule');
+        await AESRead.collectSchedule(target,message=>progress(message,'schedule'),current);
+        progress(AESI18n.t('Saving competitor data...'),'schedule');
         await AESRead.save({type:'AES_SAVE_COMPETITOR',airline:target,ownerAirline,
             overview:{...overview,date:overviewTime.date,updateTime:overviewTime.time},
             facts:{...facts,date:factsTime.date,updateTime:factsTime.time}},current);
