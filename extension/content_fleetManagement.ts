@@ -320,6 +320,7 @@ function fltmng_getAircraftStorageFleetData() {
 function fltmng_updateAircraftFleetStorageData(data: AESModel.FleetRecord | null) {
     fleetBaseline = AES.cloneData(data) ?? undefined;
     aircraftFleetStorageData = {
+        ...data,
         server: server,
         type: 'aircraftFleet',
         airline: airline,

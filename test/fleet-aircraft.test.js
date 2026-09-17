@@ -294,3 +294,11 @@ test('lost acknowledgement retries an already saved patch without duplicating ai
     await until(()=>p.w.document.querySelector('#aes-fleet-management-root'));
     assert.equal(requests,2);assert.equal(p.saved[fleetKey].fleet.length,1);
 });
+
+test('fleet refresh retains unknown record metadata',async t=>{
+    const p=fleet(t,aircraftRow(123,'AA-123'),{[fleetKey]:{fleet:[],extra:{keep:true}}});
+    p.load('content_fleetManagement.js');
+    await until(()=>p.w.document.querySelector('#aes-fleet-management-root'));
+    assert.deepEqual(p.saved[fleetKey].extra,{keep:true});
+    assert.equal(p.saved[fleetKey].fleet[0].aircraftId,123);
+});
