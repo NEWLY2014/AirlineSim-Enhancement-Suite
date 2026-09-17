@@ -51,7 +51,7 @@ for(const locale of Object.keys(catalogs))test(`${locale}: settings translate on
     assert.equal(d.querySelector('#aes-input-invPricing-min-price').value,'73');
     assert.equal(p.saved.settings.invPricing.recommendation.Y.minPrice,60);
     assert.equal(p.run('AESI18n.locale()'),locale);
-    assert.match(d.querySelector('.aes-language-control [role="status"]').textContent,new RegExp(catalogs[locale]['Language saved. Reload this page to apply.'].replace(/[.*+?^${}()|[\]\\]/g,'\\$&')));
+    assert.match(d.querySelector('.aes-language-control [role="status"]').textContent,new RegExp(catalogs.ja['Language saved. Reload this page to apply.'].replace(/[.*+?^${}()|[\]\\]/g,'\\$&')));
 });
 test('translated option text retains English enum values and language save failures retain preference',t=>{
     const p=browser(t,{data:{aesLanguage:'de'}});
@@ -99,4 +99,29 @@ for(const locale of Object.keys(catalogs))test(`${locale}: backend errors transl
     assert.equal(p.run(`AESI18n.errorMessage('Invalid settings.')`),catalogs[locale]['Invalid settings.']);
     assert.equal(p.run(`AESI18n.errorMessage('Unable to save schedule: Disk full (E123)')`),catalogs[locale]['Unable to save schedule: {0}'].replace('{0}','Disk full (E123)'));
     assert.equal(p.run(`AESI18n.errorMessage('A user supplied value')`),'A user supplied value');
+});
+
+test('reload notice uses the selected language, including following the game after an override',t=>{
+    const p=browser(t,{html:config('de'),data:{aesLanguage:'zh-TW'}});
+    p.run('document.body.append(AESI18n.selector())');
+    const select=p.w.document.querySelector('#aes-language'),status=p.w.document.querySelector('[role="status"]');
+    for(const target of Object.keys(catalogs)){
+        select.value=target;select.dispatchEvent(new p.w.Event('change'));
+        assert.equal(status.textContent,catalogs[target]['Language saved. Reload this page to apply.']);
+        assert.equal(status.lang,target);assert.equal(p.run('AESI18n.locale()'),'zh-TW');
+    }
+    select.value='auto';select.dispatchEvent(new p.w.Event('change'));
+    assert.equal(status.textContent,catalogs.de['Language saved. Reload this page to apply.']);assert.equal(status.lang,'de');
+    p.failures.set='Disk full';select.value='ja';select.dispatchEvent(new p.w.Event('change'));
+    assert.equal(select.value,'auto');assert.equal(status.lang,'zh-TW');
+    assert.equal(status.textContent,catalogs['zh-TW']['Unable to save language. Please try again.']);
+});
+
+test('extension language notice follows the cached game language instead of its overridden document language',t=>{
+    const p=browser(t,{helpers:false,data:{aesLanguage:'ja',aesGameLanguage:'pl'}});
+    p.load('modules/i18n-data.js');p.load('modules/i18n.js');
+    p.w.document.documentElement.lang='ja';
+    p.run('document.body.append(AESI18n.selector())');
+    const select=p.w.document.querySelector('#aes-language');select.value='auto';select.dispatchEvent(new p.w.Event('change'));
+    assert.equal(p.w.document.querySelector('[role="status"]').textContent,catalogs.pl['Language saved. Reload this page to apply.']);
 });

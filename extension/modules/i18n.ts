@@ -16,15 +16,16 @@ namespace AESI18n {
         return normalize(document.documentElement.lang);
     }
     let language=gameLanguage() || 'en';
+    let followedLanguage=language;
     export let preference='auto';
     let ready=false;
     const waiting:Array<()=>void>=[];
     export function whenReady(callback:()=>void){if(ready)callback();else waiting.push(callback);}
     export function locale(){return language;}
-    export function t(source:string,values:Record<string,unknown>={}):string {
+    export function t(source:string,values:Record<string,unknown>={},targetLanguage=language):string {
         const key=source.trim().replace(/\s+/g,' ');
         if(!key)return source;
-        const entry=language!=='en' && typeof AES_I18N_CATALOG!=='undefined' ? AES_I18N_CATALOG[language]?.[key] : undefined;
+        const entry=targetLanguage!=='en' && typeof AES_I18N_CATALOG!=='undefined' ? AES_I18N_CATALOG[targetLanguage]?.[key] : undefined;
         const message=entry ? (source.match(/^\s*/)?.[0] || '')+entry+(source.match(/\s*$/)?.[0] || '') : source;
         return message.replace(/\{(\w+)\}/g,(all,name)=>Object.hasOwn(values,name) ? String(values[name] ?? '') : all);
     }
@@ -65,8 +66,11 @@ namespace AESI18n {
             const previous=preference,next=select.value;select.disabled=true;
             chrome.storage.local.set({aesLanguage:next},()=>{
                 select.disabled=false;
-                if(chrome.runtime.lastError){select.value=previous;status.textContent=t('Unable to save language. Please try again.');return;}
-                preference=next;status.textContent=t('Language saved. Reload this page to apply.');
+                if(chrome.runtime.lastError){select.value=previous;status.lang=language;status.textContent=t('Unable to save language. Please try again.');return;}
+                preference=next;
+                const targetLanguage=next==='auto' ? followedLanguage : normalize(next) || 'en';
+                status.lang=targetLanguage;
+                status.textContent=t('Language saved. Reload this page to apply.',{},targetLanguage);
             });
         });
         return label;
@@ -74,7 +78,8 @@ namespace AESI18n {
     const finish=(stored:Record<string,unknown>={})=>{
         preference=stored.aesLanguage==='auto' ? 'auto' : normalize(stored.aesLanguage) || 'auto';
         const detected=gameLanguage();
-        language=preference==='auto' ? detected || normalize(stored.aesGameLanguage) || 'en' : preference;
+        followedLanguage=detected || normalize(stored.aesGameLanguage) || 'en';
+        language=preference==='auto' ? followedLanguage : preference;
         if(location.protocol==='chrome-extension:')document.documentElement.lang=language;
         ready=true;waiting.splice(0).forEach(callback=>callback());
         if(location.protocol==='https:' && detected && stored.aesGameLanguage!==detected && /\.airlinesim\.aero$/.test(location.hostname)){
