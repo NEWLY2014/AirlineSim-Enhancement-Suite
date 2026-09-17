@@ -920,16 +920,21 @@
 .aes-competitor-summary { table-layout: fixed; width: 100%; }
 
 /* Comparison stays above the dashboard; results have a bounded scroll area. */
-.aes-schedule-diff { width: min(1100px, 94vw); max-height: 90vh; padding: 20px; border: 1px solid #888; border-radius: 8px; color: inherit; background: Canvas; }
+.aes-schedule-diff { width: min(1100px, 94vw); max-height: 90vh; padding: 20px; border: 1px solid #888; border-radius: 8px; color: var(--aes-diff-ink); background: var(--aes-diff-bg); }
 .aes-schedule-diff::backdrop { background: rgb(0 0 0 / 45%); }
 .aes-diff-heading, .aes-diff-pagination { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .aes-diff-heading h3 { margin: 0; }
 .aes-diff-controls { display: flex; flex-wrap: wrap; gap: 12px; margin: 16px 0; }
 .aes-diff-controls label { flex: 1 1 180px; }
 .aes-diff-table { max-height: 50vh; overflow: auto; }
-.aes-diff-table th { position: sticky; top: 0; background: Canvas; }
+.aes-diff-table th { position: sticky; top: 0; background: var(--aes-diff-bg); }
 .aes-diff-table td { white-space: pre-line; }
 .aes-diff-pagination { margin: 12px 0; }
 
 .aes-table-sort { font: inherit; color: inherit; background: transparent; border: 0; padding: 0; cursor: pointer; text-align: inherit; }
 .aes-table-sort:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+
+.aes-schedule-diff { --aes-diff-bg: #f7f5ef; --aes-diff-ink: #3e3a33; --aes-diff-muted: #625d54; color-scheme: light; }
+.aes-schedule-diff[data-theme="dark"] { --aes-diff-bg: #30343b; --aes-diff-ink: #f1f3f5; --aes-diff-muted: #c3c9d1; color-scheme: dark; }
+.aes-schedule-diff .form-control, .aes-schedule-diff .btn { color: var(--aes-diff-ink); background: var(--aes-diff-bg); border: 1px solid var(--aes-diff-muted); }
+.aes-schedule-diff .text-muted { color: var(--aes-diff-muted); }

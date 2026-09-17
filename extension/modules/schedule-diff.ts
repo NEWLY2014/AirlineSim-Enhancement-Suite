@@ -72,6 +72,8 @@ namespace AESScheduleDiff {
         activeDialog?.remove();
         const items=captures(raw);
         const dialog=$('<dialog class="aes-schedule-diff" aria-label="Schedule changes"></dialog>');
+        const theme=AES.getFrontendSettings().theme;
+        dialog.attr('data-theme',theme==='light' || theme==='classic' ? 'light' : 'dark');
         const close=$('<button type="button" class="btn btn-default">Close</button>');
         dialog.append($('<div class="aes-diff-heading"></div>').append($('<h3></h3>').text('Schedule changes · '+name),close));
         activeDialog=dialog;

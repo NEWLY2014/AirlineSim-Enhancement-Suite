@@ -23,3 +23,14 @@ test('release notes isolate background focus and restore the opener after Escape
     assert.equal(await page.evaluate(()=>document.activeElement.id),'trigger');
     assert.equal(await page.evaluate(()=>saved.aesReleaseNotesSeenVersion),'0.8.13');
 });
+
+test('schedule comparison follows the game theme independently of system colors',async t=>{
+    const page=await pageFor(t);
+    await page.addScriptTag({path:'build/extension/modules/schedule-diff.js'});
+    for(const [theme,system,expected] of [['dark','light',['rgb(241, 243, 245)','rgb(48, 52, 59)']],['light','dark',['rgb(62, 58, 51)','rgb(247, 245, 239)']],['classic','dark',['rgb(62, 58, 51)','rgb(247, 245, 239)']]]){
+        await page.emulateMedia({colorScheme:system});
+        await page.evaluate(theme=>{window.theme=theme;AESScheduleDiff.open({},'Airline')},theme);
+        assert.deepEqual(await page.locator('dialog').evaluate(el=>[getComputedStyle(el).color,getComputedStyle(el).backgroundColor]),expected);
+        await page.getByRole('button',{name:'Close',exact:true}).click();
+    }
+});
