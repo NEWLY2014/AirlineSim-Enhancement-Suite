@@ -175,6 +175,15 @@ function setDefaultInvPricingSettings() {
     return invPricing;
 }
 
+// Open the extension-owned options page without exposing it as a web resource.
+chrome.runtime.onMessage.addListener((message,sender,reply)=>{
+    if(message?.type!=='AES_OPEN_OPTIONS') return false;
+    if(sender.id!==chrome.runtime.id || sender.frameId!==0 || !sender.tab || !sender.url || !/^https:\/\/[^/]+\.airlinesim\.aero\/app\/enterprise\/settings(?:[?;]|$)/.test(sender.url)) {
+        reply({ok:false});return false;
+    }
+    chrome.runtime.openOptionsPage().then(()=>reply({ok:true}),()=>reply({ok:false}));
+    return true;
+});
 //MAIN
 chrome.runtime.onInstalled.addListener(function() {
     setDefaultSettings();

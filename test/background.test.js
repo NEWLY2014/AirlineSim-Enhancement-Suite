@@ -11,6 +11,8 @@ function background(settings) {
     const opened = [];
     const chrome = {
         runtime: {
+            id:'aes-test',
+            async openOptionsPage(){opened.push({options:true});},
             onInstalled: { addListener(fn) { listeners.install = fn; } },
             onMessage: { addListener(fn) { listeners.message = fn; } }
         },
@@ -25,9 +27,9 @@ function background(settings) {
         }
     };
     runInNewContext(source, { chrome, URL, importScripts() {} });
-    const message = value => {
+    const message = (value,sender={}) => {
         let response;
-        const pending = listeners.message(value, {}, result => { response = snapshot(result); });
+        const pending = listeners.message(value, sender, result => { response = snapshot(result); });
         return { pending, response };
     };
     return { saved, opened, chrome, install: () => listeners.install(), message };
@@ -66,4 +68,16 @@ test('installation recovers missing or malformed settings containers', () => {
     const b = background({ invPricing: { recommendation: [] } });
     b.install();
     assert.equal(b.saved.settings.invPricing.recommendation.F.maxPrice, 200);
+});
+
+
+test('options entry accepts only top-level game settings pages',async()=>{
+    const b=background({});
+    const valid={id:'aes-test',frameId:0,tab:{id:1},url:'https://paine.airlinesim.aero/app/enterprise/settings?2'};
+    for(const sender of [{...valid,id:'other'},{...valid,frameId:1},{...valid,url:'https://example.com/app/enterprise/settings'},{...valid,url:'https://paine.airlinesim.aero/app/fleets'}]){
+        assert.deepEqual(b.message({type:'AES_OPEN_OPTIONS'},sender).response,{ok:false});
+    }
+    assert.equal(b.opened.length,0);
+    assert.equal(b.message({type:'AES_OPEN_OPTIONS'},valid).pending,true);
+    await Promise.resolve();assert.deepEqual(b.opened,[{options:true}]);
 });

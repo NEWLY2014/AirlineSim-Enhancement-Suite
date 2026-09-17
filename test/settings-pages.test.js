@@ -17,8 +17,8 @@ test('settings edits preserve unrelated and newly stored preferences', async t =
     assert.equal(p.saved.settings.invPricing.autoPriceUpdate, 1);
     assert.equal(p.saved.settings.addedAfterLoad, 'keep');
     assert.deepEqual(p.saved.settings.custom, { keep: true });
-    p.w.document.querySelectorAll('#aes-settings-root .col-md-2 a')[1].click();
-    p.w.document.querySelector('#aes-div-settingArea input').click();
+    p.w.document.querySelector('#aes-settings-group-1').click();
+    p.w.document.querySelector('#aes-settings-section-1 input').click();
     assert.equal(p.saved.settings.flightInfo.autoClose, 1);
     assert.equal(p.saved.settings.invPricing.autoPriceUpdate, 1);
 });
@@ -142,4 +142,18 @@ test('unconfirmed salary response preserves last confirmed update',async t => {
     await new Promise(resolve=>setImmediate(resolve));
     assert.equal(reload.saved[key].date,'20260901');
     assert.ok(reload.saved[key].pending);
+});
+
+test('native settings tab integration restores the host DOM on ownership loss',async t=>{
+    const native='<div class="as-panel"><ul class="nav nav-tabs"><li class="tab0 active"><a href="?tab=0">General settings</a></li><li class="tab1"><a href="?tab=1">Game settings</a></li></ul><div class="tab-content"><form><textarea>Unsaved</textarea></form></div></div>';
+    const p=browser(t,{html:header+'<div class="bootstrap container-fluid"><h1>Settings</h1>'+native+'</div>',path:'/app/enterprise/settings',data:{settings:{settingsSection:'Flight Info'}}});
+    p.load('content_settings.js');await until(()=>p.w.document.querySelector('#aes-settings-tab'));
+    assert.equal(p.w.document.querySelector('#aes-settings-root').hidden,true);
+    assert.equal(p.w.document.querySelector('#aes-settings-group-1').getAttribute('aria-selected'),'true');
+    p.w.document.querySelector('#aes-settings-tab').click();
+    assert.equal(p.w.document.querySelector('.tab-content').hidden,true);
+    assert.equal(p.calls.length,0);
+    p.run('AES._ownershipLostCallbacks.forEach(fn=>fn())');
+    assert.equal(p.w.document.querySelector('#aes-settings-root'),null);
+    assert.equal(p.w.document.querySelector('.as-panel').outerHTML,native);
 });

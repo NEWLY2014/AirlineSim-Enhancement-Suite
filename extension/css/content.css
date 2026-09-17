@@ -938,3 +938,12 @@
 .aes-schedule-diff[data-theme="dark"] { --aes-diff-bg: #30343b; --aes-diff-ink: #f1f3f5; --aes-diff-muted: #c3c9d1; color-scheme: dark; }
 .aes-schedule-diff .form-control, .aes-schedule-diff .btn { color: var(--aes-diff-ink); background: var(--aes-diff-bg); border: 1px solid var(--aes-diff-muted); }
 .aes-schedule-diff .text-muted { color: var(--aes-diff-muted); }
+
+/* Settings use the game's existing primary tab row. */
+#aes-settings-root[hidden], .aes-settings-native-panel[hidden], #aes-settings-root [role="tabpanel"][hidden] { display: none !important; }
+.aes-settings-panel { padding: 16px; }
+.aes-settings-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.aes-settings-groups { display: flex; flex-wrap: wrap; gap: 8px; }
+.aes-settings-groups [aria-selected="true"] { font-weight: bold; box-shadow: inset 0 -3px currentColor; }
+#aes-settings-tab:focus-visible, .aes-settings-groups button:focus-visible { outline: 2px solid currentColor; outline-offset: -2px; }
+.aes-settings-feedback:empty { display: none; }

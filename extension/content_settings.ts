@@ -2,76 +2,116 @@
 (() => {
 //MAIN
 var settings: Record<string, unknown>;
+let settingsArea: JQuery;
+let cleanupSettings=()=>{};
 const SETTINGS_SCRIPT_ENABLED = AES.runContentScript("content_settings", function() {
     chrome.storage.local.get(['settings'], function(result) {
-        AES.waitForElement(function() {
-            return $(AES.getPageContainer() || []);
-        }, function() {
+        AES.waitForElement(() => $(AES.getPageContainer() || []), function() {
+            if (!AES.isPageOwner()) return;
             settings = AES.isRecord(result.settings) ? result.settings : {};
             displaySettings();
-            AES.markOwnedElements($("#aes-settings-root"));
-            settingDisplayHandle('Inventory Pricing')
         }, {
             scriptName: "content_settings",
             errorMessage: "Settings insertion target page content container was not found"
         });
     });
 });
+if (SETTINGS_SCRIPT_ENABLED) AES.whenPageOwnershipLost(()=>cleanupSettings());
 
-if (SETTINGS_SCRIPT_ENABLED) {
-    AES.whenPageOwnershipLost(function() {
-        $('#aes-settings-root').remove();
+function bindTabKeys(list: JQuery) {
+    list.on('keydown.aesSettings', '[role="tab"]', function(event) {
+        if (!['ArrowLeft','ArrowRight','Home','End'].includes(event.key || '')) return;
+        const tabs=list.find('[role="tab"]').toArray();
+        const index=tabs.indexOf(this);
+        const next=event.key==='Home' ? 0 : event.key==='End' ? tabs.length-1 : (index+(event.key==='ArrowRight' ? 1 : -1)+tabs.length)%tabs.length;
+        event.preventDefault();tabs.forEach(tab=>tab.setAttribute('tabindex','-1'));tabs[next]?.setAttribute('tabindex','0');tabs[next]?.focus();
     });
 }
 
-//FUNCTIONS MAIN
-//Display settings
-function settingDisplayHandle(value: string) {
-    switch (value) {
-        case 'Inventory Pricing':
-            displayInvPricingSettings();
-            break;
-        case 'Flight Info':
-            displayFlightInfoSettings();
-            break;
-        default:
-            displayInvPricingSettings();
-    }
-}
-
 function displaySettings() {
-    let settingChoice = ['Inventory Pricing', 'Flight Info'];
-    let rows: JQuery[] = [];
-    settingChoice.forEach(function(value, index) {
-        let span = $('<span></span>').text(value);
-        let a = $('<a href="#"></a>').append(span);
-        let span1 = $('<span></span>');
-        if (!index) {
-            span1.addClass("fa fa-play")
-        }
-        let td = $('<td></td>').append(span1, a);
-        a.click(function() {
-            settingDisplayHandle(value);
-            $('span', $(this).closest('tbody')).removeClass("fa fa-play");
-            $('span:eq(0)', $(this).closest('td')).addClass("fa fa-play");
-        });
-        rows.push($('<tr></tr>').append(td));
-    })
-    let tbody = $('<tbody></tbody>').append(rows);
-    let table = $('<table class="table"></table>').append(tbody);
-    let divWell = $('<div class="as-table-well"></div>').append(table);
-    let divPanel = $('<div class="as-panel"></div>').append(divWell);
-    let h3 = $('<h3>Settings</h3>');
-    let divmd2 = $('<div class="col-md-2"></div>').append(h3, divPanel);
-    let divmd10 = $('<div id="aes-div-settingArea" class="col-md-10"></div>');
-    let rowDiv = $('<div class="row"></div>').append(divmd2, divmd10);
-    let h = $('<h2>AirlineSim Enhancement Suite Settings</h2>');
-    let mainDiv = $(AES.getPageContainer() || []);
-    if (!mainDiv.length) {
-        throw new Error("Settings insertion target page content container was not found");
+    cleanupSettings();
+    const main=$(AES.getPageContainer() || []);
+    const nativeTabs=main.find('.nav-tabs').filter((_,el)=>!!el.parentElement?.querySelector(':scope > .tab-content')).first();
+    const nativeContent=nativeTabs.parent().children('.tab-content').first();
+    const nativeItems=nativeTabs.children('li').toArray();
+    const selected=nativeItems.find(item=>item.classList.contains('active'));
+    const restore: Array<()=>void>=[];
+    const remember=(element:Element,attributes:string[])=>{
+        const values=attributes.map(name=>[name,element.getAttribute(name)] as const);
+        restore.push(()=>values.forEach(([name,value])=>value===null ? element.removeAttribute(name) : element.setAttribute(name,value)));
+    };
+    const root=$('<section id="aes-settings-root" class="aes-settings-panel" role="tabpanel" aria-labelledby="aes-settings-tab" hidden></section>');
+    const top=$('<li id="aes-settings-tab-item"><a id="aes-settings-tab" href="#aes-settings-root" role="tab" aria-controls="aes-settings-root" aria-selected="false" tabindex="-1">AES Settings</a></li>');
+    const tabs=nativeTabs.length ? nativeTabs : $('<ul class="nav nav-tabs"></ul>').appendTo(main[0]);
+    remember(tabs[0],['role','aria-label']);tabs.attr({'role':'tablist','aria-label':'Settings'});
+    for(const item of nativeItems){
+        remember(item,['class']);
+        const link=item.querySelector('a');if(!link)continue;
+        remember(link,['role','aria-selected','tabindex','id','aria-controls']);
+        link.setAttribute('role','tab');link.setAttribute('aria-selected',String(item===selected));link.setAttribute('tabindex',item===selected ? '0' : '-1');
     }
-    $("#aes-settings-root").remove();
-    mainDiv.prepend($('<section id="aes-settings-root"></section>').append(h, rowDiv));
+    if(nativeContent.length) {
+        remember(nativeContent[0],['hidden','class','id','role','aria-labelledby']);
+        nativeContent.addClass('aes-settings-native-panel');
+        const nativeLink=selected?.querySelector('a');
+        if(nativeLink){
+            nativeLink.id ||= 'aes-native-settings-tab';
+            nativeContent.attr({id:nativeContent.attr('id') || 'aes-native-settings-panel',role:'tabpanel','aria-labelledby':nativeLink.id});
+            nativeLink.setAttribute('aria-controls',nativeContent.attr('id')!);
+        }
+    }
+    tabs.append(top);tabs.after(root);
+    const activate=(showAES:boolean)=>{
+        root.prop('hidden',!showAES);
+        if(nativeContent.length) nativeContent.prop('hidden',showAES);
+        nativeItems.forEach(item=>{
+            const active=!showAES && item===selected;item.classList.toggle('active',active);
+            $(item).children('a').attr({'aria-selected':String(active),tabindex:active ? '0' : '-1'});
+        });
+        top.toggleClass('active',showAES).find('a').attr({'aria-selected':String(showAES),tabindex:showAES ? '0' : '-1'});
+    };
+    top.find('a').on('click',event=>{event.preventDefault();activate(true);});
+    // The loaded native tab can be restored locally without discarding its form draft.
+    // Other native links retain their original server navigation and modifier-click behavior.
+    if(selected) $(selected).children('a').on('click.aesSettings',event=>{
+        if(!root.prop('hidden') && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey){event.preventDefault();activate(false);}
+    });
+    tabs.on('keydown.aesSettings','[role="tab"]',function(event){if(event.key===' '){event.preventDefault();this.click();}});
+    bindTabKeys(tabs);
+    const toolbar=$('<div class="aes-settings-toolbar"></div>');
+    const groups=$('<div class="aes-settings-groups" role="tablist" aria-label="AES settings sections"></div>');
+    const backup=$('<button type="button" class="btn btn-default">Backup &amp; Restore</button>');
+    const feedback=$('<span role="status" class="aes-settings-feedback"></span>');
+    backup.on('click',()=>chrome.runtime.sendMessage({type:'AES_OPEN_OPTIONS'},response=>{
+        if(chrome.runtime.lastError || !response?.ok) feedback.text('Unable to open Backup & Restore. Open AES extension options from Chrome.');
+    }));
+    toolbar.append(groups,backup);root.append(toolbar,feedback);
+    const panels: JQuery[]=[],buttons: JQuery[]=[];
+    const names=['Inventory Pricing','Flight Info'];
+    names.forEach((name,index)=>{
+        const button=$('<button type="button" role="tab" class="btn btn-default"></button>').attr({id:'aes-settings-group-'+index,'aria-controls':'aes-settings-section-'+index}).text(name);
+        const panel=$('<div role="tabpanel"></div>').attr({id:'aes-settings-section-'+index,'aria-labelledby':'aes-settings-group-'+index});
+        groups.append(button);root.append(panel);panels.push(panel);buttons.push(button);
+        settingsArea=panel;
+        if(index===0) displayInvPricingSettings();else displayFlightInfoSettings();
+        button.on('click',()=>{
+            showGroup(index);
+            AES.updateSettings(current=>{current.settingsSection=name;},updated=>{settings=updated;});
+        });
+    });
+    function showGroup(index:number){
+        panels.forEach((panel,i)=>panel.prop('hidden',i!==index));
+        buttons.forEach((button,i)=>button.attr({'aria-selected':String(i===index),tabindex:i===index ? '0' : '-1'}).toggleClass('active',i===index));
+    }
+    bindTabKeys(groups);
+    showGroup(settings.settingsSection==='Flight Info' ? 1 : 0);
+    activate(!nativeTabs.length);
+    AES.markOwnedElements([root[0],top[0]]);
+    cleanupSettings=()=>{
+        tabs.off('.aesSettings');$(nativeItems).find('a').off('.aesSettings');
+        root.remove();top.remove();restore.forEach(action=>action());
+        if(!nativeTabs.length) tabs.remove();
+    };
 }
 //FLight Info
 function displayFlightInfoSettings() {
@@ -92,13 +132,13 @@ function displayFlightInfoSettings() {
     let checkboxDiv = $('<div class="checkbox"></div>').append(label);
     let panelDiv = $('<div class="as-panel"></div>').append(checkboxDiv);
     let h3 = $('<h3>Flight Information</h3>');
-    let mainDiv = $("#aes-div-settingArea");
+    let mainDiv = settingsArea;
     mainDiv.empty();
     mainDiv.append(h3, panelDiv);
 }
 //Pricing
 function displayInvPricingSettings() {
-    let mainDiv = $("#aes-div-settingArea");
+    let mainDiv = settingsArea;
     mainDiv.empty();
     mainDiv.append(
         `
@@ -126,8 +166,8 @@ function displayInvPricingSettings() {
         </label>
       </div>
       <div class="form-group">
-        <label class="control-label">
-          <span for="aes-select-invPricing-cmp">Compartment Recommendation Settings</span>
+        <label class="control-label" for="aes-select-invPricing-cmp">
+          <span>Compartment Recommendation Settings</span>
         </label>
         <select class="form-control" id="aes-select-invPricing-cmp">
           <option value="Y" selected="selected">Economy</option>
