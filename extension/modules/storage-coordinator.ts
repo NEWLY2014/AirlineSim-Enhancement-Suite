@@ -88,14 +88,15 @@ class AESStorage {
                     continue;
                 }
                 const next={...item};let changed=false;
-                for (const field of ['date','tab0','tab2']) {
+                for (const field of ['date','tab0','tab2','captures']) {
                     if (!record(item[field])) continue;
                     const entries=Object.entries(item[field]);
-                    const kept=entries.filter(([date]) => !old(date));
+                    const kept=entries.filter(([date,snapshot]) => !old(field==='captures' && record(snapshot) ? snapshot.date || snapshot.capturedAt : date));
                     if (kept.length !== entries.length) {next[field]=Object.fromEntries(kept);snapshots+=entries.length-kept.length;changed=true;}
                 }
-                if (record(next.date) && !Object.keys(next.date).length) removals.push(key);
-                else if (!item.date && old(item.updateTime)) removals.push(key);
+                const hasCaptures=record(next.captures) && Object.keys(next.captures).length>0;
+                if (record(next.date) && !Object.keys(next.date).length && !hasCaptures) removals.push(key);
+                else if (!item.date && old(item.updateTime) && !hasCaptures) removals.push(key);
                 else if (changed) updates[key]=next;
             }
             if (Object.keys(updates).length) await setLocal(updates);

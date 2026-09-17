@@ -49,3 +49,18 @@ test('schedule save requests cannot target another airline or come from an untru
     const invalid=request('20260908');invalid.snapshot.schedule=[];
     assert.equal((await send(p,invalid)).ok,false);assert.equal(p.calls.length,0);
 });
+
+test('same-day collections retain the preceding capture and migrate the daily baseline',async t=>{
+    const p=browser(t,{data:{[key]:{type:'schedule',date:{20260908:{date:'20260908',updateTime:'00:00 UTC',schedule}}}}});accept(p);
+    await send(p,request('20260908'));
+    assert.equal(Object.keys(p.saved[key].captures)[0],'daily:20260908');
+    const first=Object.keys(p.saved[key].captures).at(-1);
+    const changed=request('20260908');changed.snapshot.schedule=structuredClone(schedule);changed.snapshot.schedule[0].flightNumber[100].paxFreq=4;
+    await send(p,changed);
+    assert.equal(Object.keys(p.saved[key].captures).length,3);
+    assert.equal(p.saved[key].captures[first].schedule[0].flightNumber[100].paxFreq,7);
+    assert.equal(Object.values(p.saved[key].captures).at(-1).schedule[0].flightNumber[100].paxFreq,4);
+    await send(p,changed);
+    assert.equal(Object.keys(p.saved[key].captures).length,4);
+    assert.equal(Object.keys(p.saved[key].date).length,1);
+});

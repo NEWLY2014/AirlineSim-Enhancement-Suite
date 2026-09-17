@@ -39,8 +39,18 @@
                 value = {tracking:0,...legacy,...old,key,server,id,ownerId:owner,ownerAirline:message.ownerAirline,type:'competitorMonitoring',tab0,tab2,autoExtract:0};
             } else {
                 const schedule = snapshot as Record<string,unknown>;
-                value = {...old, type:'schedule', server, airline:message.airline,
-                    date:{...(record(old.date) ? old.date : {}), [String(schedule.date)]:schedule}};
+                const history = record(old.date) ? old.date : {};
+                const captures = {...(record(old.captures) ? old.captures : {})};
+                // Preserve a legacy daily baseline before the same date is overwritten.
+                const date=String(schedule.date), daily=history[date];
+                if (record(daily) && Array.isArray(daily.schedule) &&
+                    !Object.values(captures).some(capture=>record(capture) && capture.date===date)) {
+                    captures['daily:'+date] = {...daily,date,id:'daily:'+date};
+                }
+                const captureId = crypto.randomUUID();
+                captures[captureId] = {...schedule,id:captureId,capturedAt:new Date().toISOString()};
+                value = {...old, captures, type:'schedule', server, airline:message.airline,
+                    date:{...history, [String(schedule.date)]:schedule}};
             }
             const acknowledgement = await chrome.tabs.sendMessage(sender.tab!.id!, {type:'AES_SCHEDULE_OWNER_CHECK',token:message.token}, {documentId:sender.documentId});
             if (!record(acknowledgement) || acknowledgement.ok !== true) throw new Error('Schedule page is no longer active.');

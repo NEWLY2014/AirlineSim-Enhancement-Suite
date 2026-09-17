@@ -34,7 +34,16 @@ declare namespace AESModel {
         date?: string;
         updateTime?: string;
     }
+    interface ScheduleService {
+        days: string;
+        departure?: string;
+        arrival?: string;
+        aircraft?: string;
+        valid: string;
+        remark: string;
+    }
     interface ScheduleFrequency {
+        services?: ScheduleService[];
         paxFreq: number;
         cargoFreq: number;
         remark: string;

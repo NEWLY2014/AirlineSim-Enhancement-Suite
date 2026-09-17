@@ -85,8 +85,8 @@ test('schedule extraction preserves segment splitting, frequencies and old snaps
     assert.deepEqual(routes.map(r => [r.origin,r.destination,r.od,r.direction]), [
         ['AAA','BBB','AAABBB','Outbound'], ['AAA','CCC','AAACCC','Outbound'], ['BBB','AAA','AAABBB','Inbound']
     ]);
-    assert.deepEqual(routes[0].flightNumber, { '100': { paxFreq: 5, cargoFreq: 0, remark: '', valid: 'Now' },
-        '101': { paxFreq: 0, cargoFreq: 2, remark: 'CARGO FLIGHT', valid: 'Now' } });
+    assert.deepEqual(routes[0].flightNumber, { '100': { paxFreq: 5, cargoFreq: 0, remark: '', valid: 'Now', services:[{days:'12345',remark:'',valid:'Now'}] },
+        '101': { paxFreq: 0, cargoFreq: 2, remark: 'CARGO FLIGHT', valid: 'Now', services:[{days:'67',remark:'CARGO FLIGHT',valid:'Now'}] } });
     assert.equal(routes[1].flightNumber['103'].paxFreq, 3);
     assert.equal(p.errors.length, 0);
 });

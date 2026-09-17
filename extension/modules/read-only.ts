@@ -104,6 +104,7 @@ class AESRead {
         await yieldToPage();
         const schedule: AESModel.ScheduleRoute[] = [];
         for (const tbody of doc.querySelectorAll('.flight-schedule table tbody')) {
+            const headers = Array.from(tbody.closest('table')?.querySelectorAll('tr.head th, tr.head td, thead th') || []);
             let destinationCount = 0;
             let route: Partial<AESModel.ScheduleRoute> = {};
             // Walking siblings avoids materializing a second array of every flight row.
@@ -119,7 +120,7 @@ class AESRead {
                     destinationCount++;
                 } else if (cls !== 'head') {
                     const remark = AESRead.cellText(child, '.remarks');
-                    if (!remark.includes('via')) route = AESRead.lineDetails(child, route, remark);
+                    if (!remark.includes('via')) route = AESRead.lineDetails(child, route, remark, headers);
                 }
                 processed++;
                 if (needsYield()) {
@@ -254,7 +255,7 @@ static cellText(row: HTMLTableRowElement, selector: string) {
     return row.querySelector(selector)?.textContent || '';
 }
 
-static lineDetails(row: HTMLTableRowElement, route: Partial<AESModel.ScheduleRoute>, remark: string) {
+static lineDetails(row: HTMLTableRowElement, route: Partial<AESModel.ScheduleRoute>, remark: string, headers: Element[] = []) {
     // parse flight number
     let parts = AESRead.cellText(row, '.code').trim().split(/\s+/);
     let flightNumber = parseInt(parts[1], 10);
@@ -264,18 +265,31 @@ static lineDetails(row: HTMLTableRowElement, route: Partial<AESModel.ScheduleRou
     // ensure container
     if (!route.flightNumber) route.flightNumber = {};
 
-    // always re-initialize the entry
+    // Keep separate operating patterns when a flight number occupies several rows.
     let valid  = AESRead.cellText(row, '.valid');
 
-    route.flightNumber[flightNumber] = {
+    route.flightNumber[flightNumber] ||= {
         paxFreq:   0,
         cargoFreq: 0,
         remark,
-        valid
+        valid,
+        services: []
     };
 
     // count days: cargo vs pax based on remark
-    let days   = AESRead.cellText(row, '.days').split('');
+    const normalizedDays = [...new Set((AESRead.cellText(row, '.days').match(/[1-7]/g) || []))].sort().join('');
+    const service: AESModel.ScheduleService = {days:normalizedDays,valid:valid.trim(),remark:remark.trim()};
+    for (const [field, labels, selector] of [
+        ['departure', /^(departure|dep\.?|std)$/i, '.departure, .std'],
+        ['arrival', /^(arrival|arr\.?|sta)$/i, '.arrival, .sta'],
+        ['aircraft', /^(aircraft|aircraft type|equipment|type)$/i, '.aircraft, .equipment']
+    ] as const) {
+        const index = headers.findIndex(header => labels.test((header.textContent || '').trim()));
+        const cell = row.querySelector(selector) || (index >= 0 ? row.cells[index] : null);
+        if (cell) service[field] = (cell.textContent || '').replace(/\s+/g,' ').trim();
+    }
+    route.flightNumber[flightNumber].services!.push(service);
+    let days = normalizedDays.split('');
     let isCargo = remark.includes('CARGO FLIGHT');
 
     for (let d of days) {

@@ -160,3 +160,10 @@ test('history cleanup prunes competitor dates without removing tracking metadata
     await new Promise(resolve=>setImmediate(resolve));
     assert.deepEqual(p.saved.competitor,{tracking:1,extra:'keep',tab0:{[date]:{pax:100}},tab2:{}});
 });
+
+test('manual cleanup removes expired captures and retains recent full snapshots',async t=>{
+    const p=await options(t,{schedule:{type:'schedule',date:{20000101:{}},captures:{old:{date:'20000101',schedule:[]},recent:{date:new Date().toISOString(),schedule:[{keep:true}]}}}});
+    p.run('clearOldData()');await new Promise(resolve=>setImmediate(resolve));
+    assert.deepEqual(Object.keys(p.saved.schedule.captures),['recent']);
+    assert.deepEqual(p.saved.schedule.captures.recent.schedule,[{keep:true}]);
+});

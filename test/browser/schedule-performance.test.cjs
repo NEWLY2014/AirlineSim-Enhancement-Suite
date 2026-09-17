@@ -32,7 +32,7 @@ test('large schedule extraction yields to the page and preserves history through
         `--host-resolver-rules=MAP * 127.0.0.1:${server.address().port}`,'--no-proxy-server','--ignore-certificate-errors']});
     const worker=context.serviceWorkers()[0]||await context.waitForEvent('serviceworker');
     await worker.evaluate(async flights=>{
-        const flightNumber=Object.fromEntries(Array.from({length:flights},(_,i)=>[i,{paxFreq:7,cargoFreq:0,remark:'',valid:'Now'}]));
+        const flightNumber=Object.fromEntries(Array.from({length:flights},(_,i)=>[i,{paxFreq:7,cargoFreq:0,remark:'',valid:'Now',services:[{days:'1234567',valid:'Now',remark:''}]}]));
         const schedule=[{origin:'AAA',destination:'BBB',od:'AAABBB',direction:'Outbound',flightNumber}];
         const date=Object.fromEntries(Array.from({length:30},(_,i)=>['202608'+String(i+1).padStart(2,'0'),{date:'202608'+String(i+1).padStart(2,'0'),updateTime:'00:00 UTC',schedule}]));
         await chrome.storage.local.set({settings:{},paine99schedule:{type:'schedule',server:'paine',airline:{id:'99'},date,extra:'preserved'}});
@@ -69,5 +69,5 @@ test('large schedule extraction yields to the page and preserves history through
             first:value.date['20260908'].schedule[0].flightNumber['0'],
             historyFlights:Object.keys(value.date['20260801'].schedule[0].flightNumber).length};
     });
-    assert.deepEqual(stored,{dates:31,extra:'preserved',flights,historyFlights:flights,first:{paxFreq:7,cargoFreq:0,remark:'',valid:'Now'}});
+    assert.deepEqual(stored,{dates:31,extra:'preserved',flights,historyFlights:flights,first:{paxFreq:7,cargoFreq:0,remark:'',valid:'Now',services:[{days:'1234567',valid:'Now',remark:''}]}});
 });
