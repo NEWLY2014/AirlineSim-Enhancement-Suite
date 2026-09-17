@@ -104,7 +104,7 @@ namespace AESScheduleDiff {
 
     let activeDialog: JQuery | undefined;
     let cleanupRegistered=false;
-    export function open(raw:unknown,name:string) {
+    export function open(raw:unknown,name:string,returnFocus:HTMLElement | undefined=document.activeElement instanceof HTMLElement ? document.activeElement : undefined) {
         activeDialog?.remove();
         const items=captures(raw);
         const dialog=$('<dialog class="aes-schedule-diff" aria-label="Schedule changes"></dialog>');
@@ -113,7 +113,11 @@ namespace AESScheduleDiff {
         const close=$('<button type="button" class="btn btn-default">Close</button>');
         dialog.append($('<div class="aes-diff-heading"></div>').append($('<h3></h3>').text('Schedule changes · '+name),close));
         activeDialog=dialog;
-        const destroy=()=>{dialog.remove();if(activeDialog===dialog)activeDialog=undefined;};
+        const destroy=()=>{
+            if ((dialog[0] as HTMLDialogElement).open) (dialog[0] as HTMLDialogElement).close();
+            dialog.remove();if(activeDialog===dialog)activeDialog=undefined;
+            if(returnFocus?.isConnected) returnFocus.focus();
+        };
         close.on('click',destroy);dialog.on('cancel',event=>{event.preventDefault();destroy();});
         if (!cleanupRegistered) {AES.whenPageOwnershipLost(()=>{activeDialog?.remove();activeDialog=undefined;});cleanupRegistered=true;}
         const show=()=>{document.body.append(dialog[0]);(dialog[0] as HTMLDialogElement).showModal();close.trigger('focus');};

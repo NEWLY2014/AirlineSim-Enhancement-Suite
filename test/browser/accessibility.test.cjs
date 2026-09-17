@@ -60,3 +60,15 @@ test('large schedule comparisons yield during comparison and sorting, and suppor
     assert.ok(result.beats>2,JSON.stringify(result));assert.ok(result.gap<100,JSON.stringify(result));assert.equal(result.cancelled,true);
     t.diagnostic(JSON.stringify(result));
 });
+
+test('comparison restores the initiating button after Close and Escape',async t=>{
+    const page=await pageFor(t);
+    await page.addScriptTag({path:'build/extension/modules/schedule-diff.js'});
+    await page.evaluate(()=>document.querySelector('#trigger').onclick=()=>AESScheduleDiff.open({},'Airline'));
+    for(const action of ['close','escape']){
+        await page.click('#trigger');
+        if(action==='close') await page.getByRole('button',{name:'Close',exact:true}).click();else await page.keyboard.press('Escape');
+        assert.equal(await page.locator('dialog').count(),0);
+        assert.equal(await page.evaluate(()=>document.activeElement.id),'trigger');
+    }
+});

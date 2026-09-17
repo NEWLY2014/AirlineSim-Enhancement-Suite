@@ -2289,7 +2289,7 @@ function displayCompetitorMonitoringAirlinesTableOptions(table?: JQuery, compAir
         try {
             const key=server+rows[0].airlineId+'schedule';
             const data=await chrome.storage.local.get(key);
-            if (current() && revision===dashboardRevision) AESScheduleDiff.open(data[key],String(rows[0].airlineName || rows[0].airlineId));
+            if (current() && revision===dashboardRevision) AESScheduleDiff.open(data[key],String(rows[0].airlineName || rows[0].airlineId),changesBtn[0]);
         } catch(error) {if(current()) feedback.show('Unable to load schedule changes.','bad',String(error));}
         finally {if(current()) changesBtn.prop('disabled',getSelectedCompetitorRows(table).length!==1);}
     });
