@@ -43,7 +43,7 @@ function displaySettings() {
     const root=$('<section id="aes-settings-root" class="aes-settings-panel" role="tabpanel" aria-labelledby="aes-settings-tab" hidden></section>');
     const top=$(AESI18n.html('<li id="aes-settings-tab-item"><a id="aes-settings-tab" href="#aes-settings-root" role="tab" aria-controls="aes-settings-root" aria-selected="false" tabindex="-1">AES Settings</a></li>'));
     const tabs=nativeTabs.length ? nativeTabs : $('<ul class="nav nav-tabs"></ul>').appendTo(main[0]);
-    remember(tabs[0],['role','aria-label']);tabs.attr({'role':'tablist','aria-label':'Settings'});
+    remember(tabs[0],['role','aria-label']);tabs.attr({'role':'tablist','aria-label':AESI18n.t('Settings')});
     for(const item of nativeItems){
         remember(item,['class']);
         const link=item.querySelector('a');if(!link)continue;

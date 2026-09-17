@@ -44,7 +44,7 @@ function initializeFlightSchedule(result: Record<string, unknown>) {
     AES.markOwnedElements([label[0], panel[0]]);
     //Main DIv
     if (!$('.flight-schedule').length) {
-        throw new Error("Flight schedule insertion target .flight-schedule was not found");
+        throw new Error(AESI18n.t("Flight schedule insertion target .flight-schedule was not found"));
     }
     $('.flight-schedule').prepend(label, panel);
 
@@ -113,13 +113,13 @@ async function extractSchedule() {
     }
     const yieldToPage = async () => {
         await new Promise<void>(resolve => window.setTimeout(resolve, 0));
-        if (!AES.isPageOwner()) throw new Error('Page ownership lost.');
-        if (scheduleChanged) throw new Error('Schedule changed during extraction. Please try again.');
+        if (!AES.isPageOwner()) throw new Error(AESI18n.t("Page ownership lost."));
+        if (scheduleChanged) throw new Error(AESI18n.t("Schedule changed during extraction. Please try again."));
     };
     try {
         await yieldToPage();
         const schedule = await AESRead.parseSchedule(document, message => span.text(message), () => {
-            if (scheduleChanged) throw new Error('Schedule changed during extraction. Please try again.');
+            if (scheduleChanged) throw new Error(AESI18n.t("Schedule changed during extraction. Please try again."));
             return AES.isPageOwner();
         });
         span.text(AESI18n.t("Saving {0} routes...", {"0": schedule.length.toLocaleString()}));
@@ -131,7 +131,7 @@ async function extractSchedule() {
         const automatedCompetitorSave = !!competitor?.autoExtract;
         if (competitor?.autoExtract) {
             await new Promise<void>((resolve, reject) => chrome.storage.local.set({[competitor.key]: {...competitor, autoExtract:0}}, () => {
-                if (chrome.runtime.lastError) reject(new Error('Schedule saved, but automation could not be completed: ' + chrome.runtime.lastError.message));
+                if (chrome.runtime.lastError) reject(new Error(AESI18n.t("Schedule saved, but automation could not be completed: {0}", {0: chrome.runtime.lastError.message})));
                 else resolve();
             }));
             if (!AES.isPageOwner()) return;

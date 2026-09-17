@@ -15,7 +15,7 @@ class Validation {
      * Check if “All Flight Numbers” tab is active
      */
     checkAllFlightNumbersSelected() {
-        let message = "Please select \"All Flight Numbers\" under Current Inventory"
+        let message = AESI18n.t("Please select \"All Flight Numbers\" under Current Inventory")
         let active = $('.col-md-10 > div > .as-panel:eq(1) > ul:eq(0) li:eq(0)').hasClass("active")
         if (!active) {
             this.valid = false
@@ -32,35 +32,35 @@ class Validation {
         let messages: string[] = []
         if (checkboxes.length < 4) {
             this.valid = false
-            this.errors.push("Unable to validate “Apply settings to”. The inventory page layout might have changed.")
+            this.errors.push(AESI18n.t("Unable to validate “Apply settings to”. The inventory page layout might have changed."))
             return
         }
         checkboxes.each(function(index) {
             switch (index) {
                 case 0:
                     if (!this.checked) {
-                        let message = "Please check “Airport Pair” under “Apply settings to” in the “Settings”-panel"
+                        let message = AESI18n.t("Please check “Airport Pair” under “Apply settings to” in the “Settings”-panel")
                         valid = false
                         messages.push(message)
                     }
                     break
                 case 1:
                     if (!this.checked) {
-                        let message = "Please check “Flight Numbers” under “Apply settings to” in the “Settings”-panel"
+                        let message = AESI18n.t("Please check “Flight Numbers” under “Apply settings to” in the “Settings”-panel")
                         valid = false
                         messages.push(message)
                     }
                     break
                 case 2:
                     if (this.checked) {
-                        let message = "Please uncheck “Return Airport Pair” under “Apply settings to” in the “Settings”-panel"
+                        let message = AESI18n.t("Please uncheck “Return Airport Pair” under “Apply settings to” in the “Settings”-panel")
                         valid = false
                         messages.push(message)
                     }
                     break
                 case 3:
                     if (this.checked) {
-                        let message = "Please uncheck “Return Flight Numbers” under “Apply settings to” in the “Settings”-panel"
+                        let message = AESI18n.t("Please uncheck “Return Flight Numbers” under “Apply settings to” in the “Settings”-panel")
                         valid = false
                         messages.push(message)
                     }
@@ -87,7 +87,7 @@ class Validation {
             const input = $<HTMLInputElement>('input', this)[0]
             if (input && !input.checked) {
                 valid = false
-                messages.push(`Please check “${$(this).text()}” under “Service Classes” in the “Data”-panel`)
+                messages.push(AESI18n.t("Please check “{0}” under “Service Classes” in the “Data”-panel", {0:$(this).text()}))
             }
         })
         
@@ -109,7 +109,7 @@ class Validation {
             if (index === 1 || index === 2) {
                 const input = $<HTMLInputElement>('input', this)[0]
                 if (input && !input.checked) {
-                    let message = `Please check “${$(this).text()}” under “Flight Status” in the “Data”-panel`
+                    let message = AESI18n.t("Please check “{0}” under “Flight Status” in the “Data”-panel", {0: $(this).text()})
                     valid = false
                     messages.push(message)
                 }
@@ -136,7 +136,7 @@ class Validation {
             // Minimum
             if (index === 0) {
                 if (valueAsInteger != 0) {
-                    let message = `Please select 0 for “${$('label', this).text()}” under “Load” in the “Data”-panel`
+                    let message = AESI18n.t("Please select 0 for “{0}” under “Load” in the “Data”-panel", {0: $('label', this).text()})
                     valid = false
                     messages.push(message)
                 }
@@ -144,7 +144,7 @@ class Validation {
             // Max
             if (index === 1) {
                 if (valueAsInteger != 100) {
-                    let message = `Please select 100 for “${$('label', this).text()}” under “Load” in the “Data”-panel`
+                    let message = AESI18n.t("Please select 100 for “{0}” under “Load” in the “Data”-panel", {0: $('label', this).text()})
                     valid = false
                     messages.push(message)
                 }

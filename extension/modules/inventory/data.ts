@@ -12,9 +12,10 @@ export function emptyInventoryItem(): AESModel.InventoryItem {
 export function readInventoryItem(value: unknown): AESModel.InventoryItem {
     const item = AESInventoryData.emptyInventoryItem();
     if (!AES.isRecord(value)) return item;
-    const keys: Array<Exclude<keyof AESModel.InventoryItem, 'valid' | 'recommendation' | 'referenceRecommendation' | 'recType' | 'referenceRecType'>> =
+    const keys: Array<Exclude<keyof AESModel.InventoryItem, 'recommendationIsCustom' | 'referenceRecommendationIsCustom' | 'valid' | 'recommendation' | 'referenceRecommendation' | 'recType' | 'referenceRecType'>> =
         ['totalCap','totalBkd','analysisPrice','analysisPricePoint','useCurrentPrice','canRecommend','analysisSourcePrice','currentPrice','currentPricePoint','newPrice','newPricePoint','newPriceChange','referenceNewPrice','referenceNewPricePoint','index'];
     for (const key of keys) if (typeof value[key] === 'number' && Number.isFinite(value[key])) item[key] = value[key];
+    for (const key of ['recommendationIsCustom', 'referenceRecommendationIsCustom'] as const) if (typeof value[key] === 'boolean') item[key] = value[key];
     item.valid = !!value.valid && item.totalCap > 0 && ['totalCap','totalBkd','analysisPrice','analysisPricePoint'].every(key => typeof value[key] === 'number' && Number.isFinite(value[key]));
     for (const key of ['recommendation', 'referenceRecommendation'] as const) if (typeof value[key] === 'string') item[key] = value[key];
     for (const key of ['recType', 'referenceRecType'] as const) if (typeof value[key] === 'string') item[key] = value[key];
@@ -45,14 +46,14 @@ export function readInventorySnapshot(value: unknown): AESModel.InventorySnapsho
 }
 
 export function readInventorySettings(value: unknown): AESModel.InventorySettings {
-    if (!AES.isRecord(value) || !AES.isRecord(value.invPricing) || !AES.isRecord(value.invPricing.recommendation)) throw new Error('Inventory pricing settings are missing. Save pricing settings before using inventory analysis.');
+    if (!AES.isRecord(value) || !AES.isRecord(value.invPricing) || !AES.isRecord(value.invPricing.recommendation)) throw new Error(AESI18n.t("Inventory pricing settings are missing. Save pricing settings before using inventory analysis."));
     const source = value.invPricing;
     const readConfig = (cmp: AESModel.Cabin): AESModel.PricingRecommendation => {
         const rec = AES.isRecord(source.recommendation) ? source.recommendation[cmp] : undefined;
-        if (!AES.isRecord(rec) || typeof rec.minPrice !== 'number' || !Number.isFinite(rec.minPrice) || typeof rec.maxPrice !== 'number' || !Number.isFinite(rec.maxPrice) || rec.minPrice < 0 || rec.maxPrice < rec.minPrice || !Array.isArray(rec.steps)) throw new Error('Invalid inventory price bounds for ' + cmp);
+        if (!AES.isRecord(rec) || typeof rec.minPrice !== 'number' || !Number.isFinite(rec.minPrice) || typeof rec.maxPrice !== 'number' || !Number.isFinite(rec.maxPrice) || rec.minPrice < 0 || rec.maxPrice < rec.minPrice || !Array.isArray(rec.steps)) throw new Error(AESI18n.t("Invalid inventory price bounds for {0}", {0: cmp}));
         const steps: AESModel.PricingStep[] = [];
         for (const step of rec.steps) {
-            if (!AES.isRecord(step) || typeof step.min !== 'number' || !Number.isFinite(step.min) || typeof step.max !== 'number' || !Number.isFinite(step.max) || step.min > step.max || typeof step.step !== 'number' || !Number.isFinite(step.step) || typeof step.name !== 'string') throw new Error('Invalid inventory pricing step for ' + cmp);
+            if (!AES.isRecord(step) || typeof step.min !== 'number' || !Number.isFinite(step.min) || typeof step.max !== 'number' || !Number.isFinite(step.max) || step.min > step.max || typeof step.step !== 'number' || !Number.isFinite(step.step) || typeof step.name !== 'string') throw new Error(AESI18n.t("Invalid inventory pricing step for {0}", {0: cmp}));
             steps.push({min: step.min, max: step.max, name: step.name, step: step.step});
         }
         return {minPrice: rec.minPrice, maxPrice: rec.maxPrice, steps};
@@ -68,7 +69,7 @@ export function readInventorySettings(value: unknown): AESModel.InventorySetting
 export function getHistoryPreferences(settings: Record<string, unknown>): Record<string, unknown> {
     if (!AES.isRecord(settings.invPricing)) settings.invPricing = {};
     const inv = settings.invPricing;
-    if (!AES.isRecord(inv)) throw new Error('Invalid inventory settings');
+    if (!AES.isRecord(inv)) throw new Error(AESI18n.t("Invalid inventory settings"));
     if (!AES.isRecord(inv.historyTable)) inv.historyTable = {};
     return AES.isRecord(inv.historyTable) ? inv.historyTable : {};
 }

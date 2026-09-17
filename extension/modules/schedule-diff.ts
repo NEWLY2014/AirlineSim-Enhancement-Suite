@@ -11,7 +11,7 @@ namespace AESScheduleDiff {
             const routes=value.schedule.filter((route): route is AESModel.ScheduleRoute => record(route) && typeof route.origin==='string' && typeof route.destination==='string' && record(route.flightNumber));
             if (routes.length!==value.schedule.length) return;
             const timestamp=typeof value.capturedAt==='string' ? value.capturedAt : '';
-            const label=timestamp ? timestamp.replace('T',' ').replace('Z',' UTC') : date+' '+String(value.updateTime || '(daily snapshot)');
+            const label=timestamp ? timestamp.replace('T',' ').replace('Z',' UTC') : date+' '+String(value.updateTime || AESI18n.t('(daily snapshot)'));
             const order=timestamp || String(value.date || date).replace(/-/g,'').slice(0,8).replace(/^(\d{4})(\d{2})(\d{2})$/, '$1-$2-$3')+'T'+String(value.updateTime || '00:00').slice(0,5)+':00.000Z';
             result.push({id:typeof value.id==='string' ? value.id : id,label,order,schedule:routes});
         };
@@ -31,9 +31,9 @@ namespace AESScheduleDiff {
     function checkpoint(current:()=>boolean) {
         let deadline=performance.now()+8;
         return async()=>{
-            if (!current()) throw new Error('Comparison cancelled.');
+            if (!current()) throw new Error(AESI18n.t("Comparison cancelled."));
             if (performance.now()>=deadline) {await pause();deadline=performance.now()+8;}
-            if (!current()) throw new Error('Comparison cancelled.');
+            if (!current()) throw new Error(AESI18n.t("Comparison cancelled."));
         };
     }
     async function index(capture:Capture,check:()=>Promise<void>) {

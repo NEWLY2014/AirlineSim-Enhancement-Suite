@@ -32,12 +32,12 @@ class AESRead {
             const match = (script.textContent || '').match(/(?:window\.)?frontendSettings\s*=\s*(\{[\s\S]*?\})\s*;/);
             if (match) { try { const value: unknown = JSON.parse(match[1]); if (AES.isRecord(value)) return value; } catch { /* Reject below. */ } }
         }
-        throw new Error('The response is not a logged-in AirlineSim page. Please reload and sign in.');
+        throw new Error(AESI18n.t("The response is not a logged-in AirlineSim page. Please reload and sign in."));
     }
     static date(doc: Document) {
         const source = AESRead.frontend(doc).server?.time;
         const time = new Date(source || '');
-        if (!Number.isFinite(time.getTime())) throw new Error('Server time is missing from the response.');
+        if (!Number.isFinite(time.getTime())) throw new Error(AESI18n.t("Server time is missing from the response."));
         const iso = time.toISOString();
         return {date:iso.slice(0,10).replace(/-/g,''), time:iso.slice(11,16)+' UTC'};
     }
@@ -45,8 +45,8 @@ class AESRead {
         const url = new URL(input, location.href);
         const readFlight = url.pathname === '/action/info/flight' && /^\d+$/.test(url.searchParams.get('id') || '') && [...url.searchParams.keys()].every(k => k === 'id');
         const readEnterprise = /^\/app\/info\/enterprises\/\d+$/.test(url.pathname) && ['0','2','3'].includes(url.searchParams.get('tab') || '') && [...url.searchParams.keys()].every(k => k === 'tab');
-        if (url.origin !== location.origin || url.username || url.password || url.hash || (!readFlight && !readEnterprise)) throw new Error('Unsupported read-only page.');
-        if (!current()) throw new Error('The requesting page or airline changed.');
+        if (url.origin !== location.origin || url.username || url.password || url.hash || (!readFlight && !readEnterprise)) throw new Error(AESI18n.t("Unsupported read-only page."));
+        if (!current()) throw new Error(AESI18n.t("The requesting page or airline changed."));
         const owner = String(AES.getCurrentAirline().id);
         const slot = await AES.queuePage(url.href, 'read', current);
         const controller = new AbortController();
@@ -55,17 +55,17 @@ class AESRead {
         const monitor = window.setInterval(() => {if (!current()) abort();},100);
         window.addEventListener('pagehide', abort, {once:true});
         try {
-            if (!current() || Date.now() >= (slot.expires || 0)) throw new Error('Read request expired or page changed.');
+            if (!current() || Date.now() >= (slot.expires || 0)) throw new Error(AESI18n.t("Read request expired or page changed."));
             const response = await fetch(url.href, {method:'GET', credentials:'same-origin', signal:controller.signal});
-            if (!response.ok) throw new Error('Page request failed (HTTP ' + response.status + ').');
+            if (!response.ok) throw new Error(AESI18n.t("Page request failed (HTTP {0}).", {0: response.status}));
             const returned = new URL(response.url);
             const path = (u: URL) => u.pathname.replace(/;[^/]+/g,'');
-            if (returned.origin !== url.origin || path(returned) !== path(url) || (readFlight && returned.searchParams.get('id') !== url.searchParams.get('id'))) throw new Error('The request was redirected to another page.');
+            if (returned.origin !== url.origin || path(returned) !== path(url) || (readFlight && returned.searchParams.get('id') !== url.searchParams.get('id'))) throw new Error(AESI18n.t("The request was redirected to another page."));
             const html = await response.text();
-            if (!current() || controller.signal.aborted || Date.now() >= (slot.expires || 0)) throw new Error('Read request expired or page changed.');
+            if (!current() || controller.signal.aborted || Date.now() >= (slot.expires || 0)) throw new Error(AESI18n.t("Read request expired or page changed."));
             const doc = new DOMParser().parseFromString(html, 'text/html');
-            if (String(AESRead.frontend(doc).fixedEnterpriseId || '') !== owner) throw new Error('The active airline changed. Reload before collecting data.');
-            if (readEnterprise && !doc.querySelector('.nav-tabs .tab'+url.searchParams.get('tab')+'.active')) throw new Error('The response contains the wrong enterprise tab.');
+            if (String(AESRead.frontend(doc).fixedEnterpriseId || '') !== owner) throw new Error(AESI18n.t("The active airline changed. Reload before collecting data."));
+            if (readEnterprise && !doc.querySelector('.nav-tabs .tab'+url.searchParams.get('tab')+'.active')) throw new Error(AESI18n.t("The response contains the wrong enterprise tab."));
             await slot.complete();
             return doc;
         } catch (error) {
@@ -75,13 +75,13 @@ class AESRead {
         }
     }
     static async save(message: Record<string, unknown>, current: () => boolean) {
-        if (!current()) throw new Error('The requesting page or airline changed.');
+        if (!current()) throw new Error(AESI18n.t("The requesting page or airline changed."));
         const token = crypto.randomUUID();
         AESRead.saves.set(token,current);
         try {
             await new Promise<void>((resolve,reject) => chrome.runtime.sendMessage({...message,token}, (response: unknown) => {
                 if (chrome.runtime.lastError) {reject(new Error(chrome.runtime.lastError.message));return;}
-                if (!AES.isRecord(response) || response.ok !== true) {reject(new Error(AES.isRecord(response) ? String(response.error) : 'Storage unavailable.'));return;}
+                if (!AES.isRecord(response) || response.ok !== true) {reject(new Error(AES.isRecord(response) ? AESI18n.errorMessage(String(response.error)) : AESI18n.t("Storage unavailable.")));return;}
                 resolve();
             }));
         } finally {AESRead.saves.delete(token);}
@@ -97,7 +97,7 @@ class AESRead {
         let processed = 0, turnRows = 0, turnStarted = performance.now();
         const yieldToPage = async () => {
             await AES.sleep(0);
-            if (!current()) throw new Error('The page or schedule changed during extraction. Please try again.');
+            if (!current()) throw new Error(AESI18n.t("The page or schedule changed during extraction. Please try again."));
             turnRows=0;turnStarted=performance.now();
         };
         const needsYield = () => ++turnRows >= 100 || performance.now()-turnStarted >= 8;
@@ -130,7 +130,7 @@ class AESRead {
             }
             if (AESRead.completeRoute(route)) schedule.push(route);
         }
-        if (!schedule.length) throw new Error('No flight segments found. Existing schedule data was kept.');
+        if (!schedule.length) throw new Error(AESI18n.t("No flight segments found. Existing schedule data was kept."));
 
         progress(AESI18n.t("Preparing {0} routes...", {"0": schedule.length.toLocaleString()}));
         const hub: Record<string, number> = {};
@@ -146,7 +146,7 @@ class AESRead {
             if (needsYield()) await yieldToPage();
         }
 
-        if (!current()) throw new Error('The requesting page or airline changed.');
+        if (!current()) throw new Error(AESI18n.t("The requesting page or airline changed."));
         return schedule;
     }
     static async collectCompetitor(airline: AESModel.Airline, progress: (message: string, phase: 'overview' | 'facts' | 'schedule') => void, current = AESRead.context()) {
@@ -154,14 +154,14 @@ class AESRead {
         progress(AESI18n.t('Fetching overview...'),'overview');
         const overviewDoc = await AESRead.fetchDocument('/app/info/enterprises/'+airline.id+'?tab=0',current);
         const heading = overviewDoc.querySelector('.nav-tabs')?.parentElement?.parentElement?.querySelector('h2')?.textContent?.trim();
-        if (!heading) throw new Error('Enterprise heading is missing.');
+        if (!heading) throw new Error(AESI18n.t("Enterprise heading is missing."));
         const target = {...airline, displayName:heading, name:heading.replace(/ /g,'_')};
         const overview = AESRead.overview(overviewDoc,target), overviewTime = AESRead.date(overviewDoc);
-        if (!overview.rating || ![overview.pax,overview.cargo,overview.stations,overview.fleet,overview.employees].every(Number.isFinite)) throw new Error('Incomplete competitor overview.');
+        if (!overview.rating || ![overview.pax,overview.cargo,overview.stations,overview.fleet,overview.employees].every(Number.isFinite)) throw new Error(AESI18n.t("Incomplete competitor overview."));
         progress(AESI18n.t('Fetching facts and figures...'),'facts');
         const factsDoc = await AESRead.fetchDocument('/app/info/enterprises/'+airline.id+'?tab=2',current);
         const facts = AESRead.facts(factsDoc), factsTime = AESRead.date(factsDoc);
-        if (![facts.week,facts.airportsServed,facts.operatedFlights,facts.seatsOffered,facts.sko,facts.cargoOffered,facts.fko].every(Number.isFinite)) throw new Error('Incomplete competitor facts and figures.');
+        if (![facts.week,facts.airportsServed,facts.operatedFlights,facts.seatsOffered,facts.sko,facts.cargoOffered,facts.fko].every(Number.isFinite)) throw new Error(AESI18n.t("Incomplete competitor facts and figures."));
         progress(AESI18n.t('Fetching schedule...'),'schedule');
         await AESRead.collectSchedule(target,message=>progress(message,'schedule'),current);
         progress(AESI18n.t('Saving competitor data...'),'schedule');
@@ -229,22 +229,22 @@ static facts(doc: Document): AESModel.CompetitorFacts {
 }
 
     static flight(doc: Document, id: number): AESModel.FlightInfoRecord {
-        if (!doc.querySelector('#privInf') || !doc.querySelector('#flight-page > ul > li.active')) throw new Error('Private flight financial data is unavailable.');
+        if (!doc.querySelector('#privInf') || !doc.querySelector('#flight-page > ul > li.active')) throw new Error(AESI18n.t("Private flight financial data is unavailable."));
         const rows = [...doc.querySelectorAll('.cm')];
-        if (rows.length !== 5) throw new Error('Incomplete flight financial data.');
+        if (rows.length !== 5) throw new Error(AESI18n.t("Incomplete flight financial data."));
         const money: AESModel.FlightFinancials = {};
         const labels: AESModel.FinancialColumn[] = ['Y','C','F','PAX','Cargo','Total'];
         rows.forEach((row,index) => {
             const cells = [...row.querySelectorAll('td')];
-            if (cells.length !== labels.length) throw new Error('Incomplete flight financial columns.');
+            if (cells.length !== labels.length) throw new Error(AESI18n.t("Incomplete flight financial columns."));
             const values: Partial<Record<AESModel.FinancialColumn,number>> = {};
             cells.forEach((cell,i) => {
                 const text = (cell.textContent || '').trim().replace(/−/g,'-');
                 const cleaned = text.replace(/AS\$|[,\s.]/g,'');
                 const emptyCabin = i !== 5 && ['', '-', '—', '–'].includes(cleaned);
-                if (!emptyCabin && !/^-?\d+$/.test(cleaned)) throw new Error('Invalid flight financial value.');
+                if (!emptyCabin && !/^-?\d+$/.test(cleaned)) throw new Error(AESI18n.t("Invalid flight financial value."));
                 const value = emptyCabin ? 0 : AES.cleanInteger(text);
-                if (!Number.isSafeInteger(value)) throw new Error('Invalid flight financial value.');
+                if (!Number.isSafeInteger(value)) throw new Error(AESI18n.t("Invalid flight financial value."));
                 values[labels[i]]=value;
             });
             money['CM'+(index+1)]=values;

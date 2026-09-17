@@ -67,7 +67,7 @@ function displayPersonnelManagement() {
     let root = $('<div id="aes-personnel-management-root"></div>').append(AESI18n.html('<h3>AES Personnel Management</h3>'), panel);
     AES.markOwnedElements(root);
     if (!mainDiv.length) {
-        throw new Error("Personnel management insertion target h1 was not found");
+        throw new Error(AESI18n.t("Personnel management insertion target h1 was not found"));
     }
     getPersonnelManagementInsertionTarget(mainDiv).after(root);
 
@@ -142,7 +142,7 @@ function salaryUpdate(options: AESModel.SalaryUpdateOptions = {}) {
         const staffTableInfo = getStaffSalaryTableInfo();
 
         if (!staffTableInfo) {
-            failSalaryUpdate('Salary table not found. AES could not locate the Employee Overview salary table.', options);
+            failSalaryUpdate(AESI18n.t("Salary table not found. AES could not locate the Employee Overview salary table."), options);
             return;
         }
 
@@ -181,7 +181,7 @@ function salaryUpdate(options: AESModel.SalaryUpdateOptions = {}) {
         }
 
         if (updatedRows > 0 && !salaryButtons.length) {
-            failSalaryUpdate('Salary buttons not found. AES could not submit the calculated salary changes.', options);
+            failSalaryUpdate(AESI18n.t("Salary buttons not found. AES could not submit the calculated salary changes."), options);
             return;
         }
 
@@ -478,7 +478,7 @@ function finishSalaryUpdate(message: string | null, options: AESModel.SalaryUpda
             if (!AES.isPageOwner()) return;
             const previous = AES.isRecord(stored[key]) ? stored[key] : {};
             const targets = getSalaryTargets();
-            if (callback && !message && !targets) throw new Error('Salary rows could not be identified.');
+            if (callback && !message && !targets) throw new Error(AESI18n.t("Salary rows could not be identified."));
             const data = callback && !message
                 ? {...previous, server, airline, type:'personnelManagement', pending:{targets,submittedAt:Date.now()}}
                 : {...previous, server, airline, type:'personnelManagement', date:today.date,time:today.time};

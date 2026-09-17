@@ -23,20 +23,20 @@ let startingJob = false;
 let jobToken: string | null = null;
 
 function afp_assertPageOwner() {
-    if (!AES.isPageOwner()) throw new FlightPlanCancelled('Page ownership lost');
+    if (!AES.isPageOwner()) throw new FlightPlanCancelled(AESI18n.t('Page ownership lost'));
 }
 
 function afp_assertJobAction() {
     afp_assertPageOwner();
     if (activeRun && (activeRun.cancelled || activeRun.job !== aircraftFlightPlanState.job)) {
-        throw new FlightPlanCancelled('Scheduling stopped');
+        throw new FlightPlanCancelled(AESI18n.t('Scheduling stopped'));
     }
 }
 
 function afp_runAction(action: () => Promise<void>) {
     action().catch(error => {
         if (error instanceof FlightPlanCancelled) return;
-        const message = error instanceof Error ? error.message : 'Flight plan action failed.';
+        const message = error instanceof Error ? error.message : AESI18n.t("Flight plan action failed.");
         afp_notify(message, 'error');
         afp_setRuntimeMessage(message, 'error');
         AES.reportContentScriptError('content_aircraftFlightPlan', error);
@@ -123,7 +123,7 @@ async function afp_jobMessage(op: 'create' | 'claim' | 'save' | 'clear' | 'check
     const response = await new Promise<Record<string, unknown>>((resolve, reject) => {
         chrome.runtime.sendMessage({type:'AES_FLIGHT_PLAN_JOB', op, key:afp_getJobKey(), token:jobToken, job}, response => {
             if (chrome.runtime.lastError) { reject(new Error(chrome.runtime.lastError.message)); return; }
-            if (!AES.isRecord(response) || response.ok !== true) { reject(new Error(AES.isRecord(response) ? String(response.error) : 'Scheduling service unavailable.')); return; }
+            if (!AES.isRecord(response) || response.ok !== true) { reject(new Error(AES.isRecord(response) ? AESI18n.errorMessage(String(response.error)) : AESI18n.t("Scheduling service unavailable."))); return; }
             resolve(response);
         });
     });
@@ -245,7 +245,7 @@ function afp_storageGet(keys: string[]) {
         afp_assertPageOwner();
         chrome.storage.local.get(keys, function(result) {
             if (chrome.runtime.lastError) return reject(new Error(chrome.runtime.lastError.message));
-            if (!AES.isPageOwner()) return reject(new FlightPlanCancelled('Page ownership lost'));
+            if (!AES.isPageOwner()) return reject(new FlightPlanCancelled(AESI18n.t('Page ownership lost')));
             resolve(result || {});
         });
     });
@@ -256,7 +256,7 @@ function afp_storageSet(values: Record<string, unknown>) {
         afp_assertPageOwner();
         chrome.storage.local.set(values, function() {
             if (chrome.runtime.lastError) return reject(new Error(chrome.runtime.lastError.message));
-            if (!AES.isPageOwner()) return reject(new FlightPlanCancelled('Page ownership lost'));
+            if (!AES.isPageOwner()) return reject(new FlightPlanCancelled(AESI18n.t('Page ownership lost')));
             resolve();
         });
     });
@@ -267,7 +267,7 @@ function afp_storageRemove(keys: string[]) {
         afp_assertPageOwner();
         chrome.storage.local.remove(keys, function() {
             if (chrome.runtime.lastError) return reject(new Error(chrome.runtime.lastError.message));
-            if (!AES.isPageOwner()) return reject(new FlightPlanCancelled('Page ownership lost'));
+            if (!AES.isPageOwner()) return reject(new FlightPlanCancelled(AESI18n.t('Page ownership lost')));
             resolve();
         });
     });
@@ -381,10 +381,10 @@ function afp_getJobSummary() {
         return AESI18n.t('Scheduling complete');
     }
     if (job.status === 'error') {
-        return AESI18n.t("Scheduling stopped: {0}", {"0": (job.errorMessage || 'Unknown error')});
+        return AESI18n.t("Scheduling stopped: {0}", {"0": (AESI18n.errorMessage(job.errorMessage || 'Unknown error'))});
     }
 
-    return AESI18n.t("Scheduling {0} / {1} on {2}", {"0": current, "1": total, "2": (job.targetRegistration || 'target aircraft')});
+    return AESI18n.t("Scheduling {0} / {1} on {2}", {"0": current, "1": total, "2": (job.targetRegistration || AESI18n.t('target aircraft'))});
 }
 
 function afp_renderPanel() {
@@ -489,7 +489,7 @@ function afp_renderPanel() {
     } else {
         let assignPanel = afp_getAssignPanel();
         if (!assignPanel.length) {
-            throw new Error("Flight Plan Assistant insertion target was not found");
+            throw new Error(AESI18n.t("Flight Plan Assistant insertion target was not found"));
         }
         assignPanel.after(panel);
     }
@@ -857,7 +857,7 @@ async function afp_extractTemplate() {
 
     let entries = afp_getUniqueFlightEntries();
     if (!entries.length) {
-        afp_notify('No assigned flights found to extract.', 'error');
+        afp_notify(AESI18n.t("No assigned flights found to extract."), 'error');
         afp_setRuntimeMessage(AESI18n.t('No assigned flights found to extract.'), 'error');
         return;
     }
@@ -881,10 +881,10 @@ async function afp_extractTemplate() {
         await afp_storageSet({ [afp_getTemplateKey()]: template });
         aircraftFlightPlanState.template = template;
         aircraftFlightPlanState.templateStale = false;
-        afp_notify('Flight plan template extracted.', 'success');
+        afp_notify(AESI18n.t("Flight plan template extracted."), 'success');
         afp_setRuntimeMessage(AESI18n.t('Template extracted.'), 'success');
     } catch (error) {
-        afp_notify(error instanceof Error ? error.message : 'Template extraction failed.', 'error');
+        afp_notify(error instanceof Error ? error.message : AESI18n.t("Template extraction failed."), 'error');
         afp_setRuntimeMessage(error instanceof Error ? error.message : AESI18n.t('Template extraction failed.'), 'error');
     } finally {
         aircraftFlightPlanState.extracting = false;
@@ -895,7 +895,7 @@ async function afp_extractTemplate() {
 async function afp_deleteTemplate() {
     await afp_storageRemove([afp_getTemplateKey()]);
     aircraftFlightPlanState.template = null;
-    afp_notify('Saved template deleted.', 'success');
+    afp_notify(AESI18n.t("Saved template deleted."), 'success');
     afp_setRuntimeMessage(AESI18n.t('Saved template deleted.'), 'success');
     afp_renderPanel();
 }
@@ -909,13 +909,13 @@ async function afp_startScheduling(offsetDays: number) {
         await afp_saveOffsetDays(offsetDays);
 
         if (!aircraftFlightPlanState.template || !aircraftFlightPlanState.template.flights || !aircraftFlightPlanState.template.flights.length) {
-            afp_notify('Extract a template first.', 'error');
+            afp_notify(AESI18n.t("Extract a template first."), 'error');
             afp_setRuntimeMessage(AESI18n.t('Extract a template first.'), 'error');
             return;
         }
 
         if (!afp_isEmptyFlightPlan()) {
-            afp_notify('Target flight plan must be empty.', 'error');
+            afp_notify(AESI18n.t("Target flight plan must be empty."), 'error');
             afp_setRuntimeMessage(AESI18n.t('Target flight plan must be empty.'), 'error');
             return;
         }
@@ -954,7 +954,7 @@ async function afp_clearJob(notifyUser: boolean) {
     aircraftFlightPlanState.job = null;
     aircraftFlightPlanState.jobInvalid = false;
     if (notifyUser) {
-        afp_notify('Scheduling job cleared.', 'success');
+        afp_notify(AESI18n.t("Scheduling job cleared."), 'success');
         afp_setRuntimeMessage(AESI18n.t('Scheduling job cleared.'), 'success');
     }
     afp_renderPanel();
@@ -1027,12 +1027,12 @@ function afp_selectExistingFlight(entry: AESModel.FlightPlanEntry) {
     afp_assertJobAction();
     let select = afp_getExistingSelect();
     if (!select.length) {
-        throw new Error('Existing flight number selector is not available.');
+        throw new Error(AESI18n.t("Existing flight number selector is not available."));
     }
 
     let option = afp_findMatchingOption(select, entry);
     if (!option.length) {
-        throw new Error('Could not match flight number ' + (entry.flightCode || entry.flightNumberLabel) + ' on target aircraft.');
+        throw new Error(AESI18n.t("Could not match flight number {0} on target aircraft.", {0: (entry.flightCode || entry.flightNumberLabel)}));
     }
 
     select.val(String(option.val() || ''));
@@ -1120,7 +1120,7 @@ async function afp_setPlannerDaySelection(targetDays: AESModel.PlannerTargetDays
         }
         let checkbox = afp_getPlannerDayCheckbox(day);
         if (!checkbox.length) {
-            throw new Error('Could not find planner day selection for day ' + day + '.');
+            throw new Error(AESI18n.t("Could not find planner day selection for day {0}.", {0: day}));
         }
         if (!checkbox.prop('checked')) {
             afp_clickElement(checkbox);
@@ -1129,7 +1129,7 @@ async function afp_setPlannerDaySelection(targetDays: AESModel.PlannerTargetDays
                 return currentCheckbox.length && currentCheckbox.prop('checked');
             }, 3000, 80);
             if (!checked) {
-                throw new Error('Could not select target day ' + day + '.');
+                throw new Error(AESI18n.t("Could not select target day {0}.", {0: day}));
             }
         }
     }
@@ -1247,9 +1247,9 @@ async function afp_setPlannerArrivalSelect(segmentIndex: number, day: number, pa
     let plannerForm = afp_getPlannerForm();
     let arrivalSelects = afp_getArrivalSelects(plannerForm, segmentIndex, day);
     let select = part === 'hours' ? arrivalSelects.hours : arrivalSelects.minutes;
-    if (!select.length) throw new Error('Required arrival time control is missing.');
+    if (!select.length) throw new Error(AESI18n.t("Required arrival time control is missing."));
     let changed = afp_setSelectValue(select, value);
-    if (!changed) throw new Error('Template arrival time is not available on this aircraft.');
+    if (!changed) throw new Error(AESI18n.t("Template arrival time is not available on this aircraft."));
     await afp_waitForPlannerMutation(1500);
     let applied = await afp_waitForArrivalSelectValue(segmentIndex, day, part, value);
     if (!applied) {
@@ -1258,14 +1258,14 @@ async function afp_setPlannerArrivalSelect(segmentIndex: number, day: number, pa
         let retrySelect = part === 'hours' ? retrySelects.hours : retrySelects.minutes;
         if (!retrySelect.length || !afp_setSelectValue(retrySelect, value) ||
             !await afp_waitForArrivalSelectValue(segmentIndex, day, part, value)) {
-            throw new Error('Template arrival time could not be applied.');
+            throw new Error(AESI18n.t("Template arrival time could not be applied."));
         }
     }
 }
 
 async function afp_setPlannerFixedArrival(segmentIndex: number, day: number) {
     let checkbox = afp_getFixedArrivalCheckbox(afp_getPlannerForm(), segmentIndex, day);
-    if (!checkbox.length) throw new Error('Required fixed arrival control is missing.');
+    if (!checkbox.length) throw new Error(AESI18n.t("Required fixed arrival control is missing."));
     if (checkbox.prop('checked')) return;
 
     afp_clickElement(checkbox);
@@ -1273,18 +1273,18 @@ async function afp_setPlannerFixedArrival(segmentIndex: number, day: number) {
         let current = afp_getFixedArrivalCheckbox(afp_getPlannerForm(), segmentIndex, day);
         return current.length && current.prop('checked');
     }, 3000, 80);
-    if (!applied) throw new Error('Template fixed arrival time could not be enabled.');
+    if (!applied) throw new Error(AESI18n.t("Template fixed arrival time could not be enabled."));
 }
 
 async function afp_syncPlannerArrivalTime(plannerForm: JQuery, segmentIndex: number, day: number, daySettings: AESModel.PlannerArrival) {
     let arrivalSelects = afp_getArrivalSelects(plannerForm, segmentIndex, day);
     if (!arrivalSelects.hours.length || !arrivalSelects.minutes.length) {
-        throw new Error('Required arrival time controls are missing.');
+        throw new Error(AESI18n.t("Required arrival time controls are missing."));
     }
 
     let targetHours = String(daySettings.arrivalHours || '');
     let targetMinutes = String(daySettings.arrivalMinutes || '');
-    if (!targetHours || !targetMinutes) throw new Error('Template arrival time is missing.');
+    if (!targetHours || !targetMinutes) throw new Error(AESI18n.t("Template arrival time is missing."));
 
     await afp_setPlannerFixedArrival(segmentIndex, day);
     let currentArrival = afp_getArrivalValueSnapshot(segmentIndex, day);
@@ -1332,12 +1332,12 @@ function afp_getPlannerSourceDaySettings(entry: AESModel.FlightPlanEntry) {
 async function afp_applyFlightEntryToPlanner(entry: AESModel.FlightPlanEntry, offsetDays: number) {
     let selected = afp_getSelectedExistingFlight();
     if (!afp_selectionMatchesEntry(selected, entry)) {
-        throw new Error('Planner is not loaded for the expected flight number.');
+        throw new Error(AESI18n.t("Planner is not loaded for the expected flight number."));
     }
 
     let sourceSegmentSettings = afp_getPlannerSourceDaySettings(entry);
     if (!sourceSegmentSettings.length) {
-        throw new Error('Could not find planner segments for ' + (entry.flightCode || entry.flightNumberLabel) + '.');
+        throw new Error(AESI18n.t("Could not find planner segments for {0}.", {0: (entry.flightCode || entry.flightNumberLabel)}));
     }
 
     let targetDays: AESModel.PlannerTargetDays = {};
@@ -1352,7 +1352,7 @@ async function afp_applyFlightEntryToPlanner(entry: AESModel.FlightPlanEntry, of
         return afp_getPlannerForm().length > 0;
     }, 3000, 80);
     if (!plannerReady) {
-        throw new Error('Planner form did not become ready after selecting target days.');
+        throw new Error(AESI18n.t("Planner form did not become ready after selecting target days."));
     }
 
     for (let segment of sourceSegmentSettings) {
@@ -1374,23 +1374,23 @@ function afp_plannerDaysMatch(entry: AESModel.FlightPlanEntry, offsetDays: numbe
 }
 
 function afp_validatePlanner(entry: AESModel.FlightPlanEntry, offsetDays: number, requireSelection = true) {
-    if (requireSelection && !afp_selectionMatchesEntry(afp_getSelectedExistingFlight(), entry)) throw new Error('Flight selection changed.');
+    if (requireSelection && !afp_selectionMatchesEntry(afp_getSelectedExistingFlight(), entry)) throw new Error(AESI18n.t("Flight selection changed."));
     if (!afp_plannerDaysMatch(entry, offsetDays)) {
-        throw new Error('Planner days do not match the template.');
+        throw new Error(AESI18n.t("Planner days do not match the template."));
     }
     const segments = afp_getPlannerSourceDaySettings(entry);
-    if (!segments.length) throw new Error('Planner segments are missing.');
+    if (!segments.length) throw new Error(AESI18n.t("Planner segments are missing."));
     for (const segment of segments) for (const day of entry.selectedDays) {
         const expected = segment.days[day];
         const targetDay = (day + offsetDays) % 7;
         const fixedArrival = afp_getFixedArrivalCheckbox(afp_getPlannerForm(), segment.index, targetDay);
         const actual = afp_getArrivalValueSnapshot(segment.index, targetDay);
         if (!fixedArrival.length || !fixedArrival.prop('checked')) {
-            throw new Error('Planner arrival time is not fixed.');
+            throw new Error(AESI18n.t("Planner arrival time is not fixed."));
         }
         if (!expected.arrivalHours || !expected.arrivalMinutes || !actual.hours || !actual.minutes ||
             Number(actual.hours) !== Number(expected.arrivalHours) || Number(actual.minutes) !== Number(expected.arrivalMinutes)) {
-            throw new Error('Planner arrival time does not match the template.');
+            throw new Error(AESI18n.t("Planner arrival time does not match the template."));
         }
     }
 }
@@ -1428,7 +1428,7 @@ function afp_correctionPlannerIsReady(entry: AESModel.FlightPlanEntry, offsetDay
 
 async function afp_applyFlightEntryCorrection(entry: AESModel.FlightPlanEntry, offsetDays: number) {
     if (!afp_correctionPlannerIsReady(entry, offsetDays)) {
-        throw new Error('Correction planner does not match the scheduled flight.');
+        throw new Error(AESI18n.t("Correction planner does not match the scheduled flight."));
     }
     const sourceSegmentSettings = afp_getPlannerSourceDaySettings(entry);
     for (const segment of sourceSegmentSettings) {
@@ -1443,7 +1443,7 @@ function afp_submitPlanner() {
     afp_assertJobAction();
     let submitBtn = $('input[type="submit"][name="button-submit"]').first();
     if (!submitBtn.length) {
-        throw new Error('Apply schedule settings button is not available.');
+        throw new Error(AESI18n.t("Apply schedule settings button is not available."));
     }
     submitBtn[0].click();
 }
@@ -1458,7 +1458,7 @@ async function afp_saveJob() {
 
 async function afp_completeJob() {
     await afp_clearJob(false);
-    afp_notify('Flight plan scheduling completed.', 'success');
+    afp_notify(AESI18n.t("Flight plan scheduling completed."), 'success');
     afp_setRuntimeMessage(AESI18n.t('Flight plan scheduling completed.'), 'success');
     afp_renderPanel();
 }
@@ -1503,7 +1503,7 @@ async function afp_processJob() {
                     return afp_getExistingSelect().length > 0;
                 }, 5000, 100);
                 if (!ready) {
-                    await afp_failJob('Could not open Existing Flight Number tab.');
+                    await afp_failJob(AESI18n.t("Could not open Existing Flight Number tab."));
                     return;
                 }
                 continue;
@@ -1546,7 +1546,7 @@ async function afp_processJob() {
                 continue;
             }
             if (!afp_entryDaysAppearInVisualPlan(entry, job.offsetDays) || !afp_getCorrectionEditLink(entry, job.offsetDays).length) {
-                await afp_failJob('Could not confirm scheduled days and arrival times for ' + entry.flightCode + '.');
+                await afp_failJob(AESI18n.t("Could not confirm scheduled days and arrival times for {0}.", {0: entry.flightCode}));
                 return;
             }
 
@@ -1563,7 +1563,7 @@ async function afp_processJob() {
                 const previousAction = afp_getPlannerForm().attr('action');
                 const editLink = afp_getCorrectionEditLink(entry, job.offsetDays);
                 if (!editLink.length) {
-                    await afp_failJob('Could not open arrival time correction for ' + entry.flightCode + '.');
+                    await afp_failJob(AESI18n.t("Could not open arrival time correction for {0}.", {0: entry.flightCode}));
                     return;
                 }
                 job.correctionUrl = new URL(editLink.attr('href')!, location.href).href;
@@ -1575,7 +1575,7 @@ async function afp_processJob() {
                         afp_correctionPlannerIsReady(entry, job.offsetDays);
                 }, 5000, 100);
                 if (!ready) {
-                    await afp_failJob('Arrival time correction did not become ready for ' + entry.flightCode + '.');
+                    await afp_failJob(AESI18n.t("Arrival time correction did not become ready for {0}.", {0: entry.flightCode}));
                     return;
                 }
             }
@@ -1592,7 +1592,7 @@ async function afp_processJob() {
 
         if (job.status === 'waitForCorrectionApply') {
             if (!afp_entryAppearsInVisualPlan(entry, job.offsetDays)) {
-                await afp_failJob('Automatic arrival time correction failed for ' + entry.flightCode + '.');
+                await afp_failJob(AESI18n.t("Automatic arrival time correction failed for {0}.", {0: entry.flightCode}));
                 return;
             }
             job.currentIndex++;
@@ -1606,7 +1606,7 @@ async function afp_processJob() {
             return;
         }
 
-        await afp_failJob('Unknown scheduling state.');
+        await afp_failJob(AESI18n.t("Unknown scheduling state."));
         return;
     }
 }
@@ -1633,7 +1633,7 @@ async function afp_resumePendingJob() {
     } catch (error) {
         if (!(error instanceof FlightPlanCancelled)) {
             try {
-                await afp_failJob(error instanceof Error ? error.message : 'Scheduling failed.');
+                await afp_failJob(error instanceof Error ? error.message : AESI18n.t("Scheduling failed."));
             } catch (saveError) {
                 if (!(saveError instanceof FlightPlanCancelled)) {
                     afp_setRuntimeMessage(AESI18n.t('Scheduling stopped: could not save job status. Please reload before retrying.'), 'error');

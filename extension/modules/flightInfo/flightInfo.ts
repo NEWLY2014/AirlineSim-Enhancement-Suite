@@ -51,7 +51,7 @@ class FlightInfo {
         const url = new URL(window.location.href);
         const raw = url.searchParams.get("id");
         const id = raw && /^\d+$/.test(raw) ? Number(raw) : NaN;
-        if (!Number.isSafeInteger(id) || id <= 0) throw new Error("Invalid flight ID");
+        if (!Number.isSafeInteger(id) || id <= 0) throw new Error(AESI18n.t("Invalid flight ID"));
         return id;
     }
 
@@ -204,8 +204,8 @@ class FlightInfo {
 
         const row = document.createElement('tr');
         const cells = [
-            'Flight Id:', this.#data?.flightId ?? '',
-            'Date:', `${AES.formatDateString(this.#data?.date)} ${this.#data?.time || ""}`,
+            AESI18n.t('Flight Id:'), this.#data?.flightId ?? '',
+            AESI18n.t('Date:'), `${AES.formatDateString(this.#data?.date)} ${this.#data?.time || ""}`,
             '', '', ''
         ];
         cells.forEach(cell => {

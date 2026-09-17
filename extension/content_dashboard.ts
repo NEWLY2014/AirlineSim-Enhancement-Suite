@@ -48,7 +48,7 @@ function dashboardCallbackSucceeded(revision?: number) {
 }
 const DASHBOARD_SCRIPT_ENABLED = AES.runContentScript("content_dashboard", function() {
     if (!nativeDashboardStorage) {
-        throw new Error("chrome.storage.local is unavailable");
+        throw new Error(AESI18n.t("chrome.storage.local is unavailable"));
     }
     AES.waitForElement("#enterprise-dashboard", function() {
         initializeDashboard();
@@ -110,7 +110,7 @@ function initializeDashboard() {
 function displayDashboard() {
     let mainDiv = $("#enterprise-dashboard");
     if (!mainDiv.length) {
-        throw new Error("Dashboard insertion target #enterprise-dashboard was not found");
+        throw new Error(AESI18n.t("Dashboard insertion target #enterprise-dashboard was not found"));
     }
     $("#aes-dashboard-root").remove();
     mainDiv.before(
@@ -327,7 +327,7 @@ function formatDashboardCell(type: string | undefined, value: AESModel.Dashboard
             return span;
         }
         case 'scheduleState': {
-            let span = $('<span></span>').text(String(value));
+            let span = $('<span></span>').text(AESI18n.t(String(value)));
             switch (value) {
                 case 'Active':
                     span.addClass('good');
@@ -416,8 +416,11 @@ function buildDashboardTable(options: AESModel.DashboardTableOptions) {
             let value = column.render ? column.render(rowData) : rowData[column.data];
             let td = $('<td></td>').addClass(getDashboardColumnClass(options.columnPrefix || '', column));
             const rendered = column.format ? formatDashboardCell(column.format, value) : value;
+            if (column.format === 'scheduleState') td.attr('data-aes-filter-value', String(value ?? ''));
             if (typeof rendered === 'object' && rendered !== null) td.append(rendered);
-            else td.text(String(rendered ?? ''));
+            else if (['delivered','ownership','pilotAssignedLabel','pureCargo','direction'].includes(column.data)) {
+                td.attr('data-aes-filter-value',String(rendered ?? '')).text(AESI18n.t(String(rendered ?? '')));
+            } else td.text(String(rendered ?? ''));
             cells.push(td);
         });
 
@@ -526,7 +529,8 @@ function applyDashboardTableFilters(table: JQuery, filters: AESModel.DashboardFi
                 return;
             }
 
-            let cell: string | number = $(row).find("." + getDashboardColumnClass(columnPrefix || '', column)).text();
+            const filterCell = $(row).find("." + getDashboardColumnClass(columnPrefix || '', column));
+            let cell: string | number = filterCell.attr('data-aes-filter-value') ?? filterCell.text();
             let value: string | number = filter.value;
             if (column.number) {
                 cell = cell ? AESDashboardTable.parseNumber(cell) : 0;
@@ -535,10 +539,10 @@ function applyDashboardTableFilters(table: JQuery, filters: AESModel.DashboardFi
 
             switch (filter.operation) {
                 case '=':
-                    if (cell != value) $(row).hide();
+                    if (cell != value && filterCell.text() != value) $(row).hide();
                     break;
                 case '!=':
-                    if (cell == value) $(row).hide();
+                    if (cell == value || filterCell.text() == value) $(row).hide();
                     break;
                 case '>':
                     if (cell < value) $(row).hide();
@@ -547,7 +551,7 @@ function applyDashboardTableFilters(table: JQuery, filters: AESModel.DashboardFi
                     if (cell > value) $(row).hide();
                     break;
                 case 'contains':
-                    if (String(cell).toLowerCase().indexOf(String(value).toLowerCase()) == -1) $(row).hide();
+                    if (![String(cell), filterCell.text()].some(text => text.toLowerCase().includes(String(value).toLowerCase()))) $(row).hide();
                     break;
             }
         });
@@ -1346,7 +1350,7 @@ function renderRouteManagementTable(scheduleData: AESModel.DashboardSchedule) {
 
 function renderRouteManagementMessage(message: string) {
     $('#aes-div-routeManagement').remove();
-    let divTable = $('<div id="aes-div-routeManagement"></div>').append($('<p class="warning"></p>').text(message));
+    let divTable = $('<div id="aes-div-routeManagement"></div>').append($('<p class="warning"></p>').text(AESI18n.t(message)));
     $('#aes-div-dashboard-routeManagement').append(divTable);
 }
 
@@ -1863,7 +1867,7 @@ function displayCompetitorMonitoringAirlinesTable(div: JQuery) {
         if (error) {
             console.error('[AES] Unable to render competitor monitoring dashboard.', error);
         }
-        div.empty().append($('<p class="warning"></p>').text(message));
+        div.empty().append($('<p class="warning"></p>').text(AESI18n.t(message)));
     };
 
     let getStoredDateRecord = function<T>(data: Record<string, T>, date: string): T | null {
@@ -2324,7 +2328,7 @@ function displayCompetitorMonitoringAirlinesTableOptions(table?: JQuery, compAir
             const stored=await chrome.storage.local.get([key,scheduleKey]);
             if(!current()) return;
             const competitor=readDashboardCompetitor(stored[key]);
-            if(!competitor) throw new Error('Saved data could not be refreshed. Retry collection.');
+            if(!competitor) throw new Error(AESI18n.t("Saved data could not be refreshed. Retry collection."));
             const schedule=readDashboardSchedule(stored[scheduleKey]);
             if(schedule) compAirlinesSchedule[id]=schedule;
             const data=buildCompetitorRow(competitor,compAirlinesSchedule);
@@ -2826,7 +2830,7 @@ function displayAircraftProfitability() {
     });
 
     function renderAircraftProfitabilityMessage(message: string) {
-        renderAircraftProfitabilityPanel($('<p class="warning"></p>').text(message));
+        renderAircraftProfitabilityPanel($('<p class="warning"></p>').text(AESI18n.t(message)));
     }
 
     function renderAircraftProfitabilityPanel(tableDiv: JQuery) {

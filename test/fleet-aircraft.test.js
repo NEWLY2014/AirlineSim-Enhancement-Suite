@@ -302,3 +302,22 @@ test('fleet refresh retains unknown record metadata',async t=>{
     assert.deepEqual(p.saved[fleetKey].extra,{keep:true});
     assert.equal(p.saved[fleetKey].fleet[0].aircraftId,123);
 });
+
+for (const locale of ['en','de','es','fr','hu','nl','pl','zh-TW','ja']) test(`${locale}: saved fleet count and undelivered explanation are translated`,async t=>{
+    const messages=require('../extension/locales/'+locale+'.json');
+    const p=fleet(t,Array.from({length:22},(_,i)=>aircraftRow(i ? 100+i : null,'AA-'+i)).join(''),{aesLanguage:locale});
+    p.load('content_fleetManagement.js');await until(()=>p.w.document.querySelector('#aes-fleet-management-root'));
+    const text=p.w.document.querySelector('#aes-fleet-management-root').textContent;
+    assert.ok(text.includes(messages['Currently {0} aircrafts stored in memory.'].replace('{0}','22')),text);
+    assert.ok(text.includes(messages['Undelivered aircraft are stored by registration and will be merged once AirlineSim assigns an aircraft ID.']),text);
+    assert.equal(p.saved[fleetKey].fleet.length,22);
+    assert.equal(p.saved[fleetKey].fleet[0].registration,'AA-0');
+});
+
+test('sequence validation translates summaries and issue details while preserving airport codes',async t=>{
+    const p=flights(t,flightRow(1,'AAA','BBB','31.12. 23:00','01.01. 01:00')+flightRow(2,'CCC','AAA','01.01. 00:30','01.01. 02:00'),{aesLanguage:'zh-TW'});
+    p.load('content_aircraftFlights.js');await until(()=>p.w.document.querySelector('.aes-aircraft-flights-sequence-cell'));
+    const text=p.w.document.querySelector('.aes-aircraft-flights-sequence-cell').textContent;
+    assert.ok(text.includes(require('../extension/locales/zh-TW.json')['{0} issues found'].replace('{0}','2')));
+    assert.match(text,/BBB/);assert.match(text,/CCC/);assert.doesNotMatch(text,/overlap|mismatch|issues found/i);
+});

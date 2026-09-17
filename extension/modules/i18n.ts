@@ -28,6 +28,11 @@ namespace AESI18n {
         const message=entry ? (source.match(/^\s*/)?.[0] || '')+entry+(source.match(/\s*$/)?.[0] || '') : source;
         return message.replace(/\{(\w+)\}/g,(all,name)=>Object.hasOwn(values,name) ? String(values[name] ?? '') : all);
     }
+    export function errorMessage(message:string):string {
+        const prefixes=['Unable to read schedule history: ', 'Unable to save schedule: ', 'Page queue unavailable: '];
+        for(const prefix of prefixes)if(message.startsWith(prefix))return t(prefix+'{0}', {0:t(message.slice(prefix.length))});
+        return t(message);
+    }
     // Use only on markup authored by AES, never on fetched game HTML or user values.
     export function localize(root:Element | DocumentFragment){
         const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);

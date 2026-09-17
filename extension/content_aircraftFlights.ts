@@ -222,7 +222,7 @@ function display() {
 
     let fallbackTarget = $('.as-page-aircraft > .row:first > .col-md-10:first');
     if (!fallbackTarget.length) {
-        throw new Error("Aircraft flights insertion target was not found");
+        throw new Error(AESI18n.t("Aircraft flights insertion target was not found"));
     }
     fallbackTarget.prepend(content);
     updateFlightExtractionDisplay();
@@ -262,7 +262,7 @@ async function startFlightProfitExtraction(type: 'all' | 'finished') {
         const result = await extractAllFlightProfit(type, function(progress) {
             setFlightExtractionState({
                 failed: progress.failed,
-                message: AESI18n.t("Collecting flight data {0}/{1}{2}...", {"0": progress.opened, "1": progress.total, "2": (progress.failed ? ' (' + progress.failed + ' failed)' : '')}),
+                message: AESI18n.t("Collecting flight data {0}/{1}{2}...", {"0": progress.opened, "1": progress.total, "2": (progress.failed ? AESI18n.t(' ({0} failed)', {0:progress.failed}) : '')}),
                 opened: progress.opened,
                 running: true,
                 tone: 'warning',
@@ -338,7 +338,7 @@ async function extractAllFlightProfit(type: 'all' | 'finished', progressCallback
     let opened = 0;
 
     for (let i = 0; i < flights.length; i++) {
-        if (!current()) throw new Error('Page ownership or airline changed');
+        if (!current()) throw new Error(AESI18n.t("Page ownership or airline changed"));
         const url = getFlightInfoUrl(flights[i]);
         const result = await collectFlightInfoPage(url, flights[i].id, current);
 
@@ -363,7 +363,7 @@ async function extractAllFlightProfit(type: 'all' | 'finished', progressCallback
     if (current()) {
         getTotalProfit(false);
         await new Promise<void>((resolve,reject)=>persistAircraftFlightSummary(resolve,reject));
-        if(!current()) throw new Error('Page ownership or airline changed');
+        if(!current()) throw new Error(AESI18n.t("Page ownership or airline changed"));
         displayFlightProfit();
         const validation=validateFlightSequence(aircraftFlightData.flights);
         $('.aes-aircraft-flights-table').replaceWith($('<div class="as-table-well aes-aircraft-flights-summary aes-aircraft-flights-table"></div>').append(buildTable(validation)));
@@ -384,7 +384,7 @@ async function collectFlightInfoPage(url: string, id: number, current: () => boo
     try {
         const doc = await AESRead.fetchDocument(url,current);
         const data = AESRead.flight(doc,id);
-        if (!current()) throw new Error('Page ownership or airline changed');
+        if (!current()) throw new Error(AESI18n.t("Page ownership or airline changed"));
         await chrome.storage.local.set({[data.server+'flightInfo'+id]:data});
         if(current()) {
             const flight=aircraftFlightData.flights.find(flight=>flight.id===id);
@@ -547,8 +547,8 @@ function buildTable(sequenceValidation: AESModel.FlightSequenceValidation) {
 function buildSequenceValidationCell(validation: AESModel.FlightSequenceValidation) {
     const statusClass = validation.issueCount ? 'bad' : (validation.checkedCount ? 'good' : 'warning');
     const statusText = validation.issueCount
-        ? validation.issueCount + ' issue' + (validation.issueCount === 1 ? '' : 's') + ' found'
-        : (validation.checkedCount ? 'Valid sequence' : 'No timed flights to check');
+        ? AESI18n.t('{0} issues found', {0:validation.issueCount})
+        : (validation.checkedCount ? AESI18n.t('Valid sequence') : AESI18n.t('No timed flights to check'));
 
     const cell = $('<td class="aes-aircraft-flights-sequence-cell"></td>').append(
         $('<span></span>').addClass(statusClass).text(statusText),
@@ -582,19 +582,19 @@ function validateFlightSequence(flights: AESModel.AircraftFlight[]) {
 
     checkedFlights.forEach(function(flight) {
         if (!flight.origin) {
-            issues.push(createFlightSequenceIssue(flight, null, 'Missing departure airport.'));
+            issues.push(createFlightSequenceIssue(flight, null, AESI18n.t("Missing departure airport.")));
         }
         if (!flight.destination) {
-            issues.push(createFlightSequenceIssue(flight, null, 'Missing arrival airport.'));
+            issues.push(createFlightSequenceIssue(flight, null, AESI18n.t("Missing arrival airport.")));
         }
         if (flight.departureTime === null) {
-            issues.push(createFlightSequenceIssue(flight, null, 'Missing or unreadable departure time.'));
+            issues.push(createFlightSequenceIssue(flight, null, AESI18n.t("Missing or unreadable departure time.")));
         }
         if (flight.arrivalTime === null) {
-            issues.push(createFlightSequenceIssue(flight, null, 'Missing or unreadable arrival time.'));
+            issues.push(createFlightSequenceIssue(flight, null, AESI18n.t("Missing or unreadable arrival time.")));
         }
         if (flight.departureTime !== null && flight.arrivalTime !== null && flight.departureTime >= flight.arrivalTime) {
-            issues.push(createFlightSequenceIssue(flight, null, 'Arrival time is not after departure time.'));
+            issues.push(createFlightSequenceIssue(flight, null, AESI18n.t("Arrival time is not after departure time.")));
         }
     });
 
@@ -609,11 +609,11 @@ function validateFlightSequence(flights: AESModel.AircraftFlight[]) {
         const currentFlight = sortedFlights[i];
 
         if (previousFlight.destination && currentFlight.origin && previousFlight.destination !== currentFlight.origin) {
-            issues.push(createFlightSequenceIssue(previousFlight, currentFlight, 'Next departure airport ' + currentFlight.origin + ' does not match previous arrival airport ' + previousFlight.destination + '.'));
+            issues.push(createFlightSequenceIssue(previousFlight, currentFlight, AESI18n.t("Next departure airport {0} does not match previous arrival airport {1}.", {0: currentFlight.origin, 1: previousFlight.destination})));
         }
 
         if (currentFlight.departureTime !== null && previousFlight.arrivalTime !== null && currentFlight.departureTime <= previousFlight.arrivalTime) {
-            issues.push(createFlightSequenceIssue(previousFlight, currentFlight, 'Next flight does not depart after the previous flight arrives.'));
+            issues.push(createFlightSequenceIssue(previousFlight, currentFlight, AESI18n.t("Next flight does not depart after the previous flight arrives.")));
         }
     }
 
@@ -636,7 +636,7 @@ function createFlightSequenceIssue(previousFlight: AESModel.AircraftFlight, curr
     }
     return {
         flights: issueFlights,
-        message: label + ': ' + message
+        message: label + ': ' + AESI18n.t(message)
     };
 }
 
@@ -662,9 +662,9 @@ function highlightSequenceIssueFlights(issues: AESModel.FlightSequenceIssue[]) {
 
 function getFlightSequenceLabel(flight: AESModel.AircraftFlight) {
     if (!flight) {
-        return 'Unknown flight';
+        return AESI18n.t('Unknown flight');
     }
-    return (flight.flightNumber || ('Flight ' + flight.id)) + ' (' + (flight.departureText || '?') + ' ' + (flight.origin || '?') + ' -> ' + (flight.arrivalText || '?') + ' ' + (flight.destination || '?') + ')';
+    return (flight.flightNumber || AESI18n.t('Flight {0}', {0:flight.id})) + ' (' + (flight.departureText || '?') + ' ' + (flight.origin || '?') + ' -> ' + (flight.arrivalText || '?') + ' ' + (flight.destination || '?') + ')';
 }
 
 function getData(): AESModel.AircraftFlightData {
@@ -719,7 +719,7 @@ function getFlightsStats(flights: AESModel.AircraftFlight[]) {
 function getFlights(serverDate: string) {
     const table = document.querySelector("#aircraft-flight-instances-table")
     if (!table) {
-        throw new Error("Aircraft flights table #aircraft-flight-instances-table was not found")
+        throw new Error(AESI18n.t("Aircraft flights table #aircraft-flight-instances-table was not found"))
     }
     const rows = table.querySelectorAll<HTMLTableRowElement>("tbody tr")
     const flights: AESModel.AircraftFlight[] = []

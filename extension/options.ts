@@ -325,12 +325,12 @@ function restoreData() {
     const reader = new FileReader();
     reader.onload = function () {
         try {
-            if (typeof reader.result !== "string") throw new Error("Unable to read backup text");
+            if (typeof reader.result !== "string") throw new Error(AESI18n.t("Unable to read backup text"));
             const backup: unknown = JSON.parse(reader.result);
 
             // Validate backup format
             if (!isBackupEnvelope(backup)) {
-                throw new Error("Invalid backup file format");
+                throw new Error(AESI18n.t("Invalid backup file format"));
             }
 
             showStatusMessage(
@@ -366,7 +366,7 @@ function restoreData() {
     };
 
     reader.onerror = function () {
-        showStatusMessage(AESI18n.t("Error reading backup file: {0}", {"0": (reader.error?.message || "Unable to read file")}), "error");
+        showStatusMessage(AESI18n.t("Error reading backup file: {0}", {"0": (reader.error?.message || AESI18n.t("Unable to read file"))}), "error");
     };
     reader.readAsText(file);
 }
@@ -398,7 +398,7 @@ async function writeReplacement(data: AESModel.StorageSnapshot) {
     await optionStorageSet(data);
     const written = await optionStorageGet();
     if (Object.entries(data).some(([key, value]) => comparableStorage(written[key]) !== comparableStorage(value))) {
-        throw new Error('Restored data could not be verified.');
+        throw new Error(AESI18n.t("Restored data could not be verified."));
     }
     await optionStorageRemove(Object.keys(written).filter(key => key !== RESTORE_RECOVERY_KEY && !Object.hasOwn(data, key)));
     await optionStorageRemove([RESTORE_RECOVERY_KEY]);
@@ -407,9 +407,9 @@ async function replaceStorageData(data: AESModel.StorageSnapshot) {
     if (restoreBusy) return;
     restoreBusy = true;
     try {
-        if (Object.hasOwn(data, RESTORE_RECOVERY_KEY)) throw new Error('Backup contains a reserved recovery key.');
+        if (Object.hasOwn(data, RESTORE_RECOVERY_KEY)) throw new Error(AESI18n.t("Backup contains a reserved recovery key."));
         const previous = await optionStorageGet();
-        if (Object.hasOwn(previous, RESTORE_RECOVERY_KEY)) throw new Error('Recover the previous interrupted restore before trying again.');
+        if (Object.hasOwn(previous, RESTORE_RECOVERY_KEY)) throw new Error(AESI18n.t("Recover the previous interrupted restore before trying again."));
         const recovery = {previous, created:new Date().toISOString()};
         await optionStorageSet({[RESTORE_RECOVERY_KEY]:recovery});
         displayRestoreRecovery(recovery);
@@ -443,7 +443,7 @@ function clearOldData() {
     showStatusMessage(AESI18n.t('Clearing old data...'), 'info');
     chrome.runtime.sendMessage({type:'AES_PRUNE_HISTORY'}, (response: unknown) => {
         if (chrome.runtime.lastError || !isOptionsRecord(response) || response.ok !== true) {
-            showStatusMessage(AESI18n.t("Error clearing old data: {0}", {"0": (chrome.runtime.lastError?.message || (isOptionsRecord(response) ? response.error : 'Storage unavailable.'))}), 'error');
+            showStatusMessage(AESI18n.t("Error clearing old data: {0}", {"0": AESI18n.errorMessage(String(chrome.runtime.lastError?.message || (isOptionsRecord(response) ? response.error : 'Storage unavailable.')))}), 'error');
             return;
         }
         showStatusMessage(AESI18n.t("Cleared {0} old snapshots and {1} old records.", {"0": response.snapshots, "1": response.records}), 'success');
@@ -463,7 +463,7 @@ function displayLogFiles() {
     }
 
     logs.forEach(function (logItem) {
-        const label = `${formatLogDateLabel(logItem.date)} (${logItem.entryCount} entries, ${formatBytes(logItem.size)})`;
+        const label = AESI18n.t('{0} ({1} entries, {2})', {0:formatLogDateLabel(logItem.date),1:logItem.entryCount,2:formatBytes(logItem.size)});
         select.append($("<option></option>").val(logItem.key).text(label));
     });
     $("#aes-download-log-btn, #aes-clear-logs-btn").prop("disabled", false);
@@ -553,7 +553,7 @@ function formatLogDateLabel(date: unknown) {
     if (/^\d{8}$/.test(value)) {
         return `${value.substring(0, 4)}-${value.substring(4, 6)}-${value.substring(6, 8)}`;
     }
-    return value || "Unknown date";
+    return value || AESI18n.t("Unknown date");
 }
 
 function formatLogDateForFilename(date: unknown) {
@@ -625,10 +625,10 @@ function showStatusMessage(message: string, type: AESModel.NotificationType | "i
 }
 
 function formatBytes(bytes: number) {
-    if (bytes === 0) return "0 Bytes";
+    if (bytes === 0) return "0 " + AESI18n.t("Bytes");
 
     const k = 1024;
-    const sizes = ["Bytes", "KB", "MB", "GB"];
+    const sizes = [AESI18n.t("Bytes"), "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
 
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];

@@ -9,7 +9,7 @@ class AES {
         const href = location.href;
         const current = () => AES.isPageOwner() && location.href === href;
         for (let attempt = 0; attempt < 2; attempt++) {
-            if (!current()) throw new Error('The page changed.');
+            if (!current()) throw new Error(AESI18n.t("The page changed."));
             const result = await new Promise<{reply?: unknown; transportError?: string}>(resolve => {
                 try {
                     chrome.runtime.sendMessage(message, (reply: unknown) => {
@@ -20,7 +20,7 @@ class AES {
                     resolve({transportError:error instanceof Error ? error.message : String(error)});
                 }
             });
-            if (!current()) throw new Error('The page changed.');
+            if (!current()) throw new Error(AESI18n.t("The page changed."));
             if (result.transportError || result.reply === undefined) {
                 const error = result.transportError || 'The extension background did not respond.';
                 const disconnected = /message (?:port|channel) closed|receiving end does not exist|could not establish connection|extension context invalidated|background did not respond/i.test(error);
@@ -28,14 +28,14 @@ class AES {
                 // Record patches are idempotent: a lost acknowledgement may be retried
                 // through the same merge queue without bypassing conflict protection.
                 if (!attempt) {await AES.sleep(150);continue;}
-                throw new Error('AES background is unavailable or outdated. Reload AES on chrome://extensions, then reload this game page. ' + error);
+                throw new Error(AESI18n.t("AES background is unavailable or outdated. Reload AES on chrome://extensions, then reload this game page. {0}", {0: error}));
             }
             if (!AES.isRecord(result.reply) || result.reply.ok !== true) {
-                throw new Error(AES.isRecord(result.reply) ? String(result.reply.error) : 'Storage unavailable.');
+                throw new Error(AES.isRecord(result.reply) ? AESI18n.errorMessage(String(result.reply.error)) : AESI18n.t("Storage unavailable."));
             }
             return result.reply.value;
         }
-        throw new Error('AES background did not respond.');
+        throw new Error(AESI18n.t("AES background did not respond."));
     }
 
     /** Validate fields used by fleet pages while retaining legacy/unknown metadata. */
@@ -156,7 +156,7 @@ class AES {
      */
     static updateSettings(mutator: (settings: Record<string, unknown>) => void, callback?: (settings: Record<string, unknown>) => void, onError?: (error: Error) => void) {
         const fail = (message: string) => {
-            const error = new Error(message);
+            const error = new Error(AESI18n.errorMessage(message));
             AES.reportContentScriptError('settings', error);
             onError?.(error);
         };
@@ -202,7 +202,7 @@ class AES {
         if (!/\/app\/info\/enterprises\/\d+/.test(window.location.pathname) &&
             !window.location.pathname.startsWith('/app/enterprise/dashboard')) {
             const current = AES.getCurrentAirline();
-            if (!current.name) throw new Error('Unable to determine airline from the current page');
+            if (!current.name) throw new Error(AESI18n.t("Unable to determine airline from the current page"));
             return current;
         }
         const server = AES.getServerName();
@@ -277,7 +277,7 @@ class AES {
             : (idFromHref ? `airline_${idFromHref}` : null);
 
         if (!name) {
-            throw new Error("Unable to determine airline from the current page");
+            throw new Error(AESI18n.t("Unable to determine airline from the current page"));
         }
 
         if (typeof serverAirlinesData[name] !== 'object' || serverAirlinesData[name] === null) {
@@ -471,7 +471,7 @@ class AES {
 
         const correctLength = date.length === 8
         const isInteger = Number.isInteger(parseInt(String(date)))
-        let result = "error: invalid format for AES.formatDateString"
+        let result = AESI18n.t('Invalid date format')
 
         if (correctLength && isInteger) {
             const year = date.substring(0, 4)
@@ -490,7 +490,7 @@ class AES {
     static formatDateStringWeek(date: string | number) {
         const correctLength = date.toString().length === 6
         const isInteger = Number.isInteger(parseInt(String(date)))
-        let result = "error: invalid format for AES.formatDateStringWeek"
+        let result = AESI18n.t('Invalid date format')
 
         if (correctLength && isInteger) {
             const DateAsString = date.toString()
@@ -513,7 +513,7 @@ class AES {
             return settingsDate
         }
 
-        throw new Error("Unable to read frontendSettings.server.time. Check AES.getServerDate()")
+        throw new Error(AESI18n.t("Unable to read frontendSettings.server.time. Check AES.getServerDate()"))
     }
 
     static #getServerDateFromFrontendSettings() {
@@ -716,7 +716,7 @@ class AES {
         return new Promise((resolve, reject) => {
             chrome.runtime.sendMessage({type: 'AES_PAGE_QUEUE', ...message}, (response: unknown) => {
                 if (chrome.runtime.lastError) { reject(new Error(chrome.runtime.lastError.message)); return; }
-                if (!AES.isRecord(response) || response.ok !== true) { reject(new Error(AES.isRecord(response) ? String(response.error || 'Page queue failed.') : 'No queue response.')); return; }
+                if (!AES.isRecord(response) || response.ok !== true) { reject(new Error(AES.isRecord(response) ? AESI18n.errorMessage(String(response.error || 'Page queue failed.')) : AESI18n.t("No queue response."))); return; }
                 resolve(response);
             });
         });
@@ -725,7 +725,7 @@ class AES {
     static async queuePage(url: string, kind: 'open' | 'price' | 'navigate' | 'read' = 'open', current: () => boolean = () => AES.isPageOwner()): Promise<{cancel: () => Promise<void>; complete: () => Promise<void>; expires?: number}> {
         const sourceUrl = location.href;
         const valid = () => current() && location.href === sourceUrl;
-        if (!valid()) throw new Error('The requesting page is no longer current.');
+        if (!valid()) throw new Error(AESI18n.t("The requesting page is no longer current."));
         const id = crypto.randomUUID();
         const cancel = async () => { try { await AES.pageQueueMessage({op:'cancel', id}); } catch {} };
         const complete = async () => { try { await AES.pageQueueMessage({op:'complete', id}); } catch {} };
@@ -735,13 +735,13 @@ class AES {
                 const result = await AES.pageQueueMessage({op:'poll', id});
                 if (!valid()) break;
                 if ((kind === 'price' || kind === 'read') && result.state === 'running') {
-                    if (typeof result.expires !== 'number' || Date.now() >= result.expires) throw new Error('The price submission slot expired. Please retry.');
+                    if (typeof result.expires !== 'number' || Date.now() >= result.expires) throw new Error(AESI18n.t("The price submission slot expired. Please retry."));
                     return {cancel, complete, expires: result.expires};
                 }
                 if (result.state === 'done' || (kind !== 'price' && kind !== 'read' && result.state === 'running')) return {cancel, complete};
                 await AES.sleep(typeof result.retryAfter === 'number' ? Math.min(70, Math.max(5, result.retryAfter)) : 50);
             }
-            throw new Error('Page changed while waiting in the queue.');
+            throw new Error(AESI18n.t("Page changed while waiting in the queue."));
         } catch (error) { await cancel(); throw error; }
     }
 
@@ -924,7 +924,7 @@ class AES {
      */
     static reportContentScriptError(scriptName: string, error: unknown) {
         const errorMessage = (error instanceof Error || AES.isRecord(error)) && error.message ? String(error.message) : String(error || "Unknown error");
-        const message = `AES ${scriptName || "content script"} error: ${errorMessage}`;
+        const message = AESI18n.t("AES {0} error: {1}", {0: scriptName || "content script", 1: AESI18n.errorMessage(errorMessage)});
         console.error(`[AES] ${scriptName || "content script"} failed`, error);
 
         const key = `${scriptName || ""}:${errorMessage}`;

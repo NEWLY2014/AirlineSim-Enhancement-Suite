@@ -13,6 +13,10 @@ test('settings tabs preserve drafts, support the keyboard and open extension bac
     execFileSync('openssl',['req','-x509','-newkey','rsa:2048','-nodes','-keyout',join(profile,'key.pem'),'-out',join(profile,'cert.pem'),'-days','1','-subj','/CN=paine.airlinesim.aero'],{stdio:'ignore'});
     server=createServer({key:await readFile(join(profile,'key.pem')),cert:await readFile(join(profile,'cert.pem'))},(req,res)=>{
         if(req.method==='POST' && req.headers.host==='paine.airlinesim.aero')submissions++;
+        if(req.url.startsWith('/app/fleets')){
+            const rows=Array.from({length:22},(_,i)=>`<tr><td><input type="checkbox" name="aircraftsContainer"></td><td><span>AA-${i}</span><div>...</div></td><td><a>A320</a></td><td></td><td><span>2 years</span><div><span></span><span>95%</span></div></td><td><span>100</span><span>10</span><span>0</span><div class="subrow">Yes</div></td><td></td><td>${i?`<a title="Flight Planning" class="btn-success" href="/app/fleets/aircraft/${100+i}/0"></a>`:''}</td></tr>`).join('');
+            req.resume();res.writeHead(200,{'Content-Type':'text/html'});res.end(`<script>window.frontendSettings={"fixedEnterpriseId":42,"languageSettings":{"currentLanguageTag":"${gameLanguage}"},"server":{"time":"2026-09-17T01:00:00Z"}};</script><div id="header"><button aria-haspopup="menu"><span class="_name_test">Test Air</span></button><div role="menubar"></div></div><div class="as-page-fleet-management"><h1>Fleet</h1><div class="row"><div class="col-md-9"><h2>Main</h2><div class="as-panel"><table><thead><tr>${'<th>Aircraft model</th>'.repeat(8)}</tr></thead><tbody>${rows}</tbody></table></div></div></div></div>`);return;
+        }
         const game=req.url.includes('tab=game');
         const html=`<script>window.frontendSettings={"fixedEnterpriseId":42,"theme":"light","languageSettings":{"currentLanguageTag":"${gameLanguage}"},"server":{"time":"2026-09-17T01:00:00Z"}};</script>
         <style>.nav-tabs{display:flex;gap:20px;list-style:none}.nav-tabs a{display:block;padding:10px}.nav-tabs .active{border-bottom:2px solid}.tab-content{display:block}</style>
@@ -75,5 +79,15 @@ test('settings tabs preserve drafts, support the keyboard and open extension bac
     await options.reload();
     await options.waitForFunction(()=>document.documentElement.lang==='fr');
     await options.getByRole('button',{name:french['Create Backup'],exact:true}).waitFor();
+    // Regression for the reported fleet paragraph, using the installed extension in Chromium.
+    for(const file of readdirSync('extension/locales')){
+        gameLanguage=file.slice(0,-5);const messages=JSON.parse(readFileSync('extension/locales/'+file));
+        await worker.evaluate(()=>chrome.storage.local.set({aesLanguage:'auto'}));
+        await page.goto('https://paine.airlinesim.aero/app/fleets');
+        await page.locator('#aes-fleet-management-root').waitFor();
+        const text=await page.locator('#aes-fleet-management-root').textContent();
+        assert.ok(text.includes(messages['Currently {0} aircrafts stored in memory.'].replace('{0}','22')),gameLanguage);
+        assert.ok(text.includes(messages['Undelivered aircraft are stored by registration and will be merged once AirlineSim assigns an aircraft ID.']),gameLanguage);
+    }
     assert.equal(submissions,0);
 });

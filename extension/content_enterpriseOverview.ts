@@ -19,7 +19,7 @@ async function refreshCompetitorSummary(success = false) {
     const schedule = stored[server+airline.id+'schedule'];
     const dates = AES.isRecord(schedule) && AES.isRecord(schedule.date) ? getCompetitorHistoryDates(schedule.date) : [];
     const messages = [displayOverviewRow().text(),displayFactsAndFiguresRow().text(),
-        dates.length ? 'Last schedule extract '+AES.formatDateString(dates[0]) : 'No Schedule data found.'];
+        dates.length ? AESI18n.t('Last schedule extract {0}', {0:AES.formatDateString(dates[0])}) : 'No Schedule data found.'];
     feedback.forEach((item,index)=>{
         item.show(success ? ['Overview saved.','Facts saved.','All tab data saved.'][index] : messages[index],success ? 'good' : '');
         if(success)item.settle(messages[index],current);
@@ -67,7 +67,7 @@ function displayMain() {
 
     //Checkbox
     let checkbox = $<HTMLInputElement>('<input type="checkbox">');
-    let label = $('<label></label>').append(checkbox, ' Follow this airline in Competitor Monitoring');
+    let label = $('<label></label>').append(checkbox, AESI18n.t(' Follow this airline in Competitor Monitoring'));
     let divCheckbox = $('<div class="checkbox"></div>').append(label);
 
     //Competitive display comp monitoring
@@ -90,7 +90,7 @@ function displayMain() {
                 case 'tab2': displayTab2(actionBar); break;
                 case 'tab1':
                 case 'tab3': break;
-                default: throw new Error("Unsupported enterprise tab: " + activeTab);
+                default: throw new Error(AESI18n.t("Unsupported enterprise tab: {0}", {0: activeTab}));
             }
             displayAutomation(actionBar);
         }, function(error) {
@@ -109,11 +109,11 @@ function displayMain() {
 
 
     //Add display
-    let mainDiv = $('<div id="aes-panel-airline-competitive-monitoring"></div>').append('<h3>AirlineSim Enhancement Suite Airline</h3>', panel, divComp);
+    let mainDiv = $('<div id="aes-panel-airline-competitive-monitoring"></div>').append($('<h3></h3>').text(AESI18n.t('Competitor Monitoring')), panel, divComp);
     AES.markOwnedElements(mainDiv);
     let insertionTarget = $(AES.getEnterpriseHeading() || []);
     if (!insertionTarget.length) {
-        throw new Error("Enterprise overview insertion target enterprise heading was not found");
+        throw new Error(AESI18n.t("Enterprise overview insertion target enterprise heading was not found"));
     }
     insertionTarget.after(mainDiv);
 }

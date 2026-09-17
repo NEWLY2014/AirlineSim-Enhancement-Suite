@@ -205,3 +205,17 @@ test('an expired queue permit cannot submit prices',async t=>{
     click(p,'#aes-btn-invPricing-apply-new-prices');await until(()=>/expired/.test(p.w.document.body.textContent));
     assert.equal(p.submissions.length,0);assert.equal(p.saved[key],undefined);
 });
+
+for(const locale of ['en','de','es','fr','hu','nl','pl','zh-TW','ja'])test(`${locale}: built-in inventory advice translates without changing prices`,async t=>{
+    const p=inventory(t,{current:250,rows:row('Y',250,80,'scheduled'),data:{aesLanguage:locale}});await load(p);
+    assert.equal(p.w.document.querySelector('.pricing input').value,'200');
+    assert.ok(p.w.document.querySelector('#aes-table-analysis').textContent.includes(require('../extension/locales/'+locale+'.json')['Drop to maximum']));
+});
+test('custom recommendation names matching translation keys remain verbatim through storage',async t=>{
+    const config=settings();config.invPricing.recommendation.Y.steps[1].name='Save';
+    const p=inventory(t,{data:{aesLanguage:'zh-TW',settings:config}});await load(p);
+    assert.ok(p.w.document.querySelector('#aes-table-analysis').textContent.includes('Save'));
+    click(p,'#aes-btn-invPricing-save-snapshot');await until(()=>p.saved[key]);
+    assert.equal(p.saved[key].date['20260908'].data.Y.recommendation,'Save');
+    assert.equal(p.saved[key].date['20260908'].data.Y.recommendationIsCustom,true);
+});

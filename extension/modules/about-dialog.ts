@@ -76,7 +76,6 @@ class AboutDialog {
         const body = document.createElement("div")
         body.className = "modal-body"
         const manifest = chrome.runtime.getManifest()
-        const description = manifest.description
         const versionName = manifest.version_name
         let version = manifest.version
         if (versionName) {
@@ -84,12 +83,14 @@ class AboutDialog {
         }
 
         body.innerHTML = `
-            <img src="${chrome.runtime.getURL('images/AES-logo-128.png')}">
+            <img alt="" src="${chrome.runtime.getURL('images/AES-logo-128.png')}">
             <h2>AirlineSim Enhancement Suite</h2>
-            <p>Version ${version}</p>
-            <p>Copyright &copy; 2020-2026 AES Authors. MIT License.</p>
+            <p class="aes-about-version"></p>
+            <p class="aes-about-copyright"></p>
         `
 
+        body.querySelector('.aes-about-version')!.textContent = AESI18n.t('Version {0}', {0: version});
+        body.querySelector('.aes-about-copyright')!.textContent = AESI18n.t('Copyright © 2020-2026 AES Authors. MIT License.');
         return body
     }
 

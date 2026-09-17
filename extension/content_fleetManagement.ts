@@ -14,7 +14,7 @@ const FLEET_MANAGEMENT_SCRIPT_ENABLED = AES.runContentScript("content_fleetManag
         scriptName: "content_fleetManagement",
         onTimeout: function() {
             if (fltmng_fleetManagementPageOpen()) {
-                throw new Error("Fleet management insertion target .as-page-fleet-management > h1 was not found");
+                throw new Error(AESI18n.t("Fleet management insertion target .as-page-fleet-management > h1 was not found"));
             }
         }
     });
@@ -433,7 +433,7 @@ function fltmng_display() {
     fltmng_displayAircraftProfit();
 
     let p = [];
-    p.push($('<p></p>').html(fltmng_displaySavedAircrafts()));
+    p.push($('<p></p>').text(fltmng_displaySavedAircrafts()));
     p.push($('<p></p>').append(fltmng_displayNewUpdates()));
     p.push(fltmng_buildFilterPanel());
 
@@ -444,7 +444,7 @@ function fltmng_display() {
     AES.markOwnedElements(div);
     let insertionTarget = $('.as-page-fleet-management > h1:eq(0)');
     if (!insertionTarget.length) {
-        throw new Error("Fleet management insertion target .as-page-fleet-management > h1 was not found");
+        throw new Error(AESI18n.t("Fleet management insertion target .as-page-fleet-management > h1 was not found"));
     }
     insertionTarget.after(div);
     fltmng_bindNativeSelectionLinks();
@@ -463,7 +463,7 @@ function fltmng_displayAircraftProfit() {
     table.addClass('aes-fleet-table');
     //Head
     $('thead tr:eq(0) th:eq(2)', table).html(
-        $('thead tr:eq(0) th:eq(2)', table).html().replace('Aircraft model', 'Model')
+        $('thead tr:eq(0) th:eq(2)', table).html().replace('Aircraft model', AESI18n.t('Model'))
     );
     $('thead tr:eq(0) th:eq(2)', table).after(
         $(AESI18n.html('<th rowspan="2" class="aes-fleet-extra-header">HUB</th>'))
@@ -625,9 +625,9 @@ function fltmng_getAircraftHubDisplay(aircraftId: number | null) {
 }
 
 function fltmng_displaySavedAircrafts() {
-    let text = 'Currently ' + aircraftFleetStorageData.fleet.length + ' aircrafts stored in memory.';
+    let text = AESI18n.t('Currently {0} aircrafts stored in memory.', {0:aircraftFleetStorageData.fleet.length});
     if (aircraftData.some(function(value) { return !value.aircraftId; })) {
-        text += ' Undelivered aircraft are stored by registration and will be merged once AirlineSim assigns an aircraft ID.';
+        text += AESI18n.t(' Undelivered aircraft are stored by registration and will be merged once AirlineSim assigns an aircraft ID.');
     }
     return text;
 }

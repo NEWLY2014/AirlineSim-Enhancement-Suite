@@ -93,3 +93,10 @@ test('UI initialization waits for the stored language instead of briefly using t
     p.run(`window.rendered=false;AESI18n.whenReady(()=>{window.rendered=AESI18n.t('Save')});`);
     assert.equal(p.w.rendered,false);finish({aesLanguage:'ja'});assert.equal(p.w.rendered,catalogs.ja.Save);
 });
+
+for(const locale of Object.keys(catalogs))test(`${locale}: backend errors translate at presentation and preserve diagnostic details`,t=>{
+    const p=browser(t,{data:{aesLanguage:locale}});
+    assert.equal(p.run(`AESI18n.errorMessage('Invalid settings.')`),catalogs[locale]['Invalid settings.']);
+    assert.equal(p.run(`AESI18n.errorMessage('Unable to save schedule: Disk full (E123)')`),catalogs[locale]['Unable to save schedule: {0}'].replace('{0}','Disk full (E123)'));
+    assert.equal(p.run(`AESI18n.errorMessage('A user supplied value')`),'A user supplied value');
+});

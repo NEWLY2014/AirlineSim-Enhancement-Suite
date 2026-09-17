@@ -6,7 +6,7 @@ declare namespace AESModel {
         totalCap: number; totalBkd: number; valid: boolean | number;
         analysisPrice: number; analysisPricePoint: number; useCurrentPrice: number;
         canRecommend: number; analysisSourcePrice: number; currentPrice: number; currentPricePoint: number;
-        recommendation: string | 0; newPrice: number; newPricePoint: number; newPriceChange: number;
+        recommendation: string | 0; recommendationIsCustom?: boolean; referenceRecommendationIsCustom?: boolean; newPrice: number; newPricePoint: number; newPriceChange: number;
         recType: string; referenceRecommendation: string | 0; referenceRecType: string;
         referenceNewPrice: number; referenceNewPricePoint: number; index: number;
     }

@@ -208,3 +208,12 @@ test('shared sorting preserves tied row order, selection and event handlers acro
     p.run("AESDashboardTable.sort($('#sort'),'value',true,false)");
     assert.deepEqual([...p.w.document.querySelectorAll('tr')].map(row=>row.id),['b','a','c']);
 });
+
+for(const value of ['Active',require('../extension/locales/zh-TW.json').Active])test(`translated status columns accept canonical and displayed filters: ${value}`,async t=>{
+    const p=dashboard(t,'aircraftProfitability',{aesLanguage:'zh-TW',settings:{general:{defaultDashboard:'aircraftProfitability'},aircraftProfitability:{filter:[{titlecode:'scheduleStateLabel',operation:'=',value}]}},paine42aircraftFleet:{fleet:[{aircraftId:1,registration:'AA-1',scheduleStateLabel:'Active'},{aircraftId:2,registration:'AA-2',scheduleStateLabel:'Locked'}]}});
+    await load(p,'#aircraft-id-1');
+    assert.equal(p.w.document.querySelector('#aircraft-id-1').style.display,'');
+    assert.equal(p.w.document.querySelector('#aircraft-id-2').style.display,'none');
+    const cell=p.w.document.querySelector('#aircraft-id-1 [data-aes-filter-value="Active"]');
+    assert.equal(cell.textContent,require('../extension/locales/zh-TW.json').Active);
+});

@@ -250,7 +250,7 @@ function getFlights() {
     const flightRows = document.querySelectorAll<HTMLTableRowElement>("#inventory-table tbody tr")
 
     if (!flightRows.length) {
-        throw new Error("Unable to read inventory data. The inventory page layout might have changed.")
+        throw new Error(AESI18n.t("Unable to read inventory data. The inventory page layout might have changed."))
     }
 
     for (const row of flightRows) {
@@ -258,7 +258,7 @@ function getFlights() {
         flights.push(flight)
     }
 
-    if (!flights.length || flights.some(flight => !flight.fltNr || ![flight.cap, flight.bkd, flight.price].every(Number.isFinite) || flight.cap < 0 || flight.bkd < 0)) throw new Error('Unable to read inventory data: incomplete flight rows');
+    if (!flights.length || flights.some(flight => !flight.fltNr || ![flight.cap, flight.bkd, flight.price].every(Number.isFinite) || flight.cap < 0 || flight.bkd < 0)) throw new Error(AESI18n.t("Unable to read inventory data: incomplete flight rows"));
     return flights
 }
 
@@ -315,7 +315,7 @@ function getGroupedFlights(groupedTableBodies: NodeListOf<HTMLTableSectionElemen
         }
     }
 
-    if (!flights.length || flights.some(flight => !flight.fltNr || ![flight.cap, flight.bkd, flight.price].every(Number.isFinite) || flight.cap < 0 || flight.bkd < 0)) throw new Error('Unable to read inventory data: incomplete flight rows');
+    if (!flights.length || flights.some(flight => !flight.fltNr || ![flight.cap, flight.bkd, flight.price].every(Number.isFinite) || flight.cap < 0 || flight.bkd < 0)) throw new Error(AESI18n.t("Unable to read inventory data: incomplete flight rows"));
     return flights
 }
 
@@ -326,7 +326,7 @@ function getGroupedFlights(groupedTableBodies: NodeListOf<HTMLTableSectionElemen
  */
 function getFlight(row: HTMLTableRowElement) {
     const cells = row.querySelectorAll("td")
-    if (cells.length < 11) throw new Error("Unable to read inventory data: incomplete flight row");
+    if (cells.length < 11) throw new Error(AESI18n.t("Unable to read inventory data: incomplete flight row"));
     const flightNumber = cells[1].querySelector<HTMLElement>("a[href*=numbers]")?.innerText || ''
     const date = cells[2].innerText
     const compCode = getCompCode(cells[5].innerText)
@@ -355,7 +355,7 @@ function getFlight(row: HTMLTableRowElement) {
  */
 function getCompCode(text: string): AESModel.Cabin {
     if (!text) {
-        throw new Error("no value provided for getCompCode")
+        throw new Error(AESI18n.t("no value provided for getCompCode"))
     }
 
     if (text.length > 1) {
@@ -363,7 +363,7 @@ function getCompCode(text: string): AESModel.Cabin {
     }
 
     if (text === 'Y' || text === 'C' || text === 'F') return text;
-    throw new Error('Unable to read inventory data: unknown service class');
+    throw new Error(AESI18n.t("Unable to read inventory data: unknown service class"));
 }
 
 /**
@@ -382,7 +382,7 @@ function getPriceDetails() {
         prices[cmp] = price
     }
 
-    if (!prices.Y || !prices.C || !prices.F || !prices.Cargo) throw new Error('Unable to read inventory data: missing price rows');
+    if (!prices.Y || !prices.C || !prices.F || !prices.Cargo) throw new Error(AESI18n.t("Unable to read inventory data: missing price rows"));
     return { Y: prices.Y, C: prices.C, F: prices.F, Cargo: prices.Cargo };
 }
 
@@ -392,13 +392,13 @@ function getPriceDetails() {
  * @returns {object} price
  */
 function getPrice(cells: NodeListOf<HTMLTableCellElement>) {
-    if (cells.length < 5) throw new Error("Unable to read inventory data: incomplete pricing row");
+    if (cells.length < 5) throw new Error(AESI18n.t("Unable to read inventory data: incomplete pricing row"));
     const currentPrice = AES.cleanInteger(cells[1].innerText)
     const defaultPrice = AES.cleanInteger(cells[4].innerText.replace(/\s+/g, ''))
     const currentPricePoint = getCurrentPricePoint(currentPrice, defaultPrice)
     const newPriceInput = cells[2].querySelector("input")
 
-    if (!newPriceInput || !Number.isFinite(currentPrice) || !Number.isFinite(defaultPrice) || defaultPrice <= 0) throw new Error('Unable to read inventory data: invalid price row');
+    if (!newPriceInput || !Number.isFinite(currentPrice) || !Number.isFinite(defaultPrice) || defaultPrice <= 0) throw new Error(AESI18n.t("Unable to read inventory data: invalid price row"));
     const price = {
         currentPrice: currentPrice,
         defaultPrice: defaultPrice,
@@ -436,14 +436,14 @@ function getAnalysis(flights: AESModel.InventoryFlight[], prices: AESModel.Inven
         note: function(cmp) {
             if (this.data[cmp].valid) {
                 if (this.data[cmp].useCurrentPrice) {
-                    return "Current price";
+                    return AESI18n.t("Current price");
                 } else if (this.data[cmp].analysisSourcePrice) {
-                    return "Ref: active " + formatCurrency(this.data[cmp].analysisSourcePrice) + " AS$";
+                    return AESI18n.t("Ref: active {0} AS$", {0:formatCurrency(this.data[cmp].analysisSourcePrice)});
                 } else {
-                    return "Ref: old price";
+                    return AESI18n.t("Ref: old price");
                 }
             } else {
-                return "No data";
+                return AESI18n.t("No data");
             }
         },
         displayLoad: function(cmp) {
@@ -455,7 +455,7 @@ function getAnalysis(flights: AESModel.InventoryFlight[], prices: AESModel.Inven
         },
         displayRec: function(cmp) {
             if (this.data[cmp].recommendation) {
-                let span = $('<span></span>').text(this.data[cmp].recommendation);
+                let span = $('<span></span>').text(this.data[cmp].recommendationIsCustom === false ? AESI18n.t(String(this.data[cmp].recommendation)) : this.data[cmp].recommendation);
                 switch (this.data[cmp].recType) {
                     case 'good':
                         span.addClass('good');
@@ -467,7 +467,7 @@ function getAnalysis(flights: AESModel.InventoryFlight[], prices: AESModel.Inven
                         span.addClass('warning');
                         break;
                     default:
-                        return '<span class="warning">ERROR:2501 Wrong recType set:' + this.data[cmp].recType + '</span>';
+                        return $('<span class="warning"></span>').text(AESI18n.t('Invalid recommendation type: {0}', {0:this.data[cmp].recType}))[0].outerHTML;
                 }
                 if (this.data[cmp].newPrice) {
                     span.append(
@@ -484,7 +484,7 @@ function getAnalysis(flights: AESModel.InventoryFlight[], prices: AESModel.Inven
                 return '-';
             }
 
-            let span = $('<span></span>').text(this.data[cmp].referenceRecommendation);
+            let span = $('<span></span>').text(this.data[cmp].referenceRecommendationIsCustom === false ? AESI18n.t(String(this.data[cmp].referenceRecommendation)) : this.data[cmp].referenceRecommendation);
             switch (this.data[cmp].referenceRecType) {
                 case 'good':
                     span.addClass('good');
@@ -521,7 +521,7 @@ function getAnalysis(flights: AESModel.InventoryFlight[], prices: AESModel.Inven
                         return '-';
                     }
                 default:
-                    return '<span class="warning">ERROR:2502 Wrong type set:' + type + '</span>';
+                    return $('<span class="warning"></span>').text(AESI18n.t('Invalid recommendation type: {0}', {0:type}))[0].outerHTML;
             }
         },
         displayIndex: function(cmp) {
@@ -721,11 +721,13 @@ function generateRecommendation(analysis: AESModel.InventoryAnalysis, prices: AE
         const item = analysis.data[cmp];
         const config = settings.invPricing.recommendation[cmp];
         item.recommendation = 0;
+        item.recommendationIsCustom = false;
         item.newPrice = 0;
         item.newPricePoint = 0;
         item.newPriceChange = 0;
         item.recType = 'neutral';
         item.referenceRecommendation = 0;
+        item.referenceRecommendationIsCustom = false;
         item.referenceRecType = 'neutral';
         item.referenceNewPrice = 0;
         item.referenceNewPricePoint = 0;
@@ -796,6 +798,7 @@ function generateRecommendation(analysis: AESModel.InventoryAnalysis, prices: AE
         // Normal assignment
         if (!item.recommendation) {
             item.recommendation = step.name;
+            item.recommendationIsCustom = true;
             item.newPriceChange = targetPricePoint - currentPricePoint;
 
             if (targetPricePoint !== currentPricePoint || step.step !== 0) {
@@ -883,6 +886,7 @@ function generateReferenceRecommendation(analysis: AESModel.InventoryAnalysis, p
 
         if (!item.referenceRecommendation) {
             item.referenceRecommendation = step.name;
+            item.referenceRecommendationIsCustom = true;
             item.referenceNewPricePoint = targetPricePoint;
             item.referenceNewPrice = Math.round(
                 (targetPricePoint / 100) * prices[cmp].defaultPrice
@@ -961,8 +965,8 @@ function displayAnalysis(analysis: AESModel.InventoryAnalysis, prices: AESModel.
     let tbody = $('<tbody></tbody>');
     for (const cmp of cabins) {
         let td = [];
-        td.push('<td>' + cmp + '</td>');
-        td.push('<td>' + analysis.note(cmp) + '</td>');
+        td.push($('<td></td>').text(AESI18n.t(cmp)));
+        td.push($('<td></td>').text(analysis.note(cmp)));
         td.push('<td class="aes-text-right">' + analysis.displayPrice(cmp, 'analysis') + '</td>');
         td.push('<td class="aes-text-right">' + analysis.displayLoad(cmp) + '</td>');
         td.push($('<td class="aes-text-right"></td>').append(analysis.displayIndex(cmp)));
@@ -1101,7 +1105,7 @@ function getTargetPricingUpdates(prices: AESModel.InventoryPrices, useReferenceP
             if (Number.isFinite(submittedPrice) && submittedPrice > 0) {
                 targetPrices[cmp] = submittedPrice;
             } else {
-                throw new Error('Invalid target price for ' + cmp);
+                throw new Error(AESI18n.t("Invalid target price for {0}", {0: cmp}));
             }
         }
     }
@@ -1135,7 +1139,7 @@ function watchNativePriceSubmission() {
             status.text(AESI18n.t('Waiting in the page queue to submit prices...'));
             const slot = await AES.queuePage(location.href, 'price', current);
             try {
-                if (!current() || Date.now() >= (slot.expires || 0)) throw new Error('Prices or page changed while waiting. Please review and retry.');
+                if (!current() || Date.now() >= (slot.expires || 0)) throw new Error(AESI18n.t("Prices or page changed while waiting. Please review and retry."));
                 authorizedPriceSubmit = true;
                 try { form.requestSubmit(submitter instanceof HTMLButtonElement || submitter instanceof HTMLInputElement ? submitter : undefined); }
                 finally { authorizedPriceSubmit = false; }
@@ -1147,16 +1151,16 @@ function watchNativePriceSubmission() {
 }
 
 async function submitPendingPricingUpdate(targetPrices: Partial<Record<AESModel.Cabin, number>>, status: JQuery, revision: number) {
-    if (!Object.keys(targetPrices).length) throw new Error('No valid target prices were found. Prices were not submitted.');
+    if (!Object.keys(targetPrices).length) throw new Error(AESI18n.t("No valid target prices were found. Prices were not submitted."));
     const submitter = document.querySelector<HTMLButtonElement>('.pricing [name="submit-prices"]');
     const form = submitter?.closest('form');
-    if (!submitter || !form) throw new Error('Price submission form is unavailable.');
+    if (!submitter || !form) throw new Error(AESI18n.t("Price submission form is unavailable."));
     const signature = priceFormSignature(form);
     const current = () => isInventoryCurrent(revision) && form.isConnected && signature === priceFormSignature(form);
     status.text(AESI18n.t('Waiting in the page queue to submit prices...'));
     const slot = await AES.queuePage(location.href, 'price', current);
     try {
-        if (!current()) throw new Error('Prices changed while waiting. Please review and retry.');
+        if (!current()) throw new Error(AESI18n.t("Prices changed while waiting. Please review and retry."));
         const dates = {...pricingData.date};
         for (const [date, value] of Object.entries(dates)) {
             if (AES.isRecord(value)) {
@@ -1170,7 +1174,7 @@ async function submitPendingPricingUpdate(targetPrices: Partial<Record<AESModel.
         dates[todayDate] = snapshot;
         const next = {...pricingData, date: dates};
         await chrome.storage.local.set({[next.key]: next});
-        if (!current() || Date.now() >= (slot.expires || 0)) throw new Error('Prices or page changed while saving. Please review and retry.');
+        if (!current() || Date.now() >= (slot.expires || 0)) throw new Error(AESI18n.t("Prices or page changed while saving. Please review and retry."));
         pricingData = next;
         authorizedPriceSubmit = true;
         try { $(submitter).trigger('click'); } finally { authorizedPriceSubmit = false; }
@@ -1456,7 +1460,7 @@ function displayValidationError() {
     let p = [];
     p.push($('<p></p>').text(AESI18n.t('AES Inventory Pricing Module could not be loaded because of errors:')));
     aesmodule.errors.forEach(function(error) {
-        p.push($('<p class="bad"></p>').append($('<b></b>').text(error)));
+        p.push($('<p class="bad"></p>').append($('<b></b>').text(AESI18n.t(error))));
     });
     p.push($('<p class="warning"></p>').text(AESI18n.t('Adjust the inventory view and AES will reload automatically.')));
     let panel = $('<div id="aes-panel-validation" class="as-panel"></div>').append(...p);
@@ -1569,7 +1573,7 @@ function displayPerc(perc: number, type: 'price' | 'load') {
             span.addClass('warning').text(perc + "%");
             return span.prop('outerHTML');
         default:
-            return '<span class="warning">ERROR:2502 Wrong type set:' + type + '</span>';
+            return $('<span class="warning"></span>').text(AESI18n.t('Invalid recommendation type: {0}', {0:type}))[0].outerHTML;
     }
 }
 //Helper functions

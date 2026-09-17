@@ -877,7 +877,7 @@ class ReleaseNotesDialog {
         const logo = document.createElement("img")
         logo.className = "aes-release-notes-logo"
         logo.src = chrome.runtime.getURL("images/AES-logo-128.png")
-        logo.alt = "AES logo"
+        logo.alt = ""
         const titleWrap = document.createElement("div")
         titleWrap.className = "aes-release-notes-title-wrap"
         this.#title.className = "modal-title"
