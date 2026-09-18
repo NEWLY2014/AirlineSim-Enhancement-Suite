@@ -1,5 +1,14 @@
 /** Control-point pricing. All intermediate values remain unrounded. */
 namespace AESPricingCurve {
+    export function defaults(): AESModel.PricingPoint[] {
+        return [{load:0,change:-8},{load:40,change:-8},{load:60,change:-4},{load:70,change:-2},{load:80,change:0},{load:90,change:1},{load:99,change:2},{load:100,change:5}];
+    }
+    /** Legacy mixed modes fall back to steps; custom points remain available. */
+    export function mode(source: Record<string, unknown>): 'steps' | 'curve' {
+        if (source.mode === 'steps' || source.mode === 'curve') return source.mode;
+        const rec=source.recommendation as Record<string, AESModel.PricingRecommendation> | undefined;
+        return rec && ['Y','C','F','Cargo'].every(cabin=>rec[cabin]?.mode==='curve') ? 'curve' : 'steps';
+    }
     export function points(value: unknown): AESModel.PricingPoint[] | null {
         if (!Array.isArray(value) || value.length < 2) return null;
         const result: AESModel.PricingPoint[] = [];

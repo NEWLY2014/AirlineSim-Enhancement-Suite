@@ -1,8 +1,7 @@
 /** Editable numeric controls are the accessible alternative to the curve preview. */
 namespace AESCurveEditor {
     export function mount(container:JQuery, initial:unknown, previewContainer=container) {
-        // Shared boundaries use the first inclusive matching step, as in inventory pricing.
-        const defaults=[{load:0,change:-8},{load:40,change:-8},{load:60,change:-4},{load:70,change:-2},{load:80,change:0},{load:90,change:1},{load:99,change:2},{load:100,change:5}];
+        const defaults=AESPricingCurve.defaults();
         const table=$(AESI18n.html('<table class="table table-bordered aes-curve-table"><thead><tr><th>Load (%)</th><th>Change (pp)</th><th></th></tr></thead><tbody></tbody></table>'));
         const body=table.find('tbody');
         const add=$('<button type="button" class="btn btn-default"></button>').text(AESI18n.t('Add control point'));

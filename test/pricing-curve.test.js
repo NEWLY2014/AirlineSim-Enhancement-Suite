@@ -43,3 +43,15 @@ test('adding a point preserves the curve and leaves endpoints fixed',t=>{
     assert.equal(rows.first().find('button').prop('disabled'),true);assert.equal(rows.last().find('button').prop('disabled'),true);
     rows.eq(1).find('button').trigger('click');assert.equal($('.aes-curve-table tbody tr').length,2);
 });
+
+test('global mode overrides legacy cabin modes and migrates only unanimous curve settings',t=>{
+    const p=curve(t);
+    p.w.source={recommendation:Object.fromEntries(['Y','C','F','Cargo'].map(cabin=>[cabin,{mode:'curve'}]))};
+    assert.equal(p.run('AESPricingCurve.mode(window.source)'),'curve');
+    p.w.source.recommendation.C.mode='steps';
+    assert.equal(p.run('AESPricingCurve.mode(window.source)'),'steps');
+    p.w.source.mode='curve';
+    assert.equal(p.run('AESPricingCurve.mode(window.source)'),'curve');
+    p.w.source.mode='steps';
+    assert.equal(p.run('AESPricingCurve.mode(window.source)'),'steps');
+});

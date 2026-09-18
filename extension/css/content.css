@@ -966,7 +966,7 @@
 .aes-pricing-automation .checkbox br { display: none; }
 #aes-settings-root .aes-pricing-automation .checkbox label { display: flex; align-items: flex-start; gap: 8px; padding: 0; font-weight: 400; }
 #aes-settings-root .aes-pricing-automation .checkbox input[type="checkbox"] { position: static; float: none; flex: 0 0 auto; margin: 3px 0 0; }
-.aes-pricing-controls { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; margin: 20px 0; max-width: 760px; }
+.aes-pricing-controls { display: grid; grid-template-columns: minmax(0,1fr); gap: 16px; margin: 20px 0; max-width: 760px; }
 .aes-pricing-controls label { display: block; margin-bottom: 6px; }
 .aes-pricing-controls .form-group, #aes-pricing-mode { margin-bottom: 0; }
 .aes-pricing-workspace { display: grid; grid-template-columns: minmax(0,1.2fr) minmax(0,1fr); gap: 24px; padding: 20px; }
@@ -1009,3 +1009,7 @@
 
 .aes-pricing-readout { min-height: 3em; font-size: .9em; line-height: 1.5; font-variant-numeric: tabular-nums; text-align: center; }
 .aes-curve-preview:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+
+.aes-pricing-global { margin-top: 16px; padding: 16px; }
+.aes-pricing-global label { display: block; margin-bottom: 6px; }
+.aes-pricing-global select { max-width: 360px; width: 100%; font-weight: 400; }

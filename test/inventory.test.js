@@ -222,7 +222,8 @@ test('custom recommendation names matching translation keys remain verbatim thro
 
 function curveSettings(extra={}) {
     const config=settings(extra);
-    config.invPricing.recommendation.Y={minPrice:60,maxPrice:200,steps:[],mode:'curve',points:[{load:0,change:-15},{load:85,change:0},{load:95,change:3},{load:100,change:6}]};
+    config.invPricing.mode='curve';
+    config.invPricing.recommendation.Y={minPrice:60,maxPrice:200,steps:[],points:[{load:0,change:-15},{load:85,change:0},{load:95,change:3},{load:100,change:6}]};
     return config;
 }
 test('curve pricing uses fractional loads and actual prices, and persists the rounded recommendation',async t=>{

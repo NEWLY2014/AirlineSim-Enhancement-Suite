@@ -48,6 +48,8 @@ export function readInventorySnapshot(value: unknown): AESModel.InventorySnapsho
 export function readInventorySettings(value: unknown): AESModel.InventorySettings {
     if (!AES.isRecord(value) || !AES.isRecord(value.invPricing) || !AES.isRecord(value.invPricing.recommendation)) throw new Error(AESI18n.t("Inventory pricing settings are missing. Save pricing settings before using inventory analysis."));
     const source = value.invPricing;
+    if (source.mode !== undefined && source.mode !== 'steps' && source.mode !== 'curve') throw new Error(AESI18n.t('Invalid pricing curve.'));
+    const mode=AESPricingCurve.mode(source);
     const readConfig = (cmp: AESModel.Cabin): AESModel.PricingRecommendation => {
         const rec = AES.isRecord(source.recommendation) ? source.recommendation[cmp] : undefined;
         if (!AES.isRecord(rec) || typeof rec.minPrice !== 'number' || !Number.isFinite(rec.minPrice) || typeof rec.maxPrice !== 'number' || !Number.isFinite(rec.maxPrice) || rec.minPrice < 0 || rec.maxPrice < rec.minPrice || !Array.isArray(rec.steps)) throw new Error(AESI18n.t("Invalid inventory price bounds for {0}", {0: cmp}));
@@ -57,13 +59,13 @@ export function readInventorySettings(value: unknown): AESModel.InventorySetting
             steps.push({min: step.min, max: step.max, name: step.name, step: step.step});
         }
         if (rec.mode !== undefined && rec.mode !== 'steps' && rec.mode !== 'curve') throw new Error(AESI18n.t('Invalid pricing curve.'));
-        const points=rec.points === undefined ? undefined : AESPricingCurve.points(rec.points);
-        if ((rec.points !== undefined && !points) || (rec.mode === 'curve' && !points)) throw new Error(AESI18n.t('Invalid pricing curve.'));
-        return {minPrice: rec.minPrice, maxPrice: rec.maxPrice, steps, mode:rec.mode, points:points || undefined};
+        const points=rec.points === undefined ? (mode==='curve' ? AESPricingCurve.defaults() : undefined) : AESPricingCurve.points(rec.points);
+        if ((rec.points !== undefined && !points) || (mode === 'curve' && !points)) throw new Error(AESI18n.t('Invalid pricing curve.'));
+        return {minPrice: rec.minPrice, maxPrice: rec.maxPrice, steps, points:points || undefined};
     };
     const history = AES.isRecord(source.historyTable) ? source.historyTable : {};
     const enabled = (value: unknown) => value === true || value === 1 || value === '1';
-    return { invPricing: { autoAnalysisSave: enabled(source.autoAnalysisSave) ? 1 : 0, autoPriceUpdate: enabled(source.autoPriceUpdate) ? 1 : 0,
+    return { invPricing: { mode, autoAnalysisSave: enabled(source.autoAnalysisSave) ? 1 : 0, autoPriceUpdate: enabled(source.autoPriceUpdate) ? 1 : 0,
         autoClose: enabled(source.autoClose) ? 1 : 0, showReferenceRecommendation: enabled(source.showReferenceRecommendation) ? 1 : 0,
         historyTable: {showNow: history.showNow ? 1 : 0, showOnlyPricing: history.showOnlyPricing ? 1 : 0, numberOfDates: typeof history.numberOfDates === 'string' ? history.numberOfDates : '5'},
         recommendation: {Y: readConfig('Y'), C: readConfig('C'), F: readConfig('F'), Cargo: readConfig('Cargo')} } };

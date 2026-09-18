@@ -22,6 +22,7 @@ declare namespace AESModel {
         steps: PricingStep[];
     }
     interface InventoryPricingSettings {
+        mode?: 'steps' | 'curve';
         autoAnalysisSave: number;
         autoPriceUpdate: number;
         autoClose: number;

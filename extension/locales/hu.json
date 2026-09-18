@@ -738,5 +738,6 @@
   "Use distinct loads from 0 to 100, with both endpoints and finite adjustments.": "Adj meg különböző kihasználtságokat 0 és 100 között, mindkét végponttal és véges módosításokkal.",
   "Complete consecutive integer ranges from 0 to 100 to preview step rules.": "Az előnézethez adj meg egymást követő egész tartományokat 0 és 100 között.",
   "Step rules use rounded load percentages. The first matching rule applies at shared boundaries.": "A lépcsős szabályok kerekített kihasználtságot használnak. Közös határon az első illeszkedő szabály érvényes.",
-  "Change (pp)": "Változás (százalékpont)"
+  "Change (pp)": "Változás (százalékpont)",
+  "Pricing mode applies to all compartments.": "Az árazási mód minden osztályra érvényes."
 }

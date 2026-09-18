@@ -738,5 +738,6 @@
   "Use distinct loads from 0 to 100, with both endpoints and finite adjustments.": "Podaj różne wypełnienia od 0 do 100, oba końce i skończone wartości zmian.",
   "Complete consecutive integer ranges from 0 to 100 to preview step rules.": "Uzupełnij kolejne przedziały całkowite od 0 do 100, aby zobaczyć podgląd.",
   "Step rules use rounded load percentages. The first matching rule applies at shared boundaries.": "Reguły używają zaokrąglonego wypełnienia. Na wspólnych granicach obowiązuje pierwsza pasująca reguła.",
-  "Change (pp)": "Zmiana (p.p.)"
+  "Change (pp)": "Zmiana (p.p.)",
+  "Pricing mode applies to all compartments.": "Tryb ustalania cen dotyczy wszystkich klas."
 }

@@ -5,6 +5,7 @@ var settings: Record<string, unknown>;
 let settingsArea: JQuery;
 let cleanupSettings=()=>{};
 let rememberPricingDraft=()=>{};
+let pricingModeDraft:'steps' | 'curve' | undefined;
 const pricingDrafts:Partial<Record<AESModel.Cabin,AESModel.PricingRecommendation>>={};
 const SETTINGS_SCRIPT_ENABLED = AES.runContentScript("content_settings", function() {
     chrome.storage.local.get(['settings'], function(result) {
@@ -171,6 +172,13 @@ function displayInvPricingSettings() {
         </label>
       </div>
     </div>
+    <div class="aes-pricing-global as-panel">
+      <div class="form-group" id="aes-pricing-mode-field">
+        <label for="aes-pricing-mode">Pricing mode</label>
+        <select id="aes-pricing-mode" class="form-control"><option value="steps">Step rules</option><option value="curve">Control-point pricing</option></select>
+        <p class="aes-pricing-hint">Pricing mode applies to all compartments.</p>
+      </div>
+    </div>
     <div class="aes-pricing-controls">
       <div class="form-group">
         <label class="control-label" for="aes-select-invPricing-cmp">
@@ -183,7 +191,7 @@ function displayInvPricingSettings() {
           <option value="Cargo">Freight</option>
         </select>
       </div>
-      <div class="form-group" id="aes-pricing-mode-field"></div>
+
     </div>
     <div id="aes-div-recSettings">
     </div>
@@ -191,6 +199,8 @@ function displayInvPricingSettings() {
     `)
     );
 
+    pricingModeDraft ??= AESPricingCurve.mode(getSettingsSection(settings,'invPricing'));
+    $('#aes-pricing-mode').val(pricingModeDraft);
     invPricingAutoPricingHandle();
     invPricingRecStepHandle();
     $("#aes-select-invPricing-cmp").change(function() {
@@ -289,8 +299,7 @@ function invPricingRecStepHandle() {
     table.append(thead, tbody, tfoot);
     tableDiv.append(table);
     const original=getSettingsRecommendation(cmp);
-    const mode=$(AESI18n.html('<select id="aes-pricing-mode" class="form-control"><option value="steps">Step rules</option><option value="curve">Control-point pricing</option></select>')).val(original.mode || 'steps');
-    const modeLabel=$('<label for="aes-pricing-mode"></label>').text(AESI18n.t('Pricing mode'));
+    const mode=$('#aes-pricing-mode');
     const curve=$('<div class="aes-curve-editor"></div>');
     const curvePreview=$('<div></div>'),stepPreview=$('<div class="aes-step-preview"></div>');
     const previewTitle=$('<h4></h4>').text(AESI18n.t('Pricing curve preview'));
@@ -313,8 +322,7 @@ function invPricingRecStepHandle() {
         explanation.text(AESI18n.t(isCurve ? 'Adjustments use the default price. Only the final ticket price is rounded.' : 'Step rules use rounded load percentages. The first matching rule applies at shared boundaries.'));
         if(!isCurve)updateSteps();
     };
-    mode.on('change',showMode);
-    $('#aes-pricing-mode-field').empty().append(modeLabel,mode);
+    mode.off('change.aesPricing').on('change.aesPricing',()=>{pricingModeDraft=mode.val()==='curve'?'curve':'steps';showMode();});
     divLeft.append(rulesTitle,tableDiv,curve);
     divRight.append(previewTitle,units,stepPreview,curvePreview,explanation);
     divRow.append(divLeft,divRight);
@@ -399,9 +407,18 @@ function invPricingRecStepHandle() {
             return;
         }
         if (validInvPriSteps(newCmpSettings)) {
-            getSettingsSection(getSettingsSection(settings, "invPricing"), "recommendation")[cmp] = newCmpSettings;
+            const selectedMode=newCmpSettings.mode!;
+            delete newCmpSettings.mode;
             AES.updateSettings(function(currentSettings) {
-                getSettingsSection(getSettingsSection(currentSettings, "invPricing"), "recommendation")[cmp] = newCmpSettings;
+                const inventory=getSettingsSection(currentSettings, 'invPricing');
+                inventory.mode=selectedMode;
+                const recommendations=getSettingsSection(inventory, 'recommendation');
+                recommendations[cmp]=newCmpSettings;
+                for(const cabin of ['Y','C','F','Cargo']) {
+                    const rec=getSettingsSection(recommendations,cabin);
+                    delete rec.mode;
+                    if(selectedMode==='curve' && rec.points===undefined)rec.points=AESPricingCurve.defaults();
+                }
             }, function(updatedSettings) {
                 settings = updatedSettings;
                 $("#aes-span-invPricing").removeClass().addClass("good").text(AESI18n.t("Inventory pricing settings for {0} saved!", {"0": cmp}))

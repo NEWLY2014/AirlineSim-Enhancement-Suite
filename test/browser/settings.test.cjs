@@ -119,6 +119,10 @@ test('settings tabs preserve drafts, support the keyboard and open extension bac
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
     await page.setViewportSize({width:1280,height:900});
     await page.locator('#aes-pricing-mode').selectOption('curve');
+    await page.locator('#aes-select-invPricing-cmp').selectOption('C');
+    assert.equal(await page.locator('#aes-pricing-mode').inputValue(),'curve');
+    await page.locator('#aes-select-invPricing-cmp').selectOption('Y');
+    assert.ok((await page.locator('#aes-pricing-mode').boundingBox()).y<(await page.locator('#aes-select-invPricing-cmp').boundingBox()).y);
     assert.equal(await page.locator('.aes-curve-preview:visible').isVisible(),true);
     const curveRows=page.locator('.aes-curve-table tbody tr');
     assert.equal(await curveRows.count(),8);
@@ -145,7 +149,7 @@ test('settings tabs preserve drafts, support the keyboard and open extension bac
     await page.locator('#aes-btn-invPricing-save').click();
     await page.waitForFunction(()=>document.querySelector('#aes-span-invPricing').classList.contains('good'));
     const curveSettings=await worker.evaluate(()=>chrome.storage.local.get('settings').then(v=>v.settings.invPricing.recommendation.Y));
-    assert.equal(curveSettings.mode,'curve');assert.equal(curveSettings.points[1].change,-2.5);
+    assert.equal(curveSettings.mode,undefined);assert.equal(await worker.evaluate(()=>chrome.storage.local.get('settings').then(v=>v.settings.invPricing.mode)),'curve');assert.equal(curveSettings.points[1].change,-2.5);
     await page.reload();await page.locator('#aes-settings-tab').click();
     assert.equal(await page.locator('#aes-pricing-mode').inputValue(),'curve');
     assert.equal(await page.locator('.aes-curve-table tbody tr').nth(1).locator('input').nth(1).inputValue(),'-2.5');

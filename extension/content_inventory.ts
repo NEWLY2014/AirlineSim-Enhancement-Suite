@@ -732,7 +732,7 @@ function generateRecommendation(analysis: AESModel.InventoryAnalysis, prices: AE
         item.referenceNewPrice = 0;
         item.referenceNewPricePoint = 0;
 
-        if (config.mode === 'curve') {
+        if (settings.invPricing.mode === 'curve') {
             applyCurveRecommendation(item, config, prices[cmp], false);
             continue;
         }
@@ -879,7 +879,7 @@ function generateReferenceRecommendation(analysis: AESModel.InventoryAnalysis, p
         }
 
         const config = settings.invPricing.recommendation[cmp];
-        if (config.mode === 'curve') {
+        if (settings.invPricing.mode === 'curve') {
             applyCurveRecommendation(item, config, prices[cmp], true);
             continue;
         }

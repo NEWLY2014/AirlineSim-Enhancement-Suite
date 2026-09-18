@@ -738,5 +738,6 @@
   "Use distinct loads from 0 to 100, with both endpoints and finite adjustments.": "0～100 の重複しない搭乗率・搭載率を両端点を含めて指定し、有限の調整値を入力してください。",
   "Complete consecutive integer ranges from 0 to 100 to preview step rules.": "段階別ルールを表示するには、0～100 を連続する整数区間で指定してください。",
   "Step rules use rounded load percentages. The first matching rule applies at shared boundaries.": "段階別ルールは四捨五入した搭乗率・搭載率を使用し、共通の境界では最初に一致するルールを適用します。",
-  "Change (pp)": "調整（ポイント）"
+  "Change (pp)": "調整（ポイント）",
+  "Pricing mode applies to all compartments.": "価格設定モードはすべてのクラスに適用されます。"
 }
