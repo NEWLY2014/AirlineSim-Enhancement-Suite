@@ -121,7 +121,11 @@ test('settings tabs preserve drafts, support the keyboard and open extension bac
     await page.locator('#aes-pricing-mode').selectOption('curve');
     assert.equal(await page.locator('.aes-curve-preview:visible').isVisible(),true);
     const curveRows=page.locator('.aes-curve-table tbody tr');
-    assert.equal(await curveRows.count(),5);
+    assert.equal(await curveRows.count(),8);
+    const defaults=await worker.evaluate(()=>chrome.storage.local.get('settings').then(v=>v.settings.invPricing.recommendation.Y.steps));
+    const actualPoints=await curveRows.evaluateAll(rows=>rows.map(row=>Array.from(row.querySelectorAll('input')).map(input=>Number(input.value))));
+    const boundaries=[0,...defaults.map(step=>step.max)];
+    assert.deepEqual(actualPoints,boundaries.map(load=>[load,defaults.find(step=>step.min<=load && load<=step.max).step]));
     const chart=page.locator('.aes-curve-preview:visible');
     await chart.focus();await page.keyboard.press('Home');
     assert.equal(await chart.getAttribute('aria-valuenow'),'0');

@@ -168,10 +168,10 @@ test('curve editor preserves legacy rules, validates points, sorts them and reta
     const rows=$('.aes-curve-table tbody tr');
     assert.equal(rows.first().find('input').first().prop('readOnly'),true);
     assert.equal(rows.last().find('button').prop('disabled'),true);
-    rows.eq(1).find('input').first().val('85').trigger('input');
+    rows.eq(1).find('input').first().val('60').trigger('input');
     $('#aes-btn-invPricing-save').trigger('click');
     assert.match($('#aes-span-invPricing').text(),/distinct loads/);assert.equal(p.saved.settings.invPricing.recommendation.Y.mode,undefined);
-    rows.eq(1).find('input').first().val('70.5').trigger('change');
+    rows.eq(1).find('input').first().val('40.5').trigger('change');
     rows.eq(1).find('input').eq(1).val('-2.5').trigger('input');
     assert.ok($('.aes-curve-preview polyline').attr('points'));
     $('#aes-select-invPricing-cmp').val('C').trigger('change');$('#aes-select-invPricing-cmp').val('Y').trigger('change');
@@ -179,7 +179,7 @@ test('curve editor preserves legacy rules, validates points, sorts them and reta
     $('#aes-btn-invPricing-save').trigger('click');
     assert.equal(p.saved.settings.invPricing.recommendation.Y.mode,'curve');
     assert.deepEqual(p.saved.settings.invPricing.recommendation.Y.steps,original.recommendation.Y.steps);
-    assert.equal(p.saved.settings.invPricing.recommendation.Y.points[1].load,70.5);
+    assert.equal(p.saved.settings.invPricing.recommendation.Y.points[1].load,40.5);
     assert.equal(p.saved.settings.invPricing.recommendation.C.mode,undefined);
     $('.aes-curve-table tbody tr').eq(1).find('input').eq(1).val('').trigger('input');
     $('#aes-select-invPricing-cmp').val('C').trigger('change');$('#aes-select-invPricing-cmp').val('Y').trigger('change');
