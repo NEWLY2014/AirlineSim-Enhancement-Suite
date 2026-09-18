@@ -13,7 +13,10 @@ declare namespace AESModel {
         name: string;
         step: number;
     }
+    interface PricingPoint { load: number; change: number }
     interface PricingRecommendation {
+        mode?: 'steps' | 'curve';
+        points?: PricingPoint[];
         maxPrice: number;
         minPrice: number;
         steps: PricingStep[];

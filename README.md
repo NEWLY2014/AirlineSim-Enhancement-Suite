@@ -168,3 +168,24 @@ pricing-rule names or other user/game data. Reviewed non-UI strings and product
 names are documented in `scripts/i18n-exemptions.json`; historical release-note
 bodies keep their original language. Backend errors are translated at their UI
 boundary, while unknown browser/service diagnostic details retain their source.
+
+### Control-point pricing
+
+In AES Settings → Inventory Pricing, each compartment can use either its existing
+step rules or **Control-point pricing**. Existing settings retain step rules until
+the new mode is explicitly selected and saved. Edit the load and adjustment points
+in the table; the preview updates immediately. The 0% and 100% endpoints stay in
+place, interior points can be added or removed, and duplicate loads are rejected.
+The initial example curve is editable, not an optimized pricing recommendation.
+
+Adjustments are **percentage points of the game's default price**, interpolated
+linearly using the unrounded capacity-weighted load. For default price `D`, actual
+current price `P` and interpolated adjustment `a`, the target is `P + D × a / 100`.
+Only the final ticket price is rounded to the nearest integer (positive `.5` rounds
+up). The existing percentage limits become integer bounds with `ceil(D × min / 100)`
+and `floor(D × max / 100)`; targets are clamped to that range. No-op prices are not
+submitted, and an empty integer range produces no recommendation.
+
+Current-price recommendations and old-price references retain their existing
+separation and submission safeguards. This mode changes interpolation and rounding;
+it does not introduce a new demand model or change which flights are sampled.

@@ -723,5 +723,17 @@
   "Unable to save schedule:": "Unable to save schedule:",
   "Page queue unavailable:": "Page queue unavailable:",
   "({0} failed)": "({0} failed)",
-  "General Settings": "General Settings"
+  "General Settings": "General Settings",
+  "Invalid pricing curve.": "Invalid pricing curve.",
+  "No valid whole-number price within limits.": "No valid whole-number price within limits.",
+  "Keep price": "Keep price",
+  "Control-point pricing": "Control-point pricing",
+  "Step rules": "Step rules",
+  "Pricing mode": "Pricing mode",
+  "Load (%)": "Load (%)",
+  "Change (default-price percentage points)": "Change (default-price percentage points)",
+  "Add control point": "Add control point",
+  "Pricing curve preview": "Pricing curve preview",
+  "Adjustments use the default price. Only the final ticket price is rounded.": "Adjustments use the default price. Only the final ticket price is rounded.",
+  "Use distinct loads from 0 to 100, with both endpoints and finite adjustments.": "Use distinct loads from 0 to 100, with both endpoints and finite adjustments."
 }

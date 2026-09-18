@@ -723,5 +723,17 @@
   "Unable to save schedule:": "Kan dienstregeling niet opslaan:",
   "Page queue unavailable:": "Paginawachtrij niet beschikbaar:",
   "({0} failed)": "({0} mislukt)",
-  "General Settings": "Algemene instellingen"
+  "General Settings": "Algemene instellingen",
+  "Invalid pricing curve.": "Ongeldige prijscurve.",
+  "No valid whole-number price within limits.": "Geen geldige gehele prijs binnen de grenzen.",
+  "Keep price": "Prijs behouden",
+  "Control-point pricing": "Prijzen via controlepunten",
+  "Step rules": "Stapsgewijze regels",
+  "Pricing mode": "Prijsmodus",
+  "Load (%)": "Bezetting (%)",
+  "Change (default-price percentage points)": "Wijziging (procentpunten van de standaardprijs)",
+  "Add control point": "Controlepunt toevoegen",
+  "Pricing curve preview": "Voorbeeld van de prijscurve",
+  "Adjustments use the default price. Only the final ticket price is rounded.": "Aanpassingen gebruiken de standaardprijs. Alleen de uiteindelijke ticketprijs wordt afgerond.",
+  "Use distinct loads from 0 to 100, with both endpoints and finite adjustments.": "Gebruik unieke bezettingen van 0 tot 100, beide eindpunten en eindige aanpassingen."
 }

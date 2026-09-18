@@ -723,5 +723,17 @@
   "Unable to save schedule:": "A menetrend nem menthető:",
   "Page queue unavailable:": "Az oldalsor nem érhető el:",
   "({0} failed)": "({0} sikertelen)",
-  "General Settings": "Általános beállítások"
+  "General Settings": "Általános beállítások",
+  "Invalid pricing curve.": "Érvénytelen árgörbe.",
+  "No valid whole-number price within limits.": "Nincs érvényes egész ár a határokon belül.",
+  "Keep price": "Ár megtartása",
+  "Control-point pricing": "Árazás vezérlőpontokkal",
+  "Step rules": "Lépcsős szabályok",
+  "Pricing mode": "Árazási mód",
+  "Load (%)": "Kihasználtság (%)",
+  "Change (default-price percentage points)": "Változás (az alapár százalékpontjai)",
+  "Add control point": "Vezérlőpont hozzáadása",
+  "Pricing curve preview": "Árgörbe előnézete",
+  "Adjustments use the default price. Only the final ticket price is rounded.": "A módosítások az alapárhoz viszonyulnak. Csak a végső jegyárat kerekítjük.",
+  "Use distinct loads from 0 to 100, with both endpoints and finite adjustments.": "Adj meg különböző kihasználtságokat 0 és 100 között, mindkét végponttal és véges módosításokkal."
 }

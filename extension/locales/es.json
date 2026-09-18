@@ -723,5 +723,17 @@
   "Unable to save schedule:": "No se pueden guardar los horarios:",
   "Page queue unavailable:": "Cola de páginas no disponible:",
   "({0} failed)": "({0} fallidos)",
-  "General Settings": "Configuración general"
+  "General Settings": "Configuración general",
+  "Invalid pricing curve.": "Curva de precios no válida.",
+  "No valid whole-number price within limits.": "No hay un precio entero válido dentro de los límites.",
+  "Keep price": "Mantener precio",
+  "Control-point pricing": "Precios por puntos de control",
+  "Step rules": "Reglas por tramos",
+  "Pricing mode": "Modo de precios",
+  "Load (%)": "Ocupación (%)",
+  "Change (default-price percentage points)": "Cambio (puntos porcentuales del precio predeterminado)",
+  "Add control point": "Añadir punto de control",
+  "Pricing curve preview": "Vista previa de la curva de precios",
+  "Adjustments use the default price. Only the final ticket price is rounded.": "Los ajustes usan el precio predeterminado. Solo se redondea el precio final.",
+  "Use distinct loads from 0 to 100, with both endpoints and finite adjustments.": "Usa ocupaciones distintas de 0 a 100, ambos extremos y ajustes numéricos finitos."
 }

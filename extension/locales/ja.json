@@ -723,5 +723,17 @@
   "Unable to save schedule:": "スケジュールを保存できません：",
   "Page queue unavailable:": "ページキューを利用できません：",
   "({0} failed)": "（{0} 件失敗）",
-  "General Settings": "一般設定"
+  "General Settings": "一般設定",
+  "Invalid pricing curve.": "価格調整曲線が無効です。",
+  "No valid whole-number price within limits.": "上下限内に有効な整数運賃がありません。",
+  "Keep price": "価格を維持",
+  "Control-point pricing": "制御点による価格調整",
+  "Step rules": "段階別ルール",
+  "Pricing mode": "価格調整方式",
+  "Load (%)": "搭乗率・搭載率（%）",
+  "Change (default-price percentage points)": "調整幅（標準価格に対するパーセントポイント）",
+  "Add control point": "制御点を追加",
+  "Pricing curve preview": "価格調整曲線のプレビュー",
+  "Adjustments use the default price. Only the final ticket price is rounded.": "調整額はゲームの標準価格を基準に計算し、最終運賃のみ四捨五入します。",
+  "Use distinct loads from 0 to 100, with both endpoints and finite adjustments.": "0～100 の重複しない搭乗率・搭載率を両端点を含めて指定し、有限の調整値を入力してください。"
 }

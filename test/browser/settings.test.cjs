@@ -95,6 +95,23 @@ test('settings tabs preserve drafts, support the keyboard and open extension bac
     await options.reload();
     await options.waitForFunction(()=>document.documentElement.lang==='fr');
     await options.getByRole('button',{name:french['Create Backup'],exact:true}).waitFor();
+    await page.locator('#aes-settings-group-1').click();
+    await page.locator('#aes-pricing-mode').selectOption('curve');
+    assert.equal(await page.locator('.aes-curve-preview').isVisible(),true);
+    const curveRows=page.locator('.aes-curve-table tbody tr');
+    assert.equal(await curveRows.count(),5);
+    const beforeCurve=await page.locator('.aes-curve-preview polyline').getAttribute('points');
+    await curveRows.nth(1).locator('input').nth(1).fill('-2.5');
+    assert.notEqual(await page.locator('.aes-curve-preview polyline').getAttribute('points'),beforeCurve);
+    await page.locator('#aes-settings-group-0').click();await page.locator('#aes-settings-group-1').click();
+    assert.equal(await curveRows.nth(1).locator('input').nth(1).inputValue(),'-2.5');
+    await page.locator('#aes-btn-invPricing-save').click();
+    await page.waitForFunction(()=>document.querySelector('#aes-span-invPricing').classList.contains('good'));
+    const curveSettings=await worker.evaluate(()=>chrome.storage.local.get('settings').then(v=>v.settings.invPricing.recommendation.Y));
+    assert.equal(curveSettings.mode,'curve');assert.equal(curveSettings.points[1].change,-2.5);
+    await page.reload();await page.locator('#aes-settings-tab').click();
+    assert.equal(await page.locator('#aes-pricing-mode').inputValue(),'curve');
+    assert.equal(await page.locator('.aes-curve-table tbody tr').nth(1).locator('input').nth(1).inputValue(),'-2.5');
     // Regression for the reported fleet paragraph, using the installed extension in Chromium.
     for(const file of readdirSync('extension/locales')){
         gameLanguage=file.slice(0,-5);const messages=JSON.parse(readFileSync('extension/locales/'+file));

@@ -219,3 +219,47 @@ test('custom recommendation names matching translation keys remain verbatim thro
     assert.equal(p.saved[key].date['20260908'].data.Y.recommendation,'Save');
     assert.equal(p.saved[key].date['20260908'].data.Y.recommendationIsCustom,true);
 });
+
+function curveSettings(extra={}) {
+    const config=settings(extra);
+    config.invPricing.recommendation.Y={minPrice:60,maxPrice:200,steps:[],mode:'curve',points:[{load:0,change:-15},{load:85,change:0},{load:95,change:3},{load:100,change:6}]};
+    return config;
+}
+test('curve pricing uses fractional loads and actual prices, and persists the rounded recommendation',async t=>{
+    const p=inventory(t,{current:164,rows:row('Y',164,183).replace('<td>100</td>','<td>200</td>'),data:{settings:curveSettings()}});
+    p.w.document.querySelectorAll('.pricing tr').forEach(tr=>tr.lastElementChild.textContent='137');
+    await load(p);
+    assert.equal(p.w.document.querySelector('.pricing input').value,'167');
+    assert.match(p.w.document.querySelector('#aes-table-analysis').textContent,/91.5%/);
+    click(p,'#aes-btn-invPricing-save-snapshot');await until(()=>p.saved[key]);
+    const item=p.saved[key].date['20260908'].data.Y;
+    assert.equal(item.newPrice,167);assert.equal(item.recommendationIsCustom,false);
+    assert.equal(item.totalCap,200);assert.equal(item.totalBkd,183);
+});
+test('curve no-op after rounding does not submit prices automatically',async t=>{
+    const config=curveSettings({autoPriceUpdate:1});config.invPricing.recommendation.Y.points=[{load:0,change:0.1},{load:100,change:0.1}];
+    const p=inventory(t,{data:{settings:config}});await load(p);
+    assert.equal(p.w.document.querySelector('.pricing input').value,'100');
+    assert.equal(p.w.document.querySelector('#aes-btn-invPricing-apply-new-prices'),null);assert.equal(p.submissions.length,0);
+    assert.match(p.w.document.querySelector('#aes-table-analysis').textContent,/Keep price/);
+});
+test('curve old-price results remain reference-only and scheduled flights do not influence recommendations',async t=>{
+    const p=inventory(t,{current:120,rows:row('Y',100,95)+row('Y',120,100,'scheduled'),data:{settings:curveSettings()}});await load(p);
+    assert.equal(p.w.document.querySelector('.pricing input').value,'120');
+    assert.equal(p.w.document.querySelector('#aes-btn-invPricing-apply-new-prices'),null);
+    click(p,'#aes-btn-invPricing-apply-reference-prices');await until(()=>p.submissions.length);
+    assert.equal(p.w.document.querySelector('.pricing input').value,'103');
+});
+test('curve mode with an invalid imported configuration cannot submit or overwrite history',async t=>{
+    const config=curveSettings({autoPriceUpdate:1});config.invPricing.recommendation.Y.points[1].load=0;
+    const p=inventory(t,{data:{settings:config,[key]:{date:{20260901:{keep:true}}}}});p.load('content_inventory.js');
+    await until(()=>p.errors.length);assert.equal(p.submissions.length,0);assert.deepEqual(p.saved[key].date,{20260901:{keep:true}});
+});
+
+test('curve recommendations use the existing confirmed submission workflow',async t=>{
+    const p=inventory(t,{rows:row('Y',100,95),data:{settings:curveSettings({autoPriceUpdate:1})}});await load(p);
+    await until(()=>p.submissions.length===1);
+    assert.equal(p.w.document.querySelector('.pricing input').value,'103');
+    assert.equal(p.saved[key].date['20260908'].pricingUpdatePending.targetPrices.Y,103);
+    assert.equal(p.saved[key].date['20260908'].pricingUpdated,0);
+});

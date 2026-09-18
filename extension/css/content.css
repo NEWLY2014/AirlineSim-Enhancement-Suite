@@ -952,3 +952,11 @@
 
 .aes-language-control { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; margin-bottom: 16px; }
 .aes-language-control select { width: auto; max-width: 100%; font-weight: 400; }
+
+/* Control points remain editable without using the graph. */
+.aes-curve-editor { max-width: 100%; overflow-x: auto; }
+.aes-curve-editor[hidden], #aes-div-recSettings [hidden] { display: none !important; }
+.aes-curve-preview { display: block; width: 100%; max-width: 540px; margin-top: 12px; color: inherit; }
+.aes-curve-preview text { fill: currentColor; font: 12px sans-serif; }
+.aes-curve-table input { min-width: 70px; font-weight: 400; }
+#aes-pricing-mode { margin-bottom: 16px; }

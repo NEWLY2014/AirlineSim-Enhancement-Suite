@@ -56,7 +56,10 @@ export function readInventorySettings(value: unknown): AESModel.InventorySetting
             if (!AES.isRecord(step) || typeof step.min !== 'number' || !Number.isFinite(step.min) || typeof step.max !== 'number' || !Number.isFinite(step.max) || step.min > step.max || typeof step.step !== 'number' || !Number.isFinite(step.step) || typeof step.name !== 'string') throw new Error(AESI18n.t("Invalid inventory pricing step for {0}", {0: cmp}));
             steps.push({min: step.min, max: step.max, name: step.name, step: step.step});
         }
-        return {minPrice: rec.minPrice, maxPrice: rec.maxPrice, steps};
+        if (rec.mode !== undefined && rec.mode !== 'steps' && rec.mode !== 'curve') throw new Error(AESI18n.t('Invalid pricing curve.'));
+        const points=rec.points === undefined ? undefined : AESPricingCurve.points(rec.points);
+        if ((rec.points !== undefined && !points) || (rec.mode === 'curve' && !points)) throw new Error(AESI18n.t('Invalid pricing curve.'));
+        return {minPrice: rec.minPrice, maxPrice: rec.maxPrice, steps, mode:rec.mode, points:points || undefined};
     };
     const history = AES.isRecord(source.historyTable) ? source.historyTable : {};
     const enabled = (value: unknown) => value === true || value === 1 || value === '1';

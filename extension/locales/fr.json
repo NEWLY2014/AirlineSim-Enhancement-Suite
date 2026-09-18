@@ -723,5 +723,17 @@
   "Unable to save schedule:": "Impossible d’enregistrer les horaires :",
   "Page queue unavailable:": "File de pages indisponible :",
   "({0} failed)": "({0} échecs)",
-  "General Settings": "Paramètres généraux"
+  "General Settings": "Paramètres généraux",
+  "Invalid pricing curve.": "Courbe de prix invalide.",
+  "No valid whole-number price within limits.": "Aucun prix entier valide dans les limites.",
+  "Keep price": "Maintenir le prix",
+  "Control-point pricing": "Tarification par points de contrôle",
+  "Step rules": "Règles par paliers",
+  "Pricing mode": "Mode de tarification",
+  "Load (%)": "Remplissage (%)",
+  "Change (default-price percentage points)": "Variation (points de pourcentage du prix par défaut)",
+  "Add control point": "Ajouter un point de contrôle",
+  "Pricing curve preview": "Aperçu de la courbe de prix",
+  "Adjustments use the default price. Only the final ticket price is rounded.": "Les ajustements utilisent le prix par défaut. Seul le prix final est arrondi.",
+  "Use distinct loads from 0 to 100, with both endpoints and finite adjustments.": "Utilisez des taux distincts de 0 à 100, les deux extrémités et des ajustements numériques finis."
 }

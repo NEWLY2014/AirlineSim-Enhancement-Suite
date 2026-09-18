@@ -4,6 +4,8 @@
 var settings: Record<string, unknown>;
 let settingsArea: JQuery;
 let cleanupSettings=()=>{};
+let rememberPricingDraft=()=>{};
+const pricingDrafts:Partial<Record<AESModel.Cabin,AESModel.PricingRecommendation>>={};
 const SETTINGS_SCRIPT_ENABLED = AES.runContentScript("content_settings", function() {
     chrome.storage.local.get(['settings'], function(result) {
         AES.waitForElement(() => $(AES.getPageContainer() || []), function() {
@@ -245,6 +247,7 @@ function invPricingAutoPricingHandle() {
 }
 
 function invPricingRecStepHandle() {
+    rememberPricingDraft();
     const selectedCabin = $("#aes-select-invPricing-cmp").val();
     if (selectedCabin !== "Y" && selectedCabin !== "C" && selectedCabin !== "F" && selectedCabin !== "Cargo") return;
     const cmp = selectedCabin;
@@ -283,7 +286,14 @@ function invPricingRecStepHandle() {
 
     table.append(thead, tbody, tfoot);
     tableDiv.append(table);
-    divLeft.append(tableDiv);
+    const original=getSettingsRecommendation(cmp);
+    const mode=$(AESI18n.html('<select id="aes-pricing-mode" class="form-control"><option value="steps">Step rules</option><option value="curve">Control-point pricing</option></select>')).val(original.mode || 'steps');
+    const modeLabel=$('<label for="aes-pricing-mode"></label>').text(AESI18n.t('Pricing mode'));
+    const curve=$('<div class="aes-curve-editor"></div>');
+    const editor=AESCurveEditor.mount(curve,original.points);
+    const showMode=()=>{tableDiv.prop('hidden',mode.val()==='curve');curve.prop('hidden',mode.val()!=='curve');};
+    mode.on('change',showMode);showMode();
+    divLeft.append(modeLabel,mode,tableDiv,curve);
     divRow.append(divLeft, divRight);
 
     $('#aes-div-recSettings').append(divRow);
@@ -330,18 +340,14 @@ function invPricingRecStepHandle() {
     </fieldset>
 
   `));
-    //Click save button
-    $("#aes-btn-invPricing-save").click(function() {
-        //Feedback
-        $("#aes-span-invPricing").remove();
-        let span = $(AESI18n.html('<span id="aes-span-invPricing" class="warning">Updating...</span>'));
-        $("#aes-fieldset-invPricing").append(span);
-
+    function readDraft() {
         let newSteps: AESModel.PricingStep[] = [];
-        let newCmpSettings = {
-            maxPrice: parseInt(String($("#aes-input-invPricing-max-price").val() ?? ""), 10),
-            minPrice: parseInt(String($("#aes-input-invPricing-min-price").val() ?? ""), 10),
-            steps: newSteps
+        let newCmpSettings: AESModel.PricingRecommendation = {
+            mode: mode.val() === 'curve' ? 'curve' : 'steps',
+            points: editor.raw(),
+            maxPrice: Number(String($("#aes-input-invPricing-max-price").val() ?? "").trim() || NaN),
+            minPrice: Number(String($("#aes-input-invPricing-min-price").val() ?? "").trim() || NaN),
+            steps: mode.val() === 'curve' ? original.steps : newSteps
         }
         $("#aes-table-invPricing tbody tr").each(function() {
             newSteps.push({
@@ -357,7 +363,23 @@ function invPricingRecStepHandle() {
             return a.min - b.min;
         });
 
+        return newCmpSettings;
+    }
+    rememberPricingDraft=()=>{pricingDrafts[cmp]=readDraft();};
+    //Click save button
+    $("#aes-btn-invPricing-save").click(function() {
+        //Feedback
+        $("#aes-span-invPricing").remove();
+        let span = $(AESI18n.html('<span id="aes-span-invPricing" class="warning">Updating...</span>'));
+        $("#aes-fieldset-invPricing").append(span);
+
+        const newCmpSettings=readDraft();
+        newCmpSettings.points=editor.read() || (newCmpSettings.mode==='steps' ? original.points : undefined);
         //Validate Steps
+        if (newCmpSettings.mode === 'curve' && !newCmpSettings.points) {
+            span.removeClass().addClass('bad').text(AESI18n.t('Use distinct loads from 0 to 100, with both endpoints and finite adjustments.'));
+            return;
+        }
         if (validInvPriSteps(newCmpSettings)) {
             getSettingsSection(getSettingsSection(settings, "invPricing"), "recommendation")[cmp] = newCmpSettings;
             AES.updateSettings(function(currentSettings) {
@@ -396,6 +418,7 @@ function validInvPriSteps(newCmpSettings: AESModel.PricingRecommendation) {
         return 0;
     }
 
+    if (newCmpSettings.mode === 'curve') return AESPricingCurve.points(newCmpSettings.points) ? 1 : 0;
     //Check steps
     for (let i = 0; i < steps.length; i++) {
         //Check if integer
@@ -451,6 +474,7 @@ function getSettingsSection(target: Record<string, unknown>, key: string): Recor
 }
 
 function getSettingsRecommendation(cabin: AESModel.Cabin): AESModel.PricingRecommendation {
+    if (pricingDrafts[cabin]) return pricingDrafts[cabin]!;
     const value = getSettingsSection(getSettingsSection(settings, "invPricing"), "recommendation")[cabin];
     if (isSettingsRecommendation(value)) return value;
     // Rendering a missing compartment must not overwrite any stored preference.

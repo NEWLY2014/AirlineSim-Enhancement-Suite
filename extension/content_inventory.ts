@@ -448,7 +448,7 @@ function getAnalysis(flights: AESModel.InventoryFlight[], prices: AESModel.Inven
         },
         displayLoad: function(cmp) {
             if (this.data[cmp].valid) {
-                return this.data[cmp].totalBkd + " / " + this.data[cmp].totalCap + " (" + displayPerc(Math.round(this.getLoad(cmp) * 100), 'load') + ")";
+                return this.data[cmp].totalBkd + " / " + this.data[cmp].totalCap + " (" + displayPerc(this.getLoad(cmp) * 100, 'load') + ")";
             } else {
                 return '-';
             }
@@ -732,6 +732,11 @@ function generateRecommendation(analysis: AESModel.InventoryAnalysis, prices: AE
         item.referenceNewPrice = 0;
         item.referenceNewPricePoint = 0;
 
+        if (config.mode === 'curve') {
+            applyCurveRecommendation(item, config, prices[cmp], false);
+            continue;
+        }
+
         if (!item.valid || !item.canRecommend) {
             if (generateBoundaryRecommendation(item, config, prices[cmp])) {
                 continue;
@@ -813,6 +818,33 @@ function generateRecommendation(analysis: AESModel.InventoryAnalysis, prices: AE
     return analysis;
 }
 
+function applyCurveRecommendation(item: AESModel.InventoryItem, config: AESModel.PricingRecommendation, price: AESModel.InventoryPrice, reference: boolean) {
+    const base=reference ? item.analysisPrice : price.currentPrice;
+    const eligible=item.valid && item.totalCap>0 && (reference || item.canRecommend);
+    const change=eligible ? AESPricingCurve.interpolate(config.points!,item.totalBkd/item.totalCap*100) : 0;
+    const target=AESPricingCurve.price(base,price.defaultPrice,change,config.minPrice,config.maxPrice);
+    const message=target===null ? 'No valid whole-number price within limits.' : target===base ? (eligible ? 'Keep price' : 'Need current price results') : 'Control-point pricing';
+    const type=target===null || target===base ? 'neutral' : target>base ? 'good' : 'bad';
+    if (reference) {
+        item.referenceRecommendation=message;
+        item.referenceRecommendationIsCustom=false;
+        item.referenceRecType=type;
+        if (target!==null && target!==base) {
+            item.referenceNewPrice=target;
+            item.referenceNewPricePoint=target/price.defaultPrice*100;
+        }
+    } else {
+        item.recommendation=message;
+        item.recommendationIsCustom=false;
+        item.recType=type;
+        if (target!==null && target!==base) {
+            item.newPrice=target;
+            item.newPricePoint=target/price.defaultPrice*100;
+            item.newPriceChange=(target-base)/price.defaultPrice*100;
+        }
+    }
+}
+
 function generateBoundaryRecommendation(item: AESModel.InventoryItem, config: AESModel.PricingRecommendation, price: AESModel.InventoryPrice) {
     const currentPricePoint = price.currentPricePoint;
     let targetPricePoint = 0;
@@ -847,6 +879,10 @@ function generateReferenceRecommendation(analysis: AESModel.InventoryAnalysis, p
         }
 
         const config = settings.invPricing.recommendation[cmp];
+        if (config.mode === 'curve') {
+            applyCurveRecommendation(item, config, prices[cmp], true);
+            continue;
+        }
         const load = Math.round(analysis.getLoad(cmp) * 100);
 
         let step = null;
@@ -1548,6 +1584,7 @@ function displayDifference(current: AESModel.InventoryItem, old: AESModel.Invent
 }
 
 function displayPerc(perc: number, type: 'price' | 'load') {
+    perc = Number(perc.toFixed(2));
     let span = $('<span></span>');
     switch (type) {
         case 'price':

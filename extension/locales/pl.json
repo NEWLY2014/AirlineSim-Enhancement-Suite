@@ -723,5 +723,17 @@
   "Unable to save schedule:": "Nie można zapisać rozkładu:",
   "Page queue unavailable:": "Kolejka stron jest niedostępna:",
   "({0} failed)": "({0} nieudanych)",
-  "General Settings": "Ustawienia ogólne"
+  "General Settings": "Ustawienia ogólne",
+  "Invalid pricing curve.": "Nieprawidłowa krzywa cen.",
+  "No valid whole-number price within limits.": "Brak prawidłowej ceny całkowitej w granicach.",
+  "Keep price": "Zachowaj cenę",
+  "Control-point pricing": "Ceny według punktów kontrolnych",
+  "Step rules": "Reguły przedziałowe",
+  "Pricing mode": "Tryb ustalania cen",
+  "Load (%)": "Wypełnienie (%)",
+  "Change (default-price percentage points)": "Zmiana (punkty procentowe ceny domyślnej)",
+  "Add control point": "Dodaj punkt kontrolny",
+  "Pricing curve preview": "Podgląd krzywej cen",
+  "Adjustments use the default price. Only the final ticket price is rounded.": "Zmiany odnoszą się do ceny domyślnej. Zaokrąglana jest tylko cena końcowa.",
+  "Use distinct loads from 0 to 100, with both endpoints and finite adjustments.": "Podaj różne wypełnienia od 0 do 100, oba końce i skończone wartości zmian."
 }

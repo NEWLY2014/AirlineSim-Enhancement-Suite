@@ -157,3 +157,36 @@ test('native settings tab integration restores the host DOM on ownership loss',a
     assert.equal(p.w.document.querySelector('#aes-settings-root'),null);
     assert.equal(p.w.document.querySelector('.as-panel').outerHTML,native);
 });
+
+test('curve editor preserves legacy rules, validates points, sorts them and retains cabin drafts',async t=>{
+    const original=pricing();
+    const p=browser(t,{html:header+'<div class="bootstrap container-fluid"><h1>Settings</h1></div>',path:'/app/enterprise/settings',data:{settings:{invPricing:original}}});
+    p.load('content_settings.js');await until(()=>p.w.document.querySelector('#aes-pricing-mode'));
+    const $=p.w.$;
+    assert.equal($('#aes-pricing-mode').val(),'steps');assert.equal(p.saved.settings.invPricing.recommendation.Y.mode,undefined);
+    $('#aes-pricing-mode').val('curve').trigger('change');
+    const rows=$('.aes-curve-table tbody tr');
+    assert.equal(rows.first().find('input').first().prop('readOnly'),true);
+    assert.equal(rows.last().find('button').prop('disabled'),true);
+    rows.eq(1).find('input').first().val('85').trigger('input');
+    $('#aes-btn-invPricing-save').trigger('click');
+    assert.match($('#aes-span-invPricing').text(),/distinct loads/);assert.equal(p.saved.settings.invPricing.recommendation.Y.mode,undefined);
+    rows.eq(1).find('input').first().val('70.5').trigger('change');
+    rows.eq(1).find('input').eq(1).val('-2.5').trigger('input');
+    assert.ok($('.aes-curve-preview polyline').attr('points'));
+    $('#aes-select-invPricing-cmp').val('C').trigger('change');$('#aes-select-invPricing-cmp').val('Y').trigger('change');
+    assert.equal($('#aes-pricing-mode').val(),'curve');assert.equal($('.aes-curve-table tbody tr').eq(1).find('input').eq(1).val(),'-2.5');
+    $('#aes-btn-invPricing-save').trigger('click');
+    assert.equal(p.saved.settings.invPricing.recommendation.Y.mode,'curve');
+    assert.deepEqual(p.saved.settings.invPricing.recommendation.Y.steps,original.recommendation.Y.steps);
+    assert.equal(p.saved.settings.invPricing.recommendation.Y.points[1].load,70.5);
+    assert.equal(p.saved.settings.invPricing.recommendation.C.mode,undefined);
+    $('.aes-curve-table tbody tr').eq(1).find('input').eq(1).val('').trigger('input');
+    $('#aes-select-invPricing-cmp').val('C').trigger('change');$('#aes-select-invPricing-cmp').val('Y').trigger('change');
+    assert.equal($('.aes-curve-table tbody tr').eq(1).find('input').eq(1).val(),'');
+    $('#aes-btn-invPricing-save').trigger('click');assert.match($('#aes-span-invPricing').text(),/distinct loads/);
+    $('.aes-curve-table tbody tr').eq(1).find('input').eq(1).val('-2.5').trigger('input');
+    $('#aes-pricing-mode').val('steps').trigger('change');$('#aes-btn-invPricing-save').trigger('click');
+    assert.equal(p.saved.settings.invPricing.recommendation.Y.mode,'steps');
+    assert.equal(p.saved.settings.invPricing.recommendation.Y.points[1].change,-2.5);
+});

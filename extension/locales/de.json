@@ -723,5 +723,17 @@
   "Unable to save schedule:": "Flugplan kann nicht gespeichert werden:",
   "Page queue unavailable:": "Seitenwarteschlange nicht verfügbar:",
   "({0} failed)": "({0} fehlgeschlagen)",
-  "General Settings": "Allgemeine Einstellungen"
+  "General Settings": "Allgemeine Einstellungen",
+  "Invalid pricing curve.": "Ungültige Preiskurve.",
+  "No valid whole-number price within limits.": "Kein ganzzahliger Preis innerhalb der Grenzen.",
+  "Keep price": "Preis beibehalten",
+  "Control-point pricing": "Preissteuerung mit Stützpunkten",
+  "Step rules": "Stufenregeln",
+  "Pricing mode": "Preismodus",
+  "Load (%)": "Auslastung (%)",
+  "Change (default-price percentage points)": "Änderung (Prozentpunkte des Standardpreises)",
+  "Add control point": "Stützpunkt hinzufügen",
+  "Pricing curve preview": "Vorschau der Preiskurve",
+  "Adjustments use the default price. Only the final ticket price is rounded.": "Änderungen beziehen sich auf den Standardpreis. Nur der endgültige Ticketpreis wird gerundet.",
+  "Use distinct loads from 0 to 100, with both endpoints and finite adjustments.": "Verwende unterschiedliche Auslastungen von 0 bis 100 mit beiden Endpunkten und endlichen Änderungen."
 }

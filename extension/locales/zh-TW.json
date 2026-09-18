@@ -723,5 +723,17 @@
   "Unable to save schedule:": "無法儲存時刻表：",
   "Page queue unavailable:": "頁面佇列無法使用：",
   "({0} failed)": "（{0} 筆失敗）",
-  "General Settings": "一般設定"
+  "General Settings": "一般設定",
+  "Invalid pricing curve.": "調價曲線無效。",
+  "No valid whole-number price within limits.": "上下限內沒有有效的整數票價。",
+  "Keep price": "維持價格",
+  "Control-point pricing": "控制點調價",
+  "Step rules": "分段規則",
+  "Pricing mode": "調價方式",
+  "Load (%)": "載客／載貨率（%）",
+  "Change (default-price percentage points)": "調整幅度（預設價格百分點）",
+  "Add control point": "新增控制點",
+  "Pricing curve preview": "調價曲線預覽",
+  "Adjustments use the default price. Only the final ticket price is rounded.": "調整幅度以遊戲預設價格為基準，僅最終票價四捨五入。",
+  "Use distinct loads from 0 to 100, with both endpoints and finite adjustments.": "請輸入不重複的 0～100 載客／載貨率，包含兩端點，並填寫有效的調整數值。"
 }

@@ -49,7 +49,8 @@ const pageModules = {
     'options.js': ['modules/i18n-data.js', 'modules/i18n.js'],
     'popup.js': ['modules/i18n-data.js', 'modules/i18n.js'],
     'content_dashboard.js': ['modules/dashboard-defaults.js', 'modules/dashboard-table.js', 'modules/schedule-diff.js'],
-    'content_inventory.js': ['modules/inventory/data.js'],
+    'content_inventory.js': ['modules/inventory/curve.js', 'modules/inventory/data.js'],
+    'content_settings.js': ['modules/inventory/curve.js', 'modules/inventory/curve-editor.js'],
     'content_aircraftFlightPlan.js': ['modules/flight-plan-rules.js'],
 };
 for (const [entry, modules] of Object.entries(pageModules)) {
