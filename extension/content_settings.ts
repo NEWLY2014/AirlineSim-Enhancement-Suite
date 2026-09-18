@@ -90,7 +90,7 @@ function displaySettings() {
     const panels: JQuery[]=[],buttons: JQuery[]=[];
     const names=['General Settings','Inventory Pricing','Flight Info'];
     names.forEach((name,index)=>{
-        const button=$('<button type="button" role="tab" class="btn btn-default"></button>').attr({id:'aes-settings-group-'+index,'aria-controls':'aes-settings-section-'+index}).text(AESI18n.t(name));
+        const button=$('<button type="button" role="tab" class="aes-settings-group-tab"></button>').attr({id:'aes-settings-group-'+index,'aria-controls':'aes-settings-section-'+index}).text(AESI18n.t(name));
         const panel=$('<div role="tabpanel"></div>').attr({id:'aes-settings-section-'+index,'aria-labelledby':'aes-settings-group-'+index});
         groups.append(button);root.append(panel);panels.push(panel);buttons.push(button);
         settingsArea=panel;

@@ -43,6 +43,14 @@ test('settings tabs preserve drafts, support the keyboard and open extension bac
     assert.deepEqual(await page.locator('.nav-tabs').boundingBox(),before);
     await page.getByRole('tab',{name:'General Settings',exact:true}).waitFor();
     assert.equal(await page.locator('#aes-language').isVisible(),true);
+    const tabStyle=await page.locator('#aes-settings-group-0').evaluate(el=>({
+        buttonStyle:el.classList.contains('btn'), border:getComputedStyle(el).borderBottomWidth,
+        radius:getComputedStyle(el).borderRadius, selected:el.getAttribute('aria-selected')
+    }));
+    assert.deepEqual(tabStyle,{buttonStyle:false,border:'3px',radius:'0px',selected:'true'});
+    await page.locator('#aes-settings-group-0').focus();
+    await page.keyboard.press('ArrowRight');await page.keyboard.press('Enter');
+    assert.equal(await page.locator('#aes-settings-group-1').getAttribute('aria-selected'),'true');
     await page.getByRole('tab',{name:'Inventory Pricing',exact:true}).click();
     assert.equal(await page.locator('#aes-language').isVisible(),false);
     await page.locator('#aes-input-invPricing-min-price').fill('73');
