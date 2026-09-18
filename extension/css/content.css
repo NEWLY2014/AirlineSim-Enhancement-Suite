@@ -983,7 +983,7 @@
 .aes-pricing-footer { margin-top: 16px; padding: 20px; }
 .aes-pricing-footer fieldset { min-width: 0; border: 0; padding: 0; margin: 0; }
 .aes-pricing-footer legend { font-size: 1em; font-weight: 600; margin-bottom: 12px; }
-.aes-price-bounds { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; }
+.aes-price-bounds { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; max-width: 496px; }
 .aes-price-bounds label { display: block; font-weight: 400; }
 .aes-price-bounds .input-group { max-width: 240px; }
 .aes-pricing-actions { display: grid; grid-template-columns: auto minmax(0,1fr); align-items: center; gap: 16px; margin-top: 16px; }
@@ -1013,3 +1013,15 @@
 .aes-pricing-global { margin-top: 16px; padding: 16px; }
 .aes-pricing-global label { display: block; margin-bottom: 6px; }
 .aes-pricing-global select { max-width: 360px; width: 100%; font-weight: 400; }
+
+/* Bootstrap table-cell widths must not shrink percentage suffixes in flex groups. */
+#aes-settings-root .aes-pricing-rules .input-group,
+#aes-settings-root .aes-price-bounds .input-group { display: flex; align-items: stretch; width: 100%; }
+#aes-settings-root .aes-pricing-rules .input-group input,
+#aes-settings-root .aes-price-bounds .input-group input { float: none; width: 0; flex: 1 1 0; box-sizing: border-box; }
+#aes-settings-root .aes-price-bounds .input-group input { min-width: 0; }
+#aes-settings-root .aes-pricing-rules .input-group-addon,
+#aes-settings-root .aes-price-bounds .input-group-addon {
+    display: flex; align-items: center; justify-content: center; flex: 0 0 auto;
+    width: auto; min-width: 30px; padding: 4px 8px; box-sizing: border-box; white-space: nowrap;
+}

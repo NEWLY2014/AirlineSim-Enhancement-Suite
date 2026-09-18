@@ -19,7 +19,7 @@ test('settings tabs preserve drafts, support the keyboard and open extension bac
         }
         const game=req.url.includes('tab=game');
         const html=`<script>window.frontendSettings={"fixedEnterpriseId":42,"theme":"light","languageSettings":{"currentLanguageTag":"${gameLanguage}"},"server":{"time":"2026-09-17T01:00:00Z"}};</script>
-        <style>.nav-tabs{display:flex;gap:20px;list-style:none}.nav-tabs a{display:block;padding:10px}.nav-tabs .active{border-bottom:2px solid}.tab-content{display:block}.bootstrap .checkbox input[type="checkbox"]{position:absolute;margin-left:-20px}.bootstrap .checkbox label{padding-left:20px}</style>
+        <style>.nav-tabs{display:flex;gap:20px;list-style:none}.nav-tabs a{display:block;padding:10px}.nav-tabs .active{border-bottom:2px solid}.tab-content{display:block}.bootstrap .input-group-addon{display:table-cell;width:1%;padding:6px 12px;background:#eee}.bootstrap .input-group .form-control{float:left;width:100%}.bootstrap .checkbox input[type="checkbox"]{position:absolute;margin-left:-20px}.bootstrap .checkbox label{padding-left:20px}</style>
         <div id="header"><div><button aria-haspopup="menu"><span class="_name_test">Test Air</span></button><div role="menubar"></div></div></div>
         <div class="bootstrap container-fluid"><h1>Settings</h1><div class="as-panel"><ul class="nav nav-tabs">
         <li class="tab0 ${game?'':'active'}"><a href="./settings?tab=general">General settings</a></li><li class="tab1 ${game?'active':''}"><a href="./settings?tab=game">Game settings</a></li></ul>
@@ -59,6 +59,16 @@ test('settings tabs preserve drafts, support the keyboard and open extension bac
         assert.equal(await checkbox.evaluate(el=>getComputedStyle(el).position),'static');
     }
     assert.equal(await page.locator('#aes-btn-invPricing-save').getAttribute('class'),'btn btn-default');
+    for(const suffix of await page.locator('.aes-pricing-rules .input-group-addon, .aes-price-bounds .input-group-addon').all()){
+        assert.equal(await suffix.evaluate(el=>{
+            const range=document.createRange();range.selectNodeContents(el);
+            const text=range.getBoundingClientRect(),box=el.getBoundingClientRect();
+            return text.left>=box.left && text.right<=box.right && text.top>=box.top && text.bottom<=box.bottom;
+        }),true);
+    }
+    const lower=await page.locator('#aes-input-invPricing-min-price').boundingBox();
+    const upper=await page.locator('#aes-input-invPricing-max-price').boundingBox();
+    assert.ok(upper.x-lower.x<=256);
     await page.locator('#aes-input-invPricing-min-price').fill('73');
     await page.getByRole('tab',{name:'Flight Info',exact:true}).click();
     await page.getByRole('tab',{name:'Inventory Pricing',exact:true}).click();
