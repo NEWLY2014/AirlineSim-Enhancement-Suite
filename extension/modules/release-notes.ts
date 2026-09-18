@@ -1,9 +1,9 @@
 const AES_RELEASE_NOTES_STORAGE_KEY = "aesReleaseNotesSeenVersion"
 const AES_RELEASE_NOTES: Record<string, AESModel.ReleaseNotes | undefined> = {
-    "0.8.14-beta": {
+    "0.9.0-beta": {
         "title": "Release Notes",
         "releaseDate": "2026-09-18",
-        "summary": "Beta: multilingual AES, schedule comparisons and global pricing modes.",
+        "summary": "Preview of 0.9.0: all changes since 0.8.13, including multilingual AES, schedule comparisons and global pricing modes.",
         "sections": [
             {
                 "title": "Added",

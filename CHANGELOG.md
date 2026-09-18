@@ -7,31 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.8.14-beta] - 2026-09-18
+## [0.9.0-beta] - 2026-09-18
+
+This beta contains all changes since **0.8.13**. It previews the upcoming 0.9.0 release.
 
 ### Added
 
-- Nine-language support that follows the game language, with an override in AES Settings.
-- Control-point pricing with a global mode shared by all cabins, interactive previews for both modes, and final-price rounding.
-- Competitor schedule history and searchable comparisons between saved captures.
-
-### Improved
-
-- Integrate AES Settings into the native settings tabs and group global pricing mode above cabin-specific rules.
-- Align default control points with step-rule boundaries; retain custom curves when migrating older settings.
-- Keep checkboxes inside their panels, percentage suffixes inside unit boxes, and minimum/maximum price fields together.
-- Collect read-only data through the current game page and keep large schedule captures responsive.
-- Improve cyclic scheduling, arrival-time corrections, hub detection, storage consistency and collection status feedback.
-
-
-### Fixed
-
-- Give Release Notes section headings an explicit line height and spacing isolated from game heading styles.
+- Support all nine game languages (German, English, Spanish, French, Hungarian, Dutch, Polish, Traditional Chinese and Japanese), following the game language by default with an AES override in General Settings.
+- Add control-point pricing with linear interpolation, fractional load percentages and rounding only at the final ticket price. One global pricing mode applies to all cabins, with separate cabin rules and price bounds.
+- Add interactive previews for both step rules and control-point pricing, with pointer and keyboard inspection of load and price adjustments. Default control points match the default step-rule boundary values.
+- Retain multiple competitor schedule captures until manually deleted and compare selected captures in a searchable dialog, including flight additions, removals and operating-pattern changes.
+- Collect read-only airline, flight and schedule data through requests from the current game page without opening collection tabs.
 
 ### Changed
 
-- Share one paced page queue across dashboard batches, flight-data extraction and competitor extraction continuations. Dashboard batches now accept up to 10 selections. Dispatches use randomized 30–70 ms gaps without waiting for page loads.
-- Queue both AES and native Inventory price submissions with page navigation, rechecking pending page state and edited prices before submitting.
+- Integrate AES Settings alongside the game's General Settings and Game Settings. Add a General Settings section for language and reorganize pricing controls with global mode above cabin-specific settings.
+- Share a paced page-operation queue across dashboard batches, flight extraction and competitor extraction, using randomized 30–70 ms dispatch gaps. Support up to 10 dashboard selections per batch.
+- Queue inventory price submissions with navigation and recheck pending state and edited prices before submitting.
+- Keep large schedule extraction, saving and comparisons responsive; support cancelling long comparisons and sorting large result sets without blocking the page.
+- Refresh dashboard, competitor, enterprise and flight-profit summaries after collection. Keep progress in existing status areas and change the green schedule-saved confirmation to a normal timestamp after five seconds.
+- Give settings tabs a distinct tab appearance, keep pricing checkboxes in one column, contain percentage suffixes within their unit boxes, keep price bounds together, and scale preview typography consistently.
+
+### Fixed
+
+- Validate planner dates, departure/arrival times and arrival-day offsets before submission. Confirm cyclic schedules by service days and actively correct target flight arrival times to match the template.
+- Record hubs from flight-plan pages and propagate them to fleet data; preserve hub names/counts, aircraft registration data and record metadata during refreshes.
+- Serialize shared-record and settings updates to prevent concurrent writes from overwriting each other. Recover record saves when a background message port disconnects and report storage failures accurately.
+- Preserve competitor history during legacy migration, include route-analysis records in pricing backups, and journal replacement restores so interrupted restores can recover.
+- Persist scheduling ownership across worker restarts and prevent stale or competing pages from changing the same scheduling job.
+- Parse financial values with explicit positive signs, preserve zero-profit results in dashboard averages, and confirm personnel salary changes against refreshed data.
+- Complete translations for dynamic messages and validation feedback; show the language-change reload notice in the newly selected language.
+- Make table sorting keyboard-accessible, isolate modal focus, restore focus after closing schedule comparisons, follow game theme colors, and keep release-note headings independent of host-page styling.
+- Render stored and external text safely without interpreting it as HTML; retain active-history pruning for expired analysis snapshots.
+
+### Development
+
+- Migrate extension runtime code to strict TypeScript and package compiled JavaScript; upgrade to the full jQuery 4.0 build.
+- Consolidate page data rules, financial parsing and stable sorting helpers.
+- Add unit, isolated Chromium extension and localization-coverage regression checks, and validate builds and packages in CI and release workflows.
 
 ## [0.8.13] - 2026-09-08
 
@@ -517,3 +530,6 @@ _First release._
 [0.6.6]: https://github.com/ZoeBijl/airlinesim-enhancement-suite/compare/v0.6.5...v0.6.6
 [0.6.5]: https://github.com/ZoeBijl/airlinesim-enhancement-suite/compare/v0.6.4...v0.6.5
 [0.6.4]: https://github.com/ZoeBijl/airlinesim-enhancement-suite/releases/tag/v0.6.4
+
+[0.9.0-beta]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.13...v0.9.0-beta
+[Unreleased]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.9.0-beta...HEAD
