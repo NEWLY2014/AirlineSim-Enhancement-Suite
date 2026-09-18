@@ -964,8 +964,8 @@
 /* Pricing editor: controls, rules/preview, then limits and a stable save action. */
 .aes-pricing-automation .checkbox { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px 24px; }
 .aes-pricing-automation .checkbox br { display: none; }
-.aes-pricing-automation .checkbox label { display: flex; align-items: flex-start; gap: 8px; padding: 0; font-weight: 400; }
-.aes-pricing-automation .checkbox input { position: static; flex: 0 0 auto; margin: 3px 0 0; }
+#aes-settings-root .aes-pricing-automation .checkbox label { display: flex; align-items: flex-start; gap: 8px; padding: 0; font-weight: 400; }
+#aes-settings-root .aes-pricing-automation .checkbox input[type="checkbox"] { position: static; float: none; flex: 0 0 auto; margin: 3px 0 0; }
 .aes-pricing-controls { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; margin: 20px 0; max-width: 760px; }
 .aes-pricing-controls label { display: block; margin-bottom: 6px; }
 .aes-pricing-controls .form-group, #aes-pricing-mode { margin-bottom: 0; }
@@ -1004,3 +1004,5 @@
 .aes-pricing-rules .aes-a-invPricing-delete-row, .aes-pricing-delete { width: 32px; height: 32px; padding: 0; font-size: 20px; line-height: 1; }
 .aes-pricing-controls select { width: 100%; font-weight: 400; }
 .aes-pricing-preview [role="status"] { min-height: 3em; margin: 0; }
+
+#aes-settings-root .aes-pricing-automation { padding: 16px; }
