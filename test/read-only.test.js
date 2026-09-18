@@ -73,3 +73,15 @@ for(const locale of ['en','de','es','fr','hu','nl','pl','zh-TW','ja'])test(`${lo
     assert.ok(progress.some(p=>p.phase==='facts' && p.message===messages['Fetching facts and figures...']));
     assert.ok(p.saved.paine99schedule);
 });
+
+test('financial parser accepts explicit signs and localized grouping without stripping invalid signs',t=>{
+    const p=page(t);
+    for(const [text,expected] of [['+164,550 AS$',164550],['+164.550 AS$',164550],['+164\u202f550 AS$',164550],['−164,550 AS$',-164550],['-164,550 AS$',-164550],['+0 AS$',0]]){
+        p.w.content=financial().replaceAll('<td>100</td>','<td>'+text+'</td>');
+        assert.equal(p.run("AESRead.flight(new DOMParser().parseFromString(window.content,'text/html'),1).money.CM5.Total"),expected,text);
+    }
+    for(const text of ['++164','+-164','164+','+','+NaN','+164x','+9007199254740992']){
+        p.w.content=financial().replace('<td>100</td>','<td>'+text+'</td>');
+        assert.throws(()=>p.run("AESRead.flight(new DOMParser().parseFromString(window.content,'text/html'),1)"),/Invalid flight financial value/,text);
+    }
+});

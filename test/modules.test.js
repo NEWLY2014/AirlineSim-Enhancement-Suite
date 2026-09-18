@@ -153,3 +153,14 @@ test('flight info rejects incomplete financial data without overwriting saved da
     assert.equal(p.w.document.querySelector('.aes-table'),null);
     assert.deepEqual(p.saved.paineflightInfo42,{keep:true});
 });
+
+test('flight info saves and renders profitable flights with explicit positive signs',async t=>{
+    const html=flightHtml.replaceAll('1,000 AS$','+1,000 AS$').replaceAll('<td>1500</td>','<td>+1,500 AS$</td>');
+    const p=browser(t,{html,path:'/action/info/flight?id=42',data:{settings:{flightInfo:{autoClose:0}}}});
+    p.load('modules/notification.js');p.load('modules/notifications.js');p.load('modules/flightInfo/flightInfo.js');
+    await until(()=>p.w.document.querySelector('.aes-table'));
+    assert.equal(p.saved.paineflightInfo42.money.CM1.Y,1000);
+    assert.equal(p.saved.paineflightInfo42.money.CM1.Total,1500);
+    assert.equal(p.saved.paineflightInfo42.money.CM2.Total,-250);
+    assert.equal(p.errors.length,0);
+});

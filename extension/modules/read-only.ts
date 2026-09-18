@@ -242,8 +242,8 @@ static facts(doc: Document): AESModel.CompetitorFacts {
                 const text = (cell.textContent || '').trim().replace(/−/g,'-');
                 const cleaned = text.replace(/AS\$|[,\s.]/g,'');
                 const emptyCabin = i !== 5 && ['', '-', '—', '–'].includes(cleaned);
-                if (!emptyCabin && !/^-?\d+$/.test(cleaned)) throw new Error(AESI18n.t("Invalid flight financial value."));
-                const value = emptyCabin ? 0 : AES.cleanInteger(text);
+                if (!emptyCabin && !/^[+-]?\d+$/.test(cleaned)) throw new Error(AESI18n.t("Invalid flight financial value."));
+                const value = emptyCabin ? 0 : Number(cleaned);
                 if (!Number.isSafeInteger(value)) throw new Error(AESI18n.t("Invalid flight financial value."));
                 values[labels[i]]=value;
             });
