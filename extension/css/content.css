@@ -951,4 +951,4 @@
 .aes-settings-feedback:empty { display: none; }
 
 .aes-language-control { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; margin-bottom: 16px; }
-.aes-language-control select { width: auto; max-width: 100%; }
+.aes-language-control select { width: auto; max-width: 100%; font-weight: 400; }
