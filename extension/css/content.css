@@ -957,7 +957,7 @@
 .aes-curve-editor { max-width: 100%; overflow-x: auto; }
 .aes-curve-editor[hidden], #aes-div-recSettings [hidden] { display: none !important; }
 .aes-curve-preview { display: block; width: 100%; max-width: 540px; margin-top: 12px; color: inherit; }
-.aes-curve-preview text { fill: currentColor; font: 12px sans-serif; }
+#aes-settings-root .aes-curve-preview text { fill: currentColor; font: 12px sans-serif; }
 .aes-curve-table input { min-width: 70px; font-weight: 400; }
 #aes-pricing-mode { margin-bottom: 16px; }
 
@@ -970,7 +970,7 @@
 .aes-pricing-controls label { display: block; margin-bottom: 6px; }
 .aes-pricing-controls .form-group, #aes-pricing-mode { margin-bottom: 0; }
 .aes-pricing-workspace { display: grid; grid-template-columns: minmax(0,1.2fr) minmax(0,1fr); gap: 24px; padding: 20px; }
-.aes-pricing-workspace h4 { margin: 0 0 12px; }
+#aes-settings-root .aes-pricing-workspace h4 { margin: 0 0 12px; font-size: 1em; line-height: 1.5; }
 .aes-pricing-rules, .aes-pricing-preview { min-width: 0; }
 .aes-pricing-rules .as-table-well, .aes-curve-editor { overflow-x: auto; }
 .aes-pricing-rules table { width: 100%; margin-bottom: 12px; }
@@ -979,7 +979,7 @@
 .aes-pricing-rules td:last-child { width: 1%; white-space: nowrap; }
 .aes-pricing-preview { border-left: 1px solid rgba(127,127,127,.3); padding-left: 24px; }
 .aes-pricing-hint { font-size: .9em; line-height: 1.5; margin: 8px 0; }
-.aes-pricing-preview .aes-curve-preview { max-width: none; margin: 0; }
+.aes-pricing-preview .aes-curve-preview { max-width: 440px; margin: 0 auto; }
 .aes-pricing-footer { margin-top: 16px; padding: 20px; }
 .aes-pricing-footer fieldset { min-width: 0; border: 0; padding: 0; margin: 0; }
 .aes-pricing-footer legend { font-size: 1em; font-weight: 600; margin-bottom: 12px; }
