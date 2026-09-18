@@ -1,6 +1,6 @@
 {
   "name": "airlinesim-enhancement-suite",
-  "version": "0.8.13",
+  "version": "0.8.14-beta",
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "build": "node scripts/build-extension.cjs",

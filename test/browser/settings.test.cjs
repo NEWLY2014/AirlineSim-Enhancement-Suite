@@ -30,7 +30,7 @@ test('settings tabs preserve drafts, support the keyboard and open extension bac
     const extension=resolve('build/extension');
     context=await chromium.launchPersistentContext(profile,{channel:'chromium',headless:true,ignoreHTTPSErrors:true,args:[`--disable-extensions-except=${extension}`,`--load-extension=${extension}`,`--host-resolver-rules=MAP * 127.0.0.1:${server.address().port}`,'--no-proxy-server','--ignore-certificate-errors']});
     const worker=context.serviceWorkers()[0]||await context.waitForEvent('serviceworker');
-    await worker.evaluate(()=>chrome.storage.local.set({aesReleaseNotesSeenVersion:'0.8.13',settings:{invPricing:{recommendation:{Y:{minPrice:60,maxPrice:200,steps:[]}}}}}));
+    await worker.evaluate(()=>chrome.storage.local.set({aesReleaseNotesSeenVersion:chrome.runtime.getManifest().version_name || chrome.runtime.getManifest().version,settings:{invPricing:{recommendation:{Y:{minPrice:60,maxPrice:200,steps:[]}}}}}));
     const page=await context.newPage();await page.goto('https://paine.airlinesim.aero/app/enterprise/settings');
     const aes=page.getByRole('tab',{name:'AES Settings',exact:true});await aes.waitFor();
     assert.equal(await page.locator('#aes-settings-root').isVisible(),false);

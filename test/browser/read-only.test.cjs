@@ -31,7 +31,7 @@ test('Chrome performs read-only batches in the initiating pages with shared paci
     await context.addCookies([{name:'aesFixtureSession',value:'local-only',url:'https://paine.airlinesim.aero'}]);
     const worker=context.serviceWorkers()[0]||await context.waitForEvent('serviceworker');
     await worker.evaluate(async()=>{
-        await chrome.storage.local.set({aesReleaseNotesSeenVersion:'0.8.13',settings:{general:{defaultDashboard:'general'}},paine42_99competitorMonitoring:{key:'paine42_99competitorMonitoring',type:'competitorMonitoring',server:'paine',id:'99',ownerId:'42',tracking:1,autoExtract:0,tab0:{},tab2:{}}});
+        await chrome.storage.local.set({aesReleaseNotesSeenVersion:chrome.runtime.getManifest().version_name || chrome.runtime.getManifest().version,settings:{general:{defaultDashboard:'general'}},paine42_99competitorMonitoring:{key:'paine42_99competitorMonitoring',type:'competitorMonitoring',server:'paine',id:'99',ownerId:'42',tracking:1,autoExtract:0,tab0:{},tab2:{}}});
     });
     const a=await context.newPage(),b=await context.newPage();
     await Promise.all([a.goto('https://paine.airlinesim.aero/app/enterprise/dashboard'),b.goto('https://paine.airlinesim.aero/app/enterprise/dashboard')]);

@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.14-beta] - 2026-09-18
+
+### Added
+
+- Nine-language support that follows the game language, with an override in AES Settings.
+- Control-point pricing with a global mode shared by all cabins, interactive previews for both modes, and final-price rounding.
+- Competitor schedule history and searchable comparisons between saved captures.
+
+### Improved
+
+- Integrate AES Settings into the native settings tabs and group global pricing mode above cabin-specific rules.
+- Align default control points with step-rule boundaries; retain custom curves when migrating older settings.
+- Keep checkboxes inside their panels, percentage suffixes inside unit boxes, and minimum/maximum price fields together.
+- Collect read-only data through the current game page and keep large schedule captures responsive.
+- Improve cyclic scheduling, arrival-time corrections, hub detection, storage consistency and collection status feedback.
+
+
 ### Fixed
 
 - Give Release Notes section headings an explicit line height and spacing isolated from game heading styles.

@@ -48,7 +48,7 @@ test('Chromium loads the extension runtime, exports real storage and injects the
     });
     const worker = context.serviceWorkers()[0] || await context.waitForEvent('serviceworker');
     const id = new URL(worker.url()).host;
-    assert.equal(await worker.evaluate(() => chrome.runtime.getManifest().version), '0.8.13');
+    assert.equal(await worker.evaluate(() => chrome.runtime.getManifest().version), require('../../extension/manifest.json').version);
     await worker.evaluate(async () => {
         await chrome.storage.local.clear();
         await chrome.storage.local.set({settings:{general:{defaultDashboard:'general'},schedule:{},invPricing:{autoAnalysisSave:0,autoPriceUpdate:0,autoClose:0,showReferenceRecommendation:1,historyTable:{showNow:1,showOnlyPricing:0,numberOfDates:'5'},recommendation:Object.fromEntries(['Y','C','F','Cargo'].map(c=>[c,{minPrice:60,maxPrice:200,steps:[{min:0,max:100,name:'Raise',step:10}]}]))}}, migrationSmoke:{preserve:true},

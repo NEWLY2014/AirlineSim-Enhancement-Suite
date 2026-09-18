@@ -1,5 +1,27 @@
 const AES_RELEASE_NOTES_STORAGE_KEY = "aesReleaseNotesSeenVersion"
 const AES_RELEASE_NOTES: Record<string, AESModel.ReleaseNotes | undefined> = {
+    "0.8.14-beta": {
+        "title": "Release Notes",
+        "releaseDate": "2026-09-18",
+        "summary": "Beta: multilingual AES, schedule comparisons and global pricing modes.",
+        "sections": [
+            {
+                "title": "Added",
+                "items": [
+                    "Follow the game language or choose an AES language in General Settings.",
+                    "Compare retained competitor schedule captures.",
+                    "Choose one pricing mode for all cabins, with separate cabin rules and interactive previews."
+                ]
+            },
+            {
+                "title": "Fixed",
+                "items": [
+                    "Keep percentage suffixes inside their unit boxes and minimum/maximum price inputs together.",
+                    "Improve large schedule capture responsiveness, cyclic scheduling and arrival-time correction."
+                ]
+            }
+        ]
+    },
     "0.8.13": {
         "title": "Release Notes",
         "releaseDate": "2026-09-08",

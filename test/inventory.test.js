@@ -264,3 +264,15 @@ test('curve recommendations use the existing confirmed submission workflow',asyn
     assert.equal(p.saved[key].date['20260908'].pricingUpdatePending.targetPrices.Y,103);
     assert.equal(p.saved[key].date['20260908'].pricingUpdated,0);
 });
+
+test('one global mode drives all cabin recommendations despite legacy per-cabin modes',async t=>{
+    for(const mode of ['curve','steps']) {
+        const config=settings();config.invPricing.mode=mode;
+        cabins.forEach((c,i)=>{
+            config.invPricing.recommendation[c].mode=mode==='curve'?'steps':'curve';
+            config.invPricing.recommendation[c].points=[{load:0,change:i+1},{load:100,change:i+1}];
+        });
+        const p=inventory(t,{rows:cabins.map(c=>row(c)).join(''),data:{settings:config}});await load(p);
+        assert.deepEqual(Array.from(p.w.document.querySelectorAll('.pricing input'),input=>Number(input.value)),mode==='curve'?[101,102,103,104]:[110,110,110,110]);
+    }
+});
