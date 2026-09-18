@@ -735,5 +735,8 @@
   "Add control point": "Add control point",
   "Pricing curve preview": "Pricing curve preview",
   "Adjustments use the default price. Only the final ticket price is rounded.": "Adjustments use the default price. Only the final ticket price is rounded.",
-  "Use distinct loads from 0 to 100, with both endpoints and finite adjustments.": "Use distinct loads from 0 to 100, with both endpoints and finite adjustments."
+  "Use distinct loads from 0 to 100, with both endpoints and finite adjustments.": "Use distinct loads from 0 to 100, with both endpoints and finite adjustments.",
+  "Complete consecutive integer ranges from 0 to 100 to preview step rules.": "Complete consecutive integer ranges from 0 to 100 to preview step rules.",
+  "Step rules use rounded load percentages. The first matching rule applies at shared boundaries.": "Step rules use rounded load percentages. The first matching rule applies at shared boundaries.",
+  "Change (pp)": "Change (pp)"
 }

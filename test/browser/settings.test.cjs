@@ -96,8 +96,24 @@ test('settings tabs preserve drafts, support the keyboard and open extension bac
     await options.waitForFunction(()=>document.documentElement.lang==='fr');
     await options.getByRole('button',{name:french['Create Backup'],exact:true}).waitFor();
     await page.locator('#aes-settings-group-1').click();
+    // Step preview responds to edits without changing saved rules or prices.
+    const stepInputs=page.locator('#aes-table-invPricing tbody tr').first().locator('input');
+    const boundary=await stepInputs.nth(2).inputValue();
+    await stepInputs.nth(3).fill('-10');
+    assert.equal(await page.locator('.aes-step-preview svg').isVisible(),true);
+    const segment=page.locator('.aes-step-preview line[stroke-width="2.5"]').first();
+    assert.equal(await segment.getAttribute('y1'),await segment.getAttribute('y2'));
+    await stepInputs.nth(2).fill('1');assert.equal(await page.locator('.aes-step-preview svg').isVisible(),false);
+    await stepInputs.nth(2).fill(boundary);
+    await page.locator('#aes-button-invPricing-add-row').click();
+    assert.equal(await page.locator('.aes-step-preview svg').isVisible(),false);
+    await page.locator('#aes-table-invPricing tbody .aes-a-invPricing-delete-row').last().click();
+    assert.equal(await page.locator('.aes-step-preview svg').isVisible(),true);
+    await page.setViewportSize({width:390,height:844});
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+    await page.setViewportSize({width:1280,height:900});
     await page.locator('#aes-pricing-mode').selectOption('curve');
-    assert.equal(await page.locator('.aes-curve-preview').isVisible(),true);
+    assert.equal(await page.locator('.aes-curve-preview:visible').isVisible(),true);
     const curveRows=page.locator('.aes-curve-table tbody tr');
     assert.equal(await curveRows.count(),5);
     const beforeCurve=await page.locator('.aes-curve-preview polyline').getAttribute('points');

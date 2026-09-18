@@ -148,7 +148,7 @@ function displayInvPricingSettings() {
     mainDiv.append(
         AESI18n.html(`
     <h3>Inventory Pricing</h3>
-    <div class="as-panel">
+    <div class="as-panel aes-pricing-automation">
       <div class="checkbox">
         <label>
           <input id="aes-input-inventory-automateSnapshotSave" type="checkbox">
@@ -170,6 +170,8 @@ function displayInvPricingSettings() {
           Show reference recommendation when current price has no flight results yet.
         </label>
       </div>
+    </div>
+    <div class="aes-pricing-controls">
       <div class="form-group">
         <label class="control-label" for="aes-select-invPricing-cmp">
           <span>Compartment Recommendation Settings</span>
@@ -181,6 +183,7 @@ function displayInvPricingSettings() {
           <option value="Cargo">Freight</option>
         </select>
       </div>
+      <div class="form-group" id="aes-pricing-mode-field"></div>
     </div>
     <div id="aes-div-recSettings">
     </div>
@@ -251,18 +254,17 @@ function invPricingRecStepHandle() {
     const selectedCabin = $("#aes-select-invPricing-cmp").val();
     if (selectedCabin !== "Y" && selectedCabin !== "C" && selectedCabin !== "F" && selectedCabin !== "Cargo") return;
     const cmp = selectedCabin;
-    $('#aes-div-recSettings').empty().append(
-        $('<h3></h3>').text(AESI18n.t("{0} Compartment Pricing Settings", {"0": cmp}))
-    );
-    let divRow = $('<div class="row as-panel"></div>')
-    let divLeft = $('<div class="col-md-8"></div>')
-    let divRight = $('<div class="col-md-4"></div>')
+    $('#aes-div-recSettings').empty();
+    let divRow = $('<div class="aes-pricing-workspace as-panel"></div>');
+    let divLeft = $('<div class="aes-pricing-rules"></div>');
+    let divRight = $('<div class="aes-pricing-preview"></div>');
+    const footer=$('<div class="aes-pricing-footer as-panel"></div>');
     let tableDiv = $('<div class="as-table-well"></div>')
     let table = $('<table id="aes-table-invPricing" class="table table-bordered table-striped table-hover"></table>');
     //Table head
     let thead = $('<thead></thead>');
     let headRow = $('<tr></tr>');
-    headRow.append(AESI18n.html('<th>Name</th><th>From (Load %)</th><th>To (Load %)</th><th>Price Change %</th><th></th>'));
+    headRow.append(AESI18n.html('<th>Name</th><th>From (Load %)</th><th>To (Load %)</th><th>Change (pp)</th><th></th>'));
     thead.append(headRow);
     //table body
     let tbody = $('<tbody></tbody>');
@@ -275,7 +277,7 @@ function invPricingRecStepHandle() {
                 $('<span class="input-group-addon">%</span>')
             )));
         }
-        row.append(AESI18n.html('<td><a class="aes-a-invPricing-delete-row" ><span class="fa fa-trash" title="Delete row"></span></a></td>'));
+        row.append(AESI18n.html('<td><button type="button" class="btn btn-default aes-a-invPricing-delete-row" aria-label="Delete row"><span aria-hidden="true">×</span></button></td>'));
         tbody.append(row);
     });
     //Table foot
@@ -290,16 +292,36 @@ function invPricingRecStepHandle() {
     const mode=$(AESI18n.html('<select id="aes-pricing-mode" class="form-control"><option value="steps">Step rules</option><option value="curve">Control-point pricing</option></select>')).val(original.mode || 'steps');
     const modeLabel=$('<label for="aes-pricing-mode"></label>').text(AESI18n.t('Pricing mode'));
     const curve=$('<div class="aes-curve-editor"></div>');
-    const editor=AESCurveEditor.mount(curve,original.points);
-    const showMode=()=>{tableDiv.prop('hidden',mode.val()==='curve');curve.prop('hidden',mode.val()!=='curve');};
-    mode.on('change',showMode);showMode();
-    divLeft.append(modeLabel,mode,tableDiv,curve);
-    divRow.append(divLeft, divRight);
-
-    $('#aes-div-recSettings').append(divRow);
+    const curvePreview=$('<div></div>'),stepPreview=$('<div class="aes-step-preview"></div>');
+    const previewTitle=$('<h4></h4>').text(AESI18n.t('Pricing curve preview'));
+    const units=$('<p class="aes-pricing-hint"></p>').text(AESI18n.t('Change (default-price percentage points)'));
+    const stepStatus=$('<p class="warning" role="status"></p>');
+    const explanation=$('<p class="aes-pricing-hint"></p>');
+    const stepChart=AESPricingPreview.mount(stepPreview);
+    stepPreview.append(stepStatus);
+    const editor=AESCurveEditor.mount(curve,original.points,curvePreview);
+    const rulesTitle=$('<h4></h4>');
+    function updateSteps() {
+        const steps=readDraft().steps;
+        stepStatus.text(stepChart.steps(steps) ? '' : AESI18n.t('Complete consecutive integer ranges from 0 to 100 to preview step rules.'));
+    }
+    const showMode=()=>{
+        const isCurve=mode.val()==='curve';
+        tableDiv.prop('hidden',isCurve);curve.prop('hidden',!isCurve);
+        curvePreview.prop('hidden',!isCurve);stepPreview.prop('hidden',isCurve);
+        rulesTitle.text(AESI18n.t(isCurve ? 'Control-point pricing' : 'Step rules'));
+        explanation.text(AESI18n.t(isCurve ? 'Adjustments use the default price. Only the final ticket price is rounded.' : 'Step rules use rounded load percentages. The first matching rule applies at shared boundaries.'));
+        if(!isCurve)updateSteps();
+    };
+    mode.on('change',showMode);
+    $('#aes-pricing-mode-field').empty().append(modeLabel,mode);
+    divLeft.append(rulesTitle,tableDiv,curve);
+    divRight.append(previewTitle,units,stepPreview,curvePreview,explanation);
+    divRow.append(divLeft,divRight);
+    $('#aes-div-recSettings').append(divRow,footer);
 
     $("#aes-table-invPricing").on("click", ".aes-a-invPricing-delete-row", function() {
-        $(this).closest("tr").remove();
+        $(this).closest("tr").remove();updateSteps();
     });
 
     $("#aes-button-invPricing-add-row").click(function() {
@@ -308,38 +330,25 @@ function invPricingRecStepHandle() {
         row.append('<td><div class="input-group"><input type="text" class="form-control number" style="min-width: 50px;"><span class="input-group-addon">%</span></div></td>');
         row.append('<td><div class="input-group"><input type="text" class="form-control number" style="min-width: 50px;"><span class="input-group-addon">%</span></div></td>');
         row.append('<td><div class="input-group"><input type="text" class="form-control number" style="min-width: 50px;"><span class="input-group-addon">%</span></div></td>');
-        row.append(AESI18n.html('<td><a class="aes-a-invPricing-delete-row" ><span class="fa fa-trash" title="Delete row"></span></a></td>'));
-        $('#aes-table-invPricing tbody').append(row);
+        row.append(AESI18n.html('<td><button type="button" class="btn btn-default aes-a-invPricing-delete-row" aria-label="Delete row"><span aria-hidden="true">×</span></button></td>'));
+        $('#aes-table-invPricing tbody').append(row);labelStepInputs();updateSteps();
     });
 
-    //Rights side
-    divRight.append(AESI18n.html(`
-    <fieldset id="aes-fieldset-invPricing">
-      <legend>Min Max Price</legend>
-      <div class="form-group">
-        <label class="control-label">
-            <span for="aes-input-invPricing-max-price">Maximum Price (% compared to default price)</span>
-        </label>
-        <div class="input-group">
-        <input type="text" class="form-control number" id="aes-input-invPricing-max-price" value=` + getSettingsRecommendation(cmp).maxPrice + `>
-        <span class="input-group-addon">%</span>
-        </div>
-      </div>
-      <div class="form-group">
-        <label class="control-label">
-            <span for="aes-input-invPricing-min-price">Minimum Price (% compared to default price)</span>
-        </label>
-        <div class="input-group">
-        <input type="text" class="form-control number" id="aes-input-invPricing-min-price" value=` + getSettingsRecommendation(cmp).minPrice + `>
-        <span class="input-group-addon">%</span>
-        </div>
-      </div>
-      <div class="form-group">
-        <button id="aes-btn-invPricing-save" class="btn btn-default">Save</button>
-      </div>
-    </fieldset>
-
-  `));
+    const bounds=$('<fieldset id="aes-fieldset-invPricing"></fieldset>');
+    bounds.append($('<legend></legend>').text(AESI18n.t('Min Max Price')));
+    const fields=$('<div class="aes-price-bounds"></div>');
+    for(const [key,title,value] of [
+        ['min','Minimum Price (% compared to default price)',original.minPrice],
+        ['max','Maximum Price (% compared to default price)',original.maxPrice]
+    ] as const) {
+        const id='aes-input-invPricing-'+key+'-price';
+        const label=$('<label></label>').attr('for',id).text(AESI18n.t(title));
+        const input=$('<input type="number" min="0" max="200" step="1" class="form-control number">').attr('id',id).val(value);
+        fields.append($('<div class="form-group"></div>').append(label,$('<div class="input-group"></div>').append(input,$('<span class="input-group-addon">%</span>'))));
+    }
+    bounds.append(fields);footer.append(bounds);
+    const actions=$('<div class="aes-pricing-actions"></div>').append($('<button type="button" id="aes-btn-invPricing-save" class="btn btn-primary"></button>').text(AESI18n.t('Save')));
+    const saveStatus=$('<div class="aes-pricing-save-status" role="status"></div>');actions.append(saveStatus);footer.append(actions);
     function readDraft() {
         let newSteps: AESModel.PricingStep[] = [];
         let newCmpSettings: AESModel.PricingRecommendation = {
@@ -347,14 +356,14 @@ function invPricingRecStepHandle() {
             points: editor.raw(),
             maxPrice: Number(String($("#aes-input-invPricing-max-price").val() ?? "").trim() || NaN),
             minPrice: Number(String($("#aes-input-invPricing-min-price").val() ?? "").trim() || NaN),
-            steps: mode.val() === 'curve' ? original.steps : newSteps
+            steps: newSteps
         }
         $("#aes-table-invPricing tbody tr").each(function() {
             newSteps.push({
-                max: parseInt(String($(this).find("input:eq(2)").val() ?? ""), 10),
-                min: parseInt(String($(this).find("input:eq(1)").val() ?? ""), 10),
+                max: Number(String($(this).find("input:eq(2)").val() ?? "").trim() || NaN),
+                min: Number(String($(this).find("input:eq(1)").val() ?? "").trim() || NaN),
                 name: String($(this).find("input:eq(0)").val() ?? ""),
-                step: parseInt(String($(this).find("input:eq(3)").val() ?? ""), 10),
+                step: Number(String($(this).find("input:eq(3)").val() ?? "").trim() || NaN),
             });
         });
 
@@ -366,14 +375,23 @@ function invPricingRecStepHandle() {
         return newCmpSettings;
     }
     rememberPricingDraft=()=>{pricingDrafts[cmp]=readDraft();};
+    function labelStepInputs() {
+        table.find('tbody tr').each(function(){
+            $(this).find('input').each(function(i){$(this).attr('aria-label',AESI18n.t(['Name','From (Load %)','To (Load %)','Change (default-price percentage points)'][i]));});
+        });
+    }
+    labelStepInputs();
+    table.on('input change','input',updateSteps);
+    showMode();
     //Click save button
     $("#aes-btn-invPricing-save").click(function() {
         //Feedback
         $("#aes-span-invPricing").remove();
         let span = $(AESI18n.html('<span id="aes-span-invPricing" class="warning">Updating...</span>'));
-        $("#aes-fieldset-invPricing").append(span);
+        saveStatus.append(span);
 
         const newCmpSettings=readDraft();
+        if(newCmpSettings.mode==='curve')newCmpSettings.steps=original.steps;
         newCmpSettings.points=editor.read() || (newCmpSettings.mode==='steps' ? original.points : undefined);
         //Validate Steps
         if (newCmpSettings.mode === 'curve' && !newCmpSettings.points) {

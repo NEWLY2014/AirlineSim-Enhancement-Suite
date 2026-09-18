@@ -189,3 +189,10 @@ submitted, and an empty integer range produces no recommendation.
 Current-price recommendations and old-price references retain their existing
 separation and submission safeguards. This mode changes interpolation and rounding;
 it does not introduce a new demand model or change which flights are sampled.
+
+Both pricing modes have a live preview beside the rule editor (below it on narrow
+screens). Step rules draw horizontal segments with dashed jumps; control points
+draw interpolated lines. Invalid or incomplete drafts hide the chart until corrected.
+Step-rule loads retain their existing integer rounding and first-match behavior at
+shared boundaries. Price limits and the save action sit below the editor; switching
+compartments or modes preserves local rule drafts without applying prices.

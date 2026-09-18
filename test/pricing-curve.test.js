@@ -34,7 +34,7 @@ test('point validation sorts copies and rejects gaps, duplicates and invalid num
 });
 
 test('adding a point preserves the curve and leaves endpoints fixed',t=>{
-    const p=curve(t);p.load('modules/inventory/curve-editor.js');
+    const p=curve(t);p.load('modules/inventory/pricing-preview.js');p.load('modules/inventory/curve-editor.js');
     p.run("window.editor=AESCurveEditor.mount($('<div id=\"editor\"></div>').appendTo(document.body),[{load:0,change:-10},{load:100,change:10}])");
     const $=p.w.$;
     $('#editor > button').trigger('click');

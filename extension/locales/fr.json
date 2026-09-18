@@ -735,5 +735,8 @@
   "Add control point": "Ajouter un point de contrôle",
   "Pricing curve preview": "Aperçu de la courbe de prix",
   "Adjustments use the default price. Only the final ticket price is rounded.": "Les ajustements utilisent le prix par défaut. Seul le prix final est arrondi.",
-  "Use distinct loads from 0 to 100, with both endpoints and finite adjustments.": "Utilisez des taux distincts de 0 à 100, les deux extrémités et des ajustements numériques finis."
+  "Use distinct loads from 0 to 100, with both endpoints and finite adjustments.": "Utilisez des taux distincts de 0 à 100, les deux extrémités et des ajustements numériques finis.",
+  "Complete consecutive integer ranges from 0 to 100 to preview step rules.": "Complétez des plages entières consécutives de 0 à 100 pour afficher l’aperçu.",
+  "Step rules use rounded load percentages. The first matching rule applies at shared boundaries.": "Les paliers utilisent un taux de remplissage arrondi. Aux limites communes, la première règle correspondante s’applique.",
+  "Change (pp)": "Variation (points)"
 }

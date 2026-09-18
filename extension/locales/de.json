@@ -735,5 +735,8 @@
   "Add control point": "Stützpunkt hinzufügen",
   "Pricing curve preview": "Vorschau der Preiskurve",
   "Adjustments use the default price. Only the final ticket price is rounded.": "Änderungen beziehen sich auf den Standardpreis. Nur der endgültige Ticketpreis wird gerundet.",
-  "Use distinct loads from 0 to 100, with both endpoints and finite adjustments.": "Verwende unterschiedliche Auslastungen von 0 bis 100 mit beiden Endpunkten und endlichen Änderungen."
+  "Use distinct loads from 0 to 100, with both endpoints and finite adjustments.": "Verwende unterschiedliche Auslastungen von 0 bis 100 mit beiden Endpunkten und endlichen Änderungen.",
+  "Complete consecutive integer ranges from 0 to 100 to preview step rules.": "Vervollständige aufeinanderfolgende ganzzahlige Bereiche von 0 bis 100 für die Vorschau.",
+  "Step rules use rounded load percentages. The first matching rule applies at shared boundaries.": "Stufenregeln verwenden gerundete Auslastungsprozente. An gemeinsamen Grenzen gilt die erste passende Regel.",
+  "Change (pp)": "Änderung (Pp.)"
 }

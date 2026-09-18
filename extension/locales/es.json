@@ -735,5 +735,8 @@
   "Add control point": "Añadir punto de control",
   "Pricing curve preview": "Vista previa de la curva de precios",
   "Adjustments use the default price. Only the final ticket price is rounded.": "Los ajustes usan el precio predeterminado. Solo se redondea el precio final.",
-  "Use distinct loads from 0 to 100, with both endpoints and finite adjustments.": "Usa ocupaciones distintas de 0 a 100, ambos extremos y ajustes numéricos finitos."
+  "Use distinct loads from 0 to 100, with both endpoints and finite adjustments.": "Usa ocupaciones distintas de 0 a 100, ambos extremos y ajustes numéricos finitos.",
+  "Complete consecutive integer ranges from 0 to 100 to preview step rules.": "Completa intervalos enteros consecutivos de 0 a 100 para previsualizar las reglas.",
+  "Step rules use rounded load percentages. The first matching rule applies at shared boundaries.": "Las reglas usan porcentajes de ocupación redondeados. En los límites compartidos se aplica la primera regla coincidente.",
+  "Change (pp)": "Cambio (pp)"
 }

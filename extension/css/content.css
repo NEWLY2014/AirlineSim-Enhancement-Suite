@@ -960,3 +960,47 @@
 .aes-curve-preview text { fill: currentColor; font: 12px sans-serif; }
 .aes-curve-table input { min-width: 70px; font-weight: 400; }
 #aes-pricing-mode { margin-bottom: 16px; }
+
+/* Pricing editor: controls, rules/preview, then limits and a stable save action. */
+.aes-pricing-automation .checkbox { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px 24px; }
+.aes-pricing-automation .checkbox br { display: none; }
+.aes-pricing-automation .checkbox label { display: flex; align-items: flex-start; gap: 8px; padding: 0; font-weight: 400; }
+.aes-pricing-automation .checkbox input { position: static; flex: 0 0 auto; margin: 3px 0 0; }
+.aes-pricing-controls { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; margin: 20px 0; max-width: 760px; }
+.aes-pricing-controls label { display: block; margin-bottom: 6px; }
+.aes-pricing-controls .form-group, #aes-pricing-mode { margin-bottom: 0; }
+.aes-pricing-workspace { display: grid; grid-template-columns: minmax(0,1.2fr) minmax(0,1fr); gap: 24px; padding: 20px; }
+.aes-pricing-workspace h4 { margin: 0 0 12px; }
+.aes-pricing-rules, .aes-pricing-preview { min-width: 0; }
+.aes-pricing-rules .as-table-well, .aes-curve-editor { overflow-x: auto; }
+.aes-pricing-rules table { width: 100%; margin-bottom: 12px; }
+.aes-pricing-rules th { vertical-align: bottom; }
+.aes-pricing-rules input { width: 100%; min-width: 62px; box-sizing: border-box; font-weight: 400; }
+.aes-pricing-rules td:last-child { width: 1%; white-space: nowrap; }
+.aes-pricing-preview { border-left: 1px solid rgba(127,127,127,.3); padding-left: 24px; }
+.aes-pricing-hint { font-size: .9em; line-height: 1.5; margin: 8px 0; }
+.aes-pricing-preview .aes-curve-preview { max-width: none; margin: 0; }
+.aes-pricing-footer { margin-top: 16px; padding: 20px; }
+.aes-pricing-footer fieldset { min-width: 0; border: 0; padding: 0; margin: 0; }
+.aes-pricing-footer legend { font-size: 1em; font-weight: 600; margin-bottom: 12px; }
+.aes-price-bounds { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; }
+.aes-price-bounds label { display: block; font-weight: 400; }
+.aes-price-bounds .input-group { max-width: 240px; }
+.aes-pricing-actions { display: grid; grid-template-columns: auto minmax(0,1fr); align-items: center; gap: 16px; margin-top: 16px; }
+.aes-pricing-save-status { min-height: 1.5em; overflow-wrap: anywhere; }
+@media (max-width: 1000px) {
+    .aes-pricing-workspace { grid-template-columns: minmax(0,1fr); }
+    .aes-pricing-preview { border-left: 0; border-top: 1px solid rgba(127,127,127,.3); padding: 20px 0 0; }
+}
+@media (max-width: 600px) {
+    .aes-pricing-automation .checkbox, .aes-pricing-controls, .aes-price-bounds { grid-template-columns: minmax(0,1fr); }
+    .aes-pricing-workspace, .aes-pricing-footer { padding: 12px; }
+}
+
+.aes-pricing-rules input { min-height: 32px; padding: 5px 7px; font: inherit; }
+.aes-pricing-rules .input-group { display: flex; align-items: stretch; }
+.aes-pricing-rules .input-group input { min-width: 62px; flex: 1 1 0; }
+.aes-pricing-rules .input-group-addon { display: flex; align-items: center; padding: 4px; }
+.aes-pricing-rules .aes-a-invPricing-delete-row, .aes-pricing-delete { width: 32px; height: 32px; padding: 0; font-size: 20px; line-height: 1; }
+.aes-pricing-controls select { width: 100%; font-weight: 400; }
+.aes-pricing-preview [role="status"] { min-height: 3em; margin: 0; }

@@ -190,3 +190,24 @@ test('curve editor preserves legacy rules, validates points, sorts them and reta
     assert.equal(p.saved.settings.invPricing.recommendation.Y.mode,'steps');
     assert.equal(p.saved.settings.invPricing.recommendation.Y.points[1].change,-2.5);
 });
+
+test('step preview shows horizontal segments, rejects incomplete drafts and preserves mode-switch edits',async t=>{
+    const original=pricing();original.recommendation.Y.steps=[{name:'Low',min:0,max:60,step:-5},{name:'High',min:60,max:100,step:3}];
+    const p=browser(t,{html:header+'<div class="bootstrap container-fluid"><h1>Settings</h1></div>',path:'/app/enterprise/settings',data:{settings:{invPricing:original}}});
+    p.load('content_settings.js');await until(()=>p.w.document.querySelector('.aes-step-preview svg'));
+    const $=p.w.$,segments=()=>$('.aes-step-preview line[stroke-width="2.5"]');
+    assert.equal(segments().length,2);
+    segments().each(function(){assert.equal($(this).attr('y1'),$(this).attr('y2'));});
+    const before=segments().first().attr('y1');
+    $('#aes-table-invPricing tbody tr').first().find('input').eq(3).val('6').trigger('input');
+    assert.notEqual(segments().first().attr('y1'),before);
+    $('#aes-pricing-mode').val('curve').trigger('change');$('#aes-select-invPricing-cmp').val('C').trigger('change');$('#aes-select-invPricing-cmp').val('Y').trigger('change');$('#aes-pricing-mode').val('steps').trigger('change');
+    assert.equal($('#aes-table-invPricing tbody tr').first().find('input').eq(3).val(),'6');
+    $('#aes-table-invPricing tbody tr').first().find('input').eq(2).val('60.5').trigger('input');
+    assert.equal($('.aes-step-preview svg').css('visibility'),'hidden');
+    $('#aes-btn-invPricing-save').trigger('click');assert.match($('#aes-span-invPricing').text(),/not an integer/);
+    assert.deepEqual(p.saved.settings.invPricing.recommendation.Y.steps,original.recommendation.Y.steps);
+    $('#aes-table-invPricing tbody tr').first().find('input').eq(2).val('60').trigger('input');
+    $('#aes-table-invPricing tbody tr').last().find('.aes-a-invPricing-delete-row').trigger('click');
+    assert.equal($('.aes-step-preview svg').css('visibility'),'hidden');
+});
