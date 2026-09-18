@@ -19,7 +19,7 @@ test('settings tabs preserve drafts, support the keyboard and open extension bac
         }
         const game=req.url.includes('tab=game');
         const html=`<script>window.frontendSettings={"fixedEnterpriseId":42,"theme":"light","languageSettings":{"currentLanguageTag":"${gameLanguage}"},"server":{"time":"2026-09-17T01:00:00Z"}};</script>
-        <style>.nav-tabs{display:flex;gap:20px;list-style:none}.nav-tabs a{display:block;padding:10px}.nav-tabs .active{border-bottom:2px solid}.tab-content{display:block}</style>
+        <style>.nav-tabs{display:flex;gap:20px;list-style:none}.nav-tabs a{display:block;padding:10px}.nav-tabs .active{border-bottom:2px solid}.tab-content{display:block}.bootstrap .checkbox input[type="checkbox"]{position:absolute;margin-left:-20px}.bootstrap .checkbox label{padding-left:20px}</style>
         <div id="header"><div><button aria-haspopup="menu"><span class="_name_test">Test Air</span></button><div role="menubar"></div></div></div>
         <div class="bootstrap container-fluid"><h1>Settings</h1><div class="as-panel"><ul class="nav nav-tabs">
         <li class="tab0 ${game?'':'active'}"><a href="./settings?tab=general">General settings</a></li><li class="tab1 ${game?'active':''}"><a href="./settings?tab=game">Game settings</a></li></ul>
@@ -53,6 +53,12 @@ test('settings tabs preserve drafts, support the keyboard and open extension bac
     assert.equal(await page.locator('#aes-settings-group-1').getAttribute('aria-selected'),'true');
     await page.getByRole('tab',{name:'Inventory Pricing',exact:true}).click();
     assert.equal(await page.locator('#aes-language').isVisible(),false);
+    for(const checkbox of await page.locator('.aes-pricing-automation input').all()){
+        const box=await checkbox.boundingBox(),panel=await page.locator('.aes-pricing-automation').boundingBox();
+        assert.ok(box.x>=panel.x && box.x+box.width<=panel.x+panel.width);
+        assert.equal(await checkbox.evaluate(el=>getComputedStyle(el).position),'static');
+    }
+    assert.equal(await page.locator('#aes-btn-invPricing-save').getAttribute('class'),'btn btn-default');
     await page.locator('#aes-input-invPricing-min-price').fill('73');
     await page.getByRole('tab',{name:'Flight Info',exact:true}).click();
     await page.getByRole('tab',{name:'Inventory Pricing',exact:true}).click();
@@ -116,6 +122,17 @@ test('settings tabs preserve drafts, support the keyboard and open extension bac
     assert.equal(await page.locator('.aes-curve-preview:visible').isVisible(),true);
     const curveRows=page.locator('.aes-curve-table tbody tr');
     assert.equal(await curveRows.count(),5);
+    const chart=page.locator('.aes-curve-preview:visible');
+    await chart.focus();await page.keyboard.press('Home');
+    assert.equal(await chart.getAttribute('aria-valuenow'),'0');
+    await page.keyboard.press('ArrowRight');assert.equal(await chart.getAttribute('aria-valuenow'),'1');
+    const hoverPoint=await chart.evaluate(el=>{
+        const point=el.createSVGPoint();point.x=223;point.y=110;const screen=point.matrixTransform(el.getScreenCTM());return {x:screen.x,y:screen.y};
+    });
+    await page.mouse.move(hoverPoint.x,hoverPoint.y);
+    assert.equal(await chart.getAttribute('aria-valuenow'),'50');
+    assert.match(await page.locator('.aes-pricing-readout:visible').textContent(),/50/);
+    assert.ok((await chart.boundingBox()).width<=440);
     const beforeCurve=await page.locator('.aes-curve-preview polyline').getAttribute('points');
     await curveRows.nth(1).locator('input').nth(1).fill('-2.5');
     assert.notEqual(await page.locator('.aes-curve-preview polyline').getAttribute('points'),beforeCurve);

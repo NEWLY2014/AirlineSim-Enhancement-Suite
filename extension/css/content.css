@@ -1006,3 +1006,6 @@
 .aes-pricing-preview [role="status"] { min-height: 3em; margin: 0; }
 
 #aes-settings-root .aes-pricing-automation { padding: 16px; }
+
+.aes-pricing-readout { min-height: 3em; font-size: .9em; line-height: 1.5; font-variant-numeric: tabular-nums; text-align: center; }
+.aes-curve-preview:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
