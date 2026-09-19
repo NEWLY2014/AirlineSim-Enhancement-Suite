@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Locate inventory price submission buttons by the price inputs’ actual form ownership, including buttons outside the pricing panel and externally associated controls; retain queued-submission validation.
+
 ## [0.9.0-beta] - 2026-09-18
 
 This beta contains all changes since **0.8.13**. It previews the upcoming 0.9.0 release.

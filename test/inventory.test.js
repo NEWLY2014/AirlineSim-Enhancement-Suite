@@ -276,3 +276,43 @@ test('one global mode drives all cabin recommendations despite legacy per-cabin 
         assert.deepEqual(Array.from(p.w.document.querySelectorAll('.pricing input'),input=>Number(input.value)),mode==='curve'?[101,102,103,104]:[110,110,110,110]);
     }
 });
+
+for(const layout of ['sibling','associated'])test('automatic pricing finds the '+layout+' submitter by form ownership',async t=>{
+    const p=inventory(t,{data:{settings:settings({autoPriceUpdate:1})}});
+    const form=p.w.document.querySelector('form');form.id='price-form';
+    const panel=p.w.document.createElement('div');panel.className='pricing';
+    form.classList.remove('pricing');panel.append(form.querySelector('table'));form.prepend(panel);
+    if(layout==='associated') {
+        const button=form.querySelector('button');button.setAttribute('form',form.id);form.after(button);
+    }
+    await load(p);await until(()=>p.submissions.length===1);
+    assert.equal(p.saved[key].date['20260908'].pricingUpdatePending.targetPrices.Y,110);
+    assert.equal(p.saved[key].date['20260908'].pricingUpdated,0);
+});
+test('unrelated submit-prices form is never used when the price form has no submitter',async t=>{
+    const p=inventory(t,{data:{settings:settings({autoPriceUpdate:1})}});
+    p.w.document.querySelector('[name="submit-prices"]').remove();
+    const other=p.w.document.createElement('form');other.innerHTML='<button name="submit-prices">Submit</button>';
+    p.w.document.body.append(other);let submitted=0;other.addEventListener('submit',event=>{event.preventDefault();submitted++;});
+    await load(p);await until(()=>p.w.document.querySelector('#aes-div-analysis').textContent.includes('Price submission form is unavailable'));
+    assert.equal(submitted,0);assert.equal(p.submissions.length,0);assert.equal(p.saved[key],undefined);
+});
+test('native sibling submitter still waits in the page queue',async t=>{
+    const p=inventory(t);const form=p.w.document.querySelector('form');
+    form.classList.remove('pricing');const panel=p.w.document.createElement('div');panel.className='pricing';
+    panel.append(form.querySelector('table'));form.prepend(panel);
+    await load(p);let grant;
+    p.w.chrome.runtime.sendMessage=(message,callback)=>message.op==='poll'?(grant=callback):callback({ok:true,state:'queued'});
+    click(p,'[name="submit-prices"]');await until(()=>grant);assert.equal(p.submissions.length,0);
+    grant({ok:true,state:'running',expires:Date.now()+10000});await until(()=>p.submissions.length===1);
+});
+test('queued pricing rejects edits to externally associated form controls',async t=>{
+    const p=inventory(t);const form=p.w.document.querySelector('form');form.id='price-form';
+    const external=p.w.document.createElement('input');external.name='scope';external.value='all';external.setAttribute('form',form.id);form.after(external);
+    await load(p);let grant;
+    p.w.chrome.runtime.sendMessage=(message,callback)=>message.op==='poll'?(grant=callback):callback({ok:true,state:'queued'});
+    click(p,'#aes-btn-invPricing-apply-new-prices');await until(()=>grant);
+    external.value='changed';grant({ok:true,state:'running',expires:Date.now()+10000});
+    await until(()=>!p.w.document.querySelector('#aes-btn-invPricing-apply-new-prices').disabled);
+    assert.equal(p.submissions.length,0);assert.equal(p.saved[key],undefined);
+});

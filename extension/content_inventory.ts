@@ -1148,8 +1148,20 @@ function getTargetPricingUpdates(prices: AESModel.InventoryPrices, useReferenceP
     return targetPrices;
 }
 
+/** Form ownership, rather than visual containment, identifies the price submit action. */
+function getPriceSubmission() {
+    const inputs=Object.values(getPriceDetails()).map(price=>price.newPriceInput);
+    const form=inputs[0].form;
+    if (!form || !form.isConnected || inputs.some(input=>input.form!==form)) return null;
+    const submitters=Array.from(form.elements).filter((element): element is HTMLButtonElement | HTMLInputElement =>
+        (element instanceof HTMLButtonElement || element instanceof HTMLInputElement) &&
+        element.name==='submit-prices' && element.type==='submit' && !element.matches(':disabled'));
+    if (submitters.length!==1) return null;
+    return {form,submitter:submitters[0]};
+}
+
 function priceFormSignature(form: HTMLFormElement) {
-    return JSON.stringify([form.action, form.method, form.target]) + Array.from(form.querySelectorAll('input, select, textarea')).map(el => {
+    return JSON.stringify([form.action, form.method, form.target]) + Array.from(form.elements).map(el => {
         if (el instanceof HTMLInputElement) return [el.name, el.value, el.checked];
         if (el instanceof HTMLSelectElement || el instanceof HTMLTextAreaElement) return [el.name, el.value];
         return [];
@@ -1157,8 +1169,9 @@ function priceFormSignature(form: HTMLFormElement) {
 }
 
 function watchNativePriceSubmission() {
-    const form = document.querySelector('.pricing [name="submit-prices"]')?.closest('form');
-    if (!(form instanceof HTMLFormElement) || watchedPriceForms.has(form)) return;
+    const submission=getPriceSubmission();
+    if (!submission || watchedPriceForms.has(submission.form)) return;
+    const {form}=submission;
     watchedPriceForms.add(form);
     form.addEventListener('submit', event => {
         if (authorizedPriceSubmit) return;
@@ -1188,11 +1201,11 @@ function watchNativePriceSubmission() {
 
 async function submitPendingPricingUpdate(targetPrices: Partial<Record<AESModel.Cabin, number>>, status: JQuery, revision: number) {
     if (!Object.keys(targetPrices).length) throw new Error(AESI18n.t("No valid target prices were found. Prices were not submitted."));
-    const submitter = document.querySelector<HTMLButtonElement>('.pricing [name="submit-prices"]');
-    const form = submitter?.closest('form');
-    if (!submitter || !form) throw new Error(AESI18n.t("Price submission form is unavailable."));
+    const submission=getPriceSubmission();
+    if (!submission) throw new Error(AESI18n.t("Price submission form is unavailable."));
+    const {form,submitter}=submission;
     const signature = priceFormSignature(form);
-    const current = () => isInventoryCurrent(revision) && form.isConnected && signature === priceFormSignature(form);
+    const current = () => isInventoryCurrent(revision) && form.isConnected && submitter.isConnected && submitter.form===form && !submitter.matches(':disabled') && signature === priceFormSignature(form);
     status.text(AESI18n.t('Waiting in the page queue to submit prices...'));
     const slot = await AES.queuePage(location.href, 'price', current);
     try {
