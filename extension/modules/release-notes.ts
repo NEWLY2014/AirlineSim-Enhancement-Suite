@@ -1,5 +1,19 @@
 const AES_RELEASE_NOTES_STORAGE_KEY = "aesReleaseNotesSeenVersion"
 const AES_RELEASE_NOTES: Record<string, AESModel.ReleaseNotes | undefined> = {
+    "0.9.0-beta.2": {
+        "title": "Release Notes",
+        "releaseDate": "2026-09-20",
+        "summary": "0.9.0 beta 2: inventory price submission compatibility fix.",
+        "sections": [
+            {
+                "title": "Fixed",
+                "items": [
+                    "Find the price submission button through its actual form, including buttons outside the pricing panel.",
+                    "Keep queued price validation and reject edits to externally associated form controls."
+                ]
+            }
+        ]
+    },
     "0.9.0-beta": {
         "title": "Release Notes",
         "releaseDate": "2026-09-18",

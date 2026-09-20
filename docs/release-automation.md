@@ -49,3 +49,12 @@ The `Release extension` workflow packages the extension with `npm run package` a
 If you run the workflow manually from GitHub Actions, run it from `main` and enter the existing version tag, such as `v0.8.8`, in the `release_tag` input.
 
 Chrome Web Store publishing still goes through Google's normal review process. The workflow submits the item for review; the update appears in the store after approval.
+
+## Numbered beta builds
+
+Use `v0.9.0-beta.2` for the second preview, with `package.json` and
+`manifest.version_name` set to `0.9.0-beta.2`, and the numeric
+`manifest.version` set to `0.9.0.2`. The release workflow validates this mapping.
+Each subsequent upload to the same store listing must use a greater numeric
+version. A later stable upload to the beta listing must also account for the
+fourth component; do not downgrade it to `0.9.0`.

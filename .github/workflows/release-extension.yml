@@ -69,8 +69,13 @@ jobs:
               EXPECTED_DISPLAY_VERSION="$VERSION-beta"
               ;;
             *)
-              echo "Tag must be v$VERSION for a stable release or v$VERSION-beta for a beta release." >&2
-              exit 1
+              if [[ "$RELEASE_TAG" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)-beta\.([1-9][0-9]*)$ ]] && [ "$VERSION" = "${BASH_REMATCH[1]}.${BASH_REMATCH[2]}" ]; then
+                CHANNEL=beta
+                EXPECTED_DISPLAY_VERSION="${RELEASE_TAG#v}"
+              else
+                echo "Tag and manifest version do not match a supported stable or beta release." >&2
+                exit 1
+              fi
               ;;
           esac
 
