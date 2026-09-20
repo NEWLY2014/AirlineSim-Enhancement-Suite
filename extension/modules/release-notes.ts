@@ -1,5 +1,21 @@
 const AES_RELEASE_NOTES_STORAGE_KEY = "aesReleaseNotesSeenVersion"
 const AES_RELEASE_NOTES: Record<string, AESModel.ReleaseNotes | undefined> = {
+    "0.9.0-beta.3": {
+        "title": "Release Notes",
+        "releaseDate": "2026-09-20",
+        "summary": "More reliable automatic scheduling and complete flight labels and release history.",
+        "sections": [
+            {
+                "title": "Fixed",
+                "items": [
+                    "Wait for each planner server update to finish before the next scheduling action; stop on failed or missing responses.",
+                    "Preserve the source service day's fixed-arrival setting and recover from arrival controls reset by a confirmed server response.",
+                    "Recover airline prefixes from other flight blocks and show complete flight names for existing templates.",
+                    "Restore access to earlier release notes from beta versions."
+                ]
+            }
+        ]
+    },
     "0.9.0-beta.2": {
         "title": "Release Notes",
         "releaseDate": "2026-09-20",
