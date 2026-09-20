@@ -43,7 +43,7 @@ The workflow installs dependencies, runs type checking (when available for the r
 
 The `Release extension` workflow packages the extension with `npm run package` and then follows the selected channel:
 
-- Beta tags upload and submit only to the Chrome Web Store beta listing. Its existing trusted-tester visibility is retained. Do not create GitHub Releases or GitHub pre-releases for beta builds, and do not upload beta packages as GitHub release assets. Keep the Git tags for version tracking and workflow dispatch.
+- Beta tags upload and submit only to the Chrome Web Store beta listing. Its existing trusted-tester visibility is retained. Do not create GitHub Releases or GitHub pre-releases for beta builds, and do not upload beta packages as GitHub release assets. Beta tags are temporary workflow triggers: remove them locally and from GitHub after the release run finishes. Record the release commit in the Changelog so comparisons remain available.
 - Stable tags upload and submit to the beta listing and the stable listing, then create or update the GitHub Release with the same zip. If the beta listing already has the same `manifest.version` from an earlier beta build, the workflow treats that listing as already covered and skips its duplicate upload.
 
 If you run the workflow manually from GitHub Actions, run it from `main` and enter the existing version tag, such as `v0.8.8`, in the `release_tag` input.
