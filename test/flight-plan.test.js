@@ -163,6 +163,34 @@ test('changing the flight selector saves waitForSelection without submitting a f
     assert.equal(p.submissions.length,0);
 });
 
+for (const [savedLabel,airlineCode,expected] of [['200','AA','AA 200'],['200','5X','5X 200'],['AA 200','AA','AA 200']]) {
+    test(`first flight loading includes the airline prefix for ${savedLabel} on ${airlineCode}`,async t=>{
+        const first={...entry,flightCode:savedLabel,flightNumberLabel:savedLabel,flightNumberToken:'200',flightNumberValue:'20'};
+        const p=page(t,{data:{[templateKey]:template({flights:[first]}),[jobKey]:job({entries:[first]})}});
+        p.w.document.querySelector('._code_test').textContent=airlineCode;
+        await load(p);
+        await waitForPlanner(()=>p.saved[jobKey]?.status==='waitForSelection' || p.saved[jobKey]?.status==='error');
+        assert.equal(p.saved[jobKey].status,'waitForSelection',JSON.stringify(p.errors));
+        assert.equal(p.w.document.querySelector('#aes-aircraft-flight-plan-runtime').textContent,`Loading ${expected}...`);
+        assert.equal(p.saved[templateKey].flights[0].flightCode,savedLabel);
+        assert.equal(p.w.document.querySelector('select').value,'20');
+        assert.equal(p.submissions.length,0);
+    });
+}
+
+for (const [departureLabel,arrivalLabel,expected] of [['100','5X 100','5X 100'],['','AA 100','AA 100'],['100','100','AA 100']]) {
+    test(`template extraction restores the full label from short departure block '${departureLabel}'`,async t=>{
+        const short=block(0,'2355','','started').replace('AA 100',departureLabel);
+        const arrival=block(0,'','0930','ended').replace('AA 100',arrivalLabel);
+        const p=page(t,{days:{0:short,1:arrival}});
+        await load(p);button(p,'Extract template').click();await until(()=>p.saved[templateKey]);
+        const flight=p.saved[templateKey].flights[0];
+        assert.equal(flight.flightCode,expected);assert.equal(flight.flightNumberLabel,expected);
+        assert.equal(flight.flightNumberToken,'100');assert.equal(flight.flightNumberValue,'10');
+        assert.deepEqual(flight.selectedDays,[0]);
+    });
+}
+
 test('failed template writes preserve the previous template and allow retry', async t => {
     const original = template();
     const p = page(t,{days:{0:block(0,'0700','0930')},data:{[templateKey]:original}});

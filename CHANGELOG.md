@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Recover complete flight names from other blocks when short departure blocks omit the airline code, and include the airline code in scheduling status messages for existing numeric-only templates.
+
 - Wait for the server response to finish updating the planner after each day-selection, fixed-arrival or arrival-time change. Retry complete arrival settings after confirmed resets; stop on failed or missing responses before making another change or submitting.
 
 - Restore access to earlier release notes from beta versions by correctly comparing prerelease version numbers.

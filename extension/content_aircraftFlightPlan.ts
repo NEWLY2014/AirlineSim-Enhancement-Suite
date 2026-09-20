@@ -497,6 +497,14 @@ function afp_renderPanel() {
 
 function afp_getUniqueFlightEntries() {
     let entries: Record<string, AESModel.VisualFlightPlanEntry> = {};
+    const completeLabels = new Map<string, string>();
+    // Short departure blocks may omit the airline prefix. Arrival blocks and
+    // other service days can still carry the full name for the same flight ID.
+    afp_getVisualPlan().find('.block.flight').each(function() {
+        const id = afp_getVisualBlockFlightNumberId(this);
+        const label = $('.code', this).first().text().trim().replace(/\s+/g, ' ');
+        if (id && /^[A-Za-z0-9]{2,3} \d+$/.test(label)) completeLabels.set(id, label);
+    });
 
     afp_getVisualPlan().find('.day').each(function(dayIndex) {
         $(this).find('.blocks .block.flight.started').each(function() {
@@ -550,6 +558,9 @@ function afp_getUniqueFlightEntries() {
 
     return Object.keys(entries).map(function(key) {
         let entry = entries[key];
+        entry.flightCode = completeLabels.get(entry.flightNumberValue || '') || afp_getFlightDisplayName(entry);
+        entry.flightNumberLabel = entry.flightCode;
+        entry.flightNumberToken = afp_extractFlightNumberToken(entry.flightCode);
         entry.selectedDays.sort(function(a, b) {
             return a - b;
         });
@@ -640,6 +651,12 @@ function afp_normalizeJob(value: unknown): AESModel.FlightPlanJob | null {
     return { ...value, type: value.type, status: value.status, entries: value.entries,
         currentIndex: value.currentIndex, offsetDays: value.offsetDays, targetAircraftId: value.targetAircraftId,
         targetRegistration: value.targetRegistration, errorMessage: value.errorMessage };
+}
+
+function afp_getFlightDisplayName(entry: AESModel.FlightPlanEntry) {
+    const label = (entry.flightCode || entry.flightNumberLabel || entry.flightNumberToken || '').trim();
+    const airlineCode = (aircraftFlightPlanState.airline.code || '').trim();
+    return airlineCode && /^\d+$/.test(label) ? airlineCode + ' ' + label : label;
 }
 
 function afp_extractFlightNumberToken(text: string) {
@@ -1033,7 +1050,7 @@ function afp_selectExistingFlight(entry: AESModel.FlightPlanEntry) {
 
     let option = afp_findMatchingOption(select, entry);
     if (!option.length) {
-        throw new Error(AESI18n.t("Could not match flight number {0} on target aircraft.", {0: (entry.flightCode || entry.flightNumberLabel)}));
+        throw new Error(AESI18n.t("Could not match flight number {0} on target aircraft.", {0: afp_getFlightDisplayName(entry)}));
     }
 
     select.val(String(option.val() || ''));
@@ -1367,7 +1384,7 @@ async function afp_applyFlightEntryToPlanner(entry: AESModel.FlightPlanEntry, of
     }
     let sourceSegmentSettings = afp_getPlannerSourceDaySettings(entry);
     if (!sourceSegmentSettings.length) {
-        throw new Error(AESI18n.t("Could not find planner segments for {0}.", {0: (entry.flightCode || entry.flightNumberLabel)}));
+        throw new Error(AESI18n.t("Could not find planner segments for {0}.", {0: afp_getFlightDisplayName(entry)}));
     }
 
     let targetDays: AESModel.PlannerTargetDays = {};
@@ -1572,13 +1589,13 @@ async function afp_processJob() {
             job.status = 'waitForSelection';
             await afp_saveJob();
             afp_renderPanel();
-            afp_setRuntimeMessage(AESI18n.t("Loading {0}...", {"0": entry.flightCode}), 'warning');
+            afp_setRuntimeMessage(AESI18n.t("Loading {0}...", {"0": afp_getFlightDisplayName(entry)}), 'warning');
             afp_selectExistingFlight(entry);
             return;
         }
 
         if (job.status === 'applying') {
-            afp_setRuntimeMessage(AESI18n.t("Applying {0}...", {"0": entry.flightCode}), 'warning');
+            afp_setRuntimeMessage(AESI18n.t("Applying {0}...", {"0": afp_getFlightDisplayName(entry)}), 'warning');
             await afp_applyFlightEntryToPlanner(entry, job.offsetDays);
             afp_assertJobAction();
             job.status = 'waitForApply';
@@ -1599,7 +1616,7 @@ async function afp_processJob() {
                 continue;
             }
             if (!afp_entryDaysAppearInVisualPlan(entry, job.offsetDays) || !afp_getCorrectionEditLink(entry, job.offsetDays).length) {
-                await afp_failJob(AESI18n.t("Could not confirm scheduled days and arrival times for {0}.", {0: entry.flightCode}));
+                await afp_failJob(AESI18n.t("Could not confirm scheduled days and arrival times for {0}.", {0: afp_getFlightDisplayName(entry)}));
                 return;
             }
 
@@ -1610,13 +1627,13 @@ async function afp_processJob() {
         }
 
         if (job.status === 'correcting') {
-            afp_setRuntimeMessage(AESI18n.t("Correcting arrival time for {0}...", {"0": entry.flightCode}), 'warning');
+            afp_setRuntimeMessage(AESI18n.t("Correcting arrival time for {0}...", {"0": afp_getFlightDisplayName(entry)}), 'warning');
             if (job.correctionUrl !== location.href || job.correctionIndex !== job.currentIndex) {
                 const previousForm = afp_getPlannerForm()[0];
                 const previousAction = afp_getPlannerForm().attr('action');
                 const editLink = afp_getCorrectionEditLink(entry, job.offsetDays);
                 if (!editLink.length) {
-                    await afp_failJob(AESI18n.t("Could not open arrival time correction for {0}.", {0: entry.flightCode}));
+                    await afp_failJob(AESI18n.t("Could not open arrival time correction for {0}.", {0: afp_getFlightDisplayName(entry)}));
                     return;
                 }
                 job.correctionUrl = new URL(editLink.attr('href')!, location.href).href;
@@ -1628,7 +1645,7 @@ async function afp_processJob() {
                         afp_correctionPlannerIsReady(entry, job.offsetDays);
                 }, 5000, 100);
                 if (!ready) {
-                    await afp_failJob(AESI18n.t("Arrival time correction did not become ready for {0}.", {0: entry.flightCode}));
+                    await afp_failJob(AESI18n.t("Arrival time correction did not become ready for {0}.", {0: afp_getFlightDisplayName(entry)}));
                     return;
                 }
             }
@@ -1646,7 +1663,7 @@ async function afp_processJob() {
 
         if (job.status === 'waitForCorrectionApply') {
             if (!afp_entryAppearsInVisualPlan(entry, job.offsetDays)) {
-                await afp_failJob(AESI18n.t("Automatic arrival time correction failed for {0}.", {0: entry.flightCode}));
+                await afp_failJob(AESI18n.t("Automatic arrival time correction failed for {0}.", {0: afp_getFlightDisplayName(entry)}));
                 return;
             }
             job.currentIndex++;
