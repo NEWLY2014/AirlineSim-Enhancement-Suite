@@ -27,6 +27,45 @@ function page(html, path = '/app/info/enterprises/12685?tab=0') {
 }
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 
+test('version ordering includes numbered betas without changing legacy ordering', () => {
+    const p = page(settings + header);
+    try {
+        const ordered = ['0.6.4', '0.7.0a', '0.7.0d', '0.7.0', '0.8.13',
+            '0.9.0-alpha', '0.9.0-beta', '0.9.0-beta.2', '0.9.0-beta.10', '0.9.0-rc.1', '0.9.0', '0.9.1'];
+        for (let i = 0; i < ordered.length; i++) {
+            for (let j = 0; j < ordered.length; j++) {
+                assert.equal(p.aes.compareVersions(ordered[i], ordered[j]), Math.sign(i - j), `${ordered[i]} vs ${ordered[j]}`);
+            }
+        }
+    } finally { p.close(); }
+});
+
+test('beta release notes retain stable history and support paging back to the current release', () => {
+    const p = page(settings + header);
+    try {
+        p.aes.runContentScript = () => {};
+        p.w.HTMLDialogElement.prototype.showModal = function() { this.open = true; };
+        p.w.HTMLDialogElement.prototype.close = function() { this.open = false; };
+        p.load('modules/release-notes.js');
+        runInContext("new ReleaseNotesDialog('0.9.0-beta.2')", p.dom.getInternalVMContext());
+        const d = p.w.document;
+        const previous = d.querySelector('[aria-label="Previous release"]');
+        const next = d.querySelector('[aria-label="Next release"]');
+        const version = () => d.querySelector('.aes-release-notes-page-indicator').textContent;
+        assert.equal(version(), 'v0.9.0-beta.2');
+        assert.equal(next.disabled, true);
+        previous.click();
+        assert.equal(version(), 'v0.9.0-beta');
+        previous.click();
+        assert.equal(version(), 'v0.8.13');
+        assert.ok(d.querySelector('.aes-release-notes-sections').textContent.length > 0);
+        previous.click();
+        assert.equal(version(), 'v0.8.12');
+        next.click(); next.click(); next.click();
+        assert.equal(version(), 'v0.9.0-beta.2');
+    } finally { p.close(); }
+});
+
 test('new header separates controlled airline from viewed competitor without a cache', () => {
     const p = page(settings + header + overview);
     assert.equal(p.aes.getCurrentAirline().id, '13150');

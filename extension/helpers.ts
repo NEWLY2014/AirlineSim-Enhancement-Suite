@@ -759,23 +759,24 @@ class AES {
     }
 
     /**
-     * Compares AES versions, including legacy letter suffixes such as 0.7.0d.
+     * Compares AES versions, including prereleases and legacy letter suffixes.
      * @param {string} versionA
      * @param {string} versionB
      * @returns {integer} 1 | 0 | -1
      */
     static compareVersions(versionA: string, versionB: string) {
         function parseVersion(value: string) {
-            const match = String(value || "0.0.0").trim().match(/^(\d+)\.(\d+)\.(\d+)([A-Za-z]*)$/);
+            const match = String(value || "0.0.0").trim().match(/^(\d+)\.(\d+)\.(\d+)([A-Za-z]*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/);
             if (!match) {
-                return { major: 0, minor: 0, patch: 0, suffix: "" };
+                return { major: 0, minor: 0, patch: 0, suffix: "", prerelease: "" };
             }
 
             return {
                 major: parseInt(match[1], 10),
                 minor: parseInt(match[2], 10),
                 patch: parseInt(match[3], 10),
-                suffix: (match[4] || "").toLowerCase()
+                suffix: (match[4] || "").toLowerCase(),
+                prerelease: match[5] || ""
             };
         }
 
@@ -794,6 +795,25 @@ class AES {
         }
 
         if (a.suffix === b.suffix) {
+            if (a.prerelease === b.prerelease) return 0;
+            if (!a.prerelease) return 1;
+            if (!b.prerelease) return -1;
+            const left = a.prerelease.split(".");
+            const right = b.prerelease.split(".");
+            for (let i = 0; i < Math.max(left.length, right.length); i++) {
+                if (left[i] === undefined) return -1;
+                if (right[i] === undefined) return 1;
+                if (left[i] === right[i]) continue;
+                const leftNumeric = /^\d+$/.test(left[i]);
+                const rightNumeric = /^\d+$/.test(right[i]);
+                if (leftNumeric && rightNumeric) {
+                    const difference = Number(left[i]) - Number(right[i]);
+                    if (difference) return difference > 0 ? 1 : -1;
+                    continue;
+                }
+                if (leftNumeric !== rightNumeric) return leftNumeric ? -1 : 1;
+                return left[i] > right[i] ? 1 : -1;
+            }
             return 0;
         }
         if (!a.suffix) {
