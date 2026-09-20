@@ -58,3 +58,10 @@ Use `v0.9.0-beta.2` for the second preview, with `package.json` and
 Each subsequent upload to the same store listing must use a greater numeric
 version. A later stable upload to the beta listing must also account for the
 fourth component; do not downgrade it to `0.9.0`.
+
+## Stable release Changelog
+
+A stable release Changelog compares the final release directly with the previous
+stable release. Consolidate all intervening beta changes into that stable entry;
+do not list beta versions, beta headings, beta links or beta iteration history
+in the stable Changelog. For 0.9.0, the comparison baseline is 0.8.13.
