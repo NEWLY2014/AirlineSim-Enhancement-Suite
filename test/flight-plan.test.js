@@ -333,3 +333,48 @@ test('arrival confirmation distinguishes same-day and next-day times', async t =
     await until(() => !correct.saved[jobKey]);
     assert.equal(correct.submissions.length,0);
 });
+
+async function waitForPlanner(check) {
+    const deadline=Date.now()+6000;
+    while(Date.now()<deadline){if(check())return;await new Promise(resolve=>setTimeout(resolve,20));}
+    assert.ok(check(),'Planner did not reach the expected state');
+}
+test('planner rechecks fixed arrivals after a time-change redraw clears the checkbox',async t=>{
+    const form=planner.replace('newArrival:minutes"><option value="30" selected>30</option>', 'newArrival:minutes"><option value="51" selected>51</option><option value="30">30</option>');
+    const p=page(t,{form,data:{[templateKey]:template()}});let redraws=0;
+    p.w.document.addEventListener('change',event=>{
+        if(event.target.name?.includes('newArrival:minutes')){
+            const fixed=p.w.document.querySelector('input[name*="fixedArrivalSelection:0:"]');
+            fixed.checked=false;redraws++;
+        }
+    });
+    await load(p);button(p,'Start scheduling').click();await waitForPlanner(()=>p.submissions.length);
+    assert.ok(redraws>0);assert.equal(p.submissions[0].fixedArrivals[0],true);
+});
+test('planner repairs a delayed reset after saving its pending job',async t=>{
+    const p=page(t,{data:{[templateKey]:template()}});
+    const set=p.w.chrome.storage.local.set;
+    p.w.chrome.storage.local.set=(values,callback)=>{
+        if(values[jobKey]?.status==='waitForApply')p.w.setTimeout(()=>{
+            p.w.document.querySelector('input[name*="fixedArrivalSelection:0:"]').checked=false;
+        },100);
+        return set(values,callback);
+    };
+    await load(p);button(p,'Start scheduling').click();await waitForPlanner(()=>p.submissions.length);
+    assert.equal(p.submissions[0].fixedArrivals[0],true);assert.equal(p.submissions.length,1);
+});
+
+test('planner never submits if fixed arrival keeps being reset',async t=>{
+    const p=page(t,{data:{[templateKey]:template()}});let reset;
+    const set=p.w.chrome.storage.local.set;
+    p.w.chrome.storage.local.set=(values,callback)=>{
+        if(values[jobKey]?.status==='waitForApply')reset=p.w.setInterval(()=>{
+            p.w.document.querySelector('input[name*="fixedArrivalSelection:0:"]').checked=false;
+        },20);
+        return set(values,callback);
+    };
+    t.after(()=>p.w.clearInterval(reset));
+    await load(p);button(p,'Start scheduling').click();await waitForPlanner(()=>p.saved[jobKey]?.status==='error');
+    assert.equal(p.submissions.length,0);
+    assert.match(p.saved[jobKey].errorMessage,/arrival time/);
+});

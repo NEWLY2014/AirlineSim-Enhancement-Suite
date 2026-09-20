@@ -1373,6 +1373,32 @@ function afp_plannerDaysMatch(entry: AESModel.FlightPlanEntry, offsetDays: numbe
     return true;
 }
 
+/** Planner AJAX refreshes can reset earlier fixed-arrival controls while other days are edited. */
+async function afp_confirmPlannerArrivals(entry: AESModel.FlightPlanEntry, offsetDays: number, requireSelection = true) {
+    for (let attempt=0; attempt<3; attempt++) {
+        afp_assertJobAction();
+        if (requireSelection && !afp_selectionMatchesEntry(afp_getSelectedExistingFlight(), entry)) throw new Error(AESI18n.t("Flight selection changed."));
+        if (!requireSelection && !afp_correctionPlannerIsReady(entry, offsetDays)) throw new Error(AESI18n.t("Correction planner does not match the scheduled flight."));
+        if (!afp_plannerDaysMatch(entry, offsetDays)) throw new Error(AESI18n.t("Planner days do not match the template."));
+        for (const segment of afp_getPlannerSourceDaySettings(entry)) {
+            for (const day of entry.selectedDays) {
+                await afp_syncPlannerArrivalTime(afp_getPlannerForm(), segment.index, (day+offsetDays)%7, segment.days[day]);
+            }
+        }
+        let stableSince=0;
+        const stable=await afp_waitFor(()=>{
+            try { afp_validatePlanner(entry, offsetDays, requireSelection); }
+            catch { stableSince=0; return false; }
+            stableSince ||= Date.now();
+            return Date.now()-stableSince>=240;
+        },800,40);
+        if (stable) return;
+    }
+    afp_validatePlanner(entry, offsetDays, requireSelection);
+    // Even transiently correct values are not enough after repeated asynchronous resets.
+    throw new Error(AESI18n.t("Template arrival time could not be applied."));
+}
+
 function afp_validatePlanner(entry: AESModel.FlightPlanEntry, offsetDays: number, requireSelection = true) {
     if (requireSelection && !afp_selectionMatchesEntry(afp_getSelectedExistingFlight(), entry)) throw new Error(AESI18n.t("Flight selection changed."));
     if (!afp_plannerDaysMatch(entry, offsetDays)) {
@@ -1532,6 +1558,7 @@ async function afp_processJob() {
             job.status = 'waitForApply';
             await afp_saveJob();
             afp_renderPanel();
+            await afp_confirmPlannerArrivals(entry, job.offsetDays);
             afp_validatePlanner(entry, job.offsetDays);
             afp_submitPlanner();
             return;
@@ -1585,6 +1612,7 @@ async function afp_processJob() {
             job.status = 'waitForCorrectionApply';
             await afp_saveJob();
             afp_renderPanel();
+            await afp_confirmPlannerArrivals(entry, job.offsetDays, false);
             afp_validatePlanner(entry, job.offsetDays, false);
             afp_submitPlanner();
             return;

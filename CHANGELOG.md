@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Reconcile fixed arrival times after planner refreshes and require stable template-matching arrival settings before submitting a schedule or an arrival correction. Stop without submitting if the planner keeps resetting these controls.
+
 ## [0.9.0-beta.2] - 2026-09-20
 
 This beta contains all changes since **0.8.13**. It previews the upcoming 0.9.0 release. Beta 2 adds the inventory price-form ownership fix.
