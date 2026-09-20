@@ -605,6 +605,7 @@ function afp_isEntry(value: unknown): value is AESModel.FlightPlanEntry {
             value[key] === undefined || typeof value[key] === 'string') &&
         ['flightCode', 'flightNumberLabel', 'flightNumberToken', 'flightNumberValue'].some(key =>
             typeof value[key] === 'string' && value[key].trim() !== '') &&
+        (value.arrivalModes === undefined || (AES.isRecord(value.arrivalModes) && Object.values(value.arrivalModes).every(days=>AES.isRecord(days) && Object.values(days).every(fixed=>typeof fixed==='boolean')))) &&
         Array.isArray(value.selectedDays) && value.selectedDays.length > 0 &&
         value.selectedDays.every(day => Number.isInteger(day) && day >= 0 && day <= 6) &&
         (value.daySettings === undefined || (AES.isRecord(value.daySettings) && Object.values(value.daySettings).every(afp_isDaySettings)));
@@ -1263,20 +1264,24 @@ async function afp_setPlannerArrivalSelect(segmentIndex: number, day: number, pa
     }
 }
 
-async function afp_setPlannerFixedArrival(segmentIndex: number, day: number) {
+async function afp_setPlannerFixedArrival(segmentIndex: number, day: number, fixed = true) {
     let checkbox = afp_getFixedArrivalCheckbox(afp_getPlannerForm(), segmentIndex, day);
     if (!checkbox.length) throw new Error(AESI18n.t("Required fixed arrival control is missing."));
-    if (checkbox.prop('checked')) return;
+    if (!!checkbox.prop('checked') === fixed) return;
 
     afp_clickElement(checkbox);
     let applied = await afp_waitFor(function() {
         let current = afp_getFixedArrivalCheckbox(afp_getPlannerForm(), segmentIndex, day);
-        return current.length && current.prop('checked');
+        return current.length && !!current.prop('checked') === fixed;
     }, 3000, 80);
-    if (!applied) throw new Error(AESI18n.t("Template fixed arrival time could not be enabled."));
+    if (!applied) throw new Error(AESI18n.t("Template fixed arrival setting could not be applied."));
 }
 
 async function afp_syncPlannerArrivalTime(plannerForm: JQuery, segmentIndex: number, day: number, daySettings: AESModel.PlannerArrival) {
+    if (!daySettings.fixedArrival) {
+        await afp_setPlannerFixedArrival(segmentIndex, day, false);
+        return;
+    }
     let arrivalSelects = afp_getArrivalSelects(plannerForm, segmentIndex, day);
     if (!arrivalSelects.hours.length || !arrivalSelects.minutes.length) {
         throw new Error(AESI18n.t("Required arrival time controls are missing."));
@@ -1316,6 +1321,7 @@ function afp_getPlannerSourceDaySettings(entry: AESModel.FlightPlanEntry) {
             let segmentSetting = daySetting.segments && daySetting.segments[segmentIndex] ? daySetting.segments[segmentIndex] : {};
             let arrival: AESModel.FlightPlanTime = segmentSetting.arrival || daySetting.arrival || {};
             days[sourceDay] = {
+                fixedArrival: entry.arrivalModes?.[segmentIndex]?.[sourceDay] ?? true,
                 arrivalDayOffset: parseInt(String(arrival.dayOffset || 0), 10) || 0,
                 arrivalHours: String(arrival.hours || ''),
                 arrivalMinutes: String(arrival.minutes || ''),
@@ -1335,6 +1341,20 @@ async function afp_applyFlightEntryToPlanner(entry: AESModel.FlightPlanEntry, of
         throw new Error(AESI18n.t("Planner is not loaded for the expected flight number."));
     }
 
+    if (!entry.arrivalModes) {
+        const modes: Record<string, Record<string, boolean>> = {};
+        for (const segment of afp_collectSegmentIndexes()) {
+            modes[segment]={};
+            for (const sourceDay of entry.selectedDays) {
+                const checkbox=afp_getFixedArrivalCheckbox(afp_getPlannerForm(),segment,sourceDay);
+                if (!checkbox.length) throw new Error(AESI18n.t("Required fixed arrival control is missing."));
+                modes[segment][sourceDay]=!!checkbox.prop('checked');
+            }
+        }
+        entry.arrivalModes=modes;
+        // Persist source-day modes before selecting target days, including overlapping days.
+        await afp_saveJob();
+    }
     let sourceSegmentSettings = afp_getPlannerSourceDaySettings(entry);
     if (!sourceSegmentSettings.length) {
         throw new Error(AESI18n.t("Could not find planner segments for {0}.", {0: (entry.flightCode || entry.flightNumberLabel)}));
@@ -1411,9 +1431,10 @@ function afp_validatePlanner(entry: AESModel.FlightPlanEntry, offsetDays: number
         const targetDay = (day + offsetDays) % 7;
         const fixedArrival = afp_getFixedArrivalCheckbox(afp_getPlannerForm(), segment.index, targetDay);
         const actual = afp_getArrivalValueSnapshot(segment.index, targetDay);
-        if (!fixedArrival.length || !fixedArrival.prop('checked')) {
-            throw new Error(AESI18n.t("Planner arrival time is not fixed."));
+        if (!fixedArrival.length || !!fixedArrival.prop('checked') !== expected.fixedArrival) {
+            throw new Error(AESI18n.t("Planner fixed arrival setting does not match the template."));
         }
+        if (!expected.fixedArrival) continue;
         if (!expected.arrivalHours || !expected.arrivalMinutes || !actual.hours || !actual.minutes ||
             Number(actual.hours) !== Number(expected.arrivalHours) || Number(actual.minutes) !== Number(expected.arrivalMinutes)) {
             throw new Error(AESI18n.t("Planner arrival time does not match the template."));

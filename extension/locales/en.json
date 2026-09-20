@@ -739,5 +739,7 @@
   "Complete consecutive integer ranges from 0 to 100 to preview step rules.": "Complete consecutive integer ranges from 0 to 100 to preview step rules.",
   "Step rules use rounded load percentages. The first matching rule applies at shared boundaries.": "Step rules use rounded load percentages. The first matching rule applies at shared boundaries.",
   "Change (pp)": "Change (pp)",
-  "Pricing mode applies to all compartments.": "Pricing mode applies to all compartments."
+  "Pricing mode applies to all compartments.": "Pricing mode applies to all compartments.",
+  "Template fixed arrival setting could not be applied.": "Template fixed arrival setting could not be applied.",
+  "Planner fixed arrival setting does not match the template.": "Planner fixed arrival setting does not match the template."
 }

@@ -11,6 +11,7 @@ declare namespace AESModel {
         segments?: Record<string, { arrival?: FlightPlanTime }>;
     }
     interface FlightPlanEntry {
+        arrivalModes?: Record<string, Record<string, boolean>>;
         flightCode?: string;
         flightNumberLabel?: string;
         flightNumberToken?: string;
@@ -63,6 +64,7 @@ declare namespace AESModel {
         templateStale: boolean;
     }
     interface PlannerArrival {
+        fixedArrival: boolean;
         arrivalDayOffset: number;
         arrivalHours: string;
         arrivalMinutes: string;

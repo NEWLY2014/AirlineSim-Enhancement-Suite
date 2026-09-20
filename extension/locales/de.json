@@ -739,5 +739,7 @@
   "Complete consecutive integer ranges from 0 to 100 to preview step rules.": "Vervollständige aufeinanderfolgende ganzzahlige Bereiche von 0 bis 100 für die Vorschau.",
   "Step rules use rounded load percentages. The first matching rule applies at shared boundaries.": "Stufenregeln verwenden gerundete Auslastungsprozente. An gemeinsamen Grenzen gilt die erste passende Regel.",
   "Change (pp)": "Änderung (Pp.)",
-  "Pricing mode applies to all compartments.": "Der Preismodus gilt für alle Klassen."
+  "Pricing mode applies to all compartments.": "Der Preismodus gilt für alle Klassen.",
+  "Template fixed arrival setting could not be applied.": "Die feste Ankunftseinstellung der Vorlage konnte nicht angewendet werden.",
+  "Planner fixed arrival setting does not match the template.": "Die feste Ankunftseinstellung stimmt nicht mit der Vorlage überein."
 }

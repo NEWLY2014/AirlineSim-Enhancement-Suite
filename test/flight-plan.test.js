@@ -9,8 +9,8 @@ const block = (segment, start, end, classes = 'started ended') => `<div class="b
 const visual = days => `<div class="visual-flight-plan">${Array.from({length:7},(_,i) => `<div class="day"><div class="blocks">${days[i] || ''}</div></div>`).join('')}</div>`;
 const select = (name, value) => `<select name="${name}"><option value="${value}" selected>${value}</option></select>`;
 const choice = (name, selected, values) => `<select name="${name}">${values.map(value => `<option value="${value}"${value === selected ? ' selected' : ''}>${value}</option>`).join('')}</select>`;
-const planner = `<form><select name="existingNumber:numbers:numbers_body:input"><option value="10">AA 100</option><option value="20">AA 200</option></select>${Array.from({length:7},(_,i) => `<input type="checkbox" name="days:daySelection:${i}:ticked"><input type="checkbox" name="segmentsContainer:segments:0:fixedArrivalSelection:${i}:fixedArrival">${select(`segmentsContainer:segments:0:newArrivals:${i}:newArrival:hours`,'9')}${select(`segmentsContainer:segments:0:newArrivals:${i}:newArrival:minutes`,'30')}`).join('')}<input type="submit" name="button-submit"></form>`;
-const correctionPlanner = `<form>${Array.from({length:7},(_,i) => `<input type="checkbox" name="days:daySelection:${i}:ticked"${i === 0 ? ' checked' : ''}><input type="checkbox" name="segmentsContainer:segments:0:fixedArrivalSelection:${i}:fixedArrival">${choice(`segmentsContainer:segments:0:newArrivals:${i}:newArrival:hours`,'9',['9'])}${choice(`segmentsContainer:segments:0:newArrivals:${i}:newArrival:minutes`,i === 0 ? '51' : '30',['30','51'])}`).join('')}<input type="submit" name="button-submit"></form>`;
+const planner = `<form><select name="existingNumber:numbers:numbers_body:input"><option value="10">AA 100</option><option value="20">AA 200</option></select>${Array.from({length:7},(_,i) => `<input type="checkbox" name="days:daySelection:${i}:ticked"><input type="checkbox" name="segmentsContainer:segments:0:fixedArrivalSelection:${i}:fixedArrival"${i===6 ? ' checked' : ''}>${select(`segmentsContainer:segments:0:newArrivals:${i}:newArrival:hours`,'9')}${select(`segmentsContainer:segments:0:newArrivals:${i}:newArrival:minutes`,'30')}`).join('')}<input type="submit" name="button-submit"></form>`;
+const correctionPlanner = `<form>${Array.from({length:7},(_,i) => `<input type="checkbox" name="days:daySelection:${i}:ticked"${i === 0 ? ' checked' : ''}><input type="checkbox" name="segmentsContainer:segments:0:fixedArrivalSelection:${i}:fixedArrival"${i===6 ? ' checked' : ''}>${choice(`segmentsContainer:segments:0:newArrivals:${i}:newArrival:hours`,'9',['9'])}${choice(`segmentsContainer:segments:0:newArrivals:${i}:newArrival:minutes`,i === 0 ? '51' : '30',['30','51'])}`).join('')}<input type="submit" name="button-submit"></form>`;
 function page(t, {days = {}, data = {}, form = planner} = {}) {
     const p = browser(t,{path:'/app/fleets/aircraft/123/0',data,html:header + '<h1>Aircraft: AA-123 / A320</h1><h3>Assign a new flight</h3><div class="as-panel">'+form+'</div><h3>Transfer Flight Plan</h3>'+visual(days)});
     const setTimeout = p.w.setTimeout.bind(p.w);
@@ -77,11 +77,11 @@ test('starting a job offsets Sunday to Monday and persists waitForApply before f
     const p = page(t,{data:{[templateKey]:template()}});
     await load(p);
     button(p,'Start scheduling').click();
-    await until(() => p.submissions.length);
+    await waitForPlanner(() => p.submissions.length);
     assert.equal(p.saved[offsetKey],1);
     assert.equal(p.submissions[0].job.status,'waitForApply');
     assert.deepEqual(p.submissions[0].days,[true,false,false,false,false,false,false]);
-    assert.deepEqual(p.submissions[0].fixedArrivals,[true,false,false,false,false,false,false]);
+    assert.deepEqual(p.submissions[0].fixedArrivals,[true,false,false,false,false,false,true]);
     assert.equal(p.submissions.length,1);
 });
 
@@ -119,7 +119,7 @@ test('arrival mismatch opens the scheduled flight, corrects it once and verifies
         p.w.document.querySelector('.as-panel').innerHTML = correctionPlanner;
     });
     await load(p);
-    await until(() => p.submissions.length === 1);
+    await waitForPlanner(() => p.submissions.length === 1);
     assert.equal(p.submissions[0].job.status,'waitForCorrectionApply');
     assert.equal(p.submissions[0].fixedArrivals[0],true);
     assert.equal(p.w.document.querySelector('select[name="segmentsContainer:segments:0:newArrivals:0:newArrival:minutes"]').value,'30');
@@ -244,7 +244,7 @@ test('duplicate start clicks produce only one form submission', async t => {
     await load(p);
     const start = button(p,'Start scheduling');
     start.click(); start.click();
-    await until(() => p.submissions.length);
+    await waitForPlanner(() => p.submissions.length);
     await new Promise(resolve => setTimeout(resolve,100));
     assert.equal(p.submissions.length,1);
 });
@@ -376,5 +376,35 @@ test('planner never submits if fixed arrival keeps being reset',async t=>{
     t.after(()=>p.w.clearInterval(reset));
     await load(p);button(p,'Start scheduling').click();await waitForPlanner(()=>p.saved[jobKey]?.status==='error');
     assert.equal(p.submissions.length,0);
-    assert.match(p.saved[jobKey].errorMessage,/arrival time/);
+    assert.match(p.saved[jobKey].errorMessage,/arrival/);
+});
+
+test('unfixed source day clears target fixed arrival without editing the automatic arrival',async t=>{
+    const p=page(t,{data:{[templateKey]:template()}});
+    p.w.document.querySelector('input[name*="fixedArrivalSelection:6:"]').checked=false;
+    p.w.document.querySelector('input[name*="fixedArrivalSelection:0:"]').checked=true;
+    const minutes=p.w.document.querySelector('select[name*="newArrivals:0:newArrival:minutes"]');
+    minutes.innerHTML='<option value="51">51</option>';
+    await load(p);button(p,'Start scheduling').click();await waitForPlanner(()=>p.submissions.length);
+    assert.equal(p.submissions[0].fixedArrivals[0],false);
+    assert.equal(minutes.value,'51');
+    assert.equal(p.submissions[0].job.entries[0].arrivalModes[0][6],false);
+    assert.equal(p.saved[templateKey].flights[0].arrivalModes,undefined);
+});
+test('mixed source days are captured before overlapping target days change them',async t=>{
+    const mixed={...entry,selectedDays:[0,6],daySettings:{0:entry.daySettings[6],6:entry.daySettings[6]}};
+    const p=page(t,{data:{[templateKey]:template({flights:[mixed]})}});
+    p.w.document.querySelector('input[name*="fixedArrivalSelection:0:"]').checked=true;
+    p.w.document.querySelector('input[name*="fixedArrivalSelection:6:"]').checked=false;
+    await load(p);button(p,'Start scheduling').click();await waitForPlanner(()=>p.submissions.length);
+    assert.equal(p.submissions[0].fixedArrivals[0],false);
+    assert.equal(p.submissions[0].fixedArrivals[1],true);
+    assert.deepEqual(p.submissions[0].job.entries[0].arrivalModes,{'0':{'0':true,'6':false}});
+});
+test('unfixed arrivals may differ after submission without triggering fixed-time correction',async t=>{
+    const unfixed={...entry,arrivalModes:{0:{6:false}}};
+    const p=page(t,{days:{0:block(0,'0700','0951')},data:{[templateKey]:template(),[jobKey]:job({status:'waitForApply',entries:[unfixed]})}});
+    await load(p);await until(()=>!p.saved[jobKey]);
+    assert.equal(p.submissions.length,0);
+    assert.match(p.w.document.querySelector('#aes-aircraft-flight-plan-runtime').textContent,/completed/);
 });

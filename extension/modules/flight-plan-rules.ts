@@ -11,6 +11,7 @@ namespace AESFlightPlanRules {
             if (!expected || !observed) return false;
             const segments=expected.segments || {0:{arrival:expected.arrival}};
             return Object.entries(segments).every(([index,segment])=>{
+                if(entry.arrivalModes?.[index]?.[day]===false)return true;
                 const arrival=segment.arrival, found=observed.segments[Number(index)]?.arrival;
                 return !!arrival?.hours && !!arrival.minutes && !!found?.hours && !!found.minutes &&
                     Number(arrival.hours)===Number(found.hours) && Number(arrival.minutes)===Number(found.minutes) &&

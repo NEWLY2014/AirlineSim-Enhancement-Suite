@@ -739,5 +739,7 @@
   "Complete consecutive integer ranges from 0 to 100 to preview step rules.": "Complétez des plages entières consécutives de 0 à 100 pour afficher l’aperçu.",
   "Step rules use rounded load percentages. The first matching rule applies at shared boundaries.": "Les paliers utilisent un taux de remplissage arrondi. Aux limites communes, la première règle correspondante s’applique.",
   "Change (pp)": "Variation (points)",
-  "Pricing mode applies to all compartments.": "Le mode de tarification s’applique à toutes les classes."
+  "Pricing mode applies to all compartments.": "Le mode de tarification s’applique à toutes les classes.",
+  "Template fixed arrival setting could not be applied.": "Impossible d’appliquer le réglage d’arrivée fixe du modèle.",
+  "Planner fixed arrival setting does not match the template.": "Le réglage d’arrivée fixe ne correspond pas au modèle."
 }

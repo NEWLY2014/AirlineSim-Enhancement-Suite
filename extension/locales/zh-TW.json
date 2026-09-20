@@ -739,5 +739,7 @@
   "Complete consecutive integer ranges from 0 to 100 to preview step rules.": "請填寫涵蓋 0～100 的連續整數區間，以預覽分段規則。",
   "Step rules use rounded load percentages. The first matching rule applies at shared boundaries.": "分段規則使用四捨五入後的載客／載貨率；共用邊界採用第一條符合的規則。",
   "Change (pp)": "調整（百分點）",
-  "Pricing mode applies to all compartments.": "調價模式適用於所有艙等。"
+  "Pricing mode applies to all compartments.": "調價模式適用於所有艙等。",
+  "Template fixed arrival setting could not be applied.": "無法套用範本的固定抵達設定。",
+  "Planner fixed arrival setting does not match the template.": "排班器的固定抵達設定與範本不符。"
 }

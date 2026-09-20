@@ -739,5 +739,7 @@
   "Complete consecutive integer ranges from 0 to 100 to preview step rules.": "Completa intervalos enteros consecutivos de 0 a 100 para previsualizar las reglas.",
   "Step rules use rounded load percentages. The first matching rule applies at shared boundaries.": "Las reglas usan porcentajes de ocupación redondeados. En los límites compartidos se aplica la primera regla coincidente.",
   "Change (pp)": "Cambio (pp)",
-  "Pricing mode applies to all compartments.": "El modo de precios se aplica a todas las clases."
+  "Pricing mode applies to all compartments.": "El modo de precios se aplica a todas las clases.",
+  "Template fixed arrival setting could not be applied.": "No se pudo aplicar el ajuste de llegada fija de la plantilla.",
+  "Planner fixed arrival setting does not match the template.": "El ajuste de llegada fija no coincide con la plantilla."
 }

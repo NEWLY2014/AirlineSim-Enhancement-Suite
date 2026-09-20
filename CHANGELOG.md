@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Preserve each source service day’s fixed-arrival setting when shifting schedules. Leave automatic arrivals unfixed and avoid forcing their times to match the source aircraft.
+
 - Reconcile fixed arrival times after planner refreshes and require stable template-matching arrival settings before submitting a schedule or an arrival correction. Stop without submitting if the planner keeps resetting these controls.
 
 ## [0.9.0-beta.2] - 2026-09-20
