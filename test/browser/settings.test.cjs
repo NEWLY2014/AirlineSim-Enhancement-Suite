@@ -30,7 +30,13 @@ test('settings tabs preserve drafts, support the keyboard and open extension bac
     const extension=resolve('build/extension');
     context=await chromium.launchPersistentContext(profile,{channel:'chromium',headless:true,ignoreHTTPSErrors:true,args:[`--disable-extensions-except=${extension}`,`--load-extension=${extension}`,`--host-resolver-rules=MAP * 127.0.0.1:${server.address().port}`,'--no-proxy-server','--ignore-certificate-errors']});
     const worker=context.serviceWorkers()[0]||await context.waitForEvent('serviceworker');
-    await worker.evaluate(()=>chrome.storage.local.set({aesReleaseNotesSeenVersion:chrome.runtime.getManifest().version_name || chrome.runtime.getManifest().version,settings:{invPricing:{recommendation:{Y:{minPrice:60,maxPrice:200,steps:[]}}}}}));
+    await worker.evaluate(()=>{
+        // Seed a complete fixture rather than racing background default initialization.
+        const boundaries=[0,40,60,70,80,90,99,100],changes=[-8,-4,-2,0,1,2,5];
+        const steps=changes.map((step,i)=>({min:boundaries[i],max:boundaries[i+1],name:'Rule '+i,step}));
+        const recommendation=Object.fromEntries(['Y','C','F','Cargo'].map(cabin=>[cabin,{minPrice:60,maxPrice:200,steps}]));
+        return chrome.storage.local.set({aesReleaseNotesSeenVersion:chrome.runtime.getManifest().version_name || chrome.runtime.getManifest().version,settings:{invPricing:{recommendation}}});
+    });
     const page=await context.newPage();await page.goto('https://paine.airlinesim.aero/app/enterprise/settings');
     const aes=page.getByRole('tab',{name:'AES Settings',exact:true});await aes.waitFor();
     assert.equal(await page.locator('#aes-settings-root').isVisible(),false);
