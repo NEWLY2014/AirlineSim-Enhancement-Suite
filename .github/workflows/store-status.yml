@@ -1,0 +1,27 @@
+name: Check Chrome Web Store status
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  status:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v3
+        with:
+          credentials_json: ${{ secrets.CWS_SERVICE_ACCOUNT_KEY }}
+          service_account: uploader@airlinesim-enhancement-suite.iam.gserviceaccount.com
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/chromewebstore
+          create_credentials_file: false
+      - name: Read beta status
+        env:
+          CWS_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+          CWS_PUBLISHER_ID: ${{ secrets.CWS_PUBLISHER_ID }}
+        run: |
+          curl --fail --silent --show-error \
+            -H "Authorization: Bearer $CWS_ACCESS_TOKEN" \
+            "https://chromewebstore.googleapis.com/v2/publishers/$CWS_PUBLISHER_ID/items/jhkbhhgoielpdhdhkpahkifijocaaobn:fetchStatus" \
+            | jq '{published: .publishedItemRevisionStatus, submitted: .submittedItemRevisionStatus, upload: .lastAsyncUploadState}'
