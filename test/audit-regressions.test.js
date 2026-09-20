@@ -1,3 +1,4 @@
+const {mockPlannerServer,waitForPlanner} = require('./support/planner.cjs');
 // Regression coverage for the 2026-09-09 audit findings.
 const {test} = require('node:test');
 const assert = require('node:assert/strict');
@@ -97,12 +98,14 @@ const template={type:'aircraftFlightPlanTemplate',schemaVersion:6,sourceAircraft
 async function planner(t,id='123',arrival='8') {
     const form=`<form><select name="existingNumber:numbers:numbers_body:input"><option value="10">AA 100</option></select>${Array.from({length:7},(_,i)=>`<input type="checkbox" name="days:daySelection:${i}:ticked"><input type="checkbox" name="segmentsContainer:segments:0:fixedArrivalSelection:${i}:fixedArrival"${i===6 ? ' checked' : ''}><select name="segmentsContainer:segments:0:newArrivals:${i}:newArrival:hours"><option value="${arrival}">${arrival}</option></select><select name="segmentsContainer:segments:0:newArrivals:${i}:newArrival:minutes"><option value="30">30</option></select>`).join('')}<input type="submit" name="button-submit"></form>`;
     const p=browser(t,{path:`/app/fleets/aircraft/${id}/0`,html:header+`<h1>Aircraft: AA-${id} / A320</h1><h3>Assign a new flight</h3><div class="as-panel">${form}</div><div class="visual-flight-plan"></div>`,data:{paine42flightPlanTemplate:template}});
+    mockPlannerServer(t,p);
     p.submissions=0;p.w.document.querySelector('form').addEventListener('submit',e=>{e.preventDefault();p.submissions++;});
     p.load('content_aircraftFlightPlan.js');await until(()=>p.w.document.querySelector('#aes-aircraft-flight-plan-panel'));return p;
 }
 test('F02: unavailable template arrival hour prevents submission', async t => {
-    const p=await planner(t);btn(p,'Start scheduling').click();await until(()=>p.saved[jobKey]?.status==='error');
+    const p=await planner(t);btn(p,'Start scheduling').click();await waitForPlanner(()=>p.saved[jobKey]?.status==='error');
     assert.equal(p.submissions,0);
+    assert.match(p.saved[jobKey].errorMessage,/Template arrival time is not available/);
     assert.equal(p.w.document.querySelector('select[name="segmentsContainer:segments:0:newArrivals:0:newArrival:hours"]').value,'8');
 });
 test('F03: second already-open aircraft page cannot replace an active job', async t => {
@@ -110,7 +113,9 @@ test('F03: second already-open aircraft page cannot replace an active job', asyn
     // Both pages have already loaded an empty job snapshot. Share storage from now on.
     q.w.chrome.storage.local=p.w.chrome.storage.local;
     q.w.chrome.runtime.sendMessage=(message,reply)=>p.dispatch(message,q.sender,reply);
-    btn(p,'Start scheduling').click();await until(()=>p.submissions);
+    btn(p,'Start scheduling').click();
+    await waitForPlanner(()=>p.submissions);
+    assert.equal(p.submissions,1);
     btn(q,'Start scheduling').click();await until(()=>q.errors.length);
     assert.equal(p.saved[jobKey].targetAircraftId,'123');assert.equal(p.submissions,1);assert.equal(q.submissions,0);
 });
@@ -151,7 +156,7 @@ test('F02: final validation catches arrival controls removed while saving', asyn
         if(values[jobKey]?.status==='waitForApply')p.w.document.querySelector('select[name="segmentsContainer:segments:0:newArrivals:0:newArrival:hours"]').remove();
         return originalSet(values,callback);
     };
-    btn(p,'Start scheduling').click();await until(()=>p.saved[jobKey]?.status==='error');
+    btn(p,'Start scheduling').click();await waitForPlanner(()=>p.saved[jobKey]?.status==='error');
     assert.equal(p.submissions,0);
 });
 

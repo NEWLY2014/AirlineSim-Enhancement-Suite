@@ -741,5 +741,8 @@
   "Change (pp)": "Änderung (Pp.)",
   "Pricing mode applies to all compartments.": "Der Preismodus gilt für alle Klassen.",
   "Template fixed arrival setting could not be applied.": "Die feste Ankunftseinstellung der Vorlage konnte nicht angewendet werden.",
-  "Planner fixed arrival setting does not match the template.": "Die feste Ankunftseinstellung stimmt nicht mit der Vorlage überein."
+  "Planner fixed arrival setting does not match the template.": "Die feste Ankunftseinstellung stimmt nicht mit der Vorlage überein.",
+  "Planner server updates could not be monitored. Reload the page and try again.": "Die Serveraktualisierungen des Flugplaners konnten nicht überwacht werden. Lade die Seite neu und versuche es erneut.",
+  "Planner server update failed. Scheduling stopped.": "Die Serveraktualisierung des Flugplaners ist fehlgeschlagen. Die Planung wurde gestoppt.",
+  "Timed out waiting for the planner server update. Scheduling stopped.": "Zeitüberschreitung beim Warten auf die Serveraktualisierung des Flugplaners. Die Planung wurde gestoppt."
 }

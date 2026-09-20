@@ -741,5 +741,8 @@
   "Change (pp)": "Variation (points)",
   "Pricing mode applies to all compartments.": "Le mode de tarification s’applique à toutes les classes.",
   "Template fixed arrival setting could not be applied.": "Impossible d’appliquer le réglage d’arrivée fixe du modèle.",
-  "Planner fixed arrival setting does not match the template.": "Le réglage d’arrivée fixe ne correspond pas au modèle."
+  "Planner fixed arrival setting does not match the template.": "Le réglage d’arrivée fixe ne correspond pas au modèle.",
+  "Planner server updates could not be monitored. Reload the page and try again.": "Impossible de surveiller les mises à jour du serveur du planificateur. Rechargez la page et réessayez.",
+  "Planner server update failed. Scheduling stopped.": "La mise à jour du serveur du planificateur a échoué. La planification a été arrêtée.",
+  "Timed out waiting for the planner server update. Scheduling stopped.": "Le délai d’attente de la mise à jour du serveur du planificateur a expiré. La planification a été arrêtée."
 }

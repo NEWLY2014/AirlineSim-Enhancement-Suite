@@ -741,5 +741,8 @@
   "Change (pp)": "Change (pp)",
   "Pricing mode applies to all compartments.": "Pricing mode applies to all compartments.",
   "Template fixed arrival setting could not be applied.": "Template fixed arrival setting could not be applied.",
-  "Planner fixed arrival setting does not match the template.": "Planner fixed arrival setting does not match the template."
+  "Planner fixed arrival setting does not match the template.": "Planner fixed arrival setting does not match the template.",
+  "Planner server updates could not be monitored. Reload the page and try again.": "Planner server updates could not be monitored. Reload the page and try again.",
+  "Planner server update failed. Scheduling stopped.": "Planner server update failed. Scheduling stopped.",
+  "Timed out waiting for the planner server update. Scheduling stopped.": "Timed out waiting for the planner server update. Scheduling stopped."
 }

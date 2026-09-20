@@ -741,5 +741,8 @@
   "Change (pp)": "Cambio (pp)",
   "Pricing mode applies to all compartments.": "El modo de precios se aplica a todas las clases.",
   "Template fixed arrival setting could not be applied.": "No se pudo aplicar el ajuste de llegada fija de la plantilla.",
-  "Planner fixed arrival setting does not match the template.": "El ajuste de llegada fija no coincide con la plantilla."
+  "Planner fixed arrival setting does not match the template.": "El ajuste de llegada fija no coincide con la plantilla.",
+  "Planner server updates could not be monitored. Reload the page and try again.": "No se pudieron supervisar las actualizaciones del servidor del planificador. Recarga la página e inténtalo de nuevo.",
+  "Planner server update failed. Scheduling stopped.": "Falló la actualización del servidor del planificador. Se ha detenido la programación.",
+  "Timed out waiting for the planner server update. Scheduling stopped.": "Se agotó el tiempo de espera de la actualización del servidor del planificador. Se ha detenido la programación."
 }

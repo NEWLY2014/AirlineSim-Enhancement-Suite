@@ -741,5 +741,8 @@
   "Change (pp)": "Zmiana (p.p.)",
   "Pricing mode applies to all compartments.": "Tryb ustalania cen dotyczy wszystkich klas.",
   "Template fixed arrival setting could not be applied.": "Nie można zastosować ustawienia stałego przylotu z szablonu.",
-  "Planner fixed arrival setting does not match the template.": "Ustawienie stałego przylotu nie jest zgodne z szablonem."
+  "Planner fixed arrival setting does not match the template.": "Ustawienie stałego przylotu nie jest zgodne z szablonem.",
+  "Planner server updates could not be monitored. Reload the page and try again.": "Nie można monitorować aktualizacji planera z serwera. Odśwież stronę i spróbuj ponownie.",
+  "Planner server update failed. Scheduling stopped.": "Aktualizacja planera z serwera nie powiodła się. Planowanie zostało zatrzymane.",
+  "Timed out waiting for the planner server update. Scheduling stopped.": "Przekroczono czas oczekiwania na aktualizację planera z serwera. Planowanie zostało zatrzymane."
 }

@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Wait for the server response to finish updating the planner after each day-selection, fixed-arrival or arrival-time change. Retry complete arrival settings after confirmed resets; stop on failed or missing responses before making another change or submitting.
+
 - Restore access to earlier release notes from beta versions by correctly comparing prerelease version numbers.
 
 - Preserve each source service day’s fixed-arrival setting when shifting schedules. Leave automatic arrivals unfixed and avoid forcing their times to match the source aircraft.

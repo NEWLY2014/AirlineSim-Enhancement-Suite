@@ -985,7 +985,7 @@ function afp_selectionMatchesEntry(selected: AESModel.ExistingFlightSelection | 
     return entry.flightNumberLabel ? selected.text.trim() === entry.flightNumberLabel : false;
 }
 
-function afp_activateExistingTabIfNeeded() {
+async function afp_activateExistingTabIfNeeded() {
     afp_assertJobAction();
     if (afp_getExistingSelect().length) {
         return false;
@@ -999,7 +999,7 @@ function afp_activateExistingTabIfNeeded() {
         return false;
     }
 
-    link[0].dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    await afp_withPlannerUpdate(link, () => afp_clickElement(link));
     return true;
 }
 
@@ -1093,7 +1093,7 @@ async function afp_clearPlannerDaySelection() {
 
     let noneLink = afp_getPlannerNoneLink();
     if (noneLink.length) {
-        afp_clickElement(noneLink);
+        await afp_withPlannerUpdate(noneLink, () => afp_clickElement(noneLink));
         let cleared = await afp_waitFor(function() {
             return !$('input[type="checkbox"][name^="days:daySelection:"][name$=":ticked"]', afp_getPlannerForm()).filter(':checked').length;
         }, 5000, 100);
@@ -1105,7 +1105,7 @@ async function afp_clearPlannerDaySelection() {
     for (let day = 0; day < 7; day++) {
         let checkbox = afp_getPlannerDayCheckbox(day);
         if (checkbox.length && checkbox.prop('checked')) {
-            afp_clickElement(checkbox);
+            await afp_withPlannerUpdate(checkbox, () => afp_clickElement(checkbox));
             await afp_waitFor(function() {
                 let currentCheckbox = afp_getPlannerDayCheckbox(day);
                 return currentCheckbox.length && !currentCheckbox.prop('checked');
@@ -1124,7 +1124,7 @@ async function afp_setPlannerDaySelection(targetDays: AESModel.PlannerTargetDays
             throw new Error(AESI18n.t("Could not find planner day selection for day {0}.", {0: day}));
         }
         if (!checkbox.prop('checked')) {
-            afp_clickElement(checkbox);
+            await afp_withPlannerUpdate(checkbox, () => afp_clickElement(checkbox));
             let checked = await afp_waitFor(function() {
                 let currentCheckbox = afp_getPlannerDayCheckbox(day);
                 return currentCheckbox.length && currentCheckbox.prop('checked');
@@ -1184,41 +1184,52 @@ function afp_getArrivalValueSnapshot(segmentIndex: number, day: number) {
     };
 }
 
-function afp_waitForPlannerMutation(timeoutMs = 1500) {
-    timeoutMs = timeoutMs || 1500;
-    return new Promise<boolean>(function(resolve) {
-        let plannerForm = afp_getPlannerForm();
-        if (!plannerForm.length || !plannerForm[0] || typeof MutationObserver === 'undefined') {
-            window.setTimeout(function() {
-                resolve(false);
-            }, Math.min(timeoutMs, 250));
-            return;
-        }
-
-        let settled = false;
-        let observer = new MutationObserver(function() {
-            if (settled) {
-                return;
+/** Wait for this control's server response to finish updating the Wicket table. */
+async function afp_withPlannerUpdate(control: JQuery, action: () => void) {
+    afp_assertJobAction();
+    const component = control.attr('id');
+    if (!component) throw new Error(AESI18n.t("Planner server updates could not be monitored. Reload the page and try again."));
+    await new Promise<void>((resolve, reject) => {
+        let ready = false;
+        let finished = false;
+        const requests = new Map<number, boolean>();
+        const finish = (error?: unknown) => {
+            if (finished) return;
+            finished = true;
+            window.clearTimeout(timeout);
+            window.clearInterval(cancellation);
+            document.removeEventListener('aes-planner-response', receive);
+            if (error) reject(error); else resolve();
+        };
+        const receive = (event: Event) => {
+            let data: {phase?: string; component?: string; id?: number};
+            try { data = JSON.parse((event as CustomEvent<string>).detail); } catch { return; }
+            if (!data || typeof data !== 'object') return;
+            if (data.phase === 'ready') { ready = true; return; }
+            if (data.component !== component || !Number.isSafeInteger(data.id)) return;
+            const id = data.id!;
+            if (data.phase === 'init') requests.set(id, false);
+            if (!requests.has(id)) return;
+            if (data.phase === 'success') requests.set(id, true);
+            if (data.phase === 'failure') finish(new Error(AESI18n.t("Planner server update failed. Scheduling stopped.")));
+            if (data.phase === 'done') {
+                if (!requests.get(id)) { finish(new Error(AESI18n.t("Planner server update failed. Scheduling stopped."))); return; }
+                requests.delete(id);
+                // Allow all synchronous handlers for this action to finish before advancing.
+                queueMicrotask(() => {
+                    if (requests.size || finished) return;
+                    try { afp_assertJobAction(); finish(); } catch (error) { finish(error); }
+                });
             }
-            settled = true;
-            window.clearTimeout(timer);
-            observer.disconnect();
-            resolve(true);
-        });
-        let timer = window.setTimeout(function() {
-            if (settled) {
-                return;
-            }
-            settled = true;
-            observer.disconnect();
-            resolve(false);
-        }, timeoutMs);
-
-        observer.observe(plannerForm[0], {
-            attributes: true,
-            childList: true,
-            subtree: true,
-        });
+        };
+        const timeout = window.setTimeout(() => finish(new Error(AESI18n.t("Timed out waiting for the planner server update. Scheduling stopped."))), 15000);
+        const cancellation = window.setInterval(() => {
+            try { afp_assertJobAction(); } catch (error) { finish(error); }
+        }, 40);
+        document.addEventListener('aes-planner-response', receive);
+        document.dispatchEvent(new Event('aes-planner-observe'));
+        if (!ready) { finish(new Error(AESI18n.t("Planner server updates could not be monitored. Reload the page and try again."))); return; }
+        try { action(); } catch (error) { finish(error); }
     });
 }
 
@@ -1241,6 +1252,9 @@ async function afp_waitForArrivalSelectValue(segmentIndex: number, day: number, 
     }, 1200, 80);
 }
 
+// Only asynchronous resets are retryable; invalid templates and missing controls must still fail.
+class AFPPlannerArrivalResetError extends Error {}
+
 async function afp_setPlannerArrivalSelect(segmentIndex: number, day: number, part: 'hours' | 'minutes', value: string) {
     if (value == null || value === '') {
         return;
@@ -1249,18 +1263,14 @@ async function afp_setPlannerArrivalSelect(segmentIndex: number, day: number, pa
     let arrivalSelects = afp_getArrivalSelects(plannerForm, segmentIndex, day);
     let select = part === 'hours' ? arrivalSelects.hours : arrivalSelects.minutes;
     if (!select.length) throw new Error(AESI18n.t("Required arrival time control is missing."));
-    let changed = afp_setSelectValue(select, value);
-    if (!changed) throw new Error(AESI18n.t("Template arrival time is not available on this aircraft."));
-    await afp_waitForPlannerMutation(1500);
+    const current = String(select.val() || '');
+    if (current === value || (/^\d+$/.test(current) && /^\d+$/.test(value) && Number(current) === Number(value))) return;
+    await afp_withPlannerUpdate(select, () => {
+        if (!afp_setSelectValue(select, value)) throw new Error(AESI18n.t("Template arrival time is not available on this aircraft."));
+    });
     let applied = await afp_waitForArrivalSelectValue(segmentIndex, day, part, value);
     if (!applied) {
-        let retryPlannerForm = afp_getPlannerForm();
-        let retrySelects = afp_getArrivalSelects(retryPlannerForm, segmentIndex, day);
-        let retrySelect = part === 'hours' ? retrySelects.hours : retrySelects.minutes;
-        if (!retrySelect.length || !afp_setSelectValue(retrySelect, value) ||
-            !await afp_waitForArrivalSelectValue(segmentIndex, day, part, value)) {
-            throw new Error(AESI18n.t("Template arrival time could not be applied."));
-        }
+        throw new AFPPlannerArrivalResetError(AESI18n.t("Template arrival time could not be applied."));
     }
 }
 
@@ -1269,12 +1279,12 @@ async function afp_setPlannerFixedArrival(segmentIndex: number, day: number, fix
     if (!checkbox.length) throw new Error(AESI18n.t("Required fixed arrival control is missing."));
     if (!!checkbox.prop('checked') === fixed) return;
 
-    afp_clickElement(checkbox);
+    await afp_withPlannerUpdate(checkbox, () => afp_clickElement(checkbox));
     let applied = await afp_waitFor(function() {
         let current = afp_getFixedArrivalCheckbox(afp_getPlannerForm(), segmentIndex, day);
         return current.length && !!current.prop('checked') === fixed;
     }, 3000, 80);
-    if (!applied) throw new Error(AESI18n.t("Template fixed arrival setting could not be applied."));
+    if (!applied) throw new AFPPlannerArrivalResetError(AESI18n.t("Template fixed arrival setting could not be applied."));
 }
 
 async function afp_syncPlannerArrivalTime(plannerForm: JQuery, segmentIndex: number, day: number, daySettings: AESModel.PlannerArrival) {
@@ -1375,13 +1385,7 @@ async function afp_applyFlightEntryToPlanner(entry: AESModel.FlightPlanEntry, of
         throw new Error(AESI18n.t("Planner form did not become ready after selecting target days."));
     }
 
-    for (let segment of sourceSegmentSettings) {
-        for (let sourceDay of entry.selectedDays) {
-            let targetDay = (sourceDay + offsetDays) % 7;
-            let daySettings = segment.days[sourceDay];
-            await afp_syncPlannerArrivalTime(afp_getPlannerForm(), segment.index, targetDay, daySettings);
-        }
-    }
+    await afp_confirmPlannerArrivals(entry, offsetDays);
 }
 
 function afp_plannerDaysMatch(entry: AESModel.FlightPlanEntry, offsetDays: number) {
@@ -1400,10 +1404,17 @@ async function afp_confirmPlannerArrivals(entry: AESModel.FlightPlanEntry, offse
         if (requireSelection && !afp_selectionMatchesEntry(afp_getSelectedExistingFlight(), entry)) throw new Error(AESI18n.t("Flight selection changed."));
         if (!requireSelection && !afp_correctionPlannerIsReady(entry, offsetDays)) throw new Error(AESI18n.t("Correction planner does not match the scheduled flight."));
         if (!afp_plannerDaysMatch(entry, offsetDays)) throw new Error(AESI18n.t("Planner days do not match the template."));
-        for (const segment of afp_getPlannerSourceDaySettings(entry)) {
-            for (const day of entry.selectedDays) {
-                await afp_syncPlannerArrivalTime(afp_getPlannerForm(), segment.index, (day+offsetDays)%7, segment.days[day]);
+        try {
+            for (const segment of afp_getPlannerSourceDaySettings(entry)) {
+                for (const day of entry.selectedDays) {
+                    await afp_syncPlannerArrivalTime(afp_getPlannerForm(), segment.index, (day+offsetDays)%7, segment.days[day]);
+                }
             }
+        } catch (error) {
+            if (!(error instanceof AFPPlannerArrivalResetError) || attempt === 2) throw error;
+            // Re-read the full arrival state, including fixed arrival, after the redraw.
+            // Never retry a submission or reset source-day modes captured earlier.
+            continue;
         }
         let stableSince=0;
         const stable=await afp_waitFor(()=>{
@@ -1477,13 +1488,7 @@ async function afp_applyFlightEntryCorrection(entry: AESModel.FlightPlanEntry, o
     if (!afp_correctionPlannerIsReady(entry, offsetDays)) {
         throw new Error(AESI18n.t("Correction planner does not match the scheduled flight."));
     }
-    const sourceSegmentSettings = afp_getPlannerSourceDaySettings(entry);
-    for (const segment of sourceSegmentSettings) {
-        for (const sourceDay of entry.selectedDays) {
-            const targetDay = (sourceDay + offsetDays) % 7;
-            await afp_syncPlannerArrivalTime(afp_getPlannerForm(), segment.index, targetDay, segment.days[sourceDay]);
-        }
-    }
+    await afp_confirmPlannerArrivals(entry, offsetDays, false);
 }
 
 function afp_submitPlanner() {
@@ -1545,7 +1550,7 @@ async function afp_processJob() {
         }
 
         if (job.status === 'selecting' || job.status === 'waitForSelection') {
-            if (afp_activateExistingTabIfNeeded()) {
+            if (await afp_activateExistingTabIfNeeded()) {
                 let ready = await afp_waitFor(function() {
                     return afp_getExistingSelect().length > 0;
                 }, 5000, 100);

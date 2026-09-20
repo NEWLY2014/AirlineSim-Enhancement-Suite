@@ -27,6 +27,11 @@
     },
     "content_scripts": [
         {
+            "js": ["modules/planner-events.js"],
+            "matches": ["https://*.airlinesim.aero/app/fleets/aircraft/*"],
+            "world": "MAIN"
+        },
+        {
             "css": [
                 "css/content.css"
             ],

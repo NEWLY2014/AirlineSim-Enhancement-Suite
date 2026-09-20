@@ -741,5 +741,8 @@
   "Change (pp)": "調整（百分點）",
   "Pricing mode applies to all compartments.": "調價模式適用於所有艙等。",
   "Template fixed arrival setting could not be applied.": "無法套用範本的固定抵達設定。",
-  "Planner fixed arrival setting does not match the template.": "排班器的固定抵達設定與範本不符。"
+  "Planner fixed arrival setting does not match the template.": "排班器的固定抵達設定與範本不符。",
+  "Planner server updates could not be monitored. Reload the page and try again.": "無法監測排班表的伺服器更新。請重新載入頁面後再試。",
+  "Planner server update failed. Scheduling stopped.": "排班表的伺服器更新失敗，已停止排班。",
+  "Timed out waiting for the planner server update. Scheduling stopped.": "等待排班表的伺服器更新逾時，已停止排班。"
 }

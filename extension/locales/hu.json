@@ -741,5 +741,8 @@
   "Change (pp)": "Változás (százalékpont)",
   "Pricing mode applies to all compartments.": "Az árazási mód minden osztályra érvényes.",
   "Template fixed arrival setting could not be applied.": "A sablon rögzített érkezési beállítása nem alkalmazható.",
-  "Planner fixed arrival setting does not match the template.": "A rögzített érkezés beállítása nem egyezik a sablonnal."
+  "Planner fixed arrival setting does not match the template.": "A rögzített érkezés beállítása nem egyezik a sablonnal.",
+  "Planner server updates could not be monitored. Reload the page and try again.": "A tervező szerverfrissítései nem figyelhetők. Töltsd újra az oldalt, és próbáld újra.",
+  "Planner server update failed. Scheduling stopped.": "A tervező szerverfrissítése sikertelen. Az ütemezés leállt.",
+  "Timed out waiting for the planner server update. Scheduling stopped.": "A tervező szerverfrissítésére való várakozás túllépte az időkorlátot. Az ütemezés leállt."
 }

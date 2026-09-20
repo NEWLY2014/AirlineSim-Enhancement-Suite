@@ -1,6 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { browser, until } = require('./support/browser.cjs');
+const {mockPlannerServer,waitForPlanner} = require('./support/planner.cjs');
 const header = `<script>window.frontendSettings = {"fixedEnterpriseId":42,"server":{"time":"2026-09-08T00:00:00Z"}};</script><div id="header"><div><button aria-haspopup="menu"><span class="_name_test">AES Airlines</span><span class="_code_test">AA</span></button><div role="menubar"></div></div></div>`;
 const templateKey = 'paine42flightPlanTemplate';
 const jobKey = 'paine42flightPlanSchedulingJob';
@@ -15,6 +16,7 @@ function page(t, {days = {}, data = {}, form = planner} = {}) {
     const p = browser(t,{path:'/app/fleets/aircraft/123/0',data,html:header + '<h1>Aircraft: AA-123 / A320</h1><h3>Assign a new flight</h3><div class="as-panel">'+form+'</div><h3>Transfer Flight Plan</h3>'+visual(days)});
     const setTimeout = p.w.setTimeout.bind(p.w);
     p.w.setTimeout = (fn,ms,...args) => setTimeout(fn,ms === 300 || ms === 1500 ? 0 : ms,...args);
+    mockPlannerServer(t,p);
     p.submissions = [];
     p.w.document.addEventListener('submit', event => {
         event.preventDefault();
@@ -208,7 +210,7 @@ test('failed scheduling state writes stop before form submission', async t => {
         } else originalSet(values,callback);
     };
     button(p,'Start scheduling').click();
-    await until(() => p.saved[jobKey]?.status === 'error');
+    await waitForPlanner(() => p.saved[jobKey]?.status === 'error');
     assert.match(p.saved[jobKey].errorMessage,/Job write failed/);
     assert.equal(p.submissions.length,0);
 });
@@ -334,11 +336,6 @@ test('arrival confirmation distinguishes same-day and next-day times', async t =
     assert.equal(correct.submissions.length,0);
 });
 
-async function waitForPlanner(check) {
-    const deadline=Date.now()+6000;
-    while(Date.now()<deadline){if(check())return;await new Promise(resolve=>setTimeout(resolve,20));}
-    assert.ok(check(),'Planner did not reach the expected state');
-}
 test('planner rechecks fixed arrivals after a time-change redraw clears the checkbox',async t=>{
     const form=planner.replace('newArrival:minutes"><option value="30" selected>30</option>', 'newArrival:minutes"><option value="51" selected>51</option><option value="30">30</option>');
     const p=page(t,{form,data:{[templateKey]:template()}});let redraws=0;
@@ -351,6 +348,103 @@ test('planner rechecks fixed arrivals after a time-change redraw clears the chec
     await load(p);button(p,'Start scheduling').click();await waitForPlanner(()=>p.submissions.length);
     assert.ok(redraws>0);assert.equal(p.submissions[0].fixedArrivals[0],true);
 });
+
+for (const scenario of ['recovers', 'keeps resetting', 'flight changes']) {
+    test(`planner retries the complete arrival state when the initial write ${scenario}`,async t=>{
+        const form=planner.replace('newArrival:minutes"><option value="30" selected>30</option>', 'newArrival:minutes"><option value="51" selected>51</option><option value="30">30</option>');
+        const p=page(t,{form,data:{[templateKey]:template()}});
+        let writes=0;
+        p.w.document.addEventListener('change',event=>{
+            if(!event.target.name?.includes('newArrivals:0:newArrival:minutes'))return;
+            writes++;
+            const fixed=p.w.document.querySelector('input[name*="fixedArrivalSelection:0:"]');
+            if(writes===1 || scenario==='keeps resetting' || !fixed.checked){
+                p.w.setTimeout(()=>{
+                    // Simulate an AJAX redraw replacing the control and cancelling fixed arrival.
+                    const replacement=event.target.cloneNode(true);
+                    replacement.value='51';event.target.replaceWith(replacement);fixed.checked=false;
+                    if(scenario==='flight changes')p.w.document.querySelector('select[name^="existingNumber"]').value='20';
+                },20);
+            }
+        });
+        await load(p);button(p,'Start scheduling').click();
+        await waitForPlanner(()=>p.submissions.length || p.saved[jobKey]?.status==='error');
+        if(scenario==='recovers'){
+            assert.equal(writes,2);assert.equal(p.submissions.length,1);
+            assert.equal(p.submissions[0].fixedArrivals[0],true);
+            assert.equal(p.w.document.querySelector('select[name*="newArrivals:0:newArrival:minutes"]').value,'30');
+            assert.equal(p.submissions[0].job.entries[0].arrivalModes[0][6],true);
+        }else{
+            assert.equal(p.submissions.length,0);
+            assert.equal(writes,scenario==='keeps resetting'?3:1);
+            assert.match(p.saved[jobKey].errorMessage,scenario==='keeps resetting'?/Template arrival time could not be applied/:/Flight selection changed/);
+        }
+    });
+}
+
+test('planner waits for each server response even when controls change locally at once',async t=>{
+    const form=planner.replace('newArrival:minutes"><option value="30" selected>30</option>', 'newArrival:minutes"><option value="51" selected>51</option><option value="30">30</option>');
+    const p=page(t,{form,data:{[templateKey]:template()}});p.serverDelay=180;p.serverDoneDelay=100;
+    await load(p);button(p,'Start scheduling').click();
+    await until(()=>p.pendingUpdates===1);
+    assert.equal(p.w.document.querySelector('input[name*="fixedArrivalSelection:0:"]').checked,false);
+    await waitForPlanner(()=>p.submissions.length);
+    assert.equal(p.maxPendingUpdates,1);assert.equal(p.pendingUpdates,0);assert.equal(p.submissions.length,1);
+});
+
+test('bulk day clearing waits for the server before selecting target days',async t=>{
+    const form=planner.replace('name="days:daySelection:6:ticked"','name="days:daySelection:6:ticked" checked')
+        .replace('<form>','<form><a href="#daySelection.none">none</a>');
+    const p=page(t,{form,data:{[templateKey]:template()}});p.serverDelay=100;
+    p.w.document.querySelector('a[href*="daySelection.none"]').addEventListener('click',event=>{
+        event.preventDefault();
+        p.w.document.querySelectorAll('input[name^="days:daySelection:"]').forEach(el=>el.checked=false);
+    });
+    await load(p);button(p,'Start scheduling').click();
+    await waitForPlanner(()=>p.submissions.length);
+    assert.equal(p.maxPendingUpdates,1);assert.equal(p.submissions[0].days[0],true);assert.equal(p.submissions[0].days[6],false);
+});
+
+test('opening the existing-flight tab waits until its server update is done',async t=>{
+    const p=page(t,{data:{[templateKey]:template()}});p.serverDelay=100;p.serverDoneDelay=100;
+    await load(p);
+    const select=p.w.document.querySelector('select[name^="existingNumber"]');
+    select.remove();
+    const link=p.w.document.createElement('a');link.id='existing-tab';link.href='#toggle~existing';link.textContent='Existing Flight Number';
+    p.w.document.querySelector('form').append(link);
+    link.addEventListener('click',event=>{event.preventDefault();p.w.document.querySelector('form').append(select)});
+    button(p,'Start scheduling').click();
+    await until(()=>p.pendingUpdates===1);
+    await new Promise(resolve=>setTimeout(resolve,130));
+    assert.equal(p.w.document.querySelector('input[name^="days:daySelection:"]').checked,false);
+    assert.equal(p.pendingUpdates,1);
+    await waitForPlanner(()=>p.submissions.length);
+    assert.equal(p.maxPendingUpdates,1);assert.equal(p.pendingUpdates,0);
+});
+
+test('unavailable response monitor stops scheduling before changing the table',async t=>{
+    const p=page(t,{data:{[templateKey]:template()}});delete p.w.Wicket;
+    await load(p);button(p,'Start scheduling').click();
+    await waitForPlanner(()=>p.saved[jobKey]?.status==='error');
+    assert.equal(p.submissions.length,0);assert.equal(p.pendingUpdates,0);
+    assert.equal(p.w.document.querySelector('input[name^="days:daySelection:"]').checked,false);
+    assert.match(p.saved[jobKey].errorMessage,/could not be monitored/);
+});
+
+for(const failure of ['failed response','missing response']){
+    test(`planner stops before the next operation on a ${failure}`,async t=>{
+        const p=page(t,{data:{[templateKey]:template()}});
+        p.serverFails=failure==='failed response';p.serverResponds=failure!=='missing response';
+        const timeout=p.w.setTimeout.bind(p.w);
+        p.w.setTimeout=(fn,ms,...args)=>timeout(fn,ms===15000?200:ms,...args);
+        await load(p);button(p,'Start scheduling').click();
+        await waitForPlanner(()=>p.saved[jobKey]?.status==='error');
+        assert.equal(p.submissions.length,0);
+        assert.equal(p.w.document.querySelector('input[name*="fixedArrivalSelection:0:"]').checked,false);
+        assert.match(p.saved[jobKey].errorMessage,/server update/);
+    });
+}
+
 test('planner repairs a delayed reset after saving its pending job',async t=>{
     const p=page(t,{data:{[templateKey]:template()}});
     const set=p.w.chrome.storage.local.set;

@@ -741,5 +741,8 @@
   "Change (pp)": "Wijziging (pp)",
   "Pricing mode applies to all compartments.": "De prijsmodus geldt voor alle klassen.",
   "Template fixed arrival setting could not be applied.": "De vaste aankomstinstelling van het sjabloon kon niet worden toegepast.",
-  "Planner fixed arrival setting does not match the template.": "De vaste aankomstinstelling komt niet overeen met het sjabloon."
+  "Planner fixed arrival setting does not match the template.": "De vaste aankomstinstelling komt niet overeen met het sjabloon.",
+  "Planner server updates could not be monitored. Reload the page and try again.": "De serverupdates van de planner konden niet worden gevolgd. Herlaad de pagina en probeer het opnieuw.",
+  "Planner server update failed. Scheduling stopped.": "De serverupdate van de planner is mislukt. Het inplannen is gestopt.",
+  "Timed out waiting for the planner server update. Scheduling stopped.": "De wachttijd voor de serverupdate van de planner is verstreken. Het inplannen is gestopt."
 }

@@ -741,5 +741,8 @@
   "Change (pp)": "調整（ポイント）",
   "Pricing mode applies to all compartments.": "価格設定モードはすべてのクラスに適用されます。",
   "Template fixed arrival setting could not be applied.": "テンプレートの固定到着設定を適用できませんでした。",
-  "Planner fixed arrival setting does not match the template.": "固定到着設定がテンプレートと一致しません。"
+  "Planner fixed arrival setting does not match the template.": "固定到着設定がテンプレートと一致しません。",
+  "Planner server updates could not be monitored. Reload the page and try again.": "スケジュール表のサーバー更新を監視できませんでした。ページを再読み込みして再試行してください。",
+  "Planner server update failed. Scheduling stopped.": "スケジュール表のサーバー更新に失敗しました。自動スケジュールを停止しました。",
+  "Timed out waiting for the planner server update. Scheduling stopped.": "スケジュール表のサーバー更新待ちがタイムアウトしました。自動スケジュールを停止しました。"
 }
