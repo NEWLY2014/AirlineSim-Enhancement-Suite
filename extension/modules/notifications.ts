@@ -75,7 +75,7 @@ class Notifications {
         }
 
         const fadeDuration = typeof options?.fadeDuration === "number" ? options.fadeDuration : 250
-        if (fadeDuration <= 0) {
+        if (fadeDuration <= 0 || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
             element.remove()
             return
         }

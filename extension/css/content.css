@@ -1049,3 +1049,9 @@
     white-space: nowrap;
     border: 0;
 }
+
+@media (prefers-reduced-motion: reduce) {
+    .feedbackPanel > li.aes-notification-exit { animation: none !important; }
+    #aes-menu.aes-navigation .aes-menu-items a,
+    #aes-menu.aes-navigation .aes-menu-items button { transition: none; }
+}

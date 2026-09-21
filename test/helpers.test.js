@@ -365,3 +365,16 @@ test('owned regions declare AES language without replacing explicit child langua
         assert.equal(p.w.document.querySelector('.aes-announcement').lang,'ja');
     }finally{p.close()}
 });
+
+test('reduced motion retains notification reading time and skips the dismissal animation',()=>{
+    const p=page(settings+header);
+    try {
+        p.load('modules/notification.js');p.load('modules/notifications.js');
+        p.w.matchMedia=()=>({matches:true});const timers=[];
+        p.w.setTimeout=(fn,delay)=>{timers.push({fn,delay});return timers.length};
+        runInContext('new Notifications().add("Saved",{duration:5000});',p.dom.getInternalVMContext());
+        const element=p.w.document.querySelector('.feedbackPanelSUCCESS');
+        assert.equal(element.isConnected,true);assert.equal(timers[0].delay,5000);
+        timers[0].fn();assert.equal(element.isConnected,false);assert.equal(timers.length,1);
+    }finally{p.close()}
+});
