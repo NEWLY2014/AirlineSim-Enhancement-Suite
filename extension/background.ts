@@ -7,6 +7,7 @@ declare function importScripts(...urls: string[]): void;
 importScripts('modules/page-queue.js');
 importScripts('modules/storage-coordinator.js');
 importScripts('modules/schedule-storage.js');
+importScripts('modules/options-summary.js');
 (() => {
 //Functions
 function setDefaultSettings() {

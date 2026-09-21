@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Load backup-page metadata without transferring full histories and serialize exports record by record in a dedicated worker while preserving backup contents.
+
 - Use keyboard-accessible native disclosure buttons with linked expanded state for Dashboard controls.
 
 - Ignore unrelated inventory DOM changes and cache native-table signatures while retaining submission checks.

@@ -29,6 +29,8 @@ function browser(t, { html = '', path = '/app/info/ors', data = {}, helpers = tr
             getURL: path => `chrome-extension://aes-test/${path}`
         },
         storage: { local: {
+            async getKeys() {return Object.keys(saved);},
+            async getBytesInUse(keys) {return Object.entries(saved).filter(([key])=>keys===null || key===keys || Array.isArray(keys)&&keys.includes(key)).reduce((n,[key,value])=>n+Buffer.byteLength(key+JSON.stringify(value)),0);},
             get(keys, callback) {
                 let values = keys === null ? snapshot(saved) : {};
                 for (const key of typeof keys === 'string' ? [keys] : Array.isArray(keys) ? keys : Object.keys(keys || {})) {

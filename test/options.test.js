@@ -10,6 +10,11 @@ async function options(t, data) {
     p.w.URL.createObjectURL = blob => { downloads.push(blob); return 'blob:aes-test'; };
     p.w.URL.revokeObjectURL = () => {};
     p.w.HTMLAnchorElement.prototype.click = function() {};
+    p.w.Worker = class {
+        constructor(){const scope={};require('node:vm').runInNewContext(source('modules/json-worker.js'),{globalThis:scope,Blob});this.scope=scope;scope.postMessage=data=>queueMicrotask(()=>this.onmessage?.({data}));}
+        postMessage(data){queueMicrotask(()=>this.scope.onmessage({data}));}
+        terminate(){}
+    };
     p.load('options.js');
     await until(() => p.w.document.querySelector('#aes-log-file-select').options.length > 0);
     return { ...p, downloads };
@@ -29,7 +34,9 @@ test('backup filters preserve complete records and metadata without changing sto
     for (const [type, keys] of [['all', Object.keys(data)], ['settings', ['settings']], ['schedule', ['s']],
         ['pricing', ['p']], ['flightInfo', ['xflightInfo42']], ['logs', ['aesLog_20260908']]]) {
         p.w.document.querySelector('#aes-backup-type').value = type;
+        const before=p.downloads.length;
         p.w.document.querySelector('#aes-backup-btn').click();
+        await until(()=>p.downloads.length>before);
         const backup = JSON.parse(await p.downloads.at(-1).text());
         assert.equal(backup.metadata.type, type);
         assert.equal(backup.metadata.version, '0.8.13');
@@ -69,6 +76,7 @@ test('log listing, individual export and log-only clearing preserve other record
     const select = p.w.document.querySelector('#aes-log-file-select');
     assert.deepEqual(Array.from(select.options, o => o.value), ['aesLog_20260908', 'aesLog_20260907']);
     p.w.document.querySelector('#aes-download-log-btn').click();
+    await until(()=>p.downloads.length>0);
     const download = JSON.parse(await p.downloads[0].text());
     assert.deepEqual(Object.keys(download.data), ['aesLog_20260908']);
     assert.equal(download.metadata.date, '20260908');
@@ -115,6 +123,7 @@ test('restore and backup show storage errors and stop dependent operations', asy
     p.failures.get = 'Read failed';
     p.run('createBackup()');
     assert.equal(p.downloads.length, 0);
+    await until(()=>p.w.document.querySelector('#aes-status-message').textContent.includes('Read failed'));
     assert.match(p.w.document.querySelector('#aes-status-message').textContent, /Read failed/);
 });
 
@@ -176,4 +185,24 @@ test('backup outcomes and errors use separate persistent announcement regions',a
     p.run('showStatusMessage("Restore failed", "error")');
     assert.equal(p.w.document.querySelector('[role="status"]').textContent,'');
     assert.equal(p.w.document.querySelector('[role="alert"]').textContent,'Restore failed');
+});
+
+test('options startup retains metadata only and export reads current complete records',async t=>{
+    const record={type:'schedule',date:{20260908:{schedule:Array.from({length:100},()=>({flight:'WN 1'}))}},extra:'preserve'};
+    const p=await options(t,{history:record});
+    assert.equal(p.run('allStorageData.history.date'),undefined);
+    assert.equal(p.run('allStorageData.history.extra'),undefined);
+    assert.ok(p.run('allStorageData.history.summaryBytes')>0);
+    p.saved.history.extra='updated since opening';
+    p.w.document.querySelector('#aes-backup-btn').click();await until(()=>p.downloads.length===1);
+    assert.deepEqual(JSON.parse(await p.downloads[0].text()).data.history,p.saved.history);
+});
+
+test('worker export failure restores the button without downloading an incomplete backup',async t=>{
+    const p=await options(t,{settings:{keep:true}});
+    let terminated=false;
+    p.w.Worker=class {postMessage(){queueMicrotask(()=>this.onmessage({data:{ok:false,error:'serialization failed'}}))}terminate(){terminated=true}};
+    const button=p.w.document.querySelector('#aes-backup-btn');button.click();
+    await until(()=>p.w.document.querySelector('#aes-status-message').textContent.includes('serialization failed'));
+    assert.equal(p.downloads.length,0);assert.equal(button.disabled,false);assert.equal(terminated,true);
 });

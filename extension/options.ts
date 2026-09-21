@@ -22,12 +22,14 @@ $(function () {
     AESI18n.whenReady(()=>{
     AESI18n.localize(document.body);
     document.title='AES · '+AESI18n.t('Import/Export');
+    initializeBackupRestore();
     //Get saved data
-    chrome.storage.local.get(null, function (items) {
+    chrome.runtime.sendMessage({type:'AES_OPTIONS_SUMMARY'}, function(response: unknown) {
+        if (chrome.runtime.lastError || !isOptionsRecord(response) || !response.ok || !isOptionsRecord(response.items)) {
+            showStatusMessage(AESI18n.t("Error reading data: {0}", {0:chrome.runtime.lastError?.message || (isOptionsRecord(response) ? String(response.error) : 'Storage unavailable.')}),'error');return;
+        }
+        const items = response.items;
         allStorageData = items;
-
-        // Initialize backup and restore functionality
-        initializeBackupRestore();
 
         // Display data statistics
         displayDataStatistics();
@@ -72,7 +74,7 @@ function initializeBackupRestore() {
 
     // Download selected log file
     $("#aes-download-log-btn").click(function () {
-        downloadSelectedLog();
+        void downloadSelectedLog().catch(error => showStatusMessage(AESI18n.t("Error reading data: {0}", {0:String(error)}),"error"));
     });
 
     // Clear log data
@@ -167,7 +169,7 @@ function analyzeStorageData(data: AESModel.StorageSnapshot) {
         if (key === RESTORE_RECOVERY_KEY) continue;
         stats.totalItems++;
         const item = data[key];
-        const jsonSize = (JSON.stringify(item)?.length || 0);
+        const jsonSize = isOptionsRecord(item) && typeof item.summaryBytes === "number" ? item.summaryBytes : 0;
         stats.estimatedSize += jsonSize;
 
         if (["settings", "aesLanguage", "aesGameLanguage"].includes(key)) {
@@ -204,103 +206,72 @@ function analyzeStorageData(data: AESModel.StorageSnapshot) {
     return stats;
 }
 
-function createBackup() {
+async function createBackup() {
     const backupType = $("#aes-backup-type").val();
     if (!isBackupType(backupType)) {
-        showStatusMessage(AESI18n.t("Please select a backup type."), "error");
-        return;
+        showStatusMessage(AESI18n.t("Please select a backup type."), "error");return;
     }
+    const button = $("#aes-backup-btn");
+    if (button.prop('disabled')) return;
+    button.prop('disabled',true);
     showStatusMessage(AESI18n.t("Creating backup..."), "info");
-
-    chrome.storage.local.get(null, function (items) {
-        if (chrome.runtime.lastError) {
-            showStatusMessage(AESI18n.t("Error reading data: {0}", {"0": chrome.runtime.lastError.message}), "error");
-            return;
+    let exporter: ReturnType<typeof createJsonExporter> | undefined;
+    try {
+        exporter = createJsonExporter();
+        const storage = chrome.storage.local as typeof chrome.storage.local & {getKeys?:()=>Promise<string[]>};
+        const keys = storage.getKeys ? await storage.getKeys() : Object.keys(await storage.get(null));
+        let count = 0;
+        for (const key of keys) {
+            if (key === RESTORE_RECOVERY_KEY) continue;
+            const item = (await storage.get(key))[key];
+            if (item === undefined || !matchesBackupType(key,item,backupType)) continue;
+            await exporter.record(key,item);count++;
         }
-        let backupData: AESModel.StorageSnapshot = {};
+        const metadata = {version:chrome.runtime.getManifest().version_name,created:new Date().toISOString(),type:backupType,itemCount:count};
+        const blob = await exporter.finish(metadata);
+        downloadBlob(`aes-backup-${backupType}-${new Date().toISOString().split('T')[0]}.json`,blob);
+        showStatusMessage(AESI18n.t("Backup created successfully! {0} items exported.", {0:count}),"success");
+    } catch(error) {
+        showStatusMessage(AESI18n.t("Error reading data: {0}", {0:String(error)}),'error');
+    } finally {exporter?.close();button.prop('disabled',false);}
+}
 
-        if (backupType === "all") {
-            backupData = Object.fromEntries(Object.entries(items).filter(([key]) => key !== RESTORE_RECOVERY_KEY));
-        } else {
-            // Filter data based on backup type
-            for (let key in items) {
-                const item = items[key];
+function matchesBackupType(key:string,item:unknown,type:AESModel.BackupType) {
+    const kind = isOptionsRecord(item) ? item.type : undefined;
+    switch(type) {
+        case 'all': return true;
+        case 'settings': return ['settings','aesLanguage','aesGameLanguage'].includes(key);
+        case 'schedule': return kind === 'schedule';
+        case 'pricing': return kind === 'pricing' || kind === 'routeAnalysis';
+        case 'competitorMonitoring': return kind === 'competitorMonitoring';
+        case 'flightInfo': return key.includes('flightInfo');
+        case 'aircraftData': return key.includes('aircraftProfitability') || key.includes('aircraft');
+        case 'logs': return isLogStorageItem(key,item);
+    }
+}
 
-                switch (backupType) {
-                    case "settings":
-                        if (["settings", "aesLanguage", "aesGameLanguage"].includes(key)) {
-                            backupData[key] = item;
-                        }
-                        break;
-                    case "schedule":
-                        if (isOptionsRecord(item) && item.type === "schedule") {
-                            backupData[key] = item;
-                        }
-                        break;
-                    case "pricing":
-                        if (isOptionsRecord(item) && (item.type === "pricing" || item.type === "routeAnalysis")) {
-                            backupData[key] = item;
-                        }
-                        break;
-                    case "competitorMonitoring":
-                        if (isOptionsRecord(item) && item.type === "competitorMonitoring") {
-                            backupData[key] = item;
-                        }
-                        break;
-                    case "flightInfo":
-                        if (key.includes("flightInfo")) {
-                            backupData[key] = item;
-                        }
-                        break;
-                    case "aircraftData":
-                        if (
-                            key.includes("aircraftProfitability") ||
-                            key.includes("aircraft")
-                        ) {
-                            backupData[key] = item;
-                        }
-                        break;
-                    case "logs":
-                        if (isLogStorageItem(key, item)) {
-                            backupData[key] = item;
-                        }
-                        break;
-                }
-            }
-        }
-
-        // Create backup object with metadata
-        const manifest = chrome.runtime.getManifest()
-        const backup: AESModel.ExportBackup = {
-            metadata: {
-                version: manifest.version_name,
-                created: new Date().toISOString(),
-                type: backupType,
-                itemCount: Object.keys(backupData).length,
-            },
-            data: backupData,
-        };
-
-        // Download backup file
-        downloadBackup(backup, backupType);
-        showStatusMessage(
-            AESI18n.t("Backup created successfully! {0} items exported.", {"0": backup.metadata.itemCount}),
-            "success"
-        );
+function createJsonExporter() {
+    const worker = new Worker(chrome.runtime.getURL('modules/json-worker.js'));
+    const send = (message: unknown) => new Promise<{blob?:Blob}>((resolve,reject) => {
+        worker.onmessage = event => event.data.ok ? resolve(event.data) : reject(new Error(String(event.data.error)));
+        worker.onerror = event => {event.preventDefault();reject(new Error(event.message));};
+        worker.onmessageerror = () => reject(new Error('Storage unavailable.'));
+        worker.postMessage(message);
     });
+    return {record:(key:string,value:unknown)=>send({op:'record',key,value}),
+        finish:async(metadata:unknown)=>{const response=await send({op:'finish',metadata});if(!response.blob)throw new Error('Storage unavailable.');return response.blob;},
+        close:()=>worker.terminate()};
 }
 
-function downloadBackup(backup: AESModel.ExportBackup, type: AESModel.BackupType) {
-    const filename = `aes-backup-${type}-${
-        new Date().toISOString().split("T")[0]
-    }.json`;
-    downloadJsonFile(filename, backup);
+async function downloadJsonFile(filename: string, data: AESModel.ExportBackup) {
+    const exporter = createJsonExporter();
+    try {
+        for (const [key,value] of Object.entries(data.data)) await exporter.record(key,value);
+        downloadBlob(filename,await exporter.finish(data.metadata));
+    } finally {exporter.close();}
 }
 
-function downloadJsonFile(filename: string, data: unknown) {
-    const dataStr = JSON.stringify(data, null, 2);
-    const dataBlob = new Blob([dataStr], { type: "application/json" });
-
+function downloadBlob(filename:string,dataBlob:Blob) {
     const link = document.createElement("a");
     link.href = URL.createObjectURL(dataBlob);
     link.download = filename;
@@ -424,7 +395,6 @@ async function replaceStorageData(data: AESModel.StorageSnapshot) {
 function displayRestoreRecovery(value: unknown) {
     if (!isOptionsRecord(value) || !isOptionsRecord(value.previous)) return;
     $('#aes-restore-recovery').remove();
-    const previous = value.previous;
     const button = $(AESI18n.html('<button type="button" class="btn btn-default">Recover data from before restore</button>'));
     const panel = $('<div id="aes-restore-recovery"></div>').append(
         $('<p></p>').text(AESI18n.t('An interrupted restore has a saved recovery copy. Recover it before starting another replacement.')), button);
@@ -432,7 +402,11 @@ function displayRestoreRecovery(value: unknown) {
     button.on('click', () => {
         if (restoreBusy) return;
         restoreBusy = true;button.prop('disabled',true);
-        void writeReplacement(previous).then(() => {
+        void chrome.storage.local.get(RESTORE_RECOVERY_KEY).then(items => {
+            const journal = items[RESTORE_RECOVERY_KEY];
+            if (!isOptionsRecord(journal) || !isOptionsRecord(journal.previous)) throw new Error('Storage unavailable.');
+            return writeReplacement(journal.previous);
+        }).then(() => {
             panel.remove();showStatusMessage(AESI18n.t('Previous data recovered. Please refresh the page.'), 'success');
         }, error => showStatusMessage(AESI18n.t("Recovery incomplete; the recovery copy is retained. {0}", {"0": String(error)}), 'error'))
             .finally(() => {restoreBusy=false;button.prop('disabled',false);});
@@ -469,14 +443,15 @@ function displayLogFiles() {
     $("#aes-download-log-btn, #aes-clear-logs-btn").prop("disabled", false);
 }
 
-function downloadSelectedLog() {
+async function downloadSelectedLog() {
     const key = $("#aes-log-file-select").val();
     if (typeof key !== "string" || !key || !allStorageData[key]) {
         showStatusMessage(AESI18n.t("Please select a log file first."), "error");
         return;
     }
 
-    const logData = allStorageData[key];
+    const logData = (await chrome.storage.local.get(key))[key];
+    if (logData === undefined) {showStatusMessage(AESI18n.t("Please select a log file first."),"error");return;}
     const logDate = (isOptionsRecord(logData) && logData.date) || key.replace(/^aesLog_/, "");
     const backup: AESModel.ExportBackup = {
         metadata: {
@@ -491,7 +466,7 @@ function downloadSelectedLog() {
         },
     };
 
-    downloadJsonFile(`aes-log-${formatLogDateForFilename(logDate)}.json`, backup);
+    await downloadJsonFile(`aes-log-${formatLogDateForFilename(logDate)}.json`, backup);
     showStatusMessage(AESI18n.t("Log downloaded successfully."), "success");
 }
 
@@ -534,8 +509,8 @@ function getLogStorageItems(data: AESModel.StorageSnapshot): AESModel.LogFileSum
         logs.push({
             key: key,
             date: (isOptionsRecord(item) && item.date) || key.replace(/^aesLog_/, ""),
-            entryCount: isOptionsRecord(item) && Array.isArray(item.entries) ? item.entries.length : 0,
-            size: (JSON.stringify(item)?.length || 0),
+            entryCount: isOptionsRecord(item) && typeof item.summaryEntries === "number" ? item.summaryEntries : 0,
+            size: isOptionsRecord(item) && typeof item.summaryBytes === "number" ? item.summaryBytes : 0,
         });
     }
 

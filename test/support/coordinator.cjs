@@ -31,7 +31,7 @@ function coordinator(chrome, {session = {}, liveTabs = null} = {}) {
         }
     };
     const context = createContext({chrome:workerChrome,URL,crypto:webcrypto});
-    for (const file of ['storage-coordinator.js','schedule-storage.js']) {
+    for (const file of ['storage-coordinator.js','schedule-storage.js','options-summary.js']) {
         runInContext(readFileSync(join(__dirname,'../../build/extension/modules/'+file),'utf8'), context);
     }
     return (message,sender,reply) => {
