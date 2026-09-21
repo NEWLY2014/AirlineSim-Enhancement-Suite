@@ -6,6 +6,7 @@ const source=readFileSync(`${__dirname}/../build/extension/modules/page-queue.js
 const url='https://paine.airlinesim.aero/app/com/inventory/AAABBB';
 function queue(random=0.5) {
     let now=100000, nextTab=100, failWrite=false, failCreate=false;
+    const notices=[];
     const saved={}, tabs=new Map([[1,{id:1,status:'complete'}],[2,{id:2,status:'complete'}]]), opened=[];
     let listeners;
     const clone=x=>JSON.parse(JSON.stringify(x));
@@ -13,7 +14,7 @@ function queue(random=0.5) {
         listeners={};
         const chrome={runtime:{id:'aes',onMessage:{addListener:f=>listeners.message=f}},
             storage:{session:{get:async()=>clone(saved),set:async x=>{if(failWrite)throw Error('storage failed');Object.assign(saved,clone(x));}}},
-            tabs:{create:async options=>{if(failCreate)throw Error('create failed');const tab={id:nextTab++,status:'loading'};tabs.set(tab.id,tab);opened.push({...options,time:now,id:tab.id});return tab;},
+            tabs:{sendMessage:async(tab,message,options)=>{notices.push({tab,message,options});},create:async options=>{if(failCreate)throw Error('create failed');const tab={id:nextTab++,status:'loading'};tabs.set(tab.id,tab);opened.push({...options,time:now,id:tab.id});return tab;},
                 update:async(id,options)=>{const tab=tabs.get(id);if(!tab)throw Error('closed');tab.status='loading';opened.push({...options,time:now,id});return tab;},
                 get:async id=>{if(!tabs.has(id))throw Error('closed');return tabs.get(id);},
                 onUpdated:{addListener:f=>listeners.updated=f},onRemoved:{addListener:f=>listeners.removed=f}}};
@@ -23,7 +24,7 @@ function queue(random=0.5) {
     function message(op,id,kind='open',tab=1,destination=url,doc='doc'+tab) {
         return new Promise(resolve=>listeners.message({type:'AES_PAGE_QUEUE',op,id,kind,url:destination},{id:'aes',tab:{id:tab},documentId:doc,frameId:0,url},resolve));
     }
-    return {message,opened,saved,tabs,boot,advance:ms=>now+=ms,failWrite:()=>failWrite=true,failCreate:()=>failCreate=true,
+    return {message,notices,opened,saved,tabs,boot,advance:ms=>now+=ms,failWrite:()=>failWrite=true,failCreate:()=>failCreate=true,
         updated:(id,status)=>{tabs.get(id).status=status;listeners.updated(id,{status});},closed:id=>{tabs.delete(id);listeners.removed(id);}};
 }
 
@@ -63,6 +64,17 @@ test('unsupported URLs and another document cannot claim a queue request',async(
 });
 test('queue storage failure prevents tab creation',async()=>{
     const q=queue();q.failWrite();assert.equal((await q.message('enqueue','a')).ok,false);assert.equal(q.opened.length,0);
+});
+test('queue notifies the exact waiting document after the preceding permit completes',async()=>{
+    const q=queue(0);
+    await q.message('enqueue','a','price');await q.message('poll','a','price');
+    await q.message('enqueue','b','price',2);
+    const before=q.notices.filter(n=>n.message.id==='b').at(-1);
+    assert.equal(before.options.documentId,'doc2');assert.equal(before.tab,2);
+    await q.message('complete','a','price');
+    const ready=q.notices.filter(n=>n.message.id==='b').at(-1);
+    assert.ok(ready.message.notBefore<before.message.notBefore);
+    q.advance(30);assert.equal((await q.message('poll','b','price',2)).state,'running');
 });
 test('creation failure is reported and is not retried',async()=>{
     const q=queue();q.failCreate();assert.equal((await q.message('enqueue','a')).ok,false);q.boot();assert.equal((await q.message('poll','a')).ok,false);assert.equal(q.opened.length,0);

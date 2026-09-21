@@ -1,5 +1,5 @@
-/** Shared, session-persistent FIFO for page requests. Polling clients drive it;
- * no timer or open response channel has to survive service-worker suspension. */
+/** Session-persistent FIFO. State changes notify clients; each source claims its
+ * own permit. No timer or open response channel must survive worker suspension. */
 (() => {
     const KEY = 'aesPageQueueV1';
     const gap = () => 30 + Math.floor(Math.random() * 41);
@@ -44,7 +44,28 @@
         serial = result.catch(() => {});
         return result;
     }
-    const save = (s: State) => chrome.storage.session.set({[KEY]: s});
+    const notices = new Map<string,string>();
+    function wakeAt(s: State) {
+        const active = s.jobs.find(j => (j.kind === 'price' || j.kind === 'read') && j.state === 'running');
+        return Math.max(s.next, active?.expires || 0);
+    }
+    const save = async (s: State) => {
+        await chrome.storage.session.set({[KEY]: s});
+        const head = s.jobs.find(j => j.state === 'queued');
+        for (const job of s.jobs) {
+            if (job.state === 'queued' && job !== head) continue;
+            const notBefore = job.state === 'queued' ? wakeAt(s) : 0;
+            const signature = job.state + ':' + notBefore;
+            if (notices.get(job.id) === signature) continue;
+            notices.set(job.id, signature);
+            void chrome.tabs.sendMessage(job.source, {type:'AES_PAGE_QUEUE_READY',id:job.id,notBefore}, {documentId:job.document}).catch(() => {
+                // A suspended or closed document cannot receive a notification.
+                // Its bounded recovery check can read the persisted state later.
+                notices.delete(job.id);
+            });
+        }
+        for (const id of notices.keys()) if (!s.jobs.some(j => j.id === id)) notices.delete(id);
+    };
     function fail(job: Job, error: string) { job.state = 'failed'; job.error = error; }
     async function pump(s: State) {
         const now = Date.now();
@@ -118,6 +139,7 @@
             await save(s);
             return {ok:job.state !== 'failed', state:job.state, expires:job.expires, error:job.error,
                 retryAfter:Math.max(5, s.next - Date.now()),
+                notBefore: s.jobs.find(j => j.state === 'queued') === job ? wakeAt(s) : undefined,
                 position:s.jobs.filter(j => j.state === 'queued').indexOf(job) + 1};
         }).then(reply, error => reply({ok:false,error:'Page queue unavailable: ' + String(error)}));
         return true;

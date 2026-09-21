@@ -786,20 +786,62 @@ class AES {
         const id = crypto.randomUUID();
         const cancel = async () => { try { await AES.pageQueueMessage({op:'cancel', id}); } catch {} };
         const complete = async () => { try { await AES.pageQueueMessage({op:'complete', id}); } catch {} };
+        let expires: number | undefined;
+        const context = AES.observeContext(valid);
         try {
-            await AES.pageQueueMessage({op:'enqueue', id, url:new URL(url, location.href).href, kind});
-            while (valid()) {
-                const result = await AES.pageQueueMessage({op:'poll', id});
-                if (!valid()) break;
-                if ((kind === 'price' || kind === 'read') && result.state === 'running') {
-                    if (typeof result.expires !== 'number' || Date.now() >= result.expires) throw new Error(AESI18n.t("The price submission slot expired. Please retry."));
-                    return {cancel, complete, expires: result.expires};
-                }
-                if (result.state === 'done' || (kind !== 'price' && kind !== 'read' && result.state === 'running')) return {cancel, complete};
-                await AES.sleep(typeof result.retryAfter === 'number' ? Math.min(70, Math.max(5, result.retryAfter)) : 50);
-            }
-            throw new Error(AESI18n.t("Page changed while waiting in the queue."));
+            await new Promise<void>((resolve, reject) => {
+                let timer = 0, finished = false, polling = false, notifiedWhilePolling = false;
+                let permitExpires: number | undefined;
+                const cleanup = () => {
+                    window.clearTimeout(timer);
+                    chrome.runtime.onMessage.removeListener(notify);
+                    context.signal.removeEventListener('abort', abort);
+                };
+                const finish = (error?: unknown) => {
+                    if (finished) return;
+                    finished = true; cleanup();
+                    if (error) reject(error); else { expires = permitExpires; resolve(); }
+                };
+                const abort = () => finish(new Error(AESI18n.t("Page changed while waiting in the queue.")));
+                const schedule = (notBefore?: number) => {
+                    window.clearTimeout(timer);
+                    // Rare recovery after a missed message/worker restart, not a poll loop.
+                    timer = window.setTimeout(check, typeof notBefore === 'number' ? Math.max(0, notBefore-Date.now()) : 120000);
+                };
+                const check = async () => {
+                    if (finished || polling) return;
+                    if (!valid()) { abort(); return; }
+                    polling = true;
+                    try {
+                        const result = await AES.pageQueueMessage({op:'poll', id});
+                        if (finished) return;
+                        if (!valid()) { abort(); return; }
+                        if ((kind === 'price' || kind === 'read') && result.state === 'running') {
+                            if (typeof result.expires !== 'number' || Date.now() >= result.expires) throw new Error(AESI18n.t("The price submission slot expired. Please retry."));
+                            permitExpires = result.expires; finish(); return;
+                        }
+                        if (result.state === 'done' || (kind !== 'price' && kind !== 'read' && result.state === 'running')) { finish(); return; }
+                        schedule(typeof result.notBefore === 'number' ? result.notBefore : undefined);
+                    } catch (error) { finish(error); }
+                    finally {
+                        polling = false;
+                        if (notifiedWhilePolling && !finished) { notifiedWhilePolling = false; queueMicrotask(check); }
+                    }
+                };
+                const notify = (message: unknown, sender: chrome.runtime.MessageSender, reply: (response: unknown) => void) => {
+                    if (sender.id !== chrome.runtime.id || !AES.isRecord(message) || message.type !== 'AES_PAGE_QUEUE_READY' || message.id !== id || finished) return;
+                    reply({ok:true});
+                    if (polling) { notifiedWhilePolling = true; return; }
+                    schedule(typeof message.notBefore === 'number' ? message.notBefore : undefined);
+                };
+                chrome.runtime.onMessage.addListener(notify);
+                context.signal.addEventListener('abort', abort, {once:true});
+                if (context.signal.aborted) { abort(); return; }
+                void AES.pageQueueMessage({op:'enqueue', id, url:new URL(url, location.href).href, kind}).then(() => check(), finish);
+            });
+            return {cancel, complete, expires};
         } catch (error) { await cancel(); throw error; }
+        finally { context.dispose(); }
     }
 
     static async openPagesWithDelay(pages: string[]) {

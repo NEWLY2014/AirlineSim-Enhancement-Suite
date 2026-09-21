@@ -8,7 +8,10 @@ function coordinator(chrome, {session = {}, liveTabs = null} = {}) {
     const listeners = [];
     if (!contentListeners.has(chrome.runtime)) {
         contentListeners.set(chrome.runtime, []);
-        chrome.runtime.onMessage = {addListener:fn=>contentListeners.get(chrome.runtime).push(fn)};
+        chrome.runtime.onMessage = {
+            addListener:fn=>contentListeners.get(chrome.runtime).push(fn),
+            removeListener:fn=>{const list=contentListeners.get(chrome.runtime),i=list.indexOf(fn);if(i>=0)list.splice(i,1);}
+        };
     }
     const workerChrome = {
         runtime: {id:chrome.runtime.id, get lastError() {return chrome.runtime.lastError;}, onMessage:{addListener:fn=>listeners.push(fn)}},
@@ -40,4 +43,4 @@ function coordinator(chrome, {session = {}, liveTabs = null} = {}) {
     };
 }
 function sender(url) {return {id:'aes-test',frameId:0,tab:{id:nextTab++},documentId:webcrypto.randomUUID(),url};}
-module.exports={coordinator,sender};
+module.exports={coordinator,sender,notify:(chrome,message)=>{for(const fn of [...contentListeners.get(chrome.runtime)])fn(message,{id:chrome.runtime.id},()=>{});}};
