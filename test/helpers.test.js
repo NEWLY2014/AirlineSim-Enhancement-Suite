@@ -349,3 +349,19 @@ test('notifications share separate persistent status and error announcers',async
         assert.equal(p.w.document.querySelector('.aes-announcement[role="status"]').textContent,'Saved again');
     }finally{p.close()}
 });
+
+test('owned regions declare AES language without replacing explicit child languages or game language',()=>{
+    const p=page(settings+header);
+    try {
+        p.w.document.documentElement.lang='de';
+        runInContext('AESI18n.locale=()=>"ja";',p.dom.getInternalVMContext());
+        const root=p.w.document.createElement('div');root.innerHTML='<span lang="en">English release note</span>';
+        p.aes.markOwnedElements(root);assert.equal(root.lang,'ja');assert.equal(root.firstChild.lang,'en');
+        p.aes.markOwnedElements(root.firstChild);assert.equal(root.firstChild.lang,'en');
+        assert.equal(p.w.document.documentElement.lang,'de');
+        p.load('modules/notification.js');p.load('modules/notifications.js');
+        runInContext('new Notifications().add("Saved",{duration:0});',p.dom.getInternalVMContext());
+        assert.equal(p.w.document.querySelector('.feedbackPanelSUCCESS').lang,'ja');
+        assert.equal(p.w.document.querySelector('.aes-announcement').lang,'ja');
+    }finally{p.close()}
+});

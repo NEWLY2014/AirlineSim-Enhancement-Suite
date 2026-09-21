@@ -1162,6 +1162,7 @@ class AES {
             if (!(element instanceof Element)) return;
             element.setAttribute("data-aes-owner", ownOwner);
             element.setAttribute("data-aes-version", ownVersion);
+            if (!element.hasAttribute("lang")) element.setAttribute("lang", AESI18n.locale());
         };
 
         if (!(elements instanceof Node)) {
@@ -1241,6 +1242,7 @@ class AES {
         const content = document.createElement("span");
         content.innerText = ` ${message}`;
         item.append(content);
+        AES.markOwnedElements(item);
         container.append(item);
 
         if (!container.parentNode) {

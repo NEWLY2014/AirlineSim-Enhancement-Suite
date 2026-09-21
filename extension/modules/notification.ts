@@ -39,6 +39,7 @@ class AESNotification {
     #createElement(className: string) {
         const element = document.createElement("li")
         element.className = className
+        AES.markOwnedElements(element)
 
         return element
     }
