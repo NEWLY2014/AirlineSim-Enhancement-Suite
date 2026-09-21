@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Cache schedule-diff counts and search text, reuse filtered pages, and cancel superseded searches while yielding during large scans.
+
 - Load backup-page metadata without transferring full histories and serialize exports record by record in a dedicated worker while preserving backup contents.
 
 - Use keyboard-accessible native disclosure buttons with linked expanded state for Dashboard controls.

@@ -52,3 +52,18 @@ test('schedule collection keeps detailed operating patterns for repeated flight 
     assert.equal(flight.paxFreq,6);assert.equal(flight.services.length,2);
     assert.equal(flight.services[0].departure,'08:00');assert.equal(flight.services[0].arrival,'10:00 +1');assert.equal(flight.services[0].aircraft,'A320');
 });
+
+test('a superseded large search cannot overwrite newer results',async t=>{
+    const p=setup(t),old={},next={};
+    for(let n=0;n<1000;n++){old['WN '+n]={paxFreq:7,cargoFreq:0};next['WN '+n]={paxFreq:6,cargoFreq:0};}
+    p.run(`AESScheduleDiff.open(${JSON.stringify({date:{20260901:{schedule:capture(old).schedule},20260902:{schedule:capture(next).schedule}}})},'Airline')`);
+    await until(()=>p.w.document.querySelectorAll('dialog tbody tr').length===100);
+    let now=0;p.w.performance.now=()=>now+=9;
+    let release;const first=new Promise(resolve=>release=resolve);let calls=0;
+    p.w.auditYield=()=>++calls===1?first:Promise.resolve();p.run('AES.yieldToPage=window.auditYield');
+    p.w.$('[aria-label="Search changes"]').val('WN 1').trigger('input');
+    p.w.$('[aria-label="Search changes"]').val('WN 9').trigger('input');
+    await until(()=>p.w.document.querySelectorAll('dialog tbody tr').length===100);
+    const text=p.w.document.querySelector('dialog tbody').textContent;assert.match(text,/WN 9/);assert.doesNotMatch(text,/WN 1/);
+    release();await new Promise(resolve=>setImmediate(resolve));assert.equal(p.w.document.querySelector('dialog tbody').textContent,text);
+});

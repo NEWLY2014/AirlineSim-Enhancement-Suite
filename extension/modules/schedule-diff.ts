@@ -139,17 +139,35 @@ namespace AESScheduleDiff {
         dialog.append(status,note,$('<div class="aes-diff-table"></div>').append(table),$('<div class="aes-diff-pagination"></div>').append(prev,pageLabel,next),$('<p class="text-muted"></p>').text(AESI18n.t('Every successful collection is retained until you manually clear history in AES options. Flight number changes appear as removals and additions.')));
         let page=0;
         let result: Awaited<ReturnType<typeof compare>> | undefined;
-        let revision=0;
-        const render=()=>{
+        let revision=0, renderRevision=0;
+        let searchIndex: Array<{change:Change;text:string}> = [];
+        let totals = {Added:0,Removed:0,Changed:0};
+        let cachedFilter = '', cachedRows: Change[] = [];
+        const render=async()=>{
+            const request = ++renderRevision;
             body.empty();
             const valid=Number(older.val())>Number(newer.val());
             if (!valid) {status.text(AESI18n.t('Choose a From snapshot older than the To snapshot.'));note.text('');prev.prop('disabled',true);next.prop('disabled',true);pageLabel.text('');return;}
             const comparison=result;
             if (!comparison) {status.text(AESI18n.t('Comparing schedules…'));note.text('');prev.prop('disabled',true);next.prop('disabled',true);pageLabel.text('');return;}
-            const counts=(kind:string)=>comparison.changes.filter(change=>change.kind===kind).length;
             const query=String(search.val() || '').trim().toLowerCase();
-            const rows=comparison.changes.filter(change=>(filter.val()==='All changes' || change.kind===filter.val()) && (change.route+' '+change.flight).toLowerCase().includes(query));
-            status.text(comparison.changes.length ? AESI18n.t("{0} added · {1} removed · {2} changed", {"0": counts('Added'), "1": counts('Removed'), "2": counts('Changed')}) : AESI18n.t('No changes in comparable fields.'));
+            const kind = String(filter.val());
+            const filterKey = JSON.stringify([kind,query]);
+            let rows = cachedRows;
+            if (cachedFilter !== filterKey) {
+                rows = [];
+                let deadline = performance.now()+8;
+                for (let i=0;i<searchIndex.length;i++) {
+                    if (i%128===0 && performance.now()>=deadline) {
+                        await AES.yieldToPage();deadline=performance.now()+8;
+                        if (request!==renderRevision || activeDialog!==dialog || !dialog[0].isConnected) return;
+                    }
+                    const item = searchIndex[i];
+                    if ((kind==='All changes' || item.change.kind===kind) && item.text.includes(query)) rows.push(item.change);
+                }
+                cachedRows=rows;cachedFilter=filterKey;
+            }
+            status.text(comparison.changes.length ? AESI18n.t("{0} added · {1} removed · {2} changed", {"0": totals.Added, "1": totals.Removed, "2": totals.Changed}) : AESI18n.t('No changes in comparable fields.'));
             note.text(comparison.limited ? AESI18n.t('Some snapshots lack detailed fields. Only fields available in both snapshots are compared.') : '');
             for (const change of rows.slice(page*100,(page+1)*100)) body.append($('<tr></tr>').append(...[AESI18n.t(change.kind),change.route,change.flight,change.before,change.after].map(value=>$('<td></td>').text(value))));
             if (!rows.length && comparison.changes.length) body.append($('<tr></tr>').append($('<td colspan="5"></td>').text(AESI18n.t('No changes match your filters.'))));
@@ -157,16 +175,23 @@ namespace AESScheduleDiff {
             pageLabel.text(rows.length ? AESI18n.t("{0}–{1} of {2}", {"0": (page*100+1), "1": Math.min((page+1)*100,rows.length), "2": rows.length}) : AESI18n.t('0 changes'));
         };
         const refresh=async()=>{
-            const request=++revision;page=0;result=undefined;render();
+            const request=++revision;page=0;result=undefined;cachedFilter='';cachedRows=[];void render();
             if(Number(older.val())<=Number(newer.val())) return;
             const current=()=>activeDialog===dialog && dialog[0].isConnected && revision===request;
             try {
                 const compared=await compare(items[Number(older.val())],items[Number(newer.val())],current);
-                if(current()){result=compared;render();}
+                const index: typeof searchIndex = [], counts={Added:0,Removed:0,Changed:0};
+                const check=checkpoint(current);
+                for(let i=0;i<compared.changes.length;i++) {
+                    if(i%128===0) await check();
+                    const change=compared.changes[i];counts[change.kind]++;
+                    index.push({change,text:(change.route+' '+change.flight).toLowerCase()});
+                }
+                if(current()){searchIndex=index;totals=counts;result=compared;await render();}
             } catch(error) {if(current()) status.text(AESI18n.t("Unable to compare schedules: {0}", {"0": String(error)}));}
         };
         older.add(newer).on('change',()=>{void refresh();});
-        filter.on('change',()=>{page=0;render();});search.on('input',()=>{page=0;render();});
-        prev.on('click',()=>{page--;render();});next.on('click',()=>{page++;render();});show();void refresh();
+        filter.on('change',()=>{page=0;void render();});search.on('input',()=>{page=0;void render();});
+        prev.on('click',()=>{page--;void render();});next.on('click',()=>{page++;void render();});show();void refresh();
     }
 }
