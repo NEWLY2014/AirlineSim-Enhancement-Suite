@@ -8,6 +8,18 @@ let analysis: AESModel.InventoryAnalysis, server: string, airline: AESModel.Airl
 let aesmodule: Pick<Validation, 'valid' | 'errors'> = { valid: true, errors: [] };
 let inventoryObserver: MutationObserver | null = null;
 var inventoryRenderSignature = "";
+let inventorySignatureCache: string | undefined;
+const inventoryNativeSelector = 'h2, #inventory-table, #inventory-grouped-table, .pricing, .exception, .stacktrace, .error-page';
+function inventoryMutationsRelevant(changes: MutationRecord[]) {
+    return changes.some(change => {
+        const target = change.target instanceof Element ? change.target : change.target.parentElement;
+        if (target?.closest('[data-aes-owner], [id^="aes-"]')) return false;
+        if (target?.closest(inventoryNativeSelector)) return true;
+        return [...change.addedNodes,...change.removedNodes].some(node => node instanceof Element &&
+            !node.matches('[data-aes-owner], [id^="aes-"]') &&
+            (node.matches(inventoryNativeSelector) || !!node.querySelector(inventoryNativeSelector)));
+    });
+}
 let inventoryRevision = 0;
 let inventoryActionPending = false;
 let authorizedPriceSubmit = false;
@@ -93,17 +105,24 @@ function watchInventoryLayout() {
         return
     }
 
-    const target = document.querySelector(".container-fluid .row .col-md-10") || document.body
-    inventoryObserver = new MutationObserver(function() {
+    inventoryObserver = new MutationObserver(function(changes) {
+        if (!inventoryMutationsRelevant(changes)) return;
+        inventorySignatureCache = undefined;
         AES.tryRun("content_inventory", function() {
             return rerenderInventoryModule(false)
         })
     })
-    inventoryObserver.observe(target, { childList: true, subtree: true })
+    inventoryObserver.observe(document.body, { childList: true, subtree: true, characterData: true })
 }
 
 function getInventorySignature() {
-    return ['h2', '#inventory-table', '#inventory-grouped-table', '.pricing table', '.pricing input'].map(selector =>
+    // Consume pending records before a submission guard, even before observer delivery.
+    if (inventoryObserver && inventoryMutationsRelevant(inventoryObserver.takeRecords())) {
+        inventorySignatureCache = undefined;
+        queueMicrotask(() => AES.tryRun('content_inventory', () => rerenderInventoryModule(false)));
+    }
+    if (inventorySignatureCache !== undefined) return inventorySignatureCache;
+    return inventorySignatureCache = ['h2', '#inventory-table', '#inventory-grouped-table', '.pricing table', '.pricing input'].map(selector =>
         Array.from(document.querySelectorAll(selector)).map(el => {
             if (!inventoryNodeIds.has(el)) inventoryNodeIds.set(el, ++inventoryNextNodeId);
             return inventoryNodeIds.get(el) + ':' + el.textContent;

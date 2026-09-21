@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Ignore unrelated inventory DOM changes and cache native-table signatures while retaining submission checks.
+
 - React directly to page/table mutations, serialize hub-data saves, and remove notifications when their animation finishes instead of waiting an assumed rendering delay.
 
 - Submit salary forms one at a time, persist each pending step, and continue only after the server confirms the preceding change; support full-page and AJAX responses.

@@ -316,3 +316,14 @@ test('queued pricing rejects edits to externally associated form controls',async
     await until(()=>!p.w.document.querySelector('#aes-btn-invPricing-apply-new-prices').disabled);
     assert.equal(p.submissions.length,0);assert.equal(p.saved[key],undefined);
 });
+
+test('unrelated DOM changes do not rescan inventory while native text updates refresh analysis',async t=>{
+    const p=inventory(t);await load(p);await new Promise(r=>setTimeout(r,40));
+    let scans=0;const query=p.w.document.querySelectorAll.bind(p.w.document);
+    p.w.document.querySelectorAll=selector=>{if(selector==='#inventory-table')scans++;return query(selector)};
+    for(let i=0;i<10;i++){p.w.document.querySelector('.col-md-10').append(p.w.document.createElement('span'));await new Promise(r=>setImmediate(r))}
+    assert.equal(scans,0);
+    p.w.document.querySelector('#inventory-table tbody tr td:nth-child(8)').firstChild.data='40';
+    await until(()=>scans>0);
+    await until(()=>p.w.document.querySelector('#aes-table-analysis tbody tr')?.textContent.includes('40'));
+});
