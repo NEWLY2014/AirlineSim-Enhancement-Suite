@@ -8,7 +8,6 @@ let aircraftFlightAirline: AESModel.Airline;
 let aircraftFleetKey: string;
 let aircraftFlightNotifications: Notifications | null;
 let aircraftFlightsTableLayoutObserver: MutationObserver | null = null;
-let aircraftFlightsTableLayoutTimer: number | undefined;
 let flightFeedback: ReturnType<typeof AESRead.feedback> | undefined;
 let flightFeedbackTimer: number | undefined;
 let flightFailureDetails = '';
@@ -48,8 +47,6 @@ if (AIRCRAFT_FLIGHTS_SCRIPT_ENABLED) {
             aircraftFlightsTableLayoutObserver.disconnect();
             aircraftFlightsTableLayoutObserver = null;
         }
-        clearTimeout(aircraftFlightsTableLayoutTimer);
-        aircraftFlightsTableLayoutTimer = undefined;
         $('.aes-aircraft-flights-block').remove();
         $('.aes-aircraft-flights-extra-header, .aes-aircraft-flights-extra-cell').remove();
         clearFlightSequenceHighlights();
@@ -493,10 +490,7 @@ function watchAircraftFlightsTableLayout() {
         aircraftFlightsTableLayoutObserver.disconnect();
     }
     aircraftFlightsTableLayoutObserver = new MutationObserver(function() {
-        clearTimeout(aircraftFlightsTableLayoutTimer);
-        aircraftFlightsTableLayoutTimer = window.setTimeout(function() {
-            reconcileAircraftFlightsTableLayout();
-        }, 0);
+        if (AES.isPageOwner()) reconcileAircraftFlightsTableLayout();
     });
     aircraftFlightsTableLayoutObserver.observe(table, {
         attributeFilter: ['colspan'],

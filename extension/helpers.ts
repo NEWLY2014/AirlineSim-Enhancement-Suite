@@ -673,6 +673,7 @@ class AES {
         let refreshTimer = 0;
         let timeoutTimer = 0;
         let finished = false;
+        let detachOwnership = () => {};
 
         const cleanup = function() {
             finished = true;
@@ -682,6 +683,7 @@ class AES {
             }
             window.clearTimeout(refreshTimer);
             window.clearTimeout(timeoutTimer);
+            detachOwnership();
         };
 
         const tryStart = function() {
@@ -711,11 +713,8 @@ class AES {
 
         if (!tryStart()) {
             if (typeof MutationObserver === "function" && root) {
-                observer = new MutationObserver(function() {
-                    window.clearTimeout(refreshTimer);
-                    refreshTimer = window.setTimeout(tryStart, debounce);
-                });
-                observer.observe(root, { childList: true, subtree: true });
+                observer = new MutationObserver(() => { tryStart(); });
+                observer.observe(root, { childList: true, subtree: true, attributes: true });
             } else {
                 const retry = function() {
                     if (tryStart()) {
@@ -728,10 +727,7 @@ class AES {
 
             if (timeout > 0) {
                 timeoutTimer = window.setTimeout(function() {
-                    if (finished) {
-                        return;
-                    }
-
+                    if (tryStart()) return;
                     cleanup();
                     if (typeof options.onTimeout === "function") {
                         AES.tryRun(scriptName, options.onTimeout);
@@ -742,7 +738,7 @@ class AES {
             }
         }
 
-        AES.whenPageOwnershipLost(cleanup);
+        if (!finished) detachOwnership = AES.whenPageOwnershipLost(cleanup) || (() => {});
         return { disconnect: cleanup };
     }
 
@@ -1269,7 +1265,7 @@ class AES {
             marker.getAttribute("data-version") === AES.getVersion();
 
         if (previousOwnerState && !AES._pageOwner) {
-            AES._ownershipLostCallbacks.forEach(function(callback) {
+            [...AES._ownershipLostCallbacks].forEach(function(callback) {
                 try {
                     callback();
                 } catch (error) {

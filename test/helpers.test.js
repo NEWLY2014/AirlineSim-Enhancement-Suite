@@ -297,3 +297,41 @@ test('overlapping enterprise and schedule scripts initialize together in manifes
     assert.equal(p.aes._competitorPageData.ownerAirline.id, '13150');
     assert.equal(p.aes._competitorPageData.id, '12685');
 });
+
+test('DOM readiness runs on mutation even when timer callbacks cannot run',async()=>{
+    const p=page(settings+header);
+    try {
+        let started=0;
+        p.w.setTimeout=()=>1;
+        p.aes.waitForElement('.server-ready',()=>started++);
+        const target=p.w.document.createElement('div');p.w.document.body.append(target);
+        await Promise.resolve();assert.equal(started,0);
+        target.className='server-ready';
+        await Promise.resolve();assert.equal(started,1);
+    }finally{p.close()}
+});
+
+test('ownership loss notifies every waiter even when earlier callbacks unsubscribe',async()=>{
+    const p=page(settings+header);
+    try {
+        p.aes.waitForElement('.never',()=>{});
+        let stopped=false;p.aes.whenPageOwnershipLost(()=>stopped=true);
+        p.w.document.querySelector('#aes-page-control').setAttribute('data-owner','another-extension');
+        await Promise.resolve();assert.equal(stopped,true);
+    }finally{p.close()}
+});
+
+test('notification removal follows animation completion without a second timer',async()=>{
+    const p=page(settings+header);
+    try {
+        p.load('modules/notification.js');p.load('modules/notifications.js');
+        let complete;const finished=new Promise(resolve=>complete=resolve);
+        p.w.Element.prototype.getAnimations=()=>[{finished}];
+        const timers=[];p.w.setTimeout=(fn,delay)=>{timers.push({fn,delay});return timers.length};
+        runInContext('new Notifications().add("Warning",{duration:100,fadeDuration:20});',p.dom.getInternalVMContext());
+        const element=p.w.document.querySelector('.feedbackPanelSUCCESS');
+        timers[0].fn();assert.equal(element.isConnected,true);
+        assert.equal(timers.length,1);assert.equal(element.style.animationDuration,'20ms');
+        complete();await new Promise(resolve=>setImmediate(resolve));assert.equal(element.isConnected,false);
+    }finally{p.close()}
+});

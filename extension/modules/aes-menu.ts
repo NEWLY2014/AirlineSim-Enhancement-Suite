@@ -231,10 +231,8 @@ class AESMenu {
 
 AES.runContentScript("module:aes-menu", function() {
     let aesMenu: AESMenu | null = null
-    let refreshTimer = 0
     const observer = new MutationObserver(function() {
-        window.clearTimeout(refreshTimer)
-        refreshTimer = window.setTimeout(ensureAESMenu, 100)
+        if (AES.isPageOwner()) ensureAESMenu()
     })
 
     function getInsertionTarget() {
@@ -267,7 +265,6 @@ AES.runContentScript("module:aes-menu", function() {
 
     AES.whenPageOwnershipLost(function() {
         observer.disconnect()
-        window.clearTimeout(refreshTimer)
         if (aesMenu && typeof aesMenu.destroy === "function") {
             aesMenu.destroy()
         }

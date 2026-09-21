@@ -54,10 +54,14 @@ class Notifications {
             return
         }
 
+        element.style.animationDuration = `${fadeDuration}ms`
         element.classList.add("aes-notification-exit")
-        window.setTimeout(() => {
-            element.remove()
-        }, fadeDuration)
+        if (typeof element.getAnimations === 'function') {
+            // Follow the actual animation, including cancellation or disabled motion.
+            void Promise.allSettled(element.getAnimations().map(animation => animation.finished)).then(() => element.remove())
+        } else {
+            window.setTimeout(() => element.remove(), fadeDuration)
+        }
     }
 
     /**

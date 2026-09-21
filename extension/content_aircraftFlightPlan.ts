@@ -5,7 +5,6 @@ const aircraftFlightPlanState: AESModel.FlightPlanState = {
     aircraft: { id: '', registration: '', model: '' },
     extracting: false,
     hubObserver: null,
-    hubSaveTimer: undefined,
     job: null,
     jobInvalid: false,
     notifications: null,
@@ -20,6 +19,7 @@ const aircraftFlightPlanState: AESModel.FlightPlanState = {
 class FlightPlanCancelled extends Error {}
 let activeRun: { job: AESModel.FlightPlanJob; cancelled: boolean; controller: AbortController } | null = null;
 let startingJob = false;
+let hubSaveRunning = false, hubSaveNeeded = false;
 let jobToken: string | null = null;
 
 function afp_assertPageOwner() {
@@ -61,8 +61,6 @@ if (AIRCRAFT_FLIGHT_PLAN_SCRIPT_ENABLED) {
             aircraftFlightPlanState.hubObserver.disconnect();
             aircraftFlightPlanState.hubObserver = null;
         }
-        window.clearTimeout(aircraftFlightPlanState.hubSaveTimer);
-        aircraftFlightPlanState.hubSaveTimer = undefined;
         $('#aes-aircraft-flight-plan-panel').remove();
         aircraftFlightPlanState.processingJob = false;
     });
@@ -226,12 +224,20 @@ function afp_watchFlightPlanHubData() {
         aircraftFlightPlanState.hubObserver.disconnect();
     }
     aircraftFlightPlanState.hubObserver = new MutationObserver(function() {
-        window.clearTimeout(aircraftFlightPlanState.hubSaveTimer);
-        aircraftFlightPlanState.hubSaveTimer = window.setTimeout(function() {
-            afp_saveFlightPlanHubData().catch(function(error) {
-                AES.reportContentScriptError('content_aircraftFlightPlan', error);
-            });
-        }, 250);
+        hubSaveNeeded = true;
+        if (hubSaveRunning) return;
+        hubSaveRunning = true;
+        void (async () => {
+            try {
+                // Serialize writes and fold changes during a save into the next snapshot.
+                while (hubSaveNeeded && AES.isPageOwner()) {
+                    hubSaveNeeded = false;
+                    await afp_saveFlightPlanHubData();
+                }
+            } catch(error) {
+                if (AES.isPageOwner()) AES.reportContentScriptError('content_aircraftFlightPlan',error);
+            } finally {hubSaveRunning = false;}
+        })();
     });
     aircraftFlightPlanState.hubObserver.observe(visualPlan[0], {
         childList: true,
@@ -1189,7 +1195,7 @@ async function afp_withPlannerUpdate(control: JQuery, action: () => void) {
         const requests = new Map<number, boolean>();
         const signal = activeRun?.controller.signal;
         const cancelled = () => finish(signal?.reason);
-        const pageHidden = () => finish(new FlightPlanCancelled('Page changed'));
+        const pageHidden = () => finish(new FlightPlanCancelled(AESI18n.t('Scheduling stopped')));
         const finish = (error?: unknown) => {
             if (finished) return;
             finished = true;
@@ -1678,7 +1684,7 @@ async function afp_resumePendingJob() {
     aircraftFlightPlanState.processingJob = true;
     activeRun = { job, cancelled: false, controller: new AbortController() };
     const runController = activeRun.controller;
-    const leaving = () => runController.abort(new FlightPlanCancelled('Page changed'));
+    const leaving = () => runController.abort(new FlightPlanCancelled(AESI18n.t('Scheduling stopped')));
     window.addEventListener('pagehide', leaving, {once:true});
     try {
         await afp_processJob();

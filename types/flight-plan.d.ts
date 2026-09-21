@@ -51,7 +51,6 @@ declare namespace AESModel {
         aircraft: { id: string; registration: string; model: string };
         extracting: boolean;
         hubObserver: MutationObserver | null;
-        hubSaveTimer: number | undefined;
         job: FlightPlanJob | null;
         jobInvalid: boolean;
         notifications: Notifications | null;

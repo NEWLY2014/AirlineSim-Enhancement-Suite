@@ -7,7 +7,6 @@ let settings: AESModel.InventorySettings, pricingData: AESModel.InventoryRecord,
 let analysis: AESModel.InventoryAnalysis, server: string, airline: AESModel.Airline;
 let aesmodule: Pick<Validation, 'valid' | 'errors'> = { valid: true, errors: [] };
 let inventoryObserver: MutationObserver | null = null;
-var inventoryRefreshTimer = 0;
 var inventoryRenderSignature = "";
 let inventoryRevision = 0;
 let inventoryActionPending = false;
@@ -47,7 +46,6 @@ if (INVENTORY_SCRIPT_ENABLED) {
             inventoryObserver.disconnect()
             inventoryObserver = null
         }
-        clearTimeout(inventoryRefreshTimer)
         cleanupInventoryDisplay()
     })
 }
@@ -97,12 +95,9 @@ function watchInventoryLayout() {
 
     const target = document.querySelector(".container-fluid .row .col-md-10") || document.body
     inventoryObserver = new MutationObserver(function() {
-        clearTimeout(inventoryRefreshTimer)
-        inventoryRefreshTimer = window.setTimeout(function() {
-            AES.tryRun("content_inventory", function() {
-                return rerenderInventoryModule(false)
-            })
-        }, 150)
+        AES.tryRun("content_inventory", function() {
+            return rerenderInventoryModule(false)
+        })
     })
     inventoryObserver.observe(target, { childList: true, subtree: true })
 }

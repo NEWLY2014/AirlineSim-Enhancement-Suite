@@ -8,7 +8,6 @@ let server: string, aircraftFleetKey: string, aircraftFleetStorageData: AESModel
 let airline: AESModel.Airline, date: ReturnType<typeof AES.getServerDate>, currentFleet: string;
 var fltmngFilterActive = false;
 let fltmngTableObserver: MutationObserver | null = null;
-let fltmngRefreshTimer: number | undefined;
 const FLEET_MANAGEMENT_SCRIPT_ENABLED = AES.runContentScript("content_fleetManagement", function() {
     AES.waitForElement(fltmng_getFleetManagementReadyTarget, initializeFleetManagement, {
         scriptName: "content_fleetManagement",
@@ -38,7 +37,6 @@ if (FLEET_MANAGEMENT_SCRIPT_ENABLED) {
             fltmngTableObserver.disconnect();
             fltmngTableObserver = null;
         }
-        clearTimeout(fltmngRefreshTimer);
         $('[data-aes-owner="' + chrome.runtime.id + '"][data-aes-version="' + AES.getVersion() + '"]').remove();
         $('.aes-fleet-extra-header, .aes-fleet-extra-cell').remove();
     });
@@ -545,10 +543,7 @@ function fltmng_watchFleetTable() {
             return;
         }
 
-        clearTimeout(fltmngRefreshTimer);
-        fltmngRefreshTimer = setTimeout(function() {
-            fltmng_refreshFleetTableEnhancements();
-        }, 50);
+        fltmng_refreshFleetTableEnhancements();
     });
 
     fltmngTableObserver.observe(panel, {
