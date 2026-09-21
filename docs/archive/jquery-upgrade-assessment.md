@@ -1,5 +1,7 @@
 # jQuery 4.0 upgrade assessment
 
+> Historical record: implementation details, test counts and status statements describe the work at the time of writing. For current development instructions, see the [developer manual](../developer-manual.md).
+
 Assessment date: 2026-09-08. Assessed baseline: vendored jQuery 3.7.1 Slim.
 The sections below record the pre-upgrade investigation. The user subsequently
 approved **4.0.0 full**, superseding the initial Slim recommendation. The current

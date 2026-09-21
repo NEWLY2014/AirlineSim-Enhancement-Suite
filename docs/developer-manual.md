@@ -1,6 +1,6 @@
 # AES Developer Manual
 
-[Project overview](../README.md) · [User manual](user-manual.md) · [Developer manual](developer-manual.md)
+[Project overview](../README.md) · [Documentation index](README.md) · [User manual](user-manual.md) · [Developer manual](developer-manual.md)
 
 Build, test and extend AES. Run the commands below from the repository root.
 
@@ -21,11 +21,11 @@ remains JavaScript (jQuery 4.0.0 full build). Packaging uses the same source-fre
 
 `npm test` builds first and tests the generated JavaScript. `npm run package`
 builds before creating `dist/AES-vX.X.X.zip`, whose root contains `manifest.json`.
-See [the migration progress](typescript-migration.md) for remaining stages.
+See the [TypeScript migration history](archive/typescript-migration.md) for the completed migration checkpoints.
 
 ## Releases
 
-Release automation is documented in [the release automation guide](release-automation.md).
+Release automation is documented in [the release automation guide](development/release-automation.md).
 
 ## Notifications
 
@@ -106,3 +106,10 @@ names are documented in `scripts/i18n-exemptions.json`; historical release-note
 bodies keep their original language. Backend errors are translated at their UI
 boundary, while unknown browser/service diagnostic details retain their source.
 
+
+## Further references
+
+- [Localization guide](development/localization.md): language detection, catalogs and translation conventions.
+- [Pricing data example](examples/pricing-data.js): illustrative stored pricing data, not a schema definition.
+- [Chrome Web Store listing](store/chrome-web-store-listing.md): store description copy.
+- [Historical records](README.md#historical-records): earlier audits, implementation reports and validation results.

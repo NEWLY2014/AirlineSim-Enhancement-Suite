@@ -1,5 +1,7 @@
 # TypeScript migration
 
+> Historical record: implementation details, test counts and status statements describe the work at the time of writing. For current development instructions, see the [developer manual](../developer-manual.md).
+
 ## Milestone 1 — build pipeline and shared runtime
 
 Implemented on 2026-09-08 against version 0.8.13. This is the first migration

@@ -1,5 +1,7 @@
 # AES 全量代码审计报告
 
+> Historical record: implementation details, test counts and status statements describe the work at the time of writing. For current development instructions, see the [developer manual](../developer-manual.md).
+
 审计日期：2026-09-09。版本：0.8.13。基线提交：`9ab14162a5eea4f56a8a15ce32da56b897cf4721`。
 
 本轮审计发现 **10 项可复现问题：4 项 P1、6 项 P2**。用户批准修复后，已于 2026-09-10 完成全部 10 项的代码修复与回归验证。下文“发现”保留基线问题和验收要求，其位置行号对应审计基线；当前修复状态见下表。
@@ -51,13 +53,13 @@ P1 表示应优先修复的安全边界、错误业务提交或历史数据覆�
 | `unzip -t dist/AES-v0.8.13.zip` | 通过 |
 | `node --test test/audit-regressions.test.js test/storage-coordinator.test.js` | 21/21 通过，断言修复后的正确行为，已包含在 npm test 中 |
 
-回归代码位于 `test/audit-regressions.test.js` 和 `test/storage-coordinator.test.js`，直接加载构建后的运行时代码；存储错误和回调交错由测试桩注入。原 `docs/audit-2026-09-09.repro.cjs` 现为回归测试入口，不再断言错误行为。浏览器验证使用真实扩展后台和 Chrome 存储。
+回归代码位于 `test/audit-regressions.test.js` 和 `test/storage-coordinator.test.js`，直接加载构建后的运行时代码；存储错误和回调交错由测试桩注入。原 `docs/archive/audit-2026-09-09.repro.cjs` 现为回归测试入口，不再断言错误行为。浏览器验证使用真实扩展后台和 Chrome 存储。
 
 ## 发现
 
 ### F01 · P1 · 外部或持久化文本被重新解释为 HTML
 
-位置：[content_dashboard.ts:465](/Users/xuyunhao/Documents/GitHub/AirlineSim-Enhancement-Suite/extension/content_dashboard.ts:465)、[content_settings.ts:225](/Users/xuyunhao/Documents/GitHub/AirlineSim-Enhancement-Suite/extension/content_settings.ts:225)。同类输出还见 Dashboard 表头/列选择器、航司日程标题，以及 Fleet 的提取时间 HTML。
+位置：[content_dashboard.ts:465](https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/blob/9ab14162a5eea4f56a8a15ce32da56b897cf4721/extension/content_dashboard.ts#L465)、[content_settings.ts:225](https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/blob/9ab14162a5eea4f56a8a15ce32da56b897cf4721/extension/content_settings.ts#L225)。同类输出还见 Dashboard 表头/列选择器、航司日程标题，以及 Fleet 的提取时间 HTML。
 
 Dashboard 将普通字符串传入 jQuery `.append()`，因此航司名称、机队备注等存储文本可以成为实际 DOM。设置编辑器直接把 `step.name` 拼进 `value="..."`，带双引号的名称可以逃逸属性。备份导入只校验外层对象，能够把此类字符串送入上述路径；航司名称和备注也来自页面提取。
 
@@ -71,7 +73,7 @@ Dashboard 将普通字符串传入 jQuery `.append()`，因此航司名称、机
 
 ### F02 · P1 · 排班时间设置失败后仍提交错误计划
 
-位置：[content_aircraftFlightPlan.ts:1197](/Users/xuyunhao/Documents/GitHub/AirlineSim-Enhancement-Suite/extension/content_aircraftFlightPlan.ts:1197)、[content_aircraftFlightPlan.ts:1214](/Users/xuyunhao/Documents/GitHub/AirlineSim-Enhancement-Suite/extension/content_aircraftFlightPlan.ts:1214)。
+位置：[content_aircraftFlightPlan.ts:1197](https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/blob/9ab14162a5eea4f56a8a15ce32da56b897cf4721/extension/content_aircraftFlightPlan.ts#L1197)、[content_aircraftFlightPlan.ts:1214](https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/blob/9ab14162a5eea4f56a8a15ce32da56b897cf4721/extension/content_aircraftFlightPlan.ts#L1214)。
 
 目标值不在下拉选项中时，`afp_setSelectValue()` 返回 false，调用方直接返回。缺少控件也直接返回；重试后的等待结果没有检查。上层把这些情况当成正常完成，保存 `waitForApply` 并点击提交按钮。确认步骤只检查对应日期是否出现航班代码，没有检查到达时间。
 
@@ -85,7 +87,7 @@ Dashboard 将普通字符串传入 jQuery `.append()`，因此航司名称、机
 
 ### F03 · P1 · 多标签页可互相覆盖正在执行的排班任务
 
-位置：[content_aircraftFlightPlan.ts:848](/Users/xuyunhao/Documents/GitHub/AirlineSim-Enhancement-Suite/extension/content_aircraftFlightPlan.ts:848)、[content_aircraftFlightPlan.ts:883](/Users/xuyunhao/Documents/GitHub/AirlineSim-Enhancement-Suite/extension/content_aircraftFlightPlan.ts:883)。
+位置：[content_aircraftFlightPlan.ts:848](https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/blob/9ab14162a5eea4f56a8a15ce32da56b897cf4721/extension/content_aircraftFlightPlan.ts#L848)、[content_aircraftFlightPlan.ts:883](https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/blob/9ab14162a5eea4f56a8a15ce32da56b897cf4721/extension/content_aircraftFlightPlan.ts#L883)。
 
 排班任务键按服务器和航司共享，但启动检查只查看当前页面初始化时读入的 `aircraftFlightPlanState.job`。`startingJob`、`processingJob` 和 `activeRun` 均属于单页面；没有跨页面锁或任务令牌，也没有在执行前核对存储中的任务归属。
 
@@ -99,7 +101,7 @@ Dashboard 将普通字符串传入 jQuery `.append()`，因此航司名称、机
 
 ### F04 · P1 · 旧数据迁移覆盖已存在的新数据
 
-位置：[content_dashboard.ts:2231](/Users/xuyunhao/Documents/GitHub/AirlineSim-Enhancement-Suite/extension/content_dashboard.ts:2231)。
+位置：[content_dashboard.ts:2231](https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/blob/9ab14162a5eea4f56a8a15ce32da56b897cf4721/extension/content_dashboard.ts#L2231)。
 
 迁移无 owner 的竞争对手记录时，代码直接构造 `migratedCompetitorData[newKey]`，没有合并或优先保留 `items[newKey]`。随后写入新键并删除旧键。缺失/失效索引、旧备份合并等情况下，旧键和 owner 键可能同时存在，这不是“仅首次安装”的路径。
 
@@ -113,7 +115,7 @@ Dashboard 将普通字符串传入 jQuery `.append()`，因此航司名称、机
 
 ### F05 · P2 · Pricing Data 备份遗漏真实库存历史
 
-位置：[options.ts:231](/Users/xuyunhao/Documents/GitHub/AirlineSim-Enhancement-Suite/extension/options.ts:231)，实际写入类型见 [content_inventory.ts:1587](/Users/xuyunhao/Documents/GitHub/AirlineSim-Enhancement-Suite/extension/content_inventory.ts:1587)。
+位置：[options.ts:231](https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/blob/9ab14162a5eea4f56a8a15ce32da56b897cf4721/extension/options.ts#L231)，实际写入类型见 [content_inventory.ts:1587](https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/blob/9ab14162a5eea4f56a8a15ce32da56b897cf4721/extension/content_inventory.ts#L1587)。
 
 备份筛选只接受 `type === 'pricing'`，当前库存模块保存的是 `type: 'routeAnalysis'`。统计分类也使用旧类型，因此库存历史不会计入 Pricing Data。
 
@@ -127,7 +129,7 @@ Dashboard 将普通字符串传入 jQuery `.append()`，因此航司名称、机
 
 ### F06 · P2 · 替换恢复写入失败时原数据已被清空
 
-位置：[options.ts:331](/Users/xuyunhao/Documents/GitHub/AirlineSim-Enhancement-Suite/extension/options.ts:331)。
+位置：[options.ts:331](https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/blob/9ab14162a5eea4f56a8a15ce32da56b897cf4721/extension/options.ts#L331)。
 
 替换模式先 `clear()`，再 `set(backup.data)`；写入失败只显示错误，没有保留旧快照或提供恢复路径。
 
@@ -141,7 +143,7 @@ Dashboard 将普通字符串传入 jQuery `.append()`，因此航司名称、机
 
 ### F07 · P2 · 并发设置读改写丢失独立修改
 
-位置：[helpers.ts:119](/Users/xuyunhao/Documents/GitHub/AirlineSim-Enhancement-Suite/extension/helpers.ts:119)、[content_dashboard.ts:3561](/Users/xuyunhao/Documents/GitHub/AirlineSim-Enhancement-Suite/extension/content_dashboard.ts:3561)。
+位置：[helpers.ts:119](https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/blob/9ab14162a5eea4f56a8a15ce32da56b897cf4721/extension/helpers.ts#L119)、[content_dashboard.ts:3561](https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/blob/9ab14162a5eea4f56a8a15ce32da56b897cf4721/extension/content_dashboard.ts#L3561)。
 
 “读取最新快照”并不保证原子更新：两个请求都读到旧对象，然后各自整对象写回，后写者覆盖先写者对其他字段的修改。快速连续设置或多个游戏标签页均可触发。
 
@@ -155,7 +157,7 @@ Dashboard 将普通字符串传入 jQuery `.append()`，因此航司名称、机
 
 ### F08 · P2 · 零利润被当作缺失值，平均利润偏高
 
-位置：[content_dashboard.ts:310](/Users/xuyunhao/Documents/GitHub/AirlineSim-Enhancement-Suite/extension/content_dashboard.ts:310)，汇总见 [content_dashboard.ts:544](/Users/xuyunhao/Documents/GitHub/AirlineSim-Enhancement-Suite/extension/content_dashboard.ts:544)。
+位置：[content_dashboard.ts:310](https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/blob/9ab14162a5eea4f56a8a15ce32da56b897cf4721/extension/content_dashboard.ts#L310)，汇总见 [content_dashboard.ts:544](https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/blob/9ab14162a5eea4f56a8a15ce32da56b897cf4721/extension/content_dashboard.ts#L544)。
 
 money 格式化使用 `if (!value)` 将合法的 0 输出为空；页脚再从显示文本计算平均值，把该空格排除。
 
@@ -167,7 +169,7 @@ money 格式化使用 `if (!value)` 将合法的 0 输出为空；页脚再从�
 
 ### F09 · P2 · 竞争对手多 HUB 摘要出现 NaN 并丢失前项
 
-位置：[content_dashboard.ts:2077](/Users/xuyunhao/Documents/GitHub/AirlineSim-Enhancement-Suite/extension/content_dashboard.ts:2077)。
+位置：[content_dashboard.ts:2077](https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/blob/9ab14162a5eea4f56a8a15ce32da56b897cf4721/extension/content_dashboard.ts#L2077)。
 
 `scheduleHubs` 本应拼接字符串，却在每轮执行 `Number(data.scheduleHubs || 0)`。单 HUB 出现多余的 0 前缀；从第二个 HUB 开始，已拼接文本被转换为 NaN。
 
@@ -179,7 +181,7 @@ money 格式化使用 `if (!value)` 将合法的 0 输出为空；页脚再从�
 
 ### F10 · P2 · 设置存储失败仍继续写入并报告成功
 
-位置：[helpers.ts:120](/Users/xuyunhao/Documents/GitHub/AirlineSim-Enhancement-Suite/extension/helpers.ts:120)。
+位置：[helpers.ts:120](https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/blob/9ab14162a5eea4f56a8a15ce32da56b897cf4721/extension/helpers.ts#L120)。
 
 与 F07 的并发问题不同，此处是错误分支缺失：共享 `updateSettings()` 在 get/set 回调均未检查 `chrome.runtime.lastError`。读取失败时若返回空结果，会以 `{}` 为基础覆盖原设置；写入失败也会执行成功回调。人员管理还用这个回调继续业务操作。
 

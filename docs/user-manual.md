@@ -1,6 +1,6 @@
 # AES User Manual
 
-[Project overview](../README.md) · [User manual](user-manual.md) · [Developer manual](developer-manual.md)
+[Project overview](../README.md) · [Documentation index](README.md) · [User manual](user-manual.md) · [Developer manual](developer-manual.md)
 
 Installation and pricing guidance for AirlineSim Enhancement Suite users.
 

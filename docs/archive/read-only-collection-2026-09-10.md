@@ -1,5 +1,7 @@
 # 当前游戏页面只读采集（2026-09-10）
 
+> Historical record: implementation details, test counts and status statements describe the work at the time of writing. For current development instructions, see the [developer manual](../developer-manual.md).
+
 首批将以下手动入口改为当前页面 content script 发起同源 GET，复用登录会话，解析返回 HTML，不打开目标标签页、不执行返回页面的脚本：
 
 - 飞机航班列表：采集全部／已完成及飞行中航班财务数据，保存后刷新收益汇总。

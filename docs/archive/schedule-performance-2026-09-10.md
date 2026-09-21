@@ -1,5 +1,7 @@
 # 大型航司 Schedule 保存响应性修复
 
+> Historical record: implementation details, test counts and status statements describe the work at the time of writing. For current development instructions, see the [developer manual](../developer-manual.md).
+
 日期：2026-09-10。修复前基线：`4e52e669671dbacf4d177892e1a1a7fe672c59a6`。
 
 ## 问题与改动

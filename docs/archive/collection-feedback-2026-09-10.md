@@ -1,5 +1,7 @@
 # 采集反馈与同步刷新
 
+> Historical record: implementation details, test counts and status statements describe the work at the time of writing. For current development instructions, see the [developer manual](../developer-manual.md).
+
 - 竞争对手看板：操作区预留固定高度的单行反馈。采集成功后更新现有行、行数据和 schedule 缓存，重新应用当前筛选及排序方向，保留勾选和操作面板。绿色成功提示持续 5 秒，随后转为普通更新时间。
 - 航司页面：overview、facts、schedule 的原有摘要单元格显示各自进度。保存后读取最新历史，绿色提示 5 秒后显示最新日期／周摘要。单独保存 overview、facts 时也刷新摘要。
 - 航班收益：固定单行反馈，批次完成后等待收益汇总持久化，再更新收益表与航班利润单元格。工具栏不重建，未保存的 HUB 输入得以保留。汇总保存失败不会误报刷新成功。
