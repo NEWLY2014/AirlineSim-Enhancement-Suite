@@ -18,7 +18,7 @@ const aircraftFlightPlanState: AESModel.FlightPlanState = {
     templateStale: false,
 };
 class FlightPlanCancelled extends Error {}
-let activeRun: { job: AESModel.FlightPlanJob; cancelled: boolean } | null = null;
+let activeRun: { job: AESModel.FlightPlanJob; cancelled: boolean; controller: AbortController } | null = null;
 let startingJob = false;
 let jobToken: string | null = null;
 
@@ -28,6 +28,7 @@ function afp_assertPageOwner() {
 
 function afp_assertJobAction() {
     afp_assertPageOwner();
+    activeRun?.controller.signal.throwIfAborted();
     if (activeRun && (activeRun.cancelled || activeRun.job !== aircraftFlightPlanState.job)) {
         throw new FlightPlanCancelled(AESI18n.t('Scheduling stopped'));
     }
@@ -55,7 +56,7 @@ const AIRCRAFT_FLIGHT_PLAN_SCRIPT_ENABLED = AES.runContentScript("content_aircra
 
 if (AIRCRAFT_FLIGHT_PLAN_SCRIPT_ENABLED) {
     AES.whenPageOwnershipLost(function() {
-        if (activeRun) activeRun.cancelled = true;
+        if (activeRun) { activeRun.cancelled = true; activeRun.controller.abort(new FlightPlanCancelled('Page ownership lost')); }
         if (aircraftFlightPlanState.hubObserver) {
             aircraftFlightPlanState.hubObserver.disconnect();
             aircraftFlightPlanState.hubObserver = null;
@@ -101,9 +102,7 @@ async function aircraftFlightPlanInit() {
     }
     afp_renderPanel();
     afp_watchFlightPlanHubData();
-    window.setTimeout(function() {
-        afp_resumePendingJob();
-    }, 300);
+    await afp_resumePendingJob();
 }
 
 function aircraftFlightPlanReadyTarget() {
@@ -811,33 +810,11 @@ function afp_getSelectedExistingFlight() {
     };
 }
 
-function afp_waitFor(checkFn: () => unknown, timeoutMs = 5000, intervalMs = 100) {
-    timeoutMs = timeoutMs || 5000;
-    intervalMs = intervalMs || 100;
-
-    return new Promise<boolean>(function(resolve, reject) {
-        let started = Date.now();
-        let timer = window.setInterval(function() {
-            try { afp_assertJobAction(); } catch (error) { window.clearInterval(timer); reject(error); return; }
-            let result = false;
-            try {
-                result = !!checkFn();
-            } catch (e) {
-                result = false;
-            }
-
-            if (result) {
-                window.clearInterval(timer);
-                resolve(true);
-                return;
-            }
-
-            if (Date.now() - started >= timeoutMs) {
-                window.clearInterval(timer);
-                resolve(false);
-            }
-        }, intervalMs);
-    });
+function afp_waitFor(checkFn: () => unknown, timeoutMs = 5000, _intervalMs = 100) {
+    return AES.waitForCondition(() => {
+        afp_assertJobAction();
+        return checkFn();
+    }, timeoutMs, activeRun?.controller.signal);
 }
 
 function afp_collectSegmentIndexes() {
@@ -965,7 +942,7 @@ async function afp_startScheduling(offsetDays: number) {
 }
 
 async function afp_clearJob(notifyUser: boolean) {
-    if (activeRun && notifyUser) activeRun.cancelled = true;
+    if (activeRun && notifyUser) { activeRun.cancelled = true; activeRun.controller.abort(new FlightPlanCancelled('Scheduling stopped')); }
     if (!jobToken) await afp_jobMessage('claim');
     await afp_jobMessage('clear');
     jobToken = null;
@@ -1210,11 +1187,15 @@ async function afp_withPlannerUpdate(control: JQuery, action: () => void) {
         let ready = false;
         let finished = false;
         const requests = new Map<number, boolean>();
+        const signal = activeRun?.controller.signal;
+        const cancelled = () => finish(signal?.reason);
+        const pageHidden = () => finish(new FlightPlanCancelled('Page changed'));
         const finish = (error?: unknown) => {
             if (finished) return;
             finished = true;
             window.clearTimeout(timeout);
-            window.clearInterval(cancellation);
+            signal?.removeEventListener('abort', cancelled);
+            window.removeEventListener('pagehide', pageHidden);
             document.removeEventListener('aes-planner-response', receive);
             if (error) reject(error); else resolve();
         };
@@ -1240,9 +1221,8 @@ async function afp_withPlannerUpdate(control: JQuery, action: () => void) {
             }
         };
         const timeout = window.setTimeout(() => finish(new Error(AESI18n.t("Timed out waiting for the planner server update. Scheduling stopped."))), 15000);
-        const cancellation = window.setInterval(() => {
-            try { afp_assertJobAction(); } catch (error) { finish(error); }
-        }, 40);
+        signal?.addEventListener('abort', cancelled, {once:true});
+        window.addEventListener('pagehide', pageHidden, {once:true});
         document.addEventListener('aes-planner-response', receive);
         document.dispatchEvent(new Event('aes-planner-observe'));
         if (!ready) { finish(new Error(AESI18n.t("Planner server updates could not be monitored. Reload the page and try again."))); return; }
@@ -1433,18 +1413,11 @@ async function afp_confirmPlannerArrivals(entry: AESModel.FlightPlanEntry, offse
             // Never retry a submission or reset source-day modes captured earlier.
             continue;
         }
-        let stableSince=0;
-        const checkStable=()=>{
-            try { afp_validatePlanner(entry, offsetDays, requireSelection); }
-            catch { stableSince=0; return false; }
-            stableSince ||= Date.now();
-            return Date.now()-stableSince>=240;
-        };
-        // Establish the initial valid state now, after server responses complete.
-        // A hidden tab's first timer callback may run after the 800 ms deadline;
-        // it must revalidate this state, not start the stability window too late.
-        checkStable();
-        const stable=await afp_waitFor(checkStable,800,40);
+        const stable = await AES.waitForCondition(() => {
+            afp_assertJobAction();
+            try { afp_validatePlanner(entry, offsetDays, requireSelection); return true; }
+            catch { return false; }
+        }, 800, activeRun?.controller.signal, 240);
         if (stable) return;
     }
     afp_validatePlanner(entry, offsetDays, requireSelection);
@@ -1703,7 +1676,10 @@ async function afp_resumePendingJob() {
     }
 
     aircraftFlightPlanState.processingJob = true;
-    activeRun = { job, cancelled: false };
+    activeRun = { job, cancelled: false, controller: new AbortController() };
+    const runController = activeRun.controller;
+    const leaving = () => runController.abort(new FlightPlanCancelled('Page changed'));
+    window.addEventListener('pagehide', leaving, {once:true});
     try {
         await afp_processJob();
     } catch (error) {
@@ -1718,6 +1694,7 @@ async function afp_resumePendingJob() {
             }
         }
     } finally {
+        window.removeEventListener('pagehide', leaving);
         activeRun = null;
         aircraftFlightPlanState.processingJob = false;
         afp_renderPanel();

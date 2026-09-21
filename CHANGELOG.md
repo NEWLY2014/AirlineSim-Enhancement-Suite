@@ -30,6 +30,8 @@ This beta contains all changes since **0.8.13**. It previews the upcoming 0.9.0 
 
 ### Fixed
 
+- Replace planner and read-collection state/cancellation polling with DOM, server-response and lifecycle events; resume ready scheduling jobs without a fixed startup delay.
+
 - Avoid rejecting correct arrival settings when background-tab timer throttling delays the planner's stability check. Validate the initial state immediately and revalidate before submission.
 
 - Recover complete flight names from other blocks when short departure blocks omit the airline code, and include the airline code in scheduling status messages for existing numeric-only templates.

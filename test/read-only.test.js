@@ -40,7 +40,7 @@ test('ownership loss aborts an in-flight read and cannot save its result',async 
     p.w.fetch=(url,options)=>new Promise((resolve,reject)=>{started=true;options.signal.addEventListener('abort',()=>reject(new Error('aborted')));});
     const result=p.run("AESRead.fetchDocument('/action/info/flight?id=1')");
     const rejected=assert.rejects(result,/aborted/);
-    await until(()=>started);p.run('AES.isPageOwner=()=>false');await rejected;assert.deepEqual(p.saved,{});
+    await until(()=>started);p.run('AES.isPageOwner=()=>false; AES._ownershipLostCallbacks.forEach(fn=>fn());');await rejected;assert.deepEqual(p.saved,{});
 });
 test('financial parser rejects incomplete and non-private pages rather than replacing old profits',async t=>{
     const p=page(t);

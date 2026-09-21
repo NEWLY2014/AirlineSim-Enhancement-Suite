@@ -587,6 +587,63 @@ class AES {
         return new Promise(resolve => setTimeout(resolve, ms));
     }
 
+    /** Observe a state transition; timers only bound the wait or a stability window. */
+    static waitForCondition(check: () => unknown, timeoutMs = 5000, signal?: AbortSignal, stableMs = 0): Promise<boolean> {
+        return new Promise((resolve, reject) => {
+            let finished = false, stableSince: number | undefined;
+            let deadline = 0, settle = 0;
+            const events = ['input', 'change', 'aes-planner-response', 'visibilitychange'];
+            const observer = new MutationObserver(() => inspect());
+            const finish = (value: boolean, error?: unknown) => {
+                if (finished) return;
+                finished = true;
+                observer.disconnect();
+                window.clearTimeout(deadline); window.clearTimeout(settle);
+                events.forEach(name => document.removeEventListener(name, changed));
+                signal?.removeEventListener('abort', abort);
+                if (error !== undefined) reject(error); else resolve(value);
+            };
+            const inspect = () => {
+                if (finished) return;
+                try {
+                    signal?.throwIfAborted();
+                    if (!check()) { stableSince = undefined; window.clearTimeout(settle); return; }
+                    stableSince ??= performance.now();
+                    const remaining = stableMs - (performance.now() - stableSince);
+                    if (remaining <= 0) finish(true);
+                    else { window.clearTimeout(settle); settle = window.setTimeout(inspect, remaining); }
+                } catch (error) { finish(false, error); }
+            };
+            const changed = () => inspect();
+            const abort = () => finish(false, signal?.reason);
+            observer.observe(document.documentElement, {childList:true, subtree:true, attributes:true, characterData:true});
+            events.forEach(name => document.addEventListener(name, changed));
+            signal?.addEventListener('abort', abort, {once:true});
+            deadline = window.setTimeout(() => { inspect(); if (!finished) finish(false); }, timeoutMs);
+            inspect();
+        });
+    }
+
+    /** Cancellation follows the page lifecycle and observable context changes. */
+    static observeContext(current: () => boolean) {
+        const controller = new AbortController();
+        const abort = () => controller.abort();
+        const check = () => { if (!current()) abort(); };
+        const observer = new MutationObserver(check);
+        const unsubscribe = AES.whenPageOwnershipLost(abort);
+        observer.observe(document.documentElement, {childList:true, subtree:true, attributes:true});
+        window.addEventListener('pagehide', abort);
+        window.addEventListener('popstate', check);
+        window.addEventListener('hashchange', check);
+        check();
+        return {signal:controller.signal, dispose:() => {
+            observer.disconnect(); unsubscribe?.();
+            window.removeEventListener('pagehide', abort);
+            window.removeEventListener('popstate', check);
+            window.removeEventListener('hashchange', check);
+        }};
+    }
+
     /**
      * Runs a callback once a DOM target exists, including targets added by
      * AirlineSim's asynchronous page rendering.
@@ -1036,6 +1093,7 @@ class AES {
         }
         AES.#ensurePageControlMonitor();
         AES._ownershipLostCallbacks.push(callback);
+        return () => { AES._ownershipLostCallbacks = AES._ownershipLostCallbacks.filter(item => item !== callback); };
     }
 
     /**

@@ -52,7 +52,9 @@ class AESRead {
         const controller = new AbortController();
         const abort = () => controller.abort();
         const timer = window.setTimeout(abort, 20000);
-        const monitor = window.setInterval(() => {if (!current()) abort();},100);
+        const context = AES.observeContext(current);
+        context.signal.addEventListener('abort', abort, {once:true});
+        if (context.signal.aborted) abort();
         window.addEventListener('pagehide', abort, {once:true});
         try {
             if (!current() || Date.now() >= (slot.expires || 0)) throw new Error(AESI18n.t("Read request expired or page changed."));
@@ -71,7 +73,7 @@ class AESRead {
         } catch (error) {
             controller.abort(); await slot.cancel(); throw error;
         } finally {
-            window.clearTimeout(timer);window.clearInterval(monitor);window.removeEventListener('pagehide',abort);
+            window.clearTimeout(timer);context.signal.removeEventListener('abort',abort);context.dispose();window.removeEventListener('pagehide',abort);
         }
     }
     static async save(message: Record<string, unknown>, current: () => boolean) {

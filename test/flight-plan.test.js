@@ -493,7 +493,8 @@ for(const backgroundAt of ['start','before submission']){
         Object.defineProperty(p.w.document,'hidden',{get:()=>hidden});
         Object.defineProperty(p.w.document,'visibilityState',{get:()=>hidden?'hidden':'visible'});
         const interval=p.w.setInterval.bind(p.w);
-        p.w.setInterval=(callback,ms,...args)=>interval(callback,hidden && ms===40?1000:ms,...args);
+        let intervals=0;
+        p.w.setInterval=(callback,ms,...args)=>{intervals++;return interval(callback,hidden && ms===40?1000:ms,...args)};
         const set=p.w.chrome.storage.local.set;
         p.w.chrome.storage.local.set=(values,callback)=>{
             if(backgroundAt==='before submission' && values[jobKey]?.status==='waitForApply'){
@@ -506,6 +507,7 @@ for(const backgroundAt of ['start','before submission']){
         assert.equal(p.submissions.length,1,p.saved[jobKey]?.errorMessage);
         assert.equal(p.submissions[0].fixedArrivals[0],true);
         assert.equal(p.maxPendingUpdates,1);
+        assert.equal(intervals,0,'scheduling must not poll state or cancellation');
     });
 }
 
