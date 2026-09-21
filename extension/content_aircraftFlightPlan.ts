@@ -1434,12 +1434,17 @@ async function afp_confirmPlannerArrivals(entry: AESModel.FlightPlanEntry, offse
             continue;
         }
         let stableSince=0;
-        const stable=await afp_waitFor(()=>{
+        const checkStable=()=>{
             try { afp_validatePlanner(entry, offsetDays, requireSelection); }
             catch { stableSince=0; return false; }
             stableSince ||= Date.now();
             return Date.now()-stableSince>=240;
-        },800,40);
+        };
+        // Establish the initial valid state now, after server responses complete.
+        // A hidden tab's first timer callback may run after the 800 ms deadline;
+        // it must revalidate this state, not start the stability window too late.
+        checkStable();
+        const stable=await afp_waitFor(checkStable,800,40);
         if (stable) return;
     }
     afp_validatePlanner(entry, offsetDays, requireSelection);

@@ -486,6 +486,29 @@ test('planner repairs a delayed reset after saving its pending job',async t=>{
     assert.equal(p.submissions[0].fixedArrivals[0],true);assert.equal(p.submissions.length,1);
 });
 
+for(const backgroundAt of ['start','before submission']){
+    test(`background timer throttling from ${backgroundAt} does not reject correct arrival settings`,async t=>{
+        const p=page(t,{data:{[templateKey]:template()}});
+        let hidden=backgroundAt==='start';
+        Object.defineProperty(p.w.document,'hidden',{get:()=>hidden});
+        Object.defineProperty(p.w.document,'visibilityState',{get:()=>hidden?'hidden':'visible'});
+        const interval=p.w.setInterval.bind(p.w);
+        p.w.setInterval=(callback,ms,...args)=>interval(callback,hidden && ms===40?1000:ms,...args);
+        const set=p.w.chrome.storage.local.set;
+        p.w.chrome.storage.local.set=(values,callback)=>{
+            if(backgroundAt==='before submission' && values[jobKey]?.status==='waitForApply'){
+                hidden=true;p.w.document.dispatchEvent(new p.w.Event('visibilitychange'));
+            }
+            return set(values,callback);
+        };
+        await load(p);button(p,'Start scheduling').click();
+        await waitForPlanner(()=>p.submissions.length || p.saved[jobKey]?.status==='error');
+        assert.equal(p.submissions.length,1,p.saved[jobKey]?.errorMessage);
+        assert.equal(p.submissions[0].fixedArrivals[0],true);
+        assert.equal(p.maxPendingUpdates,1);
+    });
+}
+
 test('planner never submits if fixed arrival keeps being reset',async t=>{
     const p=page(t,{data:{[templateKey]:template()}});let reset;
     const set=p.w.chrome.storage.local.set;

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Avoid rejecting correct arrival settings when background-tab timer throttling delays the planner's stability check. Validate the initial state immediately and revalidate before submission.
+
 ## [0.9.0-beta.3] - 2026-09-20
 
 This beta contains all changes since **0.8.13**. It previews the upcoming 0.9.0 release. Beta 3 improves server-confirmed scheduling, template arrival settings, flight labels and release history.
