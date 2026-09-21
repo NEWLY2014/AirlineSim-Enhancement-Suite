@@ -65,6 +65,15 @@ function displaySettings() {
     }
     root.attr('lang', AESI18n.locale());
     tabs.append(top);tabs.after(root);
+    // Different lang attributes can select different font metrics. Keep the native tab row stable.
+    const nativeAnchors = nativeItems.flatMap(item => Array.from(item.querySelectorAll('a')));
+    const alignTabHeight = () => {
+        const height = Math.max(0,...nativeAnchors.map(link => link.getBoundingClientRect().height));
+        if (height) top.find('a').css({'min-height':height+'px','box-sizing':'border-box'});
+    };
+    alignTabHeight();
+    const tabSizeObserver = typeof ResizeObserver === 'function' ? new ResizeObserver(alignTabHeight) : undefined;
+    nativeAnchors.forEach(link => tabSizeObserver?.observe(link));
     const activate=(showAES:boolean)=>{
         root.prop('hidden',!showAES);
         if(nativeContent.length) nativeContent.prop('hidden',showAES);
@@ -114,6 +123,7 @@ function displaySettings() {
     activate(!nativeTabs.length);
     AES.markOwnedElements([root[0],top[0]]);
     cleanupSettings=()=>{
+        tabSizeObserver?.disconnect();
         tabs.off('.aesSettings');$(nativeItems).find('a').off('.aesSettings');
         root.remove();top.remove();restore.forEach(action=>action());
         if(!nativeTabs.length) tabs.remove();

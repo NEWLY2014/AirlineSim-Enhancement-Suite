@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Honor reduced-motion preferences when dismissing notifications and highlighting menu actions, retaining the original reading time.
 
-- Declare AES language on owned UI and notifications while retaining explicit source-language text and the game document language.
+- Declare AES language on owned UI and notifications while retaining explicit source-language text and the game document language; keep the Settings tab row aligned with native font metrics.
 
 - Announce notification outcomes through shared, persistent status and error regions without repeating rapid intermediate messages.
 
