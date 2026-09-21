@@ -1,5 +1,19 @@
 const AES_RELEASE_NOTES_STORAGE_KEY = "aesReleaseNotesSeenVersion"
 const AES_RELEASE_NOTES: Record<string, AESModel.ReleaseNotes | undefined> = {
+    "0.9.0-beta.4": {
+        "title": "Release Notes",
+        "releaseDate": "2026-09-21",
+        "summary": "Prevent false scheduling failures after switching tabs.",
+        "sections": [
+            {
+                "title": "Fixed",
+                "items": [
+                    "Avoid rejecting correct arrival settings when Chrome delays background-tab timers.",
+                    "Keep server-response waiting and final schedule validation in place."
+                ]
+            }
+        ]
+    },
     "0.9.0-beta.3": {
         "title": "Release Notes",
         "releaseDate": "2026-09-20",
