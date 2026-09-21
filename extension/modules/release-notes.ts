@@ -1,5 +1,23 @@
 const AES_RELEASE_NOTES_STORAGE_KEY = "aesReleaseNotesSeenVersion"
 const AES_RELEASE_NOTES: Record<string, AESModel.ReleaseNotes | undefined> = {
+    "0.9.0-beta.5": {
+        "title": "Release Notes",
+        "releaseDate": "2026-09-21",
+        "summary": "More responsive scheduling, schedule comparisons and backups, with improved accessibility.",
+        "sections": [
+            {
+                "title": "Changed",
+                "items": [
+                    "React to server updates and page events for scheduling and queued operations while preserving request spacing and submission checks.",
+                    "Keep large schedule processing and comparison searches responsive, and cancel superseded searches.",
+                    "Load backup summaries efficiently and export complete records through a dedicated worker.",
+                    "Confirm each salary change before continuing to the next form.",
+                    "Improve keyboard controls, screen-reader announcements, language metadata and reduced-motion support.",
+                    "Keep Settings tabs aligned and avoid unnecessary inventory table scans."
+                ]
+            }
+        ]
+    },
     "0.9.0-beta.4": {
         "title": "Release Notes",
         "releaseDate": "2026-09-21",
