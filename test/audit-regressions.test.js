@@ -13,6 +13,7 @@ async function dash(t, tab, data) {
 }
 async function options(t, data) {
     const p = browser(t, {html:source('options.html'), helpers:false, data});
+    p.sender.url='chrome-extension://aes-test/options.html';
     p.downloads=[];p.w.Blob=Blob;
     p.w.URL.createObjectURL=blob => {p.downloads.push(blob);return 'blob:audit';};
     p.w.URL.revokeObjectURL=()=>{};p.w.HTMLAnchorElement.prototype.click=()=>{};
@@ -44,6 +45,7 @@ test('F04: legacy migration preserves existing owner history', async t => {
 test('F05: Pricing Data backup includes actual routeAnalysis records', async t => {
     const p=await options(t,{paine42AAABBBrouteAnalysis:{type:'routeAnalysis',date:{20260908:{data:{}}}}});
     p.w.document.querySelector('#aes-backup-type').value='pricing';p.w.document.querySelector('#aes-backup-btn').click();
+    await until(()=>p.downloads.length>0);
     const backup=JSON.parse(await p.downloads[0].text());assert.equal(backup.metadata.itemCount,1);
     assert.deepEqual(backup.data,p.saved);
 });

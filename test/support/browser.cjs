@@ -12,6 +12,11 @@ function browser(t, { html = '', path = '/app/info/ors', data = {}, helpers = tr
     w.structuredClone = structuredClone;
     w.HTMLDialogElement.prototype.showModal = function() { this.open = true; };
     w.HTMLDialogElement.prototype.close = function() { this.open = false; this.dispatchEvent(new w.Event("close")); };
+    w.Worker = class {
+        constructor(){const scope={};require('node:vm').runInNewContext(source('modules/json-worker.js'),{globalThis:scope,Blob});this.scope=scope;scope.postMessage=data=>queueMicrotask(()=>this.onmessage?.({data}));}
+        postMessage(data){queueMicrotask(()=>this.scope.onmessage({data}));}
+        terminate(){}
+    };
     const saved = snapshot(data);
     const calls = [];
     const failures = {};

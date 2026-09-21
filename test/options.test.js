@@ -10,11 +10,6 @@ async function options(t, data) {
     p.w.URL.createObjectURL = blob => { downloads.push(blob); return 'blob:aes-test'; };
     p.w.URL.revokeObjectURL = () => {};
     p.w.HTMLAnchorElement.prototype.click = function() {};
-    p.w.Worker = class {
-        constructor(){const scope={};require('node:vm').runInNewContext(source('modules/json-worker.js'),{globalThis:scope,Blob});this.scope=scope;scope.postMessage=data=>queueMicrotask(()=>this.onmessage?.({data}));}
-        postMessage(data){queueMicrotask(()=>this.scope.onmessage({data}));}
-        terminate(){}
-    };
     p.load('options.js');
     await until(() => p.w.document.querySelector('#aes-log-file-select').options.length > 0);
     return { ...p, downloads };
