@@ -185,36 +185,55 @@ function salaryUpdate(options: AESModel.SalaryUpdateOptions = {}) {
             return;
         }
 
-        const salaryForms = salaryButtons
-            .map(function(salaryBtn) {
-                return salaryBtn.closest('form')[0];
-            })
-            .filter(function(form, index, forms) {
-                return form && forms.indexOf(form) === index;
-        });
-
         finishSalaryUpdate(updatedRows
             ? null
-            : 'All salaries are already at the target level.', options, function() {
-            submitSalaryChanges(salaryButtons, salaryForms);
-        });
+            : 'All salaries are already at the target level.', options, updatedRows > 0);
     });
 }
 
-function submitSalaryChanges(salaryButtons: JQuery[], salaryForms: HTMLElement[]) {
-    if (!salaryButtons.length) {
-        return;
+/** Journal one form before dispatch. A new page or replaced form confirms its response. */
+async function submitSalaryChanges(key: string, value: Record<string,unknown>, actual: Record<string,number>) {
+    if (!AES.isRecord(value.pending) || !AES.isRecord(value.pending.targets)) return;
+    const expected = value.pending.targets;
+    const rows = getSalaryRows();
+    if (!rows || Object.keys(expected).some(id => !rows.has(id))) throw new Error(AESI18n.t("Salary rows could not be identified."));
+    const next = [...rows].find(([id]) => expected[id] !== actual[id]);
+    if (!next) return;
+    const form = next[1].form;
+    const inFlight = [...rows].filter(([,row]) => row.form === form).map(([id]) => id);
+    const button = form.querySelector<HTMLButtonElement | HTMLInputElement>('button[type="submit"], input[type="submit"]');
+    if (!button) throw new Error(AESI18n.t("Salary buttons not found. AES could not submit the calculated salary changes."));
+    const current = (await chrome.storage.local.get(key))[key];
+    if (!AES.isPageOwner() || !AES.isRecord(current) || JSON.stringify(current.pending) !== JSON.stringify(value.pending)) return;
+    const notBefore = typeof value.pending.notBefore === 'number' ? value.pending.notBefore : 0;
+    if (notBefore > Date.now()) await AES.sleep(notBefore-Date.now());
+    if (!AES.isPageOwner() || !form.isConnected) return;
+    const data = {...current,pending:{...value.pending,inFlight,notBefore:Date.now()+30+Math.floor(Math.random()*41)}};
+    await chrome.storage.local.set({[key]:data});
+    if (!AES.isPageOwner() || !form.isConnected) return;
+    for (const id of inFlight) {
+        const amount = expected[id];
+        if (typeof amount !== 'number' || !Number.isFinite(amount)) throw new Error(AESI18n.t("Salary rows could not be identified."));
+        $(rows.get(id)!.input).val(amount).trigger('input').trigger('change');
     }
-
-    const buttonsToClick = salaryForms.length === 1
-        ? [salaryButtons[0]]
-        : salaryButtons;
-
-    buttonsToClick.forEach(function(salaryBtn, index) {
-        setTimeout(function() {
-            if (AES.isPageOwner() && salaryBtn[0]?.isConnected) salaryBtn.trigger('click');
-        }, 75 + index * 75);
-    });
+    const action = $('.aes-personnel-management-apply');
+    setPersonnelManagementBusy(action,true);
+    updatePersonnelLastUpdate(data);
+    const context = AES.observeContext(() => AES.isPageOwner());
+    try {
+        // A changed input value alone is not evidence of a server response.
+        const response = AES.waitForCondition(() => !form.isConnected,15000,context.signal);
+        button.click();
+        if (await response) {
+            const received = getSalaryTargets(true);
+            if (received) await confirmSalaryUpdate(key,data,received);
+        }
+    } catch(error) {
+        if (!context.signal.aborted) throw error;
+    } finally {
+        context.dispose();
+        setPersonnelManagementBusy(action,false);
+    }
 }
 
 function getStaffSalaryTableInfo() {
@@ -430,30 +449,43 @@ function failSalaryUpdate(message: string, options: AESModel.SalaryUpdateOptions
 }
 
 /** Stable row identities, independent of Wicket's changing form action URLs. */
-function getSalaryTargets(): Record<string,number> | null {
-    const targets: Record<string,number> = {};
+function getSalaryRows() {
+    const rows = new Map<string,{form:HTMLFormElement;input:HTMLInputElement}>();
     const table = getStaffSalaryTableInfo()?.table;
     if (!table) return null;
     for (const row of table.find('tbody tr').toArray()) {
         const form = $(row).find('input[name="action"][value="salary"]').closest('form');
-        const input = form.find('input[name="amount"]');
-        if (!input.length) continue;
+        const input = form.find('input[name="amount"]')[0] as HTMLInputElement | undefined;
+        if (!input) continue;
         const hidden = form.find('input[type="hidden"]').toArray().map(element => {
             const field = element as HTMLInputElement;
             return [field.name,field.value];
         }).sort((a,b) => a[0].localeCompare(b[0]));
         const key = JSON.stringify([$(row).children('td,th').first().text().trim(),hidden]);
-        const amount = AES.cleanInteger(input.val());
-        if (key in targets || !Number.isFinite(amount)) return null;
-        targets[key]=amount;
+        if (rows.has(key)) return null;
+        rows.set(key,{form:form[0] as HTMLFormElement,input});
     }
-    return Object.keys(targets).length ? targets : null;
+    return rows.size ? rows : null;
 }
 
-async function confirmSalaryUpdate(key: string, value: unknown) {
+function getSalaryTargets(serverValues = false): Record<string,number> | null {
+    const rows = getSalaryRows();
+    return rows ? Object.fromEntries([...rows].map(([id,row]) => [id,AES.cleanInteger(serverValues ? row.input.defaultValue : row.input.value)])) : null;
+}
+
+async function confirmSalaryUpdate(key: string, value: unknown, actual = loadedSalaryTargets) {
     if (!AES.isRecord(value) || !AES.isRecord(value.pending) || !AES.isRecord(value.pending.targets)) return;
-    const expected = value.pending.targets, actual = loadedSalaryTargets;
-    if (!actual || !Object.keys(expected).length || !Object.entries(expected).every(([id,amount]) => actual[id] === amount)) return;
+    const expected = value.pending.targets;
+    if (!actual || !Object.keys(expected).length) return;
+    if (!Object.entries(expected).every(([id,amount]) => actual[id] === amount)) {
+        // Only resume when the previously submitted form has been confirmed by the server.
+        const submitted = value.pending.inFlight;
+        if (Array.isArray(submitted) && submitted.length && submitted.every(id => typeof id === 'string' && id in expected && actual[id] === expected[id])) {
+            try {await submitSalaryChanges(key,value,actual);}
+            catch(error) {showPersonnelNotification(AESI18n.t("Could not confirm salary update: {0}", {"0": String(error)}),'error');}
+        }
+        return;
+    }
     try {
         const current = (await chrome.storage.local.get(key))[key];
         if (!AES.isPageOwner() || !AES.isRecord(current) || JSON.stringify(current.pending) !== JSON.stringify(value.pending)) return;
@@ -465,7 +497,7 @@ async function confirmSalaryUpdate(key: string, value: unknown) {
     } catch(error) {showPersonnelNotification(AESI18n.t("Could not confirm salary update: {0}", {"0": String(error)}),'error');}
 }
 
-function finishSalaryUpdate(message: string | null, options: AESModel.SalaryUpdateOptions = {}, callback?: () => void) {
+function finishSalaryUpdate(message: string | null, options: AESModel.SalaryUpdateOptions = {}, submit = false) {
     options = options || {};
     AES.updateSettings(function(currentSettings) {
         ensurePersonnelManagementSettings(currentSettings).auto = 0;
@@ -478,17 +510,17 @@ function finishSalaryUpdate(message: string | null, options: AESModel.SalaryUpda
             if (!AES.isPageOwner()) return;
             const previous = AES.isRecord(stored[key]) ? stored[key] : {};
             const targets = getSalaryTargets();
-            if (callback && !message && !targets) throw new Error(AESI18n.t("Salary rows could not be identified."));
-            const data = callback && !message
+            if (submit && !message && !targets) throw new Error(AESI18n.t("Salary rows could not be identified."));
+            const data = submit && !message
                 ? {...previous, server, airline, type:'personnelManagement', pending:{targets,submittedAt:Date.now()}}
                 : {...previous, server, airline, type:'personnelManagement', date:today.date,time:today.time};
             if (message) delete (data as Record<string,unknown>).pending;
             await chrome.storage.local.set({[key]:data});
             if (!AES.isPageOwner()) return;
             updatePersonnelLastUpdate(data);
-            setPersonnelManagementBusy(options.actionButton,false);
+            if (!submit) setPersonnelManagementBusy(options.actionButton,false);
             if (message) showPersonnelNotification(message,'success');
-            callback?.();
+            if (submit && targets && loadedSalaryTargets) await submitSalaryChanges(key,data,loadedSalaryTargets);
         })().catch(error => failSalaryUpdate(String(error),options));
     });
 }

@@ -213,3 +213,84 @@ test('step preview shows horizontal segments, rejects incomplete drafts and pres
     $('#aes-table-invPricing tbody tr').last().find('.aes-a-invPricing-delete-row').trigger('click');
     assert.equal($('.aes-step-preview svg').css('visibility'),'hidden');
 });
+
+const staffBatch = staff.replace('</tbody>', '<tr><td>Cabin crew</td><td><form><input name="action" value="salary" type="hidden"><input name="amount" value="700"><button type="submit">Save salary</button></form></td><td>900 AS$</td></tr></tbody>');
+
+test('salary batch confirms one form per server page before submitting the next',async t=>{
+    const key='paine42personnelManagement';
+    const p=browser(t,{html:staffBatch,path:'/action/enterprise/staffOverview',data:{settings:{personnelManagement:{type:'absolute',value:50}}}});
+    const submitted=[];
+    p.w.document.addEventListener('submit',event=>{event.preventDefault();submitted.push(event.target.querySelector('[name="amount"]').value)});
+    p.load('content_personnelManagement.js');
+    await until(()=>p.w.document.querySelector('.aes-personnel-management-apply'));
+    p.w.document.querySelector('.aes-personnel-management-apply').click();
+    await until(()=>submitted.length);
+    await new Promise(resolve=>setTimeout(resolve,180));
+    assert.deepEqual(submitted,['1050'],'no second submission without server confirmation');
+    assert.equal(p.saved[key].pending.inFlight.length,1);
+    assert.equal(p.w.document.querySelector('.aes-personnel-management-apply').disabled,true);
+    const next=browser(t,{html:staffBatch.replace('value="800"','value="1050"'),path:'/action/enterprise/staffOverview',data:p.saved});
+    const resumed=[];
+    next.w.document.addEventListener('submit',event=>{event.preventDefault();resumed.push(event.target.querySelector('[name="amount"]').value)});
+    next.load('content_personnelManagement.js');
+    await until(()=>resumed.length);
+    assert.deepEqual(resumed,['950']);
+    assert.equal(next.saved[key].date,undefined);
+    const done=browser(t,{html:staffBatch.replace('value="800"','value="1050"').replace('value="700"','value="950"'),path:'/action/enterprise/staffOverview',data:next.saved});
+    done.load('content_personnelManagement.js');
+    await until(()=>done.saved[key].date==='20260908');
+    assert.equal(done.saved[key].pending,undefined);
+});
+
+test('salary batch stops on an unconfirmed response and never trusts locally edited values',async t=>{
+    const key='paine42personnelManagement';
+    const p=browser(t,{html:staffBatch,path:'/action/enterprise/staffOverview',data:{settings:{personnelManagement:{type:'absolute',value:50}}}});
+    let submissions=0;
+    p.w.document.addEventListener('submit',event=>{event.preventDefault();submissions++});
+    p.load('content_personnelManagement.js');
+    await until(()=>p.w.document.querySelector('.aes-personnel-management-apply'));
+    p.w.document.querySelector('.aes-personnel-management-apply').click();
+    await until(()=>submissions===1);
+    // AES already changed both inputs. An unrelated DOM change must not confirm them.
+    p.w.document.body.append(p.w.document.createElement('span'));
+    await new Promise(resolve=>setTimeout(resolve,90));
+    assert.equal(submissions,1);assert.ok(p.saved[key].pending);
+    const reload=browser(t,{html:staffBatch,path:'/action/enterprise/staffOverview',data:p.saved});
+    let retries=0;
+    reload.w.document.addEventListener('submit',event=>{event.preventDefault();retries++});
+    reload.load('content_personnelManagement.js');
+    await until(()=>reload.w.document.querySelector('.aes-personnel-management-apply'));
+    await new Promise(resolve=>setTimeout(resolve,90));
+    assert.equal(retries,0);assert.ok(reload.saved[key].pending);
+});
+
+test('salary batch resumes after AJAX replaces the submitted form with confirmed server values',async t=>{
+    const key='paine42personnelManagement';
+    const p=browser(t,{html:staffBatch,path:'/action/enterprise/staffOverview',data:{settings:{personnelManagement:{type:'absolute',value:50}}}});
+    const submitted=[];
+    p.w.document.addEventListener('submit',event=>{
+        event.preventDefault();submitted.push(event.target.querySelector('[name="amount"]').value);
+        const returned=event.target.cloneNode(true);
+        const input=returned.querySelector('[name="amount"]');input.defaultValue=input.value;
+        event.target.replaceWith(returned);
+    });
+    p.load('content_personnelManagement.js');
+    await until(()=>p.w.document.querySelector('.aes-personnel-management-apply'));
+    p.w.document.querySelector('.aes-personnel-management-apply').click();
+    await until(()=>p.saved[key]?.date==='20260908');
+    assert.deepEqual(submitted,['1050','950']);assert.equal(p.saved[key].pending,undefined);
+});
+
+test('salary journal failure prevents dispatch',async t=>{
+    const p=browser(t,{html:staffBatch,path:'/action/enterprise/staffOverview',data:{settings:{personnelManagement:{type:'absolute',value:50}}}});
+    let submissions=0;
+    p.w.document.addEventListener('submit',event=>{event.preventDefault();submissions++});
+    p.load('modules/notification.js');p.load('modules/notifications.js');
+    p.load('content_personnelManagement.js');
+    await until(()=>p.w.document.querySelector('.aes-personnel-management-apply'));
+    const original=p.w.chrome.storage.local.set;
+    p.w.chrome.storage.local.set=(values,callback)=> values.paine42personnelManagement?.pending?.inFlight ? Promise.reject(new Error('journal unavailable')) : original(values,callback);
+    const button=p.w.document.querySelector('.aes-personnel-management-apply');button.click();
+    await until(()=>p.w.document.querySelector('.feedbackPanelERROR'));
+    assert.equal(submissions,0);assert.equal(button.disabled,false);
+});
