@@ -13,36 +13,15 @@ The AirlineSim Enhancement Suite (AES) offers a set of tools to help CEOs build 
 - Automatically save historical load data.
 - Customize most of the settings to fit your airline needs.
 
-Marcipanas wrote [a guide](https://docs.google.com/document/d/1hzMHb3hTBXSZNtuDKoBuvx1HP9CgB7wVYR59yDYympg/) on how to use the extension’s features.
+## Documentation
 
-## Installation
+- [User manual](docs/user-manual.md): installation, pricing settings and feature guidance.
+- [Developer manual](docs/developer-manual.md): local development, testing, notifications, the shared page queue, localization and releases.
+- [Changelog](CHANGELOG.md): version history.
 
-Supported platforms: Chromium-based browsers (Chrome, Edge, etc.).
+## Install
 
-### Recommended: Install from Chrome Web Store
-
-Install AES directly from the [Chrome Web Store](https://chromewebstore.google.com/detail/airlinesim-enhancement-su/hbbgjkgglkddalmgfnhgeinmfkobgdke).
-
-1. Open the [Chrome Web Store listing](https://chromewebstore.google.com/detail/airlinesim-enhancement-su/hbbgjkgglkddalmgfnhgeinmfkobgdke).
-2. Click `Add to Chrome`.
-3. Confirm the installation in your browser.
-4. Open AirlineSim and AES will load automatically on supported pages.
-
-### Manual Installation
-
-If you want to test a local build or install AES manually, use the unpacked extension flow below. This guide is based on [racsofp’s guide](https://forums.airlinesim.aero/t/manual-installation-of-the-ase-airlinesim-enhancement-suite-chrome-extension/24671).
-
-1. Download the current version from the [releases](https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/releases) page.
-   The file you look for has the format `AES-vX.X.X.zip`, where `X` is replaced with numbers.
-2. Unzip the archive.
-3. Open your browser's extensions page.
-    - Chrome: [chrome://extensions](chrome://extensions)
-    - Edge: [edge://extensions](edge://extensions)
-4. Enable `Developer mode`.
-5. Click `Load unpacked`.
-6. Select the unzipped `extension` folder.
-
-The extension should now be added and ready to use.
+Install AES from the [Chrome Web Store](https://chromewebstore.google.com/detail/airlinesim-enhancement-su/hbbgjkgglkddalmgfnhgeinmfkobgdke) in Chrome or another supported Chromium-based browser. For detailed instructions and manual installation, see the [user manual](docs/user-manual.md#installation).
 
 ## Privacy
 
@@ -56,68 +35,6 @@ The community has published some updates in the meantime, but no continued devel
 
 Sources: the [original forum thread](https://forums.airlinesim.aero/t/introducing-airlinesim-enhancement-suite-beta/21684).
 
-## Developer Features
-
-These features make developing for AES easier.
-
-### Local development
-
-```sh
-npm ci
-npm run typecheck
-npm test
-npm run package
-```
-
-Load `build/extension` as the unpacked extension in Chrome or Edge. Run
-`npm run build` after editing TypeScript, then reload the extension and the
-AirlineSim page. The `extension/` directory contains TypeScript sources and static
-assets; generated JavaScript is written only to `build/extension`. Vendored jQuery
-remains JavaScript (jQuery 4.0.0 full build). Packaging uses the same source-free build directory.
-
-`npm test` builds first and tests the generated JavaScript. `npm run package`
-builds before creating `dist/AES-vX.X.X.zip`, whose root contains `manifest.json`.
-See [the migration progress](docs/typescript-migration.md) for remaining stages.
-
-### Releases
-
-Release automation is documented in [docs/release-automation.md](docs/release-automation.md).
-
-### Notifications
-
-AES comes with its own notification API. This uses AS’ notification style and location. The AES notification API consists of two components: `Notifications` and `AESNotification`.
-
-#### Usage
-
-Notifications should only be used as a response to an action by the user; don’t add notifications on a page load.
-
-#### Initiate the `Notifications`:
-
-To start using the notification API create a new `Notifications`:
-
-```
-const notifications = new Notifications()
-```
-
-#### Add a new notification
-
-To add a notification:
-
-```
-notifications.add("The settings have been updated")
-```
-
-By default, a new notification comes with the success styling (a checkmark icon and a green background). The style can be changed by passing an option object:
-
-```
-notifications.add("Failed to save data", {type: "warning"})
-```
-
-The possible values for `type` are:
-- `"success"`
-- `"warning"`
-- `"error"`
-
 ## Credits
 
 - Marcipanas for the original development
@@ -125,74 +42,3 @@ The possible values for `type` are:
 - Robert73 for the updated manifest file
 - Zoë Bijl for the continued development, and Robert Fridolin for the assistance
 - NEWLY2014 for the continued development
-
-### Browser smoke test
-
-After installing dependencies, run `npx playwright install chromium` once, then
-`npm run test:browser`. This loads the generated extension in an isolated Chromium
-profile, checks its service worker, storage backup, options opening, dashboard
-injection and paced batch navigation/price submissions. Test hostnames resolve to
-a local HTTPS fixture server, including tabs opened by the extension. The test
-requires OpenSSL to create a temporary certificate and removes its profile after
-completion; live-game acceptance still requires separate validation.
-
-### Shared page queue
-
-AES batch navigation and Inventory price submissions share one queue across tabs.
-Dashboard batches accept up to 10 selections. The queue dispatches operations sequentially with a random 30–70 ms delay,
-without waiting for page loading to finish. Browser scheduling and message/storage
-latency may lengthen the actual interval. Dispatched operations are not replayed
-automatically. Pending price submissions are cancelled if the page or inputs
-change while waiting. Browser session storage preserves queue state across
-background-worker restarts; closing the browser clears the session.
-
-This paces AES-triggered operations, including native Inventory form submissions
-intercepted on initialized pages. It does not intercept unrelated manual browser
-navigation, game resource requests, or requests from a separate installed AES copy.
-The interval is a conservative default, not a verified game firewall limit.
-
-### Localization checks
-
-`npm test` checks the nine locale catalogs and runs `scripts/audit-i18n.cjs` against
-all built first-party scripts plus options/popup markup. `npm run test:i18n` runs
-the text coverage audit alone. It checks prose in metadata, variables, templates,
-errors and markup, and rejects literal text at common UI sinks. It is a static
-coverage check, not a proof that every dynamic value is translated: runtime tests
-also exercise fleet summaries, pricing advice, filters, settings and collection
-progress across languages.
-
-Use `AESI18n.t` for authored text, with placeholders for values, or `AESI18n.html`
-for AES-authored markup. Keep stored identifiers and processing phases independent
-of translated labels. Do not translate airline names, airport codes, editable
-pricing-rule names or other user/game data. Reviewed non-UI strings and product
-names are documented in `scripts/i18n-exemptions.json`; historical release-note
-bodies keep their original language. Backend errors are translated at their UI
-boundary, while unknown browser/service diagnostic details retain their source.
-
-### Control-point pricing
-
-In AES Settings → Inventory Pricing, each compartment can use either its existing
-step rules or **Control-point pricing**. Existing settings retain step rules until
-the new mode is explicitly selected and saved. Edit the load and adjustment points
-in the table; the preview updates immediately. The 0% and 100% endpoints stay in
-place, interior points can be added or removed, and duplicate loads are rejected.
-The initial example curve is editable, not an optimized pricing recommendation.
-
-Adjustments are **percentage points of the game's default price**, interpolated
-linearly using the unrounded capacity-weighted load. For default price `D`, actual
-current price `P` and interpolated adjustment `a`, the target is `P + D × a / 100`.
-Only the final ticket price is rounded to the nearest integer (positive `.5` rounds
-up). The existing percentage limits become integer bounds with `ceil(D × min / 100)`
-and `floor(D × max / 100)`; targets are clamped to that range. No-op prices are not
-submitted, and an empty integer range produces no recommendation.
-
-Current-price recommendations and old-price references retain their existing
-separation and submission safeguards. This mode changes interpolation and rounding;
-it does not introduce a new demand model or change which flights are sampled.
-
-Both pricing modes have a live preview beside the rule editor (below it on narrow
-screens). Step rules draw horizontal segments with dashed jumps; control points
-draw interpolated lines. Invalid or incomplete drafts hide the chart until corrected.
-Step-rule loads retain their existing integer rounding and first-match behavior at
-shared boundaries. Price limits and the save action sit below the editor; switching
-compartments or modes preserves local rule drafts without applying prices.
