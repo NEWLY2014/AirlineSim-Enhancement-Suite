@@ -47,5 +47,7 @@
   "Raise Medium": "Editable pricing-rule names persisted as user data; never translate saved or custom rule names.",
   "Raise High": "Editable pricing-rule names persisted as user data; never translate saved or custom rule names.",
   "Notification": "Internal notification class name field, not rendered in the interface.",
-  "Notifications": "Internal notification class name field, not rendered in the interface."
+  "Notifications": "Internal notification class name field, not rendered in the interface.",
+  "h2, #inventory-table, #inventory-grouped-table, .pricing, .exception, .stacktrace, .error-page": "CSS selector identifying native inventory content; never displayed to users.",
+  "(prefers-reduced-motion: reduce)": "CSS media query passed to matchMedia; never displayed to users."
 }

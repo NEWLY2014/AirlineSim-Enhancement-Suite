@@ -74,3 +74,11 @@ test('comparison restores the initiating button after Close and Escape',async t=
         assert.equal(await page.evaluate(()=>document.activeElement.id),'trigger');
     }
 });
+
+test('reduced-motion preference disables AES notification animation',async t=>{
+    const page=await pageFor(t);
+    await page.evaluate(()=>{const list=document.createElement('ul');list.className='feedbackPanel';list.innerHTML='<li class="aes-notification-exit" style="animation-duration: 20s">Saved</li>';document.body.append(list)});
+    assert.notEqual(await page.locator('.aes-notification-exit').evaluate(el=>getComputedStyle(el).animationName),'none');
+    await page.emulateMedia({reducedMotion:'reduce'});
+    assert.equal(await page.locator('.aes-notification-exit').evaluate(el=>getComputedStyle(el).animationName),'none');
+});

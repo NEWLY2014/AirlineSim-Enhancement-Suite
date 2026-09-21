@@ -89,6 +89,11 @@ test('Chromium loads the extension runtime, exports real storage and injects the
     await page.locator('#aes-select-dashboard-main').selectOption('routeManagement');
     const releaseClose = page.locator('.aes-release-notes-close');
     if (await releaseClose.count()) await releaseClose.click();
+    const disclosure=page.locator('.aes-dashboard-disclosure').first();
+    const expanded=await disclosure.getAttribute('aria-expanded');
+    await disclosure.focus();await page.keyboard.press('Space');
+    assert.equal(await disclosure.getAttribute('aria-expanded'),String(expanded!=='true'));
+    await page.keyboard.press('Enter');assert.equal(await disclosure.getAttribute('aria-expanded'),expanded);
     await page.getByRole('button', {name:'Select first 10',exact:true}).click();
     await page.getByRole('button', {name:'Open inventory (max 10)',exact:true}).click();
     const waitUntil = async check => {
