@@ -677,10 +677,10 @@ _First release._
 [0.6.4]: https://github.com/ZoeBijl/airlinesim-enhancement-suite/releases/tag/v0.6.4
 
 [0.9.0-beta]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.13...faaed30c29d9cc98a7e6e2e6a5f30850acc0e5c5
-[Unreleased]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.9.0-beta.4...HEAD
+[Unreleased]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/02742b5a7d2443a1d435d578e159d8774aac6625...HEAD
 
 [0.9.0-beta.2]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.13...060260f35314afe926a5a080e405963173ed1bcc
 
 [0.9.0-beta.3]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.13...4124660f8109d4dc9d8d5f803e143332d1b06576
 
-[0.9.0-beta.4]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.13...v0.9.0-beta.4
+[0.9.0-beta.4]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.13...02742b5a7d2443a1d435d578e159d8774aac6625
