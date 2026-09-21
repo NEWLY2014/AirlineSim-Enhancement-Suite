@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Announce notification outcomes through shared, persistent status and error regions without repeating rapid intermediate messages.
+
 - Cache schedule-diff counts and search text, reuse filtered pages, and cancel superseded searches while yielding during large scans.
 
 - Load backup-page metadata without transferring full histories and serialize exports record by record in a dedicated worker while preserving backup contents.

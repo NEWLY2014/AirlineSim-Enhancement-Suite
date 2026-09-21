@@ -335,3 +335,17 @@ test('notification removal follows animation completion without a second timer',
         complete();await new Promise(resolve=>setImmediate(resolve));assert.equal(element.isConnected,false);
     }finally{p.close()}
 });
+
+test('notifications share separate persistent status and error announcers',async()=>{
+    const p=page(settings+header);
+    try {
+        p.load('modules/notification.js');p.load('modules/notifications.js');
+        runInContext('new Notifications().add("Saved",{duration:0});new Notifications().add("Failed",{type:"error",duration:0});',p.dom.getInternalVMContext());
+        await pause(20);
+        assert.equal(p.w.document.querySelector('.aes-announcement[role="status"]').textContent,'Saved');
+        assert.equal(p.w.document.querySelector('.aes-announcement[role="alert"]').textContent,'Failed');
+        runInContext('new Notifications().add("Saved again",{duration:0});',p.dom.getInternalVMContext());
+        await pause(20);assert.equal(p.w.document.querySelectorAll('.aes-announcement').length,2);
+        assert.equal(p.w.document.querySelector('.aes-announcement[role="status"]').textContent,'Saved again');
+    }finally{p.close()}
+});

@@ -1,6 +1,31 @@
 class Notifications {
     name = "Notifications"
     container: Element
+    static regions: Map<string,HTMLElement> = new Map()
+    static announce(message:string,error:boolean) {
+        const kind=error ? 'alert' : 'status'
+        let region=this.regions.get(kind)
+        if (!region?.isConnected) {
+            region=document.createElement('div')
+            region.className='aes-announcement'
+            region.setAttribute('role',kind)
+            region.setAttribute('aria-atomic','true')
+            AES.markOwnedElements(region)
+            document.body.append(region)
+            this.regions.set(kind,region)
+            AES.whenPageOwnershipLost(()=>region?.remove())
+        }
+        const target=region
+        const revision=String(Number(target.dataset.revision || 0)+1)
+        target.dataset.revision=revision
+        target.textContent=''
+        // Announce after the empty live region has been registered; collapse bursts.
+        queueMicrotask(async()=>{
+            if (!target.isConnected || !AES.isPageOwner()) return
+            await AES.yieldToPage()
+            if (target.isConnected && AES.isPageOwner() && target.dataset.revision===revision) target.textContent=AESI18n.t(message)
+        })
+    }
 
     constructor() {
         const target = AES.getPageContainer() || document.body
@@ -30,6 +55,7 @@ class Notifications {
     newNotification(message: string, options?: AESModel.NotificationOptions) {
         const notification = new AESNotification(message, options)
         this.container.append(notification.element)
+        Notifications.announce(message,options?.type==='error')
         const duration = typeof options?.duration === "number" ? options.duration : 5000
         if (duration > 0) {
             window.setTimeout(() => {
