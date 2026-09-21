@@ -254,13 +254,18 @@ function buildDashboardControlPanel(title: string, summary: string, content: JQu
         body.hide();
     }
 
-    let toggle = $('<a style="cursor: pointer;"></a>').append(
+    let toggle = $('<button type="button" class="aes-dashboard-disclosure"></button>').append(
         $('<span></span>').text(AESI18n.t(title)),
         $('<span class="aes-dashboard-control-summary"></span>').text(summary ? ' ' + summary : '')
     );
-    toggle.click(function() {
-        body.toggle();
-        dashboardControlPanelExpanded[panelStateKey] = body.is(':visible');
+    const bodyId = 'aes-disclosure-' + crypto.randomUUID();
+    body.attr('id', bodyId);
+    toggle.attr({'aria-controls':bodyId, 'aria-expanded':String(expanded)});
+    toggle.on('click', function() {
+        expanded = !expanded;
+        body.toggle(expanded);
+        toggle.attr('aria-expanded', String(expanded));
+        dashboardControlPanelExpanded[panelStateKey] = expanded;
     });
 
     let legend = $('<legend></legend>').append(toggle);

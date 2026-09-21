@@ -217,3 +217,15 @@ for(const value of ['Active',require('../extension/locales/zh-TW.json').Active])
     const cell=p.w.document.querySelector('#aircraft-id-1 [data-aes-filter-value="Active"]');
     assert.equal(cell.textContent,require('../extension/locales/zh-TW.json').Active);
 });
+
+test('dashboard disclosures are native buttons with linked expansion state',async t=>{
+    const p=dashboard(t,'routeManagement',{paine42schedule:schedule()});await load(p,'#aes-table-routeManagement tbody tr');
+    const toggles=[...p.w.document.querySelectorAll('.aes-dashboard-disclosure')];assert.ok(toggles.length);
+    for(const button of toggles){
+        assert.equal(button.tagName,'BUTTON');assert.equal(button.type,'button');
+        const expanded=button.getAttribute('aria-expanded')==='true';
+        const body=p.w.document.getElementById(button.getAttribute('aria-controls'));assert.ok(body);
+        button.click();assert.equal(button.getAttribute('aria-expanded'),String(!expanded));
+        assert.equal(body.style.display==='none',expanded);
+    }
+});
