@@ -812,8 +812,10 @@ class AES {
                 const abort = () => finish(new Error(AESI18n.t("Page changed while waiting in the queue.")));
                 const schedule = (notBefore?: number) => {
                     window.clearTimeout(timer);
-                    // Rare recovery after a missed message/worker restart, not a poll loop.
-                    timer = window.setTimeout(check, typeof notBefore === 'number' ? Math.max(0, notBefore-Date.now()) : 120000);
+                    // Dispatch ready notifications directly; timer throttling must not delay them.
+                    if (typeof notBefore === 'number' && notBefore <= Date.now()) { queueMicrotask(check); return; }
+                    // Recover a missed message before the server's two-minute client lease ends.
+                    timer = window.setTimeout(check, typeof notBefore === 'number' ? notBefore-Date.now() : 60000);
                 };
                 const check = async () => {
                     if (finished || polling) return;

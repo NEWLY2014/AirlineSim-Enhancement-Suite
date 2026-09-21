@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Submit salary forms one at a time, persist each pending step, and continue only after the server confirms the preceding change; support full-page and AJAX responses.
 
-- Wake page-operation queues with document-specific notifications and persisted permit claims instead of frequent polling, retaining dispatch spacing and missed-notification recovery.
+- Wake page-operation queues with document-specific notifications and persisted permit claims instead of frequent polling, retaining dispatch spacing and missed-notification recovery. Handle already-ready notifications without a zero-delay timer and recover missed notifications before the waiting lease expires.
 - Replace planner and read-collection state/cancellation polling with DOM, server-response and lifecycle events; resume ready scheduling jobs without a fixed startup delay.
 - Yield bulk schedule parsing and comparison through browser task scheduling at background priority, with compatibility fallbacks, to keep page input and rendering responsive.
 
