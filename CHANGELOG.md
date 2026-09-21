@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Wake page-operation queues with document-specific notifications and persisted permit claims instead of frequent polling, retaining dispatch spacing and missed-notification recovery.
+- Replace planner and read-collection state/cancellation polling with DOM, server-response and lifecycle events; resume ready scheduling jobs without a fixed startup delay.
+- Yield bulk schedule parsing and comparison through browser task scheduling at background priority, with compatibility fallbacks, to keep page input and rendering responsive.
+
 ## [0.9.0-beta.4] - 2026-09-21
 
 This beta contains all changes since **0.8.13**. It previews the upcoming 0.9.0 release. Beta 4 fixes false arrival-setting failures when switching the scheduling tab to the background.
@@ -29,10 +35,6 @@ This beta contains all changes since **0.8.13**. It previews the upcoming 0.9.0 
 - Give settings tabs a distinct tab appearance, keep pricing checkboxes in one column, contain percentage suffixes within their unit boxes, keep price bounds together, and scale preview typography consistently.
 
 ### Fixed
-
-- Wake page-operation queues with document-specific notifications and persisted permit claims instead of frequent polling, retaining dispatch spacing and missed-notification recovery.
-
-- Replace planner and read-collection state/cancellation polling with DOM, server-response and lifecycle events; resume ready scheduling jobs without a fixed startup delay.
 
 - Avoid rejecting correct arrival settings when background-tab timer throttling delays the planner's stability check. Validate the initial state immediately and revalidate before submission.
 

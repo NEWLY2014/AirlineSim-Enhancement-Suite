@@ -98,7 +98,7 @@ class AESRead {
     static async parseSchedule(doc: Document, progress: (message: string) => void, current: () => boolean) {
         let processed = 0, turnRows = 0, turnStarted = performance.now();
         const yieldToPage = async () => {
-            await AES.sleep(0);
+            await AES.yieldToPage();
             if (!current()) throw new Error(AESI18n.t("The page or schedule changed during extraction. Please try again."));
             turnRows=0;turnStarted=performance.now();
         };

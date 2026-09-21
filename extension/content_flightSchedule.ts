@@ -112,7 +112,7 @@ async function extractSchedule() {
         observer.observe(container, {subtree:true, childList:true, characterData:true, attributes:true});
     }
     const yieldToPage = async () => {
-        await new Promise<void>(resolve => window.setTimeout(resolve, 0));
+        await AES.yieldToPage();
         if (!AES.isPageOwner()) throw new Error(AESI18n.t("Page ownership lost."));
         if (scheduleChanged) throw new Error(AESI18n.t("Schedule changed during extraction. Please try again."));
     };

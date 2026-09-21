@@ -6,7 +6,7 @@ async function pageFor(t){
     const page=await browser.newPage();
     await page.setContent('<button id="trigger">Open</button><button id="background">Background action</button>');
     await page.addScriptTag({path:'build/extension/js/vendor/jquery-4.0.0.min.js'});
-    await page.addScriptTag({content:`window.AES={whenPageOwnershipLost(){},runContentScript(){},markOwnedElements(){},getFrontendSettings(){return {theme:window.theme || 'dark'}},compareVersions(a,b){return a.localeCompare(b,undefined,{numeric:true})}};window.chrome={runtime:{getURL(p){return p}},storage:{local:{set(v,cb){window.saved=v;cb()}}}};`});
+    await page.addScriptTag({content:`window.AES={yieldToPage(){return window.scheduler?.postTask ? window.scheduler.postTask(()=>{},{priority:'background'}) : window.scheduler?.yield ? window.scheduler.yield() : new Promise(resolve=>setTimeout(resolve,0))},whenPageOwnershipLost(){},runContentScript(){},markOwnedElements(){},getFrontendSettings(){return {theme:window.theme || 'dark'}},compareVersions(a,b){return a.localeCompare(b,undefined,{numeric:true})}};window.chrome={runtime:{getURL(p){return p}},storage:{local:{set(v,cb){window.saved=v;cb()}}}};`});
     await page.addScriptTag({path:'build/extension/modules/i18n-data.js'});
     await page.addScriptTag({path:'build/extension/modules/i18n.js'});
     await page.addStyleTag({path:'extension/css/content.css'});

@@ -26,8 +26,7 @@ namespace AESScheduleDiff {
         result.sort((a,b)=>(b.order || '').localeCompare(a.order || ''));
         return result;
     }
-    // A timer gives input, rendering and other task queues a turn in older Chrome too.
-    const pause=()=>new Promise<void>(resolve=>setTimeout(resolve,0));
+    const pause=()=>AES.yieldToPage();
     function checkpoint(current:()=>boolean) {
         let deadline=performance.now()+8;
         return async()=>{

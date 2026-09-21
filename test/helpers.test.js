@@ -27,6 +27,22 @@ function page(html, path = '/app/info/enterprises/12685?tab=0') {
 }
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 
+test('long-task yielding uses the scheduler and retains a timer fallback',async()=>{
+    const p=page(settings+header);
+    try {
+        let tasks=0;
+        p.w.scheduler={postTask:async(callback,options)=>{assert.equal(options.priority,'background');tasks++;callback()}};
+        await p.aes.yieldToPage();assert.equal(tasks,1);
+        let yields=0;
+        p.w.scheduler={yield:async()=>{yields++}};
+        await p.aes.yieldToPage();assert.equal(yields,1);
+        delete p.w.scheduler;
+        let ran=false;
+        p.w.setTimeout(()=>ran=true,0);
+        await p.aes.yieldToPage();assert.equal(ran,true);
+    }finally{p.close();}
+});
+
 test('version ordering includes numbered betas without changing legacy ordering', () => {
     const p = page(settings + header);
     try {

@@ -587,6 +587,17 @@ class AES {
         return new Promise(resolve => setTimeout(resolve, ms));
     }
 
+    static async yieldToPage(): Promise<void> {
+        // Bulk extraction/comparison should also let normal page tasks and painting run.
+        const scheduler = (globalThis as typeof globalThis & {scheduler?: {
+            postTask?: (callback: () => void, options: {priority: 'background'}) => Promise<void>;
+            yield?: () => Promise<void>;
+        }}).scheduler;
+        if (typeof scheduler?.postTask === 'function') await scheduler.postTask(() => {}, {priority:'background'});
+        else if (typeof scheduler?.yield === 'function') await scheduler.yield();
+        else await AES.sleep(0);
+    }
+
     /** Observe a state transition; timers only bound the wait or a stability window. */
     static waitForCondition(check: () => unknown, timeoutMs = 5000, signal?: AbortSignal, stableMs = 0): Promise<boolean> {
         return new Promise((resolve, reject) => {
