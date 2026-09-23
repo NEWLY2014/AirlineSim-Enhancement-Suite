@@ -114,5 +114,20 @@ test('Chromium loads the extension runtime, exports real storage and injects the
     await waitUntil(()=>priceRequests.length===2);
     assert.ok(priceRequests[0]-inventoryRequests.at(-1)>=20,'price submission shares navigation spacing');
     assert.ok(priceRequests[1]-priceRequests[0]>=20,'both price entry points share the same queue');
+    // tabs.create pages cannot reliably close themselves with window.close().
+    await worker.evaluate(async()=>{
+        const {settings}=await chrome.storage.local.get('settings');
+        settings.invPricing.autoClose=1;settings.invPricing.autoPriceUpdate=0;
+        await chrome.storage.local.set({settings,paine42AAABBBrouteAnalysis:{key:'paine42AAABBBrouteAnalysis',date:{'20260908':{
+            data:{},pricingUpdated:0,pricingUpdatePending:{targetPrices:{Y:100},updateTime:'00:00'}
+        }}}});
+    });
+    const nextPage=context.waitForEvent('page');
+    await worker.evaluate(()=>chrome.tabs.create({url:'https://paine.airlinesim.aero/app/com/inventory/AAABBB',active:false}));
+    const closing=await nextPage;
+    if(!closing.isClosed()) await closing.waitForEvent('close');
+    const confirmedRecord=await worker.evaluate(async()=>(await chrome.storage.local.get('paine42AAABBBrouteAnalysis')).paine42AAABBBrouteAnalysis);
+    assert.equal(confirmedRecord.date['20260908'].pricingUpdated,1);
+    assert.equal(confirmedRecord.date['20260908'].pricingUpdatePending,undefined);
     assert.deepEqual(errors, []);
 });

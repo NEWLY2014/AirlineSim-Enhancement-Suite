@@ -23,6 +23,27 @@ function inventoryMutationsRelevant(changes: MutationRecord[]) {
 let inventoryRevision = 0;
 let inventoryActionPending = false;
 let authorizedPriceSubmit = false;
+let inventoryCloseToken: string | undefined;
+function closeInventoryTab(revision: number) {
+    if (!settings.invPricing.autoClose || !isInventoryCurrent(revision) || inventoryCloseToken ||
+        Object.keys(pricingData.date).some(hasPendingUpdate)) return;
+    const token = inventoryCloseToken = crypto.randomUUID();
+    const signature = getInventorySignature();
+    const verify = (message: {type?:string;token?:string}, _sender: chrome.runtime.MessageSender, reply: (value: {ok:boolean}) => void) => {
+        if (message?.type !== 'AES_CONFIRM_INVENTORY_CLOSE') return false;
+        reply({ok:message.token === token && isInventoryCurrent(revision) && signature === getInventorySignature()});
+        return false;
+    };
+    chrome.runtime.onMessage.addListener(verify);
+    chrome.runtime.sendMessage({type:'AES_CLOSE_INVENTORY',token}, (response: {ok?:boolean} | undefined) => {
+        const error = chrome.runtime.lastError;
+        chrome.runtime.onMessage.removeListener(verify);
+        inventoryCloseToken = undefined;
+        if ((error || !response?.ok) && isInventoryCurrent(revision)) {
+            AES.reportContentScriptError('content_inventory', new Error(error?.message || AESI18n.t('The page changed.')));
+        }
+    });
+}
 const watchedPriceForms = new WeakSet<HTMLFormElement>();
 const inventoryNodeIds = new WeakMap<Node, number>();
 let inventoryNextNodeId = 0;
@@ -177,8 +198,9 @@ async function displayInventory(revision: number) {
     const raw: unknown = storageData[storageKey.key];
     pricingData = { ...storageKey, ...(AES.isRecord(raw) ? raw : {}), key: storageKey.key,
         date: AES.isRecord(raw) && AES.isRecord(raw.date) ? raw.date : {} }
-    await confirmPendingPricingUpdate(prices, revision)
+    const confirmed = await confirmPendingPricingUpdate(prices, revision)
     if (!isInventoryCurrent(revision)) return;
+
 
     //Do Analysis
     analysis = getAnalysis(flights, prices, pricingData.date);
@@ -186,6 +208,7 @@ async function displayInventory(revision: number) {
     displayAnalysis(analysis, prices);
     //Display history
     displayHistory(analysis);
+    if (settings.invPricing.autoClose && (confirmed || getSnapshot(todayDate).pricingUpdated)) closeInventoryTab(revision);
 
 
     //Automation
@@ -244,7 +267,7 @@ async function confirmPendingPricingUpdate(prices: AESModel.InventoryPrices, rev
     const next = {...pricingData, date: {...pricingData.date, [pendingDate]: confirmed}};
     try {
         await chrome.storage.local.set({[next.key]: next});
-        if (isInventoryCurrent(revision)) pricingData = next;
+        if (isInventoryCurrent(revision)) { pricingData = next; return true; }
     } catch (error) {
         console.error('[AES] Unable to confirm the saved pricing update.', error);
     }
@@ -1073,7 +1096,7 @@ function displayAnalysis(analysis: AESModel.InventoryAnalysis, prices: AESModel.
                 if (!isInventoryCurrent(revision)) return;
                 pricingData = next;
                 invPricingAnalysisBarSpan.removeClass().addClass('good').text(AESI18n.t('Data Saved!'));
-                if (settings.invPricing.autoClose) window.close();
+                if (settings.invPricing.autoClose) closeInventoryTab(revision);
             }, invPricingAnalysisBarSpan, revision);
         });
 
@@ -1111,10 +1134,7 @@ function displayAnalysis(analysis: AESModel.InventoryAnalysis, prices: AESModel.
                 //Today pricing updated
                 invPricingAnalysisBarSpan.text(AESI18n.t("Today prices have been updated at: {0}", {"0": getSnapshot(todayDate).updateTime}));
 
-                //Automation
-                if (settings.invPricing.autoClose) {
-                    close();
-                }
+
             } else {
                 //Today pricing not updated
                 if (hasPendingUpdate(todayDate)) {

@@ -14,6 +14,11 @@ function inventory(t,{rows=row(),current=100,data={},grouped=false}={}) {
     // Resolve the controlled airline without relying on unrelated enterprise-page markup.
     p.run('AES.getAirline = AES.getCurrentAirline');
     p.submissions=[];p.closed=0;p.w.close = (() => { const close=p.w.close.bind(p.w); t.after(close); return () => {p.closed++;};})();
+    const send=p.w.chrome.runtime.sendMessage;
+    p.w.chrome.runtime.sendMessage=(message,reply)=>{
+        if(message.type==='AES_CLOSE_INVENTORY'){p.closed++;reply({ok:true});return;}
+        return send(message,reply);
+    };
     p.w.document.querySelector('form').addEventListener('submit',event=>{event.preventDefault();p.submissions.push(p.saved[key] === undefined ? undefined : JSON.parse(JSON.stringify(p.saved[key])));});
     const get = p.w.chrome.storage.local.get;
     p.w.chrome.storage.local.get = (keys,callback) => callback ? get(keys,callback) : new Promise(resolve=>setTimeout(resolve,10)).then(()=>get(keys));
@@ -140,10 +145,11 @@ test('automatic analysis saving and automatic price updates retain their distinc
 
 test('failed confirmation preserves the pending marker and suppresses further automated submits',async t=>{
     const p=inventory(t);await load(p);click(p,'#aes-btn-invPricing-apply-new-prices');await until(()=>p.submissions.length);
-    const q=inventory(t,{current:110,data:{[key]:p.submissions[0],settings:settings({autoPriceUpdate:1})}});
+    const q=inventory(t,{current:110,data:{[key]:p.submissions[0],settings:settings({autoPriceUpdate:1,autoClose:1})}});
     q.failures.set='Cannot confirm';await load(q);
     assert.equal(q.saved[key].date['20260908'].pricingUpdated,0);
     assert.ok(q.saved[key].date['20260908'].pricingUpdatePending);
+    assert.equal(q.closed,0);
     assert.equal(q.submissions.length,0);
 });
 
@@ -326,4 +332,13 @@ test('unrelated DOM changes do not rescan inventory while native text updates re
     p.w.document.querySelector('#inventory-table tbody tr td:nth-child(8)').firstChild.data='40';
     await until(()=>scans>0);
     await until(()=>p.w.document.querySelector('#aes-table-analysis tbody tr')?.textContent.includes('40'));
+});
+
+
+test('confirmed inventory closes even when the new prices leave no valid analysis',async t=>{
+    const pending={key,date:{'20260908':{data:{},pricingUpdated:0,pricingUpdatePending:{targetPrices:{Y:110},updateTime:'00:00'}}}};
+    const p=inventory(t,{current:110,rows:row('Y',110,0,'scheduled'),data:{[key]:pending,settings:settings({autoClose:1})}});
+    await load(p);await until(()=>p.closed===1);
+    assert.equal(p.saved[key].date['20260908'].pricingUpdated,1);
+    assert.equal(p.saved[key].date['20260908'].pricingUpdatePending,undefined);
 });
