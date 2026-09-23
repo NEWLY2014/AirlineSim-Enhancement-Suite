@@ -109,6 +109,15 @@
 .aes-dashboard-control-actions {
     display: inline-flex;
     flex-wrap: wrap;
+    align-items: center;
+}
+
+.aes-dashboard-control-actions > .aes-page-queue-status {
+    align-self: center;
+    padding-inline: 8px;
+    min-inline-size: 0;
+    font-size: inherit;
+    line-height: inherit;
 }
 
 .aes-dashboard-columns {

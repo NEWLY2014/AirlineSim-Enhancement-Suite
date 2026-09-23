@@ -103,6 +103,12 @@ test('Chromium loads the extension runtime, exports real storage and injects the
     assert.equal(await page.locator('#aes-table-routeManagement tbody input:checked').count(), 10);
     await waitUntil(()=>inventoryRequests.length>=1);
     await waitUntil(()=>inventoryRequests.length===10);
+    await page.getByText('Opened 10 pages.',{exact:true}).waitFor();
+    const alignment=await page.locator('.aes-page-queue-status').evaluate(status=>{
+        const text=status.getBoundingClientRect(),button=status.previousElementSibling.getBoundingClientRect();
+        return Math.abs((text.top+text.bottom)/2-(button.top+button.bottom)/2);
+    });
+    assert.ok(alignment<=1,'batch status is vertically centered with its button');
     releaseFirst(); // All ten dispatch while the first page is still loading.
     for(let i=1;i<inventoryRequests.length;i++) assert.ok(inventoryRequests[i]-inventoryRequests[i-1]>=20,'page requests are paced');
     assert.equal(inventoryRequests.length,10);
