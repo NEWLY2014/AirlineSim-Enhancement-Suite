@@ -36,7 +36,7 @@ if (PERSONNEL_MANAGEMENT_SCRIPT_ENABLED) {
 }
 
 function displayPersonnelManagement() {
-    loadedSalaryTargets = getSalaryTargets();
+    loadedSalaryTargets = getSalaryTargets(true);
     let input = $('<input type="text" id="aes-input-personnelManagement-value" class="form-control number aes-personnel-management-value" inputmode="numeric">').val(ensurePersonnelManagementSettings(settings).value);
 
     let option = [];
@@ -46,7 +46,7 @@ function displayPersonnelManagement() {
     select.val(ensurePersonnelManagementSettings(settings).type);
 
     let btn = $(AESI18n.html('<button type="button" class="btn btn-default aes-personnel-management-apply">Apply salaries</button>'));
-    let lastUpdate = $('<span id="aes-personnel-management-last-update" class="aes-personnel-management-last-update"></span>').text(AESI18n.t('No previous update'));
+    let lastUpdate = $('<span id="aes-personnel-management-last-update" class="aes-personnel-management-last-update" role="status"></span>').text(AESI18n.t('No previous update'));
 
     let controls = $('<div class="form-inline aes-personnel-management-controls"></div>').append(
         $('<div class="form-group aes-personnel-management-control"></div>').append(
@@ -146,6 +146,7 @@ function salaryUpdate(options: AESModel.SalaryUpdateOptions = {}) {
             return;
         }
 
+        loadedSalaryTargets = getSalaryTargets(true);
         const rows = staffTableInfo.table.find('tbody tr').toArray();
 
         for (const row of rows) {
@@ -155,7 +156,7 @@ function salaryUpdate(options: AESModel.SalaryUpdateOptions = {}) {
             const salaryInput = salaryForm.find('input[name="amount"]').first();
             if (!salaryInput.length) continue;
 
-            const salary = AES.cleanInteger(salaryInput.val());
+            const salary = AES.cleanInteger((salaryInput[0] as HTMLInputElement).defaultValue);
 
             let averageCell = $row.children('td, th').eq(staffTableInfo.countryAverageIndex);
             if (!averageCell.length || !averageCell.text().trim()) continue;
@@ -191,6 +192,19 @@ function salaryUpdate(options: AESModel.SalaryUpdateOptions = {}) {
     });
 }
 
+/** Chrome storage may reorder object keys; compare journal contents, not JSON order. */
+function salaryJournalMatches(left: unknown, right: unknown): boolean {
+    if (left === right) return true;
+    if (Array.isArray(left) || Array.isArray(right)) {
+        return Array.isArray(left) && Array.isArray(right) && left.length === right.length &&
+            left.every((value, index) => salaryJournalMatches(value, right[index]));
+    }
+    if (!AES.isRecord(left) || !AES.isRecord(right)) return false;
+    const keys = Object.keys(left);
+    return keys.length === Object.keys(right).length && keys.every(key =>
+        Object.hasOwn(right, key) && salaryJournalMatches(left[key], right[key]));
+}
+
 /** Journal one form before dispatch. A new page or replaced form confirms its response. */
 async function submitSalaryChanges(key: string, value: Record<string,unknown>, actual: Record<string,number>) {
     if (!AES.isRecord(value.pending) || !AES.isRecord(value.pending.targets)) return;
@@ -204,7 +218,9 @@ async function submitSalaryChanges(key: string, value: Record<string,unknown>, a
     const button = form.querySelector<HTMLButtonElement | HTMLInputElement>('button[type="submit"], input[type="submit"]');
     if (!button) throw new Error(AESI18n.t("Salary buttons not found. AES could not submit the calculated salary changes."));
     const current = (await chrome.storage.local.get(key))[key];
-    if (!AES.isPageOwner() || !AES.isRecord(current) || JSON.stringify(current.pending) !== JSON.stringify(value.pending)) return;
+    if (!AES.isPageOwner() || !AES.isRecord(current) || !salaryJournalMatches(current.pending, value.pending)) {
+        throw new Error(AESI18n.t("The page changed."));
+    }
     const notBefore = typeof value.pending.notBefore === 'number' ? value.pending.notBefore : 0;
     if (notBefore > Date.now()) await AES.sleep(notBefore-Date.now());
     if (!AES.isPageOwner() || !form.isConnected) return;
@@ -218,18 +234,33 @@ async function submitSalaryChanges(key: string, value: Record<string,unknown>, a
     }
     const action = $('.aes-personnel-management-apply');
     setPersonnelManagementBusy(action,true);
-    updatePersonnelLastUpdate(data);
+    $('#aes-personnel-management-last-update').text(AESI18n.t("Updating..."));
     const context = AES.observeContext(() => AES.isPageOwner());
     try {
-        // A changed input value alone is not evidence of a server response.
-        const response = AES.waitForCondition(() => !form.isConnected,15000,context.signal);
+        // Editing .value is not confirmation. Accept replacement of the submitted
+        // controls or a server-rendered default value update, including in-place AJAX.
+        const response = AES.waitForCondition(() => {
+            if (!form.isConnected) return true;
+            const currentRows = getSalaryRows();
+            return inFlight.every(id => {
+                const before = rows.get(id)!;
+                const after = currentRows?.get(id);
+                return !!after && (after.input !== before.input ||
+                    AES.cleanInteger(after.input.defaultValue) === expected[id]);
+            });
+        },15000,context.signal);
         button.click();
-        if (await response) {
-            const received = getSalaryTargets(true);
-            if (received) await confirmSalaryUpdate(key,data,received);
+        if (!await response) throw new Error(AESI18n.t('Salary submission awaiting confirmation. Reload to check.'));
+        const received = getSalaryTargets(true);
+        if (!received || !inFlight.every(id => received[id] === expected[id])) {
+            throw new Error(AESI18n.t('Salary submission awaiting confirmation. Reload to check.'));
         }
+        await confirmSalaryUpdate(key,data,received);
     } catch(error) {
-        if (!context.signal.aborted) throw error;
+        if (!context.signal.aborted) {
+            updatePersonnelLastUpdate(data);
+            throw error;
+        }
     } finally {
         context.dispose();
         setPersonnelManagementBusy(action,false);
@@ -477,6 +508,7 @@ async function confirmSalaryUpdate(key: string, value: unknown, actual = loadedS
     if (!AES.isRecord(value) || !AES.isRecord(value.pending) || !AES.isRecord(value.pending.targets)) return;
     const expected = value.pending.targets;
     if (!actual || !Object.keys(expected).length) return;
+    loadedSalaryTargets = actual;
     if (!Object.entries(expected).every(([id,amount]) => actual[id] === amount)) {
         // Only resume when the previously submitted form has been confirmed by the server.
         const submitted = value.pending.inFlight;
@@ -488,7 +520,7 @@ async function confirmSalaryUpdate(key: string, value: unknown, actual = loadedS
     }
     try {
         const current = (await chrome.storage.local.get(key))[key];
-        if (!AES.isPageOwner() || !AES.isRecord(current) || JSON.stringify(current.pending) !== JSON.stringify(value.pending)) return;
+        if (!AES.isPageOwner() || !AES.isRecord(current) || !salaryJournalMatches(current.pending, value.pending)) return;
         const today = AES.getServerDate();
         const confirmed: Record<string,unknown> = {...current,date:today.date,time:today.time};
         delete confirmed.pending;

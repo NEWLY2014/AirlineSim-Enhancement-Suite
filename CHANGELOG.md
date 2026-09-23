@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Fix salary batches stopping before the first submission when Chrome storage reorders journal fields. Confirm in-place server updates, refresh confirmed salary baselines, report response timeouts and avoid treating unsaved input values as successful updates.
+
 ## [0.9.0-beta.5] - 2026-09-21
 
 This beta contains all changes since **0.8.13**. It previews the upcoming 0.9.0 release. Beta 5 improves event-driven scheduling, large-data responsiveness, backups and accessibility.

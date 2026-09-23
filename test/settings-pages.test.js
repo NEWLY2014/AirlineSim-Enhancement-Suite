@@ -294,3 +294,75 @@ test('salary journal failure prevents dispatch',async t=>{
     await until(()=>p.w.document.querySelector('.feedbackPanelERROR'));
     assert.equal(submissions,0);assert.equal(button.disabled,false);
 });
+
+test('salary batch confirms in-place server defaults and can return to its original target',async t=>{
+    const key='paine42personnelManagement';
+    const p=browser(t,{html:staffBatch,path:'/action/enterprise/staffOverview',data:{settings:{personnelManagement:{type:'absolute',value:50}}}});
+    const submitted=[];
+    p.w.document.addEventListener('submit',event=>{
+        event.preventDefault();
+        const input=event.target.querySelector('[name="amount"]');
+        submitted.push(input.value);
+        input.defaultValue=input.value;
+    });
+    p.load('content_personnelManagement.js');
+    await until(()=>p.w.document.querySelector('.aes-personnel-management-apply'));
+    const button=p.w.document.querySelector('.aes-personnel-management-apply');
+    button.click();
+    await until(()=>p.saved[key]?.date==='20260908' && !button.disabled);
+    assert.deepEqual(submitted,['1050','950']);
+    p.w.document.querySelector('#aes-input-personnelManagement-value').value='-200';
+    button.click();
+    await until(()=>submitted.length===4 && !p.saved[key].pending);
+    assert.deepEqual(submitted,['1050','950','800','700']);
+});
+
+test('salary response timeout is reported and does not dispatch the next form',async t=>{
+    const p=browser(t,{html:staffBatch,path:'/action/enterprise/staffOverview',data:{settings:{personnelManagement:{type:'absolute',value:50}}}});
+    const nativeTimeout=p.w.setTimeout.bind(p.w);
+    p.w.setTimeout=(fn,ms,...args)=>nativeTimeout(fn,ms===15000?30:ms,...args);
+    let submissions=0;
+    p.w.document.addEventListener('submit',event=>{event.preventDefault();submissions++});
+    p.load('modules/notification.js');p.load('modules/notifications.js');p.load('content_personnelManagement.js');
+    await until(()=>p.w.document.querySelector('.aes-personnel-management-apply'));
+    const button=p.w.document.querySelector('.aes-personnel-management-apply');button.click();
+    await until(()=>p.w.document.querySelector('.feedbackPanelERROR'));
+    assert.equal(submissions,1);assert.equal(button.disabled,false);
+    assert.ok(p.saved.paine42personnelManagement.pending);
+    assert.match(p.w.document.querySelector('#aes-personnel-management-last-update').textContent,/awaiting confirmation/);
+    button.click();
+    await until(()=>submissions===2);
+    assert.ok(p.saved.paine42personnelManagement.pending);
+    assert.equal(p.saved.paine42personnelManagement.date,undefined);
+});
+
+
+test('salary journals survive Chrome storage key reordering but reject changed targets',async t=>{
+    for (const mutate of [false,true]) {
+        const p=browser(t,{html:staffBatch,path:'/action/enterprise/staffOverview',data:{settings:{personnelManagement:{type:'absolute',value:50}}}});
+        const get=p.w.chrome.storage.local.get;
+        const normalize=value=>Array.isArray(value)?value.map(normalize):value && typeof value==='object'?Object.fromEntries(Object.keys(value).sort().map(k=>[k,normalize(value[k])])):value;
+        p.w.chrome.storage.local.get=(keys,callback)=>{
+            const transform=result=>{
+                const value=normalize(result);
+                if(mutate && value.paine42personnelManagement?.pending) value.paine42personnelManagement.pending.targets.changed=1;
+                return value;
+            };
+            return callback?get(keys,value=>callback(transform(value))):get(keys).then(transform);
+        };
+        const submitted=[];
+        p.w.document.addEventListener('submit',event=>{
+            event.preventDefault();const input=event.target.querySelector('[name="amount"]');submitted.push(input.value);
+            const returned=event.target.cloneNode(true);returned.querySelector('[name="amount"]').defaultValue=input.value;event.target.replaceWith(returned);
+        });
+        p.load('content_personnelManagement.js');
+        await until(()=>p.w.document.querySelector('.aes-personnel-management-apply'));
+        p.w.document.querySelector('.aes-personnel-management-apply').click();
+        if(mutate) {
+            await new Promise(resolve=>setTimeout(resolve,80));assert.deepEqual(submitted,[]);
+        } else {
+            await until(()=>p.saved.paine42personnelManagement?.date==='20260908');
+            assert.deepEqual(submitted,['1050','950']);assert.equal(p.saved.paine42personnelManagement.pending,undefined);
+        }
+    }
+});
