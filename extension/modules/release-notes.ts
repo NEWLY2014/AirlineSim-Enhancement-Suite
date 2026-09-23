@@ -1,5 +1,28 @@
 const AES_RELEASE_NOTES_STORAGE_KEY = "aesReleaseNotesSeenVersion"
 const AES_RELEASE_NOTES: Record<string, AESModel.ReleaseNotes | undefined> = {
+    "0.9.0-beta.6": {
+        "title": "Release Notes",
+        "releaseDate": "2026-09-24",
+        "summary": "More reliable salary updates and Inventory tab closing, with clearer load percentages and Dashboard status.",
+        "sections": [
+            {
+                "title": "Fixed",
+                "items": [
+                    "Start salary submissions reliably and continue only after confirmed server updates; report response timeouts.",
+                    "Automatically close Inventory tabs after confirmed saves while keeping unconfirmed price submissions open.",
+                    "Display Inventory load percentages as whole numbers while preserving full precision for pricing calculations.",
+                    "Align Dashboard batch-opening status with the action buttons."
+                ]
+            },
+            {
+                "title": "Changed",
+                "items": [
+                    "Use randomized 40–60 ms dispatch gaps for queued page operations.",
+                    "Provide separate user and developer manuals with organized documentation."
+                ]
+            }
+        ]
+    },
     "0.9.0-beta.5": {
         "title": "Release Notes",
         "releaseDate": "2026-09-21",
