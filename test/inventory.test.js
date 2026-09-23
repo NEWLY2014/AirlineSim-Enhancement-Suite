@@ -237,7 +237,7 @@ test('curve pricing uses fractional loads and actual prices, and persists the ro
     p.w.document.querySelectorAll('.pricing tr').forEach(tr=>tr.lastElementChild.textContent='137');
     await load(p);
     assert.equal(p.w.document.querySelector('.pricing input').value,'167');
-    assert.match(p.w.document.querySelector('#aes-table-analysis').textContent,/91.5%/);
+    assert.match(p.w.document.querySelector('#aes-table-analysis').textContent,/92%/);
     click(p,'#aes-btn-invPricing-save-snapshot');await until(()=>p.saved[key]);
     const item=p.saved[key].date['20260908'].data.Y;
     assert.equal(item.newPrice,167);assert.equal(item.recommendationIsCustom,false);
@@ -341,4 +341,14 @@ test('confirmed inventory closes even when the new prices leave no valid analysi
     await load(p);await until(()=>p.closed===1);
     assert.equal(p.saved[key].date['20260908'].pricingUpdated,1);
     assert.equal(p.saved[key].date['20260908'].pricingUpdatePending,undefined);
+});
+
+
+test('load display rounds to whole percentages without rounding stored load data',async t=>{
+    const p=inventory(t,{rows:row('Y',100,81).replace('<td>100</td><td>81</td>','<td>123</td><td>81</td>')});
+    await load(p);
+    assert.match(p.w.document.querySelector('#aes-table-analysis tbody tr').textContent,/81 \/ 123 \(66%\)/);
+    click(p,'#aes-btn-invPricing-save-snapshot');await until(()=>p.saved[key]);
+    const item=p.saved[key].date['20260908'].data.Y;
+    assert.equal(item.totalBkd,81);assert.equal(item.totalCap,123);
 });

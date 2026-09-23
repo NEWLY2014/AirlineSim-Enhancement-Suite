@@ -1631,7 +1631,7 @@ function displayDifference(current: AESModel.InventoryItem, old: AESModel.Invent
 }
 
 function displayPerc(perc: number, type: 'price' | 'load') {
-    perc = Number(perc.toFixed(2));
+    perc = type === 'load' ? Math.round(perc) : Number(perc.toFixed(2));
     let span = $('<span></span>');
     switch (type) {
         case 'price':
