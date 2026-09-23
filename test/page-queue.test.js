@@ -28,11 +28,11 @@ function queue(random=0.5) {
         updated:(id,status)=>{tabs.get(id).status=status;listeners.updated(id,{status});},closed:id=>{tabs.delete(id);listeners.removed(id);}};
 }
 
-test('queue applies randomized 30–70 ms dispatch gaps without waiting for loading',async()=>{
+test('queue applies randomized 40–60 ms dispatch gaps without waiting for loading',async()=>{
     for(const random of [0,0.5,0.999999]) {
         const q=queue(random);await q.message('enqueue','a');await q.message('enqueue','b','open',2);
         assert.equal(q.opened.length,1);
-        const delay=30+Math.floor(random*41);q.advance(delay-1);await q.message('poll','b','open',2);assert.equal(q.opened.length,1);
+        const delay=40+Math.floor(random*21);q.advance(delay-1);await q.message('poll','b','open',2);assert.equal(q.opened.length,1);
         q.advance(1);await q.message('poll','b','open',2);assert.equal(q.opened.length,2);
         assert.equal(q.tabs.get(100).status,'loading');assert.equal(q.opened[1].time-q.opened[0].time,delay);
     }
@@ -42,7 +42,7 @@ test('price grant shares dispatch spacing but does not hold the queue during ref
     assert.equal((await q.message('poll','price','price')).state,'running');
     await q.message('enqueue','open','open',2);assert.equal(q.opened.length,0);
     await q.message('complete','price','price');
-    q.advance(30);await q.message('poll','open','open',2);assert.equal(q.opened.length,1);
+    q.advance(40);await q.message('poll','open','open',2);assert.equal(q.opened.length,1);
     assert.equal(q.tabs.get(1).status,'complete');
 });
 test('worker restart preserves FIFO and never replays a dispatched tab',async()=>{
@@ -74,7 +74,7 @@ test('queue notifies the exact waiting document after the preceding permit compl
     await q.message('complete','a','price');
     const ready=q.notices.filter(n=>n.message.id==='b').at(-1);
     assert.ok(ready.message.notBefore<before.message.notBefore);
-    q.advance(30);assert.equal((await q.message('poll','b','price',2)).state,'running');
+    q.advance(40);assert.equal((await q.message('poll','b','price',2)).state,'running');
 });
 test('creation failure is reported and is not retried',async()=>{
     const q=queue();q.failCreate();assert.equal((await q.message('enqueue','a')).ok,false);q.boot();assert.equal((await q.message('poll','a')).ok,false);assert.equal(q.opened.length,0);
@@ -82,7 +82,7 @@ test('creation failure is reported and is not retried',async()=>{
 test('loading completion does not reset the dispatch clock',async()=>{
     const q=queue(0);await q.message('enqueue','a');await q.message('enqueue','b','open',2);
     q.advance(20);q.updated(100,'complete');await q.message('poll','b','open',2);
-    q.advance(10);await q.message('poll','b','open',2);assert.equal(q.opened.length,2);
+    q.advance(20);await q.message('poll','b','open',2);assert.equal(q.opened.length,2);
 });
 test('abandoned waiting client expires and does not block a live client',async()=>{
     const q=queue();await q.message('enqueue','p','price');q.advance(120001);await q.message('enqueue','b','open',2);assert.equal(q.opened.length,1);
@@ -106,7 +106,7 @@ test('cancelled price permit releases the slot after cooldown',async()=>{
     assert.equal(q.opened.length,0);q.advance(2000);await q.message('poll','b','open',2);assert.equal(q.opened.length,1);
 });
 
-test('read requests from different pages share completion-to-start gaps of 30–70 ms without opening tabs',async()=>{
+test('read requests from different pages share completion-to-start gaps of 40–60 ms without opening tabs',async()=>{
     for (const random of [0,0.5,0.999999]){
         const q=queue(random),read='https://paine.airlinesim.aero/action/info/flight?id=1';
         await q.message('enqueue','r1','read',1,read);assert.equal((await q.message('poll','r1','read',1,read)).state,'running');
@@ -114,7 +114,7 @@ test('read requests from different pages share completion-to-start gaps of 30–
         assert.equal((await q.message('poll','r2','read',2,read)).state,'queued');
         q.boot();assert.equal((await q.message('poll','r2','read',2,read)).state,'queued');
         await q.message('complete','r1','read',1,read);
-        const gap=30+Math.floor(random*41);q.advance(gap-1);
+        const gap=40+Math.floor(random*21);q.advance(gap-1);
         assert.equal((await q.message('poll','r2','read',2,read)).state,'queued');
         q.advance(1);assert.equal((await q.message('poll','r2','read',2,read)).state,'running');
         assert.deepEqual(q.opened,[]);
@@ -132,6 +132,20 @@ test('failed or cancelled read releases the queue with a cooldown before price o
     await q.message('enqueue','r','read',1,read);await q.message('poll','r','read',1,read);
     await q.message('enqueue','p','price',2);q.advance(100);
     assert.equal((await q.message('poll','p','price',2)).state,'queued');
-    await q.message('cancel','r','read',1,read);q.advance(29);assert.equal((await q.message('poll','p','price',2)).state,'queued');
+    await q.message('cancel','r','read',1,read);q.advance(39);assert.equal((await q.message('poll','p','price',2)).state,'queued');
     q.advance(1);assert.equal((await q.message('poll','p','price',2)).state,'running');
+});
+
+
+test('same-tab navigation shares the 40–60 ms queue interval with tab opening',async()=>{
+    for(const random of [0,0.5,0.999999]) {
+        const q=queue(random);
+        await q.message('enqueue','a','navigate',1);
+        await q.message('enqueue','b','navigate',2);
+        const gap=40+Math.floor(random*21);
+        q.advance(gap-1);await q.message('poll','b','navigate',2);assert.equal(q.opened.length,1);
+        q.advance(1);await q.message('poll','b','navigate',2);assert.equal(q.opened.length,2);
+        assert.equal(q.opened[1].time-q.opened[0].time,gap);
+        assert.deepEqual(q.opened.map(tab=>tab.id),[1,2]);
+    }
 });

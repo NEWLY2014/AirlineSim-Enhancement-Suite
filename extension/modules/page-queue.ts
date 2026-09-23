@@ -2,7 +2,7 @@
  * own permit. No timer or open response channel must survive worker suspension. */
 (() => {
     const KEY = 'aesPageQueueV1';
-    const gap = () => 30 + Math.floor(Math.random() * 41);
+    const gap = () => 40 + Math.floor(Math.random() * 21);
     const LEASE = 10000;
     const CLIENT_TIMEOUT = 120000; // Background-tab polling can be throttled to once a minute.
     type Kind = 'open' | 'price' | 'navigate' | 'read';

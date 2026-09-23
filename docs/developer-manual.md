@@ -76,7 +76,7 @@ completion; live-game acceptance still requires separate validation.
 ## Shared page queue
 
 AES batch navigation and Inventory price submissions share one queue across tabs.
-Dashboard batches accept up to 10 selections. The queue dispatches operations sequentially with a random 30–70 ms delay,
+Dashboard batches accept up to 10 selections. The queue dispatches operations sequentially with a random 40–60 ms delay,
 without waiting for page loading to finish. Browser scheduling and message/storage
 latency may lengthen the actual interval. Dispatched operations are not replayed
 automatically. Pending price submissions are cancelled if the page or inputs

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Narrow the shared page queue dispatch interval to a randomized 40–60 ms for tab opening, navigation, price submissions and read-only requests.
+
 ### Fixed
 
 - Display Inventory load percentages as whole numbers while retaining full precision for pricing calculations.
