@@ -273,3 +273,26 @@ test('legacy label migration preserves custom text and repairs the old FKO field
     assert.equal(p.w.document.querySelector('.aes-dashboard-column-choice img'),null);
     assert.ok(p.w.document.body.textContent.includes(custom));
 });
+
+
+test('salary status treats absent, pending-only and invalid dates as no previous data',async t=>{
+    for(const record of [undefined,{}, {pending:{targets:[],submittedAt:1}},
+        ...['',null,'invalid','20261301','20260230','2026090x'].map(date=>({date}))]){
+        const data=record===undefined?{}:{paine42personnelManagement:record};
+        const p=dashboard(t,'general',data);await load(p);
+        const row=[...p.w.document.querySelectorAll('#aes-div-dashboard-general tr')].find(row=>row.cells[0]?.textContent==='Personnel Management');
+        assert.equal(row.cells[1].textContent,'No personnel salary update date found.');
+        assert.equal(row.cells[2].querySelector('button').disabled,false);
+        assert.equal(row.textContent.includes('NaN'),false);
+        if(record!==undefined)assert.deepEqual(p.saved.paine42personnelManagement,record);
+    }
+});
+
+test('salary status retains confirmed dates even when another submission is pending',async t=>{
+    for(const [date,days,tone] of [['20260908',0,'good'],['20260901',7,'warning']]){
+        const p=dashboard(t,'general',{paine42personnelManagement:{date,pending:{targets:[],submittedAt:1}}});await load(p);
+        const row=[...p.w.document.querySelectorAll('#aes-div-dashboard-general tr')].find(row=>row.cells[0]?.textContent==='Personnel Management');
+        assert.equal(row.cells[1].textContent,`Last personnel salary update: ${date.slice(0,4)}-${date.slice(4,6)}-${date.slice(6)} (${days} days ago).`);
+        assert.ok(row.cells[1].querySelector('.'+tone));
+    }
+});

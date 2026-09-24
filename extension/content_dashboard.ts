@@ -3051,9 +3051,12 @@ function generalAddPersonnelManagementRow(tbody: JQuery) {
     let key = server + airline.id + 'personnelManagement';
     dashboardStorage.get([key], function(result) {
         let personnelManagementData = AES.isRecord(result[key]) ? result[key] : null;
-        if (personnelManagementData) {
-            let lastUpdate = String(personnelManagementData.date || '');
-            let diff = AES.getDateDiff([todayDate.date, lastUpdate]);
+        const lastUpdate = typeof personnelManagementData?.date === 'string' ? personnelManagementData.date : '';
+        const formattedDate = /^\d{8}$/.test(lastUpdate) ? AES.formatDateString(lastUpdate) : undefined;
+        const parsedDate = new Date(`${formattedDate}T12:00:00Z`);
+        const validDate = Number.isFinite(parsedDate.getTime()) && parsedDate.toISOString().slice(0, 10) === formattedDate;
+        const diff = validDate ? AES.getDateDiff([todayDate.date, lastUpdate]) : NaN;
+        if (Number.isFinite(diff)) {
             let span = $('<span></span>').text(AESI18n.t("Last personnel salary update: {0} ({1} days ago).", {"0": AES.formatDateString(lastUpdate), "1": diff}));
             if (diff >= 0 && diff < 7) {
                 span.addClass('good');
@@ -3062,7 +3065,7 @@ function generalAddPersonnelManagementRow(tbody: JQuery) {
             }
             td[1].append(span);
         } else {
-            //no schedule
+            // Pending-only journals and legacy records may have no confirmed update date.
             td[1].html(AESI18n.html('<span class="bad">No personnel salary update date found.</span>'));
         }
     });

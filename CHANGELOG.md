@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Show the no-history message for personnel salary records without a valid confirmed date instead of displaying NaN days ago.
+
 - Use click-to-expand for the AES Header menu when the game navigation is collapsed, matching native narrow-screen controls; retain hover behavior for expanded mouse navigation.
 
 ## [0.9.0-beta.7] - 2026-09-24
