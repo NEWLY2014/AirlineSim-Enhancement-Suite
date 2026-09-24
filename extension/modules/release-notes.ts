@@ -1,5 +1,19 @@
 const AES_RELEASE_NOTES_STORAGE_KEY = "aesReleaseNotesSeenVersion"
 const AES_RELEASE_NOTES: Record<string, AESModel.ReleaseNotes | undefined> = {
+    "0.9.0-beta.8": {
+        "title": "Release Notes",
+        "releaseDate": "2026-09-24",
+        "summary": "Improve narrow-screen menu interaction and salary history status.",
+        "sections": [
+            {
+                "title": "Fixed",
+                "items": [
+                    "Expand and collapse the AES Header menu by clicking when the game navigation is collapsed; keep expanded menus open when the pointer leaves.",
+                    "Show the no-history message when personnel salary records have no valid confirmed update date, instead of displaying NaN days ago."
+                ]
+            }
+        ]
+    },
     "0.9.0-beta.7": {
         "title": "Release Notes",
         "releaseDate": "2026-09-24",
