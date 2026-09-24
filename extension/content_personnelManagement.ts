@@ -286,7 +286,7 @@ async function submitSalaryBatch(key: string, value: Record<string,unknown>, ini
             if (!currentPage() || !AES.isRecord(latest) || !salaryJournalMatches(latest.pending,journal.pending)) throw fail();
             rows = received;
             // Pace dispatches after the response, and keep fresh returned forms.
-            journal = {...journal,pending:{...(journal.pending as Record<string,unknown>),notBefore:Date.now()+40+Math.floor(Math.random()*21)}};
+            journal = {...journal,pending:{...(journal.pending as Record<string,unknown>),notBefore:Date.now()+50+Math.floor(Math.random()*21)}};
             await chrome.storage.local.set({[key]:journal});
         }
     } catch (error) {
@@ -320,7 +320,7 @@ async function submitSalaryChanges(key: string, value: Record<string,unknown>, a
     const notBefore = typeof value.pending.notBefore === 'number' ? value.pending.notBefore : 0;
     if (notBefore > Date.now()) await AES.sleep(notBefore-Date.now());
     if (!AES.isPageOwner() || !form.isConnected) return;
-    const data = {...current,pending:{...value.pending,inFlight,notBefore:Date.now()+30+Math.floor(Math.random()*41)}};
+    const data = {...current,pending:{...value.pending,inFlight,notBefore:Date.now()+50+Math.floor(Math.random()*21)}};
     await chrome.storage.local.set({[key]:data});
     if (!AES.isPageOwner() || !form.isConnected) return;
     for (const id of inFlight) {

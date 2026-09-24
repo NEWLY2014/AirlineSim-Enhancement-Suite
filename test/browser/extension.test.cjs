@@ -133,7 +133,7 @@ test('Chromium loads the extension runtime, exports real storage and injects the
     releaseFirst(); // All ten dispatch while the first page is still loading.
     const pageDispatches=await worker.evaluate(()=>globalThis.auditPageDispatches);
     assert.equal(pageDispatches.length,10);
-    for(let i=1;i<pageDispatches.length;i++) assert.ok(pageDispatches[i].time-pageDispatches[i-1].time>=40,
+    for(let i=1;i<pageDispatches.length;i++) assert.ok(pageDispatches[i].time-pageDispatches[i-1].time>=50,
         'page dispatches are paced: '+JSON.stringify({pageDispatches,inventoryRequests}));
     assert.equal(inventoryRequests.length,10);
     const inventoryPages=context.pages().filter(p=>p.url().includes('/app/com/inventory/'));
@@ -155,8 +155,8 @@ test('Chromium loads the extension runtime, exports real storage and injects the
         const permit=pricePermits.find(job=>job.url===event.url);
         assert.ok(permit && event.time>=permit.started,'submission follows its permit: '+JSON.stringify(timing));
     }
-    assert.ok(priceDispatches[0].time-pageDispatches.at(-1).time>=40,'price submission shares navigation spacing: '+JSON.stringify(timing));
-    assert.ok(priceDispatches[1].time-priceDispatches[0].time>=40,'both price entry points share the same queue: '+JSON.stringify(timing));
+    assert.ok(priceDispatches[0].time-pageDispatches.at(-1).time>=50,'price submission shares navigation spacing: '+JSON.stringify(timing));
+    assert.ok(priceDispatches[1].time-priceDispatches[0].time>=50,'both price entry points share the same queue: '+JSON.stringify(timing));
     // tabs.create pages cannot reliably close themselves with window.close().
     await worker.evaluate(async()=>{
         const {settings}=await chrome.storage.local.get('settings');
