@@ -1,5 +1,19 @@
 const AES_RELEASE_NOTES_STORAGE_KEY = "aesReleaseNotesSeenVersion"
 const AES_RELEASE_NOTES: Record<string, AESModel.ReleaseNotes | undefined> = {
+    "0.9.0-beta.7": {
+        "title": "Release Notes",
+        "releaseDate": "2026-09-24",
+        "summary": "Restore empty-schedule collection and correct legacy Dashboard labels after upgrading.",
+        "sections": [
+            {
+                "title": "Fixed",
+                "items": [
+                    "Save empty airline schedules and complete competitor collection when no flights are scheduled, retaining earlier snapshots and showing removed flights in comparisons.",
+                    "Translate legacy Dashboard delta labels correctly while preserving column order, visibility, filters and custom labels."
+                ]
+            }
+        ]
+    },
     "0.9.0-beta.6": {
         "title": "Release Notes",
         "releaseDate": "2026-09-24",
