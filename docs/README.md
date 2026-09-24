@@ -23,6 +23,7 @@ Start with the user manual to install and use AES, or the developer manual to bu
 
 These records retain the findings and verification results from their original work. They are not current setup instructions; test counts, status statements and implementation details may have changed.
 
+- [Feature parity audit — 2026-09-24](archive/feature-parity-audit-2026-09-24.md): comparison with 0.8.13, reproduced upgrade regressions and validation limits; includes [baseline probes](archive/parity-audit-2026-09-24.repro.cjs).
 - [TypeScript migration](archive/typescript-migration.md): migration checkpoints and build transition.
 - [jQuery upgrade assessment](archive/jquery-upgrade-assessment.md): compatibility investigation and upgrade decision.
 - [Code audit — 2026-09-09](archive/code-audit-2026-09-09.md): findings and repair status. The [companion launcher](archive/audit-2026-09-09.repro.cjs) now runs regression tests.
