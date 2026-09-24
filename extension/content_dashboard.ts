@@ -1047,6 +1047,11 @@ function ensureRouteManagementSettings() {
             return;
         }
 
+        if (existingColumn.name === defaultColumn.name.replace(/Δ/g, '&Delta;') && existingColumn.name !== defaultColumn.name) {
+            existingColumn.name = defaultColumn.name;
+            changed = true;
+        }
+
         if (existingColumn.number === undefined) { existingColumn.number = defaultColumn.number; changed = true; }
         if (existingColumn.value === undefined) { existingColumn.value = defaultColumn.value; changed = true; }
         if (existingColumn.show === undefined) {
@@ -2471,14 +2476,7 @@ function ensureCompetitorMonitoringSettings() {
     settings.competitorMonitoring.tableColumns.forEach(function(column) {
         if (column.field == 'faffkoDela') {
             column.field = 'faffkoDelta';
-            column.text = 'FKO Δ';
             changed = true;
-        }
-        if (column.field == 'faffkoDelta') {
-            if (column.text != 'FKO Δ') {
-                column.text = 'FKO Δ';
-                changed = true;
-            }
         }
     });
 
@@ -2488,6 +2486,10 @@ function ensureCompetitorMonitoringSettings() {
         });
         if (!existing) {
             settings.competitorMonitoring.tableColumns.push(defaultColumn);
+            changed = true;
+        }
+        else if (existing.text === defaultColumn.text.replace(/Δ/g, '&Delta;') && existing.text !== defaultColumn.text) {
+            existing.text = defaultColumn.text;
             changed = true;
         }
     });

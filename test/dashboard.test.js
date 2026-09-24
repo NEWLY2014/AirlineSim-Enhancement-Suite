@@ -229,3 +229,47 @@ test('dashboard disclosures are native buttons with linked expansion state',asyn
         assert.equal(body.style.display==='none',expanded);
     }
 });
+
+// Defaults captured from v0.8.13 (7d92c034), not synthesized from current defaults.
+for(const locale of ['en','de','es','fr','hu','nl','pl','zh-TW','ja'])test(`${locale}: legacy dashboard delta labels migrate without changing preferences`,async t=>{
+    const legacy=structuredClone(require('./fixtures/dashboard-settings-0.8.13.json'));
+    legacy.routeManagement.tableColumns.reverse();
+    legacy.competitorMonitoring.tableColumns.reverse();
+    legacy.routeManagement.filter=[{filterValue:'aes-paxFreq',operation:'>',value:'8'}];
+    legacy.competitorMonitoring.filter=[{filterValue:'overviewFleet',operation:'>',value:'2'}];
+    legacy.routeManagement.tableColumns[0].show=0;
+    legacy.competitorMonitoring.tableColumns[0].visible=0;
+    const p=dashboard(t,'competitorMonitoring',{aesLanguage:locale,paine42schedule:schedule(),settings:{...legacy,general:{defaultDashboard:'competitorMonitoring',dashboardFilterScopeKey:'paine:42'}}});
+    await load(p,'.aes-dashboard-column-choice');
+    const messages=require('../extension/locales/'+locale+'.json');
+    for(const [section,label] of [['routeManagement','name'],['competitorMonitoring','text']]){
+        const expected=structuredClone(legacy[section]);
+        for(const column of expected.tableColumns) column[label]=column[label].replaceAll('&Delta;','Δ');
+        assert.deepEqual(p.saved.settings[section].tableColumns,expected.tableColumns);
+        assert.deepEqual(p.saved.settings[section].filter,expected.filter);
+        if(section==='competitorMonitoring'){
+            const labels=[...p.w.document.querySelectorAll('.aes-dashboard-column-choice span')].map(e=>e.textContent);
+            for(const column of expected.tableColumns) assert.ok(labels.includes(messages[column.text]||column.text),column.text);
+        }
+    }
+    const select=p.w.document.querySelector('#aes-select-dashboard-main');select.value='routeManagement';select.dispatchEvent(new p.w.Event('change'));
+    await until(()=>p.w.document.querySelector('#aes-div-dashboard-routeManagement'));
+    const labels=[...p.w.document.querySelectorAll('.aes-dashboard-column-choice span')].map(e=>e.textContent);
+    for(const column of legacy.routeManagement.tableColumns){const text=column.name.replaceAll('&Delta;','Δ');assert.ok(labels.includes(messages[text]||text),text);}
+    assert.equal(p.w.document.body.textContent.includes('&Delta;'),false);
+});
+
+test('legacy label migration preserves custom text and repairs the old FKO field typo',async t=>{
+    const legacy=structuredClone(require('./fixtures/dashboard-settings-0.8.13.json'));
+    const custom='<img src=x onerror="alert(1)"> &Delta;';
+    legacy.routeManagement.tableColumns.find(c=>c.class==='aes-paxLoadDelta').name=custom;
+    legacy.competitorMonitoring.tableColumns.find(c=>c.field==='overviewRatingDelta').text=custom;
+    legacy.competitorMonitoring.tableColumns.find(c=>c.field==='faffkoDelta').field='faffkoDela';
+    const p=dashboard(t,'competitorMonitoring',{settings:{...legacy,general:{defaultDashboard:'competitorMonitoring'}}});
+    await load(p,'.aes-dashboard-column-choice');
+    assert.equal(p.saved.settings.routeManagement.tableColumns.find(c=>c.class==='aes-paxLoadDelta').name,custom);
+    assert.equal(p.saved.settings.competitorMonitoring.tableColumns.find(c=>c.field==='overviewRatingDelta').text,custom);
+    assert.equal(p.saved.settings.competitorMonitoring.tableColumns.find(c=>c.field==='faffkoDelta').text,'FKO Δ');
+    assert.equal(p.w.document.querySelector('.aes-dashboard-column-choice img'),null);
+    assert.ok(p.w.document.body.textContent.includes(custom));
+});
