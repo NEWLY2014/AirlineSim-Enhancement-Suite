@@ -1,7 +1,7 @@
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const {browser,until}=require('./support/browser.cjs');
-const {frontend,financial,enterprise,respond,install}=require('./support/read-pages.cjs');
+const {frontend,financial,enterprise,emptySchedule,respond,install}=require('./support/read-pages.cjs');
 const html=frontend()+'<div id="header"><div><button aria-haspopup="menu"><span class="_name_test">AES Airlines</span></button><div role="menubar"></div></div></div>';
 const page=t=>browser(t,{html,path:'/app/enterprise/dashboard'});
 
@@ -84,4 +84,37 @@ test('financial parser accepts explicit signs and localized grouping without str
         p.w.content=financial().replace('<td>100</td>','<td>'+text+'</td>');
         assert.throws(()=>p.run("AESRead.flight(new DOMParser().parseFromString(window.content,'text/html'),1)"),/Invalid flight financial value/,text);
     }
+});
+
+
+test('competitor save-all completes for a verified empty timetable',async t=>{
+    const p=page(t);
+    p.w.fetch=async url=>respond(url,new URL(url).searchParams.get('tab')==='3'?emptySchedule():enterprise(new URL(url).searchParams.get('tab')));
+    await p.run("AESRead.collectCompetitor({id:'99',name:'Other',displayName:'Other',code:'OA'},()=>{})");
+    assert.deepEqual(p.saved.paine99schedule.date['20260908'].schedule,[]);
+    assert.ok(p.saved.paine42_99competitorMonitoring.tab0['20260908']);
+    assert.ok(p.saved.paine42_99competitorMonitoring.tab2['20260908']);
+});
+
+test('missing, malformed and wrong-tab empty timetables cannot overwrite history',async t=>{
+    const p=page(t),original={keep:true};p.saved.paine99schedule=original;
+    for(const content of [enterprise('3').replace(/<div class="flight-schedule">[\s\S]*$/, ''),
+        enterprise('3').replace('OA 100','invalid'),
+        emptySchedule().replace('tab3 active','tab2 active'),
+        emptySchedule().replace('warnBox','alert-danger'),
+        emptySchedule().replace('No data available.','<a href="/login">Sign in</a>'),
+        emptySchedule().replace('</div></div></div></div>','</div><table><tr><td>unrecognized</td></tr></table></div></div></div>')]){
+        p.w.fetch=async url=>respond(url,content);
+        await assert.rejects(p.run("AESRead.collectSchedule({id:'99'},()=>{})"));
+        assert.deepEqual(p.saved.paine99schedule,original);
+    }
+});
+
+test('direct empty timetable supports manual extraction without waiting for a missing table',async t=>{
+    const p=browser(t,{html:html+emptySchedule(),path:'/app/info/enterprises/99?tab=3'});
+    p.load('content_flightSchedule.js');
+    await until(()=>p.w.document.querySelector('#aes-extractSchedule-btn'));
+    p.w.document.querySelector('#aes-extractSchedule-btn').click();
+    await until(()=>p.saved.paine99schedule);
+    assert.deepEqual(p.saved.paine99schedule.date['20260908'].schedule,[]);
 });

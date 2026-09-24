@@ -20,7 +20,7 @@ const FLIGHT_SCHEDULE_SCRIPT_ENABLED = AES.runContentScript("content_flightSched
             return;
         }
         AES.waitForElement(function() {
-            return $('.flight-schedule');
+            return $('.flight-schedule').length ? $('.flight-schedule') : $(AESRead.emptyScheduleNotice(document) || []);
         }, function() {
             initializeFlightSchedule(result);
         }, {
@@ -43,10 +43,11 @@ function initializeFlightSchedule(result: Record<string, unknown>) {
     let panel = $('<div id="aes-panel-schedule" class="as-panel"></div>').append(btn);
     AES.markOwnedElements([label[0], panel[0]]);
     //Main DIv
-    if (!$('.flight-schedule').length) {
+    const target = document.querySelector('.flight-schedule') || AESRead.emptyScheduleNotice(document)?.parentElement;
+    if (!target) {
         throw new Error(AESI18n.t("Flight schedule insertion target .flight-schedule was not found"));
     }
-    $('.flight-schedule').prepend(label, panel);
+    $(target).prepend(label, panel);
 
     //Extract Schedule
     btn.click(function() {
@@ -108,7 +109,10 @@ async function extractSchedule() {
             return !target?.closest('#aes-panel-schedule, #aes-schedule-heading');
         })) scheduleChanged = true;
     });
-    for (const container of document.querySelectorAll('.flight-schedule')) {
+    const containers = Array.from(document.querySelectorAll('.flight-schedule'));
+    const emptyPane = AESRead.emptyScheduleNotice(document)?.parentElement;
+    if (emptyPane) containers.push(emptyPane);
+    for (const container of containers) {
         observer.observe(container, {subtree:true, childList:true, characterData:true, attributes:true});
     }
     const yieldToPage = async () => {

@@ -14,7 +14,7 @@
             url.protocol !== 'https:' || !url.hostname.endsWith('.airlinesim.aero') || url.port || !/^\d+$/.test(id) || !permittedPage ||
             !record(message.airline) || String(message.airline.id) !== id ||
             (!competitor && (!record(snapshot) || typeof snapshot.date !== 'string' || !/^\d{8}$/.test(snapshot.date) || typeof snapshot.updateTime !== 'string' ||
-            !Array.isArray(snapshot.schedule) || !snapshot.schedule.length)) ||
+            !Array.isArray(snapshot.schedule))) ||
             (competitor && (!record(message.ownerAirline) || !/^\d+$/.test(String(message.ownerAirline.id)) || !record(message.overview) || !record(message.facts) ||
                 !/^\d{8}$/.test(String(message.overview.date)) || !/^\d{8}$/.test(String(message.facts.date))))) {
             reply({ok:false, error:'Invalid schedule save request.'}); return false;

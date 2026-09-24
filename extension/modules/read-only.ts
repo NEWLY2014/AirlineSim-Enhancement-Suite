@@ -95,6 +95,19 @@ class AESRead {
         progress(AESI18n.t("Saving {0} routes...", {"0": schedule.length.toLocaleString()}));
         await AESRead.save({type:'AES_SAVE_SCHEDULE',airline,snapshot:{date:time.date,updateTime:time.time,schedule}},current);
     }
+    static emptyScheduleNotice(doc: Document) {
+        // The game's empty timetable is a bare warnBox in tab 3, with no
+        // flight-schedule container. Match its structure, not translated text.
+        if (doc.querySelector('.flight-schedule')) return null;
+        const tabs = doc.querySelector('.nav-tabs .tab3.active')?.closest('.nav-tabs');
+        const pane = tabs?.parentElement?.querySelector(':scope > .tab-content > .tab-pane.active');
+        if (!pane) return null;
+        const children = Array.from(pane.children).filter(child =>
+            !child.matches('#aes-schedule-heading, #aes-panel-schedule'));
+        const notice = children[0];
+        return children.length === 1 && notice?.matches('.warnBox') &&
+            notice.childElementCount === 0 && notice.textContent?.trim() ? notice : null;
+    }
     static async parseSchedule(doc: Document, progress: (message: string) => void, current: () => boolean) {
         let processed = 0, turnRows = 0, turnStarted = performance.now();
         const yieldToPage = async () => {
@@ -132,7 +145,7 @@ class AESRead {
             }
             if (AESRead.completeRoute(route)) schedule.push(route);
         }
-        if (!schedule.length) throw new Error(AESI18n.t("No flight segments found. Existing schedule data was kept."));
+        if (!schedule.length && !AESRead.emptyScheduleNotice(doc)) throw new Error(AESI18n.t("No flight segments found. Existing schedule data was kept."));
 
         progress(AESI18n.t("Preparing {0} routes...", {"0": schedule.length.toLocaleString()}));
         const hub: Record<string, number> = {};

@@ -4,6 +4,8 @@ const overview='<div class="layout-col-md-4"><div class="as-fieldset"><table><tb
 const facts='<div class="tab-content"><table><thead><tr><th>Metric</th><th>Value</th><th>Week 362026</th></tr></thead><tbody>'+['Airports served','Operated flights','Seats offered','Seat kilometer offered','Units offered','Freight kilometer offered'].map(x=>`<tr><td>${x}</td><td>100</td></tr>`).join('')+'</tbody></table></div>';
 const schedule='<div class="flight-schedule"><table><tbody><tr class="important origin"><td><a>AAA</a></td></tr><tr class="destination"><td><a>BBB</a></td></tr><tr><td class="code">OA 100</td><td class="days">1234567</td><td class="remarks"></td><td class="valid">Now</td></tr></tbody></table></div>';
 function enterprise(tab){return frontend()+`<div><h2>Other Air</h2><div><ul class="nav-tabs"><li class="tab${tab} active">Tab</li></ul>${tab==='0'?overview:tab==='2'?facts:schedule}</div></div>`;}
+// Empty tab structure observed in AirlineSim 6.13.17; deliberately no flight-schedule.
+function emptySchedule(){return frontend()+`<div><h2>Other Air</h2><div class="as-panel"><ul class="nav nav-tabs"><li class="tab3 active"><a href="./99?tab=3">Flight schedule</a></li></ul><div class="tab-content"><div class="tab-pane active"><div class="warnBox">No data available.</div></div></div></div></div>`;}
 function respond(url,html){return {ok:true,status:200,url,text:async()=>html};}
 function install(p){const requests=[];p.w.fetch=async(url,options)=>{requests.push({url,options});return respond(url,url.includes('/action/info/flight')?financial():enterprise(new URL(url).searchParams.get('tab')));};return requests;}
-module.exports={frontend,financial,enterprise,respond,install};
+module.exports={frontend,financial,enterprise,emptySchedule,respond,install};

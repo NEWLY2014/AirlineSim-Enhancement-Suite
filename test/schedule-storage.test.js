@@ -46,7 +46,7 @@ test('schedule save requests cannot target another airline or come from an untru
         {...valid,url:'https://paine.airlinesim.aero/app/info/enterprises/42?tab=3'},{...valid,url:'https://paine.airlinesim.aero/app/info/enterprises/99?tab=7'}]){
         assert.equal((await send(p,request('20260908'),from)).ok,false);
     }
-    const invalid=request('20260908');invalid.snapshot.schedule=[];
+    const invalid=request('20260908');invalid.snapshot.schedule=null;
     assert.equal((await send(p,invalid)).ok,false);assert.equal(p.calls.length,0);
 });
 
@@ -63,4 +63,18 @@ test('same-day collections retain the preceding capture and migrate the daily ba
     await send(p,changed);
     assert.equal(Object.keys(p.saved[key].captures).length,4);
     assert.equal(Object.keys(p.saved[key].date).length,1);
+});
+
+
+test('empty snapshot replaces the daily schedule while retaining all removed flights in history',async t=>{
+    const baseline={date:'20260908',updateTime:'00:00 UTC',schedule};
+    const p=browser(t,{data:{[key]:{type:'schedule',date:{20260908:baseline}}}});accept(p);
+    const empty=request('20260908');empty.snapshot.schedule=[];
+    assert.equal((await send(p,empty)).ok,true);
+    assert.deepEqual(p.saved[key].date['20260908'].schedule,[]);
+    assert.deepEqual(p.saved[key].captures['daily:20260908'].schedule,schedule);
+    assert.equal(Object.keys(p.saved[key].captures).length,2);
+    p.load('modules/schedule-diff.js');p.w.captures=Object.values(p.saved[key].captures);
+    const diff=await p.run('AESScheduleDiff.compare(window.captures[0],window.captures[1])');
+    assert.equal(diff.changes.length,1);assert.equal(diff.changes[0].kind,'Removed');
 });
