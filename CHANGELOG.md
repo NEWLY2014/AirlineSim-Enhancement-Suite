@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Use click-to-expand for the AES Header menu when the game navigation is collapsed, matching native narrow-screen controls; retain hover behavior for expanded mouse navigation.
+
 ## [0.9.0-beta.7] - 2026-09-24
 
 This beta contains all changes since **0.8.13**. It previews the upcoming 0.9.0 release. Beta 7 restores empty-schedule collection and migrates legacy Dashboard labels correctly, following a feature-parity audit against 0.8.13.

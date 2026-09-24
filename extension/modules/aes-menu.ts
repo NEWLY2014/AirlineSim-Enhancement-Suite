@@ -16,8 +16,12 @@ class AESMenu {
 
         target.after(this.#container);
         if (this.#legacy) {
-            this.#container.addEventListener('mouseenter', () => this.#setOpen(true));
-            this.#container.addEventListener('mouseleave', () => this.#setOpen(false));
+            this.#container.addEventListener('mouseenter', () => {
+                if (this.#supportsHover()) this.#setOpen(true);
+            });
+            this.#container.addEventListener('mouseleave', () => {
+                if (this.#supportsHover()) this.#setOpen(false);
+            });
         }
         this.#button.addEventListener('click', event => {
             event.preventDefault();
@@ -212,6 +216,14 @@ class AESMenu {
         }
         menuItem.append(menuItemContent)
         return menuItem
+    }
+
+    #supportsHover() {
+        // Follow the game's actual collapsed navigation, including zoom and
+        // theme-specific breakpoints, rather than assuming a viewport width.
+        const toggle = this.#container.closest('nav')?.querySelector('.navbar-toggle');
+        if (toggle && getComputedStyle(toggle).display !== 'none') return false;
+        return !window.matchMedia || window.matchMedia('(hover: hover) and (pointer: fine)').matches;
     }
 
     #setOpen(open: boolean) {

@@ -4,7 +4,7 @@ const {JSDOM}=require('jsdom');
 const {readFileSync,readdirSync}=require('node:fs');
 const {join,relative}=require('node:path');
 const normalize=text=>text.trim().replace(/\s+/g,' ');
-const technicalCalls=new Set(['querySelector','querySelectorAll','getElementById','getElementsByClassName','closest','find','filter','children','parent','parents','nextAll','prevAll','siblings','is','hasClass','addClass','removeClass','toggleClass','on','off','trigger','css','getAttribute','removeAttribute','hasAttribute','addEventListener','removeEventListener','matches']);
+const technicalCalls=new Set(['querySelector','querySelectorAll','getElementById','getElementsByClassName','closest','find','filter','children','parent','parents','nextAll','prevAll','siblings','is','hasClass','addClass','removeClass','toggleClass','on','off','trigger','css','getAttribute','removeAttribute','hasAttribute','addEventListener','removeEventListener','matches','matchMedia']);
 const technicalProperties=new Set(['className','class','id','href','src','role','type','rel','tabindex']);
 const readable=text=>/[A-Za-z]{3}/.test(text) && (/\s/.test(text.trim()) || /^[A-Z][a-z]+[!:]?$/.test(text.trim()));
 const member=node=>node?.type==='MemberExpression' ? node.property.name || node.property.value : node?.name;
