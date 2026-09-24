@@ -7,7 +7,7 @@ const {join,resolve}=require('node:path');
 const {createServer}=require('node:https');
 const {execFileSync}=require('node:child_process');
 
-test('salary batch persists through real Chrome storage and server-confirmed form navigation',{timeout:60000},async t=>{
+test('salary batch posts all positions with one click and refreshes the page only once',{timeout:60000},async t=>{
     const profile=await mkdtemp(join(tmpdir(),'aes-salary-'));
     let context,server;
     t.after(async()=>{
@@ -42,6 +42,7 @@ test('salary batch persists through real Chrome storage and server-confirmed for
     const worker=context.serviceWorkers()[0]||await context.waitForEvent('serviceworker');
     await worker.evaluate(()=>chrome.storage.local.set({aesReleaseNotesSeenVersion:chrome.runtime.getManifest().version_name,settings:{personnelManagement:{type:'absolute',value:50,auto:0,alreadyUpdated:[]}}}));
     const page=await context.newPage();
+    let navigations=0;page.on('framenavigated',frame=>{if(frame===page.mainFrame())navigations++;});
     await page.goto('https://paine.airlinesim.aero/action/enterprise/staffOverview');
     await page.locator('#aes-input-personnelManagement-value').fill('50');
     await page.locator('.aes-personnel-management-apply').click();
@@ -57,6 +58,8 @@ test('salary batch persists through real Chrome storage and server-confirmed for
     });
     assert.deepEqual(requests,[{id:0,amount:1050},{id:1,amount:950}]);
     assert.deepEqual(amounts,[1050,950]);
+    await page.waitForFunction(()=>performance.getEntriesByType('navigation')[0]?.type==='reload');
     await page.locator('.aes-personnel-management-apply:not([disabled])').waitFor();
+    assert.equal(navigations,2,'initial load plus one final refresh, without per-position navigation');
     assert.match(await page.locator('#aes-personnel-management-last-update').innerText(),/Last update/);
 });

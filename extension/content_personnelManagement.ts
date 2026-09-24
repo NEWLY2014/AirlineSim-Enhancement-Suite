@@ -6,6 +6,7 @@ var settings: Record<string, unknown>;
 var server: string;
 var airline: AESModel.Airline;
 let loadedSalaryTargets: Record<string,number> | null = null;
+let salaryBatchRunning = false;
 var personnelNotifications: Notifications | undefined;
 const PERSONNEL_MANAGEMENT_SCRIPT_ENABLED = AES.runContentScript("content_personnelManagement", function() {
     chrome.storage.local.get(['settings'], function(result) {
@@ -205,12 +206,107 @@ function salaryJournalMatches(left: unknown, right: unknown): boolean {
         Object.hasOwn(right, key) && salaryJournalMatches(left[key], right[key]));
 }
 
+/** Native POST forms can be processed without navigating after each position. */
+function canSubmitSalaryBatch(rows: ReturnType<typeof getSalaryRows>) {
+    return !!rows && [...rows.values()].every(({form}) => {
+        const url = new URL(form.getAttribute('action') || location.href, location.href);
+        return form.method.toLowerCase() === 'post' && url.origin === location.origin &&
+            url.pathname === '/action/enterprise/staffOverview' && !url.search && !url.hash;
+    });
+}
+
+async function submitSalaryBatch(key: string, value: Record<string,unknown>, initialRows: NonNullable<ReturnType<typeof getSalaryRows>>) {
+    if (salaryBatchRunning || !AES.isRecord(value.pending) || !AES.isRecord(value.pending.targets)) return;
+    salaryBatchRunning = true;
+    const expected = value.pending.targets;
+    const currentPage = AESRead.context();
+    const context = AES.observeContext(currentPage);
+    const controller = new AbortController();
+    const leave = () => controller.abort();
+    window.addEventListener('pagehide', leave, {once:true});
+    const stopNativeSubmit = (event: Event) => {
+        if ([...initialRows.values()].some(row => row.form === event.target)) {
+            event.preventDefault();event.stopImmediatePropagation();
+        }
+    };
+    document.addEventListener('submit',stopNativeSubmit,true);
+    const action = $('.aes-personnel-management-apply');
+    setPersonnelManagementBusy(action,true);
+    let journal = value;
+    let rows = initialRows;
+    const fail = () => new Error(AESI18n.t('Salary submission awaiting confirmation. Reload to check.'));
+    try {
+        while (true) {
+            if (!currentPage() || controller.signal.aborted) throw fail();
+            const actual = Object.fromEntries([...rows].map(([id,row]) => [id,AES.cleanInteger(row.input.defaultValue)]));
+            if (Object.keys(expected).some(id => !rows.has(id))) throw fail();
+            const next = [...rows].find(([id]) => expected[id] !== actual[id]);
+            if (!next) {
+                await confirmSalaryUpdate(key,journal,actual);
+                const saved = (await chrome.storage.local.get(key))[key];
+                if (currentPage() && AES.isRecord(saved) && !saved.pending) location.reload();
+                return;
+            }
+            if (!canSubmitSalaryBatch(rows)) throw fail();
+            const form = next[1].form;
+            const ids = [...rows].filter(([,row]) => row.form === form).map(([id]) => id);
+            const button = form.querySelector<HTMLButtonElement | HTMLInputElement>('button[type="submit"], input[type="submit"]');
+            if (!button) throw fail();
+            const stored = (await chrome.storage.local.get(key))[key];
+            if (!currentPage() || !AES.isRecord(stored) || !salaryJournalMatches(stored.pending,journal.pending)) throw fail();
+            const pending = journal.pending as Record<string,unknown>;
+            const notBefore = typeof pending.notBefore === 'number' ? pending.notBefore : 0;
+            if (notBefore > Date.now()) await AES.sleep(notBefore-Date.now());
+            if (!currentPage() || controller.signal.aborted) throw fail();
+            journal = {...stored,pending:{...pending,inFlight:ids}};
+            await chrome.storage.local.set({[key]:journal});
+            if (!currentPage() || controller.signal.aborted) throw fail();
+            const body = new URLSearchParams();
+            for (const [name,field] of new FormData(form,button)) {
+                if (typeof field !== 'string') throw fail();
+                body.append(name,field);
+            }
+            // Each native salary form has one amount field and a stable job ID.
+            const amount = expected[next[0]];
+            if (ids.length !== 1 || typeof amount !== 'number' || !Number.isFinite(amount)) throw fail();
+            body.set('amount',String(amount));
+            const completed = Object.keys(expected).filter(id => actual[id] === expected[id]).length;
+            $('#aes-personnel-management-last-update').text(AESI18n.t('Updating...')+' '+completed+'/'+Object.keys(expected).length);
+            const response = await fetch(new URL(form.getAttribute('action') || location.href,location.href), {
+                method:'POST',credentials:'same-origin',body,
+                signal:AbortSignal.any([controller.signal,context.signal,AbortSignal.timeout(20000)])
+            });
+            const returned = new URL(response.url);
+            if (!response.ok || returned.origin !== location.origin || returned.pathname !== '/action/enterprise/staffOverview') throw fail();
+            const doc = new DOMParser().parseFromString(await response.text(),'text/html');
+            if (!currentPage() || controller.signal.aborted || String(AESRead.frontend(doc).fixedEnterpriseId) !== String(airline.id)) throw fail();
+            const received = getSalaryRows(doc);
+            if (!received || !ids.every(id => received.has(id) && AES.cleanInteger(received.get(id)!.input.defaultValue) === expected[id])) throw fail();
+            const latest = (await chrome.storage.local.get(key))[key];
+            if (!currentPage() || !AES.isRecord(latest) || !salaryJournalMatches(latest.pending,journal.pending)) throw fail();
+            rows = received;
+            // Pace dispatches after the response, and keep fresh returned forms.
+            journal = {...journal,pending:{...(journal.pending as Record<string,unknown>),notBefore:Date.now()+40+Math.floor(Math.random()*21)}};
+            await chrome.storage.local.set({[key]:journal});
+        }
+    } catch (error) {
+        if (currentPage() && !controller.signal.aborted) updatePersonnelLastUpdate(journal);
+        throw error;
+    } finally {
+        salaryBatchRunning = false;
+        context.dispose();window.removeEventListener('pagehide',leave);
+        document.removeEventListener('submit',stopNativeSubmit,true);
+        setPersonnelManagementBusy(action,false);
+    }
+}
+
 /** Journal one form before dispatch. A new page or replaced form confirms its response. */
 async function submitSalaryChanges(key: string, value: Record<string,unknown>, actual: Record<string,number>) {
     if (!AES.isRecord(value.pending) || !AES.isRecord(value.pending.targets)) return;
     const expected = value.pending.targets;
     const rows = getSalaryRows();
     if (!rows || Object.keys(expected).some(id => !rows.has(id))) throw new Error(AESI18n.t("Salary rows could not be identified."));
+    if (canSubmitSalaryBatch(rows)) return submitSalaryBatch(key,value,rows!);
     const next = [...rows].find(([id]) => expected[id] !== actual[id]);
     if (!next) return;
     const form = next[1].form;
@@ -480,11 +576,11 @@ function failSalaryUpdate(message: string, options: AESModel.SalaryUpdateOptions
 }
 
 /** Stable row identities, independent of Wicket's changing form action URLs. */
-function getSalaryRows() {
+function getSalaryRows(doc: Document = document) {
     const rows = new Map<string,{form:HTMLFormElement;input:HTMLInputElement}>();
-    const table = getStaffSalaryTableInfo()?.table;
-    if (!table) return null;
-    for (const row of table.find('tbody tr').toArray()) {
+    const root = doc === document ? getStaffSalaryTableInfo()?.table[0] : doc;
+    if (!root) return null;
+    for (const row of root.querySelectorAll('tbody tr')) {
         const form = $(row).find('input[name="action"][value="salary"]').closest('form');
         const input = form.find('input[name="amount"]')[0] as HTMLInputElement | undefined;
         if (!input) continue;

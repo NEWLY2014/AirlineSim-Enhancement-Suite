@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Apply the whole salary table with one click using current-page POST requests, confirm each response, and refresh only once after the batch completes. Keep pending records when a request cannot be confirmed.
+
 ## [0.9.0-beta.8] - 2026-09-24
 
 This beta contains all changes since **0.8.13**. It previews the upcoming 0.9.0 release. Beta 8 fixes narrow-screen Header menu interaction and the Dashboard salary status when no confirmed update date exists.

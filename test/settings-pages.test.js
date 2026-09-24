@@ -366,3 +366,29 @@ test('salary journals survive Chrome storage key reordering but reject changed t
         }
     }
 });
+
+const nativeStaffBatch=staffBatch.replaceAll('<form>','<form method="post" action="staffOverview">');
+for(const failure of ['http','unchanged','wrong-airline','redirect','journal-changed'])test(`whole-table salary requests stop safely on ${failure}`,async t=>{
+    const key='paine42personnelManagement';
+    const p=browser(t,{html:nativeStaffBatch,path:'/action/enterprise/staffOverview',data:{settings:{personnelManagement:{type:'absolute',value:50}}}});
+    // Use one signal implementation for the request context and deadline.
+    p.w.AbortController=AbortController;p.w.AbortSignal=AbortSignal;
+    let posts=0;
+    p.w.fetch=async(url,options)=>{
+        posts++;assert.equal(options.method,'POST');assert.equal(options.credentials,'same-origin');
+        assert.equal(options.body.get('amount'),'1050');assert.equal(options.body.get('action'),'salary');
+        if(failure==='journal-changed')p.saved[key].pending.targets.extra=100;
+        return {ok:failure!=='http',url:failure==='redirect'?'https://paine.airlinesim.aero/login':String(url),text:async()=>{
+            let html=nativeStaffBatch.replace('value="800"','value="1050"');
+            if(failure==='unchanged')html=nativeStaffBatch;
+            if(failure==='wrong-airline')html=html.replace('"fixedEnterpriseId":42','"fixedEnterpriseId":43');
+            return html;
+        }};
+    };
+    p.load('content_personnelManagement.js');await until(()=>p.w.document.querySelector('.aes-personnel-management-apply'));
+    const button=p.w.document.querySelector('.aes-personnel-management-apply');button.click();
+    await until(()=>posts===1 && !button.disabled);
+    assert.equal(posts,1);assert.equal(p.saved[key].date,undefined);assert.ok(p.saved[key].pending);
+    if(failure==='journal-changed')assert.equal(p.saved[key].pending.targets.extra,100);
+    assert.match(p.w.document.querySelector('#aes-personnel-management-last-update').textContent,/awaiting confirmation/);
+});
