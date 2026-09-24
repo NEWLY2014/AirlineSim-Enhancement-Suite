@@ -15,6 +15,7 @@ test('Chromium loads the extension runtime, exports real storage and injects the
     let releaseFirst;
     const inventoryRequests = [];
     const priceRequests = [];
+    const priceDispatches = [];
     const firstGate = new Promise(resolve => { releaseFirst = resolve; });
     t.after(async () => {
         releaseFirst();
@@ -48,6 +49,26 @@ test('Chromium loads the extension runtime, exports real storage and injects the
     });
     const worker = context.serviceWorkers()[0] || await context.waitForEvent('serviceworker');
     const id = new URL(worker.url()).host;
+    // Record actual client dispatch separately from server receipt: network
+    // scheduling can bunch arrivals even when the shared queue paces dispatch.
+    await context.exposeBinding('recordPriceDispatch', (_source, event) => priceDispatches.push(event));
+    await context.addInitScript(() => {
+        document.addEventListener('submit', event => {
+            // AES cancels the first native attempt in capture phase. Only the
+            // authorized resubmission reaches this bubble-phase observer.
+            if (event.target.matches('form.pricing') && !event.defaultPrevented) {
+                void window.recordPriceDispatch({url:location.href,time:Date.now()});
+            }
+        });
+    });
+    await worker.evaluate(() => {
+        globalThis.auditPageDispatches=[];
+        const create=chrome.tabs.create.bind(chrome.tabs);
+        chrome.tabs.create=(...args)=>{
+            globalThis.auditPageDispatches.push({url:args[0].url,time:Date.now()});
+            return create(...args);
+        };
+    });
     assert.equal(await worker.evaluate(() => chrome.runtime.getManifest().version), require('../../extension/manifest.json').version);
     await worker.evaluate(async () => {
         await chrome.storage.local.clear();
@@ -110,7 +131,10 @@ test('Chromium loads the extension runtime, exports real storage and injects the
     });
     assert.ok(alignment<=1,'batch status is vertically centered with its button');
     releaseFirst(); // All ten dispatch while the first page is still loading.
-    for(let i=1;i<inventoryRequests.length;i++) assert.ok(inventoryRequests[i]-inventoryRequests[i-1]>=20,'page requests are paced');
+    const pageDispatches=await worker.evaluate(()=>globalThis.auditPageDispatches);
+    assert.equal(pageDispatches.length,10);
+    for(let i=1;i<pageDispatches.length;i++) assert.ok(pageDispatches[i].time-pageDispatches[i-1].time>=40,
+        'page dispatches are paced: '+JSON.stringify({pageDispatches,inventoryRequests}));
     assert.equal(inventoryRequests.length,10);
     const inventoryPages=context.pages().filter(p=>p.url().includes('/app/com/inventory/'));
     await Promise.all(inventoryPages.slice(0,2).map(p=>p.locator('#aes-table-analysis').waitFor()));
@@ -118,8 +142,21 @@ test('Chromium loads the extension runtime, exports real storage and injects the
     await inventoryPages[0].locator('#aes-btn-invPricing-apply-new-prices').click();
     await inventoryPages[1].locator('[name="submit-prices"]').click();
     await waitUntil(()=>priceRequests.length===2);
-    assert.ok(priceRequests[0]-inventoryRequests.at(-1)>=20,'price submission shares navigation spacing');
-    assert.ok(priceRequests[1]-priceRequests[0]>=20,'both price entry points share the same queue');
+    await waitUntil(()=>priceDispatches.length===2);
+    priceDispatches.sort((a,b)=>a.time-b.time);
+    assert.equal(new Set(priceDispatches.map(event=>event.url)).size,2);
+    const permits=await worker.evaluate(async()=>(await chrome.storage.session.get('aesPageQueueV1')).aesPageQueueV1.jobs
+        .map(({kind,url,started})=>({kind,url,started})));
+    const timing={permits,pageDispatches,priceDispatches,inventoryRequests,priceRequests};
+    t.diagnostic('Queue timing (permit / dispatch / server receipt): '+JSON.stringify(timing));
+    const pricePermits=permits.filter(job=>job.kind==='price');
+    assert.equal(pricePermits.length,2);
+    for(const event of priceDispatches){
+        const permit=pricePermits.find(job=>job.url===event.url);
+        assert.ok(permit && event.time>=permit.started,'submission follows its permit: '+JSON.stringify(timing));
+    }
+    assert.ok(priceDispatches[0].time-pageDispatches.at(-1).time>=40,'price submission shares navigation spacing: '+JSON.stringify(timing));
+    assert.ok(priceDispatches[1].time-priceDispatches[0].time>=40,'both price entry points share the same queue: '+JSON.stringify(timing));
     // tabs.create pages cannot reliably close themselves with window.close().
     await worker.evaluate(async()=>{
         const {settings}=await chrome.storage.local.get('settings');

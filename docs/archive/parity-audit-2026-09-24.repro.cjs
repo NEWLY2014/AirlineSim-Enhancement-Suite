@@ -16,18 +16,22 @@ console.log('PASS: 0.8.13 defaults accepted unchanged; step recommendations matc
     const page=browser(t,{path:'/app/enterprise/dashboard',html:header+'<div id="enterprise-dashboard"></div>',data:{aesLanguage:'zh-TW',settings:{general:{defaultDashboard:'competitorMonitoring'},competitorMonitoring:{tableColumns:columns,filter:[]}}}});
     page.load('content_dashboard.js');await require(root+'/test/support/browser.cjs').until(()=>page.w.document.querySelector('.aes-dashboard-column-choice'));
     const broken=[...page.w.document.querySelectorAll('.aes-dashboard-column-choice')].map(e=>e.textContent).filter(text=>text.includes('&Delta;'));
-    console.log('Legacy competitor labels still escaped:',broken.length,JSON.stringify(broken));
+    assert.equal(broken.length,0);
+    console.log('PASS: legacy competitor labels migrate to translated plain text.');
     const empty=isolated('content_flightSchedule.js','window.audit={extract:()=>{server="paine";airline={id:"99"};date={date:"20260924",time:"00:00 UTC"};extractSchedule();}};',true);
     empty.w.document.body.innerHTML='<div class="flight-schedule"><div class="as-panel">No flights scheduled.</div></div>';
     empty.w.audit.extract();
     assert.deepEqual(clean(empty.saved.paine99schedule.date['20260924'].schedule),[]);
-    try {await empty.run('AESRead.parseSchedule(document,()=>{},()=>true)');console.log('Current parser accepts empty schedule.');}
-    catch(error){console.log('Current parser rejects a schedule the baseline saved:',error.message);}
-    const {frontend,enterprise,respond}=require(root+'/test/support/read-pages.cjs');
+    // The original synthetic empty markup remains unrecognized and must not
+    // overwrite history. Use the subsequently inspected game empty state below.
+    await assert.rejects(empty.run('AESRead.parseSchedule(document,()=>{},()=>true)'));
+    const {enterprise,emptySchedule,respond}=require(root+'/test/support/read-pages.cjs');
     const batch=browser(t,{path:'/app/enterprise/dashboard',html:header});
-    batch.w.fetch=async url=>respond(url,new URL(url).searchParams.get('tab')==='3' ? frontend()+'<div><h2>Other Air</h2><div><ul class="nav-tabs"><li class="tab3 active">Schedule</li></ul><div class="flight-schedule">No flights scheduled.</div></div></div>' : enterprise(new URL(url).searchParams.get('tab')));
-    try {await batch.run("AESRead.collectCompetitor({id:'99',name:'Other',displayName:'Other',code:'OA'},()=>{})");}
-    catch(error){console.log('Empty competitor save-all:',error.message,'; saved competitor:',!!batch.saved.paine42_99competitorMonitoring);}
+    batch.w.fetch=async url=>respond(url,new URL(url).searchParams.get('tab')==='3' ? emptySchedule() : enterprise(new URL(url).searchParams.get('tab')));
+    await batch.run("AESRead.collectCompetitor({id:'99',name:'Other',displayName:'Other',code:'OA'},()=>{})");
+    assert.deepEqual(clean(batch.saved.paine99schedule.date['20260908'].schedule),[]);
+    assert.ok(batch.saved.paine42_99competitorMonitoring);
+    console.log('PASS: verified empty schedule and competitor save-all are saved.');
     const originalManifest=JSON.parse(execFileSync('git',['show','v0.8.13:extension/manifest.json'],{encoding:'utf8'}));
     const currentManifest=require(root+'/extension/manifest.json');
     for(const script of originalManifest.content_scripts) for(const match of script.matches) assert.ok(currentManifest.content_scripts.some(current=>current.matches.includes(match)),match);

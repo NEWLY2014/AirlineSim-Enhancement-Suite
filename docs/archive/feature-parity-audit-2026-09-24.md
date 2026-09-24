@@ -7,6 +7,18 @@ Date: 2026-09-24. This is an audit record, not a release certification.
 - Scope: manifest entry points, all first-party runtime module changes, settings and stored-data readers, page actions, background coordination, packaging, and existing regression coverage.
 - No live salaries, ticket prices, flight plans or user records were changed. Browser integration tests use isolated profiles and local fixtures. Actual game variants remain a validation limit.
 
+## Repair follow-up — 2026-09-24
+
+The findings below preserve the original audit. The approved repairs have now been implemented:
+
+- **F01 fixed in `072efb5`:** inspected the real empty timetable on AirlineSim 6.13.17. It uses a bare `.warnBox` inside the active schedule tab and omits `.flight-schedule`. The parser recognizes that structure without depending on the game language; missing/unrecognized markup still fails. Both direct-page extraction and read-only competitor collection accept the empty snapshot. History and an all-flights-removed comparison are covered by regression tests.
+- **F02 fixed in `845e95d`:** canonicalize known escaped labels by stable column ID, retaining custom text, order, visibility and filters. Tests use default settings captured from the actual 0.8.13 source and exercise all nine locales.
+- **V01 addressed:** browser tests record background permits, actual tab/form dispatch and server receipt separately. Assertions now enforce the 40 ms minimum at dispatch, with receipt times retained as diagnostics. Deterministic 40/50/60 ms queue tests remain in place. The original timing failure is not retrospectively classified as a runtime bug.
+
+Post-repair verification: 369 unit/regression tests passed; all 10 Chromium tests passed; type checking, localization coverage and packaging passed. The baseline comparison still matches 1,200 scenarios × four cabins. In the full browser run, the two price permits were 183 ms apart, actual submissions 87 ms apart, and server receipts 60 ms apart, illustrating why those boundaries must be measured separately.
+
+The companion probes now assert the repaired behavior and use the observed empty-page fixture. This verifies the reported regressions, not every possible live-game interaction. No live prices, salaries or flight plans were submitted, and no new Store release was made in this repair.
+
 ## Conclusion
 
 The existing feature families remain present, and the tested ordinary paths work. However, full parity cannot be claimed: one functional regression and one upgrade-display regression were reproduced. A browser timing assertion also failed once and needs better instrumentation; it is not established as a queue defect.
