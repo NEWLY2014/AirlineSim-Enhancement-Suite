@@ -7,11 +7,94 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0-beta.9] - 2026-09-26
+
+This beta contains all changes since **0.8.13**. It previews the upcoming 0.9.0 release. Beta 9 applies the whole salary table with one click and updates queue intervals.
+
+### Added
+
+- Support all nine game languages (German, English, Spanish, French, Hungarian, Dutch, Polish, Traditional Chinese and Japanese), following the game language by default with an AES override in General Settings.
+- Add control-point pricing with linear interpolation, fractional load percentages and rounding only at the final ticket price. One global pricing mode applies to all cabins, with separate cabin rules and price bounds.
+- Add interactive previews for both step rules and control-point pricing, with pointer and keyboard inspection of load and price adjustments. Default control points match the default step-rule boundary values.
+- Retain multiple competitor schedule captures until manually deleted and compare selected captures in a searchable dialog, including flight additions, removals and operating-pattern changes.
+- Collect read-only airline, flight and schedule data through requests from the current game page without opening collection tabs.
+
 ### Changed
 
-- Use randomized 50–70 ms intervals for page-operation queues and salary batch submissions.
+- Honor reduced-motion preferences when dismissing notifications and highlighting menu actions, retaining the original reading time.
 
-- Apply the whole salary table with one click using current-page POST requests, confirm each response, and refresh only once after the batch completes. Keep pending records when a request cannot be confirmed.
+- Declare AES language on owned UI and notifications while retaining explicit source-language text and the game document language; keep the Settings tab row aligned with native font metrics.
+
+- Announce notification outcomes through shared, persistent status and error regions without repeating rapid intermediate messages.
+
+- Cache schedule-diff counts and search text, reuse filtered pages, and cancel superseded searches while yielding during large scans.
+
+- Load backup-page metadata without transferring full histories and serialize exports record by record in a dedicated worker while preserving backup contents.
+
+- Use keyboard-accessible native disclosure buttons with linked expanded state for Dashboard controls.
+
+- Ignore unrelated inventory DOM changes and cache native-table signatures while retaining submission checks.
+
+- React directly to page/table mutations, serialize hub-data saves, and remove notifications when their animation finishes instead of waiting an assumed rendering delay.
+
+- Apply the whole salary table with one click using current-page POST requests, confirm each response, and refresh only once after the batch completes. Preserve pending records when a request cannot be confirmed, and retain native-form compatibility. Pace salary batch submissions at randomized 50–70 ms intervals.
+
+- Wake page-operation queues with document-specific notifications and persisted permit claims instead of frequent polling, retaining dispatch spacing and missed-notification recovery. Handle already-ready notifications without a zero-delay timer and recover missed notifications before the waiting lease expires.
+- Replace planner and read-collection state/cancellation polling with DOM, server-response and lifecycle events; resume ready scheduling jobs without a fixed startup delay.
+- Yield bulk schedule parsing and comparison through browser task scheduling at background priority, with compatibility fallbacks, to keep page input and rendering responsive.
+
+- Integrate AES Settings alongside the game's General Settings and Game Settings. Add a General Settings section for language and reorganize pricing controls with global mode above cabin-specific settings.
+- Share a paced page-operation queue across dashboard batches, flight extraction and competitor extraction, using randomized 50–70 ms dispatch gaps. Support up to 10 dashboard selections per batch.
+- Queue inventory price submissions with navigation and recheck pending state and edited prices before submitting.
+- Keep large schedule extraction, saving and comparisons responsive; support cancelling long comparisons and sorting large result sets without blocking the page.
+- Refresh dashboard, competitor, enterprise and flight-profit summaries after collection. Keep progress in existing status areas and change the green schedule-saved confirmation to a normal timestamp after five seconds.
+- Give settings tabs a distinct tab appearance, keep pricing checkboxes in one column, contain percentage suffixes within their unit boxes, keep price bounds together, and scale preview typography consistently.
+
+### Fixed
+
+- Show the no-history message for personnel salary records without a valid confirmed date instead of displaying NaN days ago.
+
+- Use click-to-expand for the AES Header menu when the game navigation is collapsed, matching native narrow-screen controls; retain hover behavior for expanded mouse navigation.
+
+- Save verified empty airline schedules, retain earlier captures and show all removed flights in schedule comparisons; complete competitor collection even when no flights are scheduled.
+- Migrate legacy Dashboard delta labels to translated plain text while preserving column order, visibility, filters and custom labels.
+
+- Display Inventory load percentages as whole numbers while retaining full precision for pricing calculations.
+- Vertically align Dashboard batch-opening status text with action buttons and retain wrapping for narrow layouts.
+- Close Inventory tabs through the extension background after confirmed saves, including when no valid analysis remains; retain pages with unconfirmed prices and verify the requesting document before closing.
+- Fix salary batches stopping before the first submission when Chrome storage reorders journal fields. Confirm in-place server updates, refresh confirmed salary baselines, report response timeouts and avoid treating unsaved input values as successful updates.
+
+- Avoid rejecting correct arrival settings when background-tab timer throttling delays the planner's stability check. Validate the initial state immediately and revalidate before submission.
+
+- Recover complete flight names from other blocks when short departure blocks omit the airline code, and include the airline code in scheduling status messages for existing numeric-only templates.
+
+- Wait for the server response to finish updating the planner after each day-selection, fixed-arrival or arrival-time change. Retry complete arrival settings after confirmed resets; stop on failed or missing responses before making another change or submitting.
+
+- Restore access to earlier release notes from beta versions by correctly comparing prerelease version numbers.
+
+- Preserve each source service day’s fixed-arrival setting when shifting schedules. Leave automatic arrivals unfixed and avoid forcing their times to match the source aircraft.
+
+- Reconcile fixed arrival times after planner refreshes and require stable template-matching arrival settings before submitting a schedule or an arrival correction. Stop without submitting if the planner keeps resetting these controls.
+
+- Locate inventory price submission buttons by the price inputs’ actual form ownership, including buttons outside the pricing panel and externally associated controls; retain queued-submission validation.
+
+- Validate planner dates, departure/arrival times and arrival-day offsets before submission. Confirm cyclic schedules by service days and actively correct target flight arrival times to match the template.
+- Record hubs from flight-plan pages and propagate them to fleet data; preserve hub names/counts, aircraft registration data and record metadata during refreshes.
+- Serialize shared-record and settings updates to prevent concurrent writes from overwriting each other. Recover record saves when a background message port disconnects and report storage failures accurately.
+- Preserve competitor history during legacy migration, include route-analysis records in pricing backups, and journal replacement restores so interrupted restores can recover.
+- Persist scheduling ownership across worker restarts and prevent stale or competing pages from changing the same scheduling job.
+- Parse financial values with explicit positive signs, preserve zero-profit results in dashboard averages, and confirm personnel salary changes against refreshed data.
+- Complete translations for dynamic messages and validation feedback; show the language-change reload notice in the newly selected language.
+- Make table sorting keyboard-accessible, isolate modal focus, restore focus after closing schedule comparisons, follow game theme colors, and keep release-note headings independent of host-page styling.
+- Render stored and external text safely without interpreting it as HTML; retain active-history pruning for expired analysis snapshots.
+
+### Development
+
+- Split the user and developer manuals from the README and organize documentation by audience and purpose.
+
+- Migrate extension runtime code to strict TypeScript and package compiled JavaScript; upgrade to the full jQuery 4.0 build.
+- Consolidate page data rules, financial parsing and stable sorting helpers.
+- Add unit, isolated Chromium extension and localization-coverage regression checks, and validate builds and packages in CI and release workflows.
 
 ## [0.9.0-beta.8] - 2026-09-24
 
@@ -1029,3 +1112,5 @@ _First release._
 [0.9.0-beta.7]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.13...05f358dfc884966679df69327be34311e19893f6
 
 [0.9.0-beta.8]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.13...eef103bb3c7f559a4c3faea116299ef553680f32
+
+[0.9.0-beta.9]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.13...v0.9.0-beta.9
