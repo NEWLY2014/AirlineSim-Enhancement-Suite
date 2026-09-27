@@ -1,5 +1,17 @@
 const AES_RELEASE_NOTES_STORAGE_KEY = "aesReleaseNotesSeenVersion"
 const AES_RELEASE_NOTES: Record<string, AESModel.ReleaseNotes | undefined> = {
+    "0.9.0-beta.10": {
+        "title": "Release Notes",
+        "releaseDate": "2026-09-27",
+        "summary": "Submit the whole salary table together without waiting between positions.",
+        "sections": [{
+            "title": "Changed",
+            "items": [
+                "Dispatch native salary requests together without artificial delays or per-position waits. Verify a fresh server snapshot after all requests settle and refresh once after confirmation.",
+                "Retain pending records for failed or unconfirmed salary batches. Page-operation queues keep their randomized 50–70 ms intervals."
+            ]
+        }]
+    },
     "0.9.0-beta.9": {
         "title": "Release Notes",
         "releaseDate": "2026-09-26",
