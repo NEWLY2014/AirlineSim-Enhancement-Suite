@@ -233,62 +233,55 @@ async function submitSalaryBatch(key: string, value: Record<string,unknown>, ini
     const action = $('.aes-personnel-management-apply');
     setPersonnelManagementBusy(action,true);
     let journal = value;
-    let rows = initialRows;
     const fail = () => new Error(AESI18n.t('Salary submission awaiting confirmation. Reload to check.'));
     try {
-        while (true) {
-            if (!currentPage() || controller.signal.aborted) throw fail();
-            const actual = Object.fromEntries([...rows].map(([id,row]) => [id,AES.cleanInteger(row.input.defaultValue)]));
-            if (Object.keys(expected).some(id => !rows.has(id))) throw fail();
-            const next = [...rows].find(([id]) => expected[id] !== actual[id]);
-            if (!next) {
-                await confirmSalaryUpdate(key,journal,actual);
-                const saved = (await chrome.storage.local.get(key))[key];
-                if (currentPage() && AES.isRecord(saved) && !saved.pending) location.reload();
-                return;
-            }
-            if (!canSubmitSalaryBatch(rows)) throw fail();
-            const form = next[1].form;
-            const ids = [...rows].filter(([,row]) => row.form === form).map(([id]) => id);
-            const button = form.querySelector<HTMLButtonElement | HTMLInputElement>('button[type="submit"], input[type="submit"]');
-            if (!button) throw fail();
-            const stored = (await chrome.storage.local.get(key))[key];
-            if (!currentPage() || !AES.isRecord(stored) || !salaryJournalMatches(stored.pending,journal.pending)) throw fail();
-            const pending = journal.pending as Record<string,unknown>;
-            const notBefore = typeof pending.notBefore === 'number' ? pending.notBefore : 0;
-            if (notBefore > Date.now()) await AES.sleep(notBefore-Date.now());
-            if (!currentPage() || controller.signal.aborted) throw fail();
-            journal = {...stored,pending:{...pending,inFlight:ids}};
-            await chrome.storage.local.set({[key]:journal});
-            if (!currentPage() || controller.signal.aborted) throw fail();
+        if (!canSubmitSalaryBatch(initialRows) || Object.keys(expected).some(id => !initialRows.has(id))) throw fail();
+        // Prepare every request before dispatch so invalid forms cannot cause a partial batch.
+        const requests = [...initialRows].filter(([id,row]) => expected[id] !== AES.cleanInteger(row.input.defaultValue)).map(([id,row]) => {
+            const amount = expected[id];
+            const button = row.form.querySelector<HTMLButtonElement | HTMLInputElement>('button[type="submit"], input[type="submit"]');
+            if (!button || typeof amount !== 'number' || !Number.isFinite(amount) ||
+                [...initialRows.values()].filter(other => other.form === row.form).length !== 1) throw fail();
             const body = new URLSearchParams();
-            for (const [name,field] of new FormData(form,button)) {
+            for (const [name,field] of new FormData(row.form,button)) {
                 if (typeof field !== 'string') throw fail();
                 body.append(name,field);
             }
-            // Each native salary form has one amount field and a stable job ID.
-            const amount = expected[next[0]];
-            if (ids.length !== 1 || typeof amount !== 'number' || !Number.isFinite(amount)) throw fail();
             body.set('amount',String(amount));
-            const completed = Object.keys(expected).filter(id => actual[id] === expected[id]).length;
-            $('#aes-personnel-management-last-update').text(AESI18n.t('Updating...')+' '+completed+'/'+Object.keys(expected).length);
-            const response = await fetch(new URL(form.getAttribute('action') || location.href,location.href), {
-                method:'POST',credentials:'same-origin',body,
-                signal:AbortSignal.any([controller.signal,context.signal,AbortSignal.timeout(20000)])
-            });
+            return {id,body,url:new URL(row.form.getAttribute('action') || location.href,location.href)};
+        });
+        const stored = (await chrome.storage.local.get(key))[key];
+        if (!currentPage() || controller.signal.aborted || !AES.isRecord(stored) || !salaryJournalMatches(stored.pending,journal.pending)) throw fail();
+        journal = {...stored,pending:{...(journal.pending as Record<string,unknown>),inFlight:requests.map(request => request.id)}};
+        await chrome.storage.local.set({[key]:journal});
+        if (!currentPage() || controller.signal.aborted) throw fail();
+        const signal = AbortSignal.any([controller.signal,context.signal,AbortSignal.timeout(20000)]);
+        const readResponse = async(response: Response) => {
             const returned = new URL(response.url);
             if (!response.ok || returned.origin !== location.origin || returned.pathname !== '/action/enterprise/staffOverview') throw fail();
             const doc = new DOMParser().parseFromString(await response.text(),'text/html');
-            if (!currentPage() || controller.signal.aborted || String(AESRead.frontend(doc).fixedEnterpriseId) !== String(airline.id)) throw fail();
-            const received = getSalaryRows(doc);
-            if (!received || !ids.every(id => received.has(id) && AES.cleanInteger(received.get(id)!.input.defaultValue) === expected[id])) throw fail();
-            const latest = (await chrome.storage.local.get(key))[key];
-            if (!currentPage() || !AES.isRecord(latest) || !salaryJournalMatches(latest.pending,journal.pending)) throw fail();
-            rows = received;
-            // Pace dispatches after the response, and keep fresh returned forms.
-            journal = {...journal,pending:{...(journal.pending as Record<string,unknown>),notBefore:Date.now()+50+Math.floor(Math.random()*21)}};
-            await chrome.storage.local.set({[key]:journal});
-        }
+            if (!currentPage() || signal.aborted || String(AESRead.frontend(doc).fixedEnterpriseId) !== String(airline.id)) throw fail();
+            return doc;
+        };
+        $('#aes-personnel-management-last-update').text(AESI18n.t('Updating...'));
+        // Dispatch the whole table together. Wait for every request, including failures,
+        // before checking one fresh server snapshot; individual responses may be stale.
+        const results = await Promise.allSettled(requests.map(async request => {
+            await readResponse(await fetch(request.url,{method:'POST',credentials:'same-origin',body:request.body,signal}));
+        }));
+        if (results.some(result => result.status === 'rejected')) throw fail();
+        const latest = (await chrome.storage.local.get(key))[key];
+        if (!currentPage() || signal.aborted || !AES.isRecord(latest) || !salaryJournalMatches(latest.pending,journal.pending)) throw fail();
+        const doc = await readResponse(await fetch(new URL('/action/enterprise/staffOverview',location.href),{
+            method:'GET',credentials:'same-origin',cache:'no-store',signal
+        }));
+        const received = getSalaryRows(doc);
+        if (!received) throw fail();
+        const actual = Object.fromEntries([...received].map(([id,row]) => [id,AES.cleanInteger(row.input.defaultValue)]));
+        if (!Object.entries(expected).every(([id,amount]) => actual[id] === amount)) throw fail();
+        await confirmSalaryUpdate(key,journal,actual);
+        const saved = (await chrome.storage.local.get(key))[key];
+        if (currentPage() && AES.isRecord(saved) && !saved.pending) location.reload();
     } catch (error) {
         if (currentPage() && !controller.signal.aborted) updatePersonnelLastUpdate(journal);
         throw error;
@@ -317,10 +310,8 @@ async function submitSalaryChanges(key: string, value: Record<string,unknown>, a
     if (!AES.isPageOwner() || !AES.isRecord(current) || !salaryJournalMatches(current.pending, value.pending)) {
         throw new Error(AESI18n.t("The page changed."));
     }
-    const notBefore = typeof value.pending.notBefore === 'number' ? value.pending.notBefore : 0;
-    if (notBefore > Date.now()) await AES.sleep(notBefore-Date.now());
     if (!AES.isPageOwner() || !form.isConnected) return;
-    const data = {...current,pending:{...value.pending,inFlight,notBefore:Date.now()+50+Math.floor(Math.random()*21)}};
+    const data = {...current,pending:{...value.pending,inFlight}};
     await chrome.storage.local.set({[key]:data});
     if (!AES.isPageOwner() || !form.isConnected) return;
     for (const id of inFlight) {

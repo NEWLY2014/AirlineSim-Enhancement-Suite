@@ -375,8 +375,10 @@ for(const failure of ['http','unchanged','wrong-airline','redirect','journal-cha
     p.w.AbortController=AbortController;p.w.AbortSignal=AbortSignal;
     let posts=0;
     p.w.fetch=async(url,options)=>{
-        posts++;assert.equal(options.method,'POST');assert.equal(options.credentials,'same-origin');
-        assert.equal(options.body.get('amount'),'1050');assert.equal(options.body.get('action'),'salary');
+        if(options.method==='POST'){
+            posts++;assert.equal(options.credentials,'same-origin');
+            assert.ok(['1050','950'].includes(options.body.get('amount')));assert.equal(options.body.get('action'),'salary');
+        }
         if(failure==='journal-changed')p.saved[key].pending.targets.extra=100;
         return {ok:failure!=='http',url:failure==='redirect'?'https://paine.airlinesim.aero/login':String(url),text:async()=>{
             let html=nativeStaffBatch.replace('value="800"','value="1050"');
@@ -387,8 +389,8 @@ for(const failure of ['http','unchanged','wrong-airline','redirect','journal-cha
     };
     p.load('content_personnelManagement.js');await until(()=>p.w.document.querySelector('.aes-personnel-management-apply'));
     const button=p.w.document.querySelector('.aes-personnel-management-apply');button.click();
-    await until(()=>posts===1 && !button.disabled);
-    assert.equal(posts,1);assert.equal(p.saved[key].date,undefined);assert.ok(p.saved[key].pending);
+    await until(()=>posts===2 && !button.disabled);
+    assert.equal(posts,2);assert.equal(p.saved[key].date,undefined);assert.ok(p.saved[key].pending);
     if(failure==='journal-changed')assert.equal(p.saved[key].pending.targets.extra,100);
     assert.match(p.w.document.querySelector('#aes-personnel-management-last-update').textContent,/awaiting confirmation/);
 });

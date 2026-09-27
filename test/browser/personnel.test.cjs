@@ -16,7 +16,7 @@ test('salary batch posts all positions with one click and refreshes the page onl
         await rm(profile,{recursive:true,force:true});
     });
     execFileSync('openssl',['req','-x509','-newkey','rsa:2048','-nodes','-keyout',join(profile,'key.pem'),'-out',join(profile,'cert.pem'),'-days','1','-subj','/CN=paine.airlinesim.aero'],{stdio:'ignore'});
-    const amounts=[800,700],requests=[];
+    const amounts=[800,700],requests=[],responses=[];
     const render=()=>`<!doctype html><script>window.frontendSettings = {"fixedEnterpriseId":42,"server":{"time":"2026-09-08T00:00:00Z"}};</script>
     <div id="header"><div><button aria-haspopup="menu"><span class="_name_test">AES Airlines</span></button><div role="menubar"></div></div></div>
     <div class="bootstrap container-fluid"><h1>Employee Overview</h1><table>
@@ -30,7 +30,10 @@ test('salary batch posts all positions with one click and refreshes the page onl
             let body='';for await(const chunk of req)body+=chunk;
             const data=new URLSearchParams(body),id=Number(data.get('id')),amount=Number(data.get('amount'));
             requests.push({id,amount});amounts[id]=amount;
-            res.writeHead(303,{Location:'/action/enterprise/staffOverview'});res.end();return;
+            responses.push(res);
+            // Neither response is released until BOTH requests arrive: serial dispatch deadlocks.
+            if(responses.length===2)for(const pending of responses){pending.writeHead(303,{Location:'/action/enterprise/staffOverview'});pending.end();}
+            return;
         }
         res.writeHead(200,{'Content-Type':'text/html'});res.end(render());
     });

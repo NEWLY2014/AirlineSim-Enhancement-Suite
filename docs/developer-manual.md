@@ -88,6 +88,13 @@ intercepted on initialized pages. It does not intercept unrelated manual browser
 navigation, game resource requests, or requests from a separate installed AES copy.
 The interval is a conservative default, not a verified game firewall limit.
 
+Native salary batches use current-page POST requests outside this queue. AES prepares
+the whole table and dispatches the requests together, without artificial delays or
+waiting between positions. After every request settles, it reads a fresh server
+snapshot and confirms all target salaries before recording success and refreshing
+once. Failed or unconfirmed batches retain their pending records. Unsupported
+forms retain the native submission fallback.
+
 ## Localization checks
 
 `npm test` checks the nine locale catalogs and runs `scripts/audit-i18n.cjs` against

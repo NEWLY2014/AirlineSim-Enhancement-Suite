@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Dispatch native salary updates for the whole table together without artificial delays or waiting between positions. Verify a fresh server snapshot after all requests settle, retaining pending records on failure. Page-operation queue intervals remain 50–70 ms.
+
 ## [0.9.0-beta.9] - 2026-09-26
 
 This beta contains all changes since **0.8.13**. It previews the upcoming 0.9.0 release. Beta 9 applies the whole salary table with one click and updates queue intervals.
