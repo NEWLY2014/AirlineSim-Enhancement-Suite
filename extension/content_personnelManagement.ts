@@ -303,7 +303,11 @@ async function submitSalaryBatch(key: string, value: Record<string,unknown>, ini
         if (!Object.entries(expected).every(([id,amount]) => actual[id]===amount)) throw fail();
         await confirmSalaryUpdate(key,journal,actual);
         const saved = (await chrome.storage.local.get(key))[key];
-        if (currentPage() && AES.isRecord(saved) && !saved.pending) location.reload();
+        // The current document may be a native salary POST response. Reloading it
+        // replays that old salary and can overwrite the batch we just confirmed.
+        if (currentPage() && AES.isRecord(saved) && !saved.pending) {
+            location.replace(new URL('/action/enterprise/staffOverview',location.href).href);
+        }
     } catch (error) {
         if (currentPage() && !controller.signal.aborted) updatePersonnelLastUpdate(journal);
         throw error;
