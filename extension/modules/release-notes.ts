@@ -1,5 +1,25 @@
 const AES_RELEASE_NOTES_STORAGE_KEY = "aesReleaseNotesSeenVersion"
 const AES_RELEASE_NOTES: Record<string, AESModel.ReleaseNotes | undefined> = {
+    "0.9.0-beta.11": {
+        "title": "Release Notes",
+        "releaseDate": "2026-09-28",
+        "summary": "Restore native salary submission and use the shared queue.",
+        "sections": [
+                {
+                        "title": "Changed",
+                        "items": [
+                                "Submit salary adjustments through the game’s native buttons without response verification, retries or an extra refresh. Let the game enforce its salary limits.",
+                                "Use randomized 55–65 ms intervals for all shared queue operations, including salary submissions."
+                        ]
+                },
+                {
+                        "title": "Added",
+                        "items": [
+                                "Show localized startup failure notices with reload and diagnostic-copy actions when AES components cannot initialize."
+                        ]
+                }
+        ]
+},
     "0.9.0-beta.10": {
         "title": "Release Notes",
         "releaseDate": "2026-09-27",
