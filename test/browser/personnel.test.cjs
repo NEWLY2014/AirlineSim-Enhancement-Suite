@@ -55,7 +55,7 @@ test('salary native submissions share queue pacing without response verification
     await page.waitForFunction(()=>document.querySelector('input[name=amount]')?.defaultValue==='1100');
     await page.locator('.aes-personnel-management-apply:not([disabled])').waitFor();
     assert.deepEqual(requests.map(({id,amount})=>({id,amount})),[{id:0,amount:3000},{id:1,amount:2700}]);
-    assert.ok(requests[1].time-requests[0].time>=50,'shared queue must pace native dispatch');
+    assert.ok(requests[1].time-requests[0].time>=55,'shared queue must pace native dispatch');
     assert.deepEqual(amounts,[1100,1100]);
     assert.equal(navigations,2,'initial page plus native response, with no AES refresh');
     const record=await worker.evaluate(async()=>(await chrome.storage.local.get('paine42personnelManagement')).paine42personnelManagement);

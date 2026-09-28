@@ -9,7 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Restore native salary submission without post-submission verification or retries, allowing the game's salary limits to apply. Pace salary clicks through the shared 50–70 ms queue and retire old pending-confirmation journals.
+- Narrow the shared queue’s randomized dispatch interval to 55–65 ms for all queued operations.
+
+- Restore native salary submission without post-submission verification or retries, allowing the game's salary limits to apply. Pace salary clicks through the shared 55–65 ms queue and retire old pending-confirmation journals.
 
 ### Added
 

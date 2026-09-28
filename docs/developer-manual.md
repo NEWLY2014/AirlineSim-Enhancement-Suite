@@ -76,7 +76,7 @@ completion; live-game acceptance still requires separate validation.
 ## Shared page queue
 
 AES batch navigation and Inventory price submissions share one queue across tabs.
-Dashboard batches accept up to 10 selections. The queue dispatches operations sequentially with a random 50–70 ms delay,
+Dashboard batches accept up to 10 selections. The queue dispatches operations sequentially with a random 55–65 ms delay,
 without waiting for page loading to finish. Browser scheduling and message/storage
 latency may lengthen the actual interval. Dispatched operations are not replayed
 automatically. Pending price submissions are cancelled if the page or inputs
@@ -89,7 +89,7 @@ navigation, game resource requests, or requests from a separate installed AES co
 The interval is a conservative default, not a verified game firewall limit.
 
 Salary adjustments use the game's native submit buttons, once per affected form,
-through the shared 50–70 ms dispatch queue. Each permit is released immediately
+through the shared 55–65 ms dispatch queue. Each permit is released immediately
 after the click; AES does not wait for responses, read salaries back, retry writes,
 or reload the page. Game salary limits are left to the server. The recorded update
 time represents an adjustment attempt, not verified persistence. Legacy pending
