@@ -754,5 +754,9 @@
   "Copy diagnostics": "診断情報をコピー",
   "Diagnostics copied.": "診断情報をコピーしました。",
   "Copy the diagnostics below.": "以下の診断情報をコピーしてください。",
-  "Dismiss": "閉じる"
+  "Dismiss": "閉じる",
+  "Copy configuration": "設定をコピー",
+  "Paste configuration": "設定を貼り付け",
+  "Copied {0} configuration.": "{0}の設定をコピーしました。",
+  "Configuration pasted. Click Save to apply.": "設定を貼り付けました。保存を押すと適用されます。"
 }

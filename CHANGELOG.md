@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Copy and paste pricing configurations between compartments, including step rules, control points, price limits and unsaved edits. Keep the global pricing mode unchanged and require Save to apply pasted settings.
+
 ## [0.9.0-beta.11] - 2026-09-28
 
 This beta contains all changes since **0.8.13**. It previews the upcoming 0.9.0 release. Beta 11 restores native salary submission with shared queue pacing and adds startup diagnostics.

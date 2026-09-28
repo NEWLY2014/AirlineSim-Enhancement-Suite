@@ -754,5 +754,9 @@
   "Copy diagnostics": "Copiar diagnóstico",
   "Diagnostics copied.": "Diagnóstico copiado.",
   "Copy the diagnostics below.": "Copia el diagnóstico que aparece abajo.",
-  "Dismiss": "Cerrar"
+  "Dismiss": "Cerrar",
+  "Copy configuration": "Copiar configuración",
+  "Paste configuration": "Pegar configuración",
+  "Copied {0} configuration.": "Configuración de {0} copiada.",
+  "Configuration pasted. Click Save to apply.": "Configuración pegada. Pulsa Guardar para aplicarla."
 }

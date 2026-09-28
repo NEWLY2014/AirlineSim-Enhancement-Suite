@@ -754,5 +754,9 @@
   "Copy diagnostics": "複製診斷資訊",
   "Diagnostics copied.": "已複製診斷資訊。",
   "Copy the diagnostics below.": "請複製下方診斷資訊。",
-  "Dismiss": "關閉"
+  "Dismiss": "關閉",
+  "Copy configuration": "複製設定",
+  "Paste configuration": "貼上設定",
+  "Copied {0} configuration.": "已複製{0}的設定。",
+  "Configuration pasted. Click Save to apply.": "已貼上設定，請按儲存以套用。"
 }

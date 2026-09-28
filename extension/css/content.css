@@ -1064,3 +1064,5 @@
     #aes-menu.aes-navigation .aes-menu-items a,
     #aes-menu.aes-navigation .aes-menu-items button { transition: none; }
 }
+
+.aes-pricing-copy-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }

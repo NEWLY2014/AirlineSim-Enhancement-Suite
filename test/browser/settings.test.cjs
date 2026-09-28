@@ -75,6 +75,14 @@ test('settings tabs preserve drafts, support the keyboard and open extension bac
     const lower=await page.locator('#aes-input-invPricing-min-price').boundingBox();
     const upper=await page.locator('#aes-input-invPricing-max-price').boundingBox();
     assert.ok(upper.x-lower.x<=256);
+    assert.equal(await page.getByRole('button',{name:'Paste configuration',exact:true}).isEnabled(),false);
+    await page.getByRole('button',{name:'Copy configuration',exact:true}).click();
+    await page.locator('#aes-select-invPricing-cmp').selectOption('C');
+    await page.getByRole('button',{name:'Paste configuration',exact:true}).click();
+    assert.match(await page.locator('#aes-pricing-copy-status').innerText(),/Click Save/);
+    assert.equal(await page.locator('#aes-pricing-paste').evaluate(el=>el===document.activeElement),true);
+    await page.screenshot({path:'/tmp/aes-pricing-copy-paste.png',fullPage:true});
+    await page.locator('#aes-select-invPricing-cmp').selectOption('Y');
     await page.locator('#aes-input-invPricing-min-price').fill('73');
     await page.getByRole('tab',{name:'Flight Info',exact:true}).click();
     await page.getByRole('tab',{name:'Inventory Pricing',exact:true}).click();

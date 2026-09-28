@@ -754,5 +754,9 @@
   "Copy diagnostics": "Diagnose kopiëren",
   "Diagnostics copied.": "Diagnose gekopieerd.",
   "Copy the diagnostics below.": "Kopieer de onderstaande diagnosegegevens.",
-  "Dismiss": "Sluiten"
+  "Dismiss": "Sluiten",
+  "Copy configuration": "Configuratie kopiëren",
+  "Paste configuration": "Configuratie plakken",
+  "Copied {0} configuration.": "Configuratie van {0} gekopieerd.",
+  "Configuration pasted. Click Save to apply.": "Configuratie geplakt. Klik op Opslaan om deze toe te passen."
 }

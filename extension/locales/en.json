@@ -754,5 +754,9 @@
   "Copy diagnostics": "Copy diagnostics",
   "Diagnostics copied.": "Diagnostics copied.",
   "Copy the diagnostics below.": "Copy the diagnostics below.",
-  "Dismiss": "Dismiss"
+  "Dismiss": "Dismiss",
+  "Copy configuration": "Copy configuration",
+  "Paste configuration": "Paste configuration",
+  "Copied {0} configuration.": "Copied {0} configuration.",
+  "Configuration pasted. Click Save to apply.": "Configuration pasted. Click Save to apply."
 }

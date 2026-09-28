@@ -43,6 +43,13 @@ in the table; the preview updates immediately. The 0% and 100% endpoints stay in
 place, interior points can be added or removed, and duplicate loads are rejected.
 The initial example curve is editable, not an optimized pricing recommendation.
 
+To reuse a compartment's configuration, click **Copy configuration**, select the
+target compartment, then click **Paste configuration**. This copies both rule sets
+(step rules and control points), price limits and any unsaved edits. Review the
+preview and click **Save** to apply the target compartment's settings. The global
+pricing mode is unchanged. The copied configuration is available within the current
+Settings page until it is reloaded; it does not use the system clipboard.
+
 Adjustments are **percentage points of the game's default price**, interpolated
 linearly using the unrounded capacity-weighted load. For default price `D`, actual
 current price `P` and interpolated adjustment `a`, the target is `P + D × a / 100`.

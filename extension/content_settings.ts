@@ -5,6 +5,7 @@ var settings: Record<string, unknown>;
 let settingsArea: JQuery;
 let cleanupSettings=()=>{};
 let rememberPricingDraft=()=>{};
+let pricingClipboard: {cabin: string; data: AESModel.PricingRecommendation} | undefined;
 let pricingModeDraft:'steps' | 'curve' | undefined;
 const pricingDrafts:Partial<Record<AESModel.Cabin,AESModel.PricingRecommendation>>={};
 const SETTINGS_SCRIPT_ENABLED = AES.runContentScript("content_settings", function() {
@@ -269,6 +270,11 @@ function invPricingAutoPricingHandle() {
 
 }
 
+function clonePricingConfiguration(value: AESModel.PricingRecommendation): AESModel.PricingRecommendation {
+    return {minPrice:value.minPrice,maxPrice:value.maxPrice,
+        steps:value.steps.map(step=>({...step})),points:value.points?.map(point=>({...point}))};
+}
+
 function invPricingRecStepHandle() {
     rememberPricingDraft();
     const selectedCabin = $("#aes-select-invPricing-cmp").val();
@@ -336,7 +342,25 @@ function invPricingRecStepHandle() {
     divLeft.append(rulesTitle,tableDiv,curve);
     divRight.append(previewTitle,units,stepPreview,curvePreview,explanation);
     divRow.append(divLeft,divRight);
-    $('#aes-div-recSettings').append(divRow,footer);
+    const copy=$('<button type="button" id="aes-pricing-copy" class="btn btn-default"></button>').text(AESI18n.t('Copy configuration'));
+    const paste=$('<button type="button" id="aes-pricing-paste" class="btn btn-default"></button>').text(AESI18n.t('Paste configuration')).prop('disabled',!pricingClipboard);
+    const transferStatus=$('<span id="aes-pricing-copy-status" role="status"></span>');
+    const copiedText=()=>pricingClipboard ? AESI18n.t('Copied {0} configuration.',{'0':pricingClipboard.cabin}) : '';
+    transferStatus.text(copiedText());
+    copy.on('click',()=>{
+        pricingClipboard={cabin:$('#aes-select-invPricing-cmp option:selected').text(),data:clonePricingConfiguration(readDraft())};
+        paste.prop('disabled',false);transferStatus.text(copiedText());
+    });
+    paste.on('click',()=>{
+        if(!pricingClipboard)return;
+        pricingDrafts[cmp]=clonePricingConfiguration(pricingClipboard.data);
+        // Do not let rebuilding capture and overwrite the target's old form.
+        rememberPricingDraft=()=>{};
+        invPricingRecStepHandle();
+        $('#aes-pricing-copy-status').text(AESI18n.t('Configuration pasted. Click Save to apply.'));
+        $('#aes-pricing-paste').trigger('focus');
+    });
+    $('#aes-div-recSettings').append($('<div class="aes-pricing-copy-controls"></div>').append(copy,paste,transferStatus),divRow,footer);
 
     $("#aes-table-invPricing").on("click", ".aes-a-invPricing-delete-row", function() {
         $(this).closest("tr").remove();updateSteps();
