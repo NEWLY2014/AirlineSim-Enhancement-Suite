@@ -786,7 +786,7 @@ class AES {
         });
     }
 
-    static async queuePage(url: string, kind: 'open' | 'price' | 'navigate' | 'read' = 'open', current: () => boolean = () => AES.isPageOwner()): Promise<{cancel: () => Promise<void>; complete: () => Promise<void>; expires?: number}> {
+    static async queuePage(url: string, kind: 'open' | 'price' | 'navigate' | 'read' | 'salary' = 'open', current: () => boolean = () => AES.isPageOwner()): Promise<{cancel: () => Promise<void>; complete: () => Promise<void>; expires?: number}> {
         const sourceUrl = location.href;
         const valid = () => current() && location.href === sourceUrl;
         if (!valid()) throw new Error(AESI18n.t("The requesting page is no longer current."));
@@ -825,11 +825,11 @@ class AES {
                         const result = await AES.pageQueueMessage({op:'poll', id});
                         if (finished) return;
                         if (!valid()) { abort(); return; }
-                        if ((kind === 'price' || kind === 'read') && result.state === 'running') {
+                        if ((kind === 'price' || kind === 'read' || kind === 'salary') && result.state === 'running') {
                             if (typeof result.expires !== 'number' || Date.now() >= result.expires) throw new Error(AESI18n.t("The price submission slot expired. Please retry."));
                             permitExpires = result.expires; finish(); return;
                         }
-                        if (result.state === 'done' || (kind !== 'price' && kind !== 'read' && result.state === 'running')) { finish(); return; }
+                        if (result.state === 'done' || (kind !== 'price' && kind !== 'read' && kind !== 'salary' && result.state === 'running')) { finish(); return; }
                         schedule(typeof result.notBefore === 'number' ? result.notBefore : undefined);
                     } catch (error) { finish(error); }
                     finally {

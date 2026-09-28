@@ -21,8 +21,8 @@ function queue(random=0.5) {
         runInNewContext(source,{chrome,URL,Date:{now:()=>now},Math:{random:()=>random,floor:Math.floor,max:Math.max},console});
     }
     boot();
-    function message(op,id,kind='open',tab=1,destination=url,doc='doc'+tab) {
-        return new Promise(resolve=>listeners.message({type:'AES_PAGE_QUEUE',op,id,kind,url:destination},{id:'aes',tab:{id:tab},documentId:doc,frameId:0,url},resolve));
+    function message(op,id,kind='open',tab=1,destination=url,doc='doc'+tab,sourceUrl=url) {
+        return new Promise(resolve=>listeners.message({type:'AES_PAGE_QUEUE',op,id,kind,url:destination},{id:'aes',tab:{id:tab},documentId:doc,frameId:0,url:sourceUrl},resolve));
     }
     return {message,notices,opened,saved,tabs,boot,advance:ms=>now+=ms,failWrite:()=>failWrite=true,failCreate:()=>failCreate=true,
         updated:(id,status)=>{tabs.get(id).status=status;listeners.updated(id,{status});},closed:id=>{tabs.delete(id);listeners.removed(id);}};
@@ -147,5 +147,24 @@ test('same-tab navigation shares the 50–70 ms queue interval with tab opening'
         q.advance(1);await q.message('poll','b','navigate',2);assert.equal(q.opened.length,2);
         assert.equal(q.opened[1].time-q.opened[0].time,gap);
         assert.deepEqual(q.opened.map(tab=>tab.id),[1,2]);
+    }
+});
+
+test('salary permits use the shared 50–70ms dispatch gap and never open a tab',async()=>{
+    const staff='https://paine.airlinesim.aero/action/enterprise/staffOverview';
+    for(const random of [0,0.5,0.999999]){
+        const q=queue(random);
+        const salary=(op,id)=>q.message(op,id,'salary',1,staff,'doc1',staff);
+        assert.equal((await salary('enqueue','s1')).ok,true);
+        assert.equal((await salary('poll','s1')).state,'running');
+        await salary('complete','s1');
+        await q.message('enqueue','other','open',2);
+        const gap=50+Math.floor(random*21);
+        q.advance(gap-1);await q.message('poll','other','open',2);assert.equal(q.opened.length,0);
+        q.advance(1);await q.message('poll','other','open',2);assert.equal(q.opened.length,1);
+        await salary('enqueue','s2');q.advance(gap);
+        assert.equal((await salary('poll','s2')).state,'running');
+        await salary('complete','s2');assert.equal(q.opened.length,1);
+        assert.equal((await q.message('enqueue','bad','salary',1,staff)).ok,false,'must originate on staff page');
     }
 });

@@ -88,16 +88,12 @@ intercepted on initialized pages. It does not intercept unrelated manual browser
 navigation, game resource requests, or requests from a separate installed AES copy.
 The interval is a conservative default, not a verified game firewall limit.
 
-Native salary batches use current-page POST requests outside this queue. AES prepares
-the whole table and dispatches the requests together, without artificial delays or
-waiting between positions. After every request settles, it reads a fresh server
-snapshot and confirms all target salaries before recording success and refreshing
-once. If the snapshot shows unconfirmed positions, AES retries only those positions
-once, sequentially using fresh server forms and verifying each repair, then checks
-the full table again. Submission response errors still lead to a fresh server
-read, because a write can succeed even when its response is lost. Failed or
-unconfirmed batches retain their pending records. Unsupported
-forms retain the native submission fallback.
+Salary adjustments use the game's native submit buttons, once per affected form,
+through the shared 50–70 ms dispatch queue. Each permit is released immediately
+after the click; AES does not wait for responses, read salaries back, retry writes,
+or reload the page. Game salary limits are left to the server. The recorded update
+time represents an adjustment attempt, not verified persistence. Legacy pending
+journals no longer resume submissions and are removed by the next adjustment.
 
 ## Localization checks
 

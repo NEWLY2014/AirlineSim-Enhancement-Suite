@@ -7,7 +7,7 @@ const {join,resolve}=require('node:path');
 const {createServer}=require('node:https');
 const {execFileSync}=require('node:child_process');
 
-for(const lostUpdate of [false,true,'all','response-lost','post-page'])test(`salary batch refreshes once and repairs only missing positions (lost update: ${lostUpdate})`,{timeout:60000},async t=>{
+test('salary native submissions share queue pacing without response verification or retries',{timeout:60000},async t=>{
     const profile=await mkdtemp(join(tmpdir(),'aes-salary-'));
     let context,server;
     t.after(async()=>{
@@ -17,7 +17,7 @@ for(const lostUpdate of [false,true,'all','response-lost','post-page'])test(`sal
     });
     execFileSync('openssl',['req','-x509','-newkey','rsa:2048','-nodes','-keyout',join(profile,'key.pem'),'-out',join(profile,'cert.pem'),'-days','1','-subj','/CN=paine.airlinesim.aero'],{stdio:'ignore'});
     const amounts=[800,700],requests=[],responses=[];
-    let initialPost=lostUpdate==='post-page';
+
     const render=()=>`<!doctype html><script>window.frontendSettings = {"fixedEnterpriseId":42,"server":{"time":"2026-09-08T00:00:00Z"}};</script>
     <div id="header"><div><button aria-haspopup="menu"><span class="_name_test">AES Airlines</span></button><div role="menubar"></div></div></div>
     <div class="bootstrap container-fluid"><h1>Employee Overview</h1><table>
@@ -30,13 +30,11 @@ for(const lostUpdate of [false,true,'all','response-lost','post-page'])test(`sal
         if(req.method==='POST' && req.url==='/action/enterprise/staffOverview'){
             let body='';for await(const chunk of req)body+=chunk;
             const data=new URLSearchParams(body),id=Number(data.get('id')),amount=Number(data.get('amount'));
-            if(initialPost){initialPost=false;amounts[id]=amount;res.writeHead(200,{'Content-Type':'text/html'});res.end(render());return;}
-            requests.push({id,amount});if(!lostUpdate || lostUpdate==='post-page' || lostUpdate==='response-lost' || (lostUpdate!=='all' && id!==1) || requests.filter(r=>r.id===id).length>1)amounts[id]=amount;
-            if(lostUpdate==='response-lost'){res.writeHead(500);res.end('Response failed after saving');return;}
+            requests.push({id,amount,time:Date.now()});amounts[id]=Math.min(amount,1100);
             responses.push(res);
-            // Neither response is released until BOTH requests arrive: serial dispatch deadlocks.
-            if(responses.length>=2)for(const pending of responses.splice(0)){pending.writeHead(303,{Location:'/action/enterprise/staffOverview'});pending.end();}
-            else if(requests.length>2){responses.pop();res.writeHead(303,{Location:'/action/enterprise/staffOverview'});res.end();}
+            // Delay all responses until both native forms have been dispatched.
+            // A verifier would stall here; the server deliberately clamps the values.
+            if(responses.length===2)for(const pending of responses){pending.writeHead(200,{'Content-Type':'text/html'});pending.end(render());}
             return;
         }
         res.writeHead(200,{'Content-Type':'text/html'});res.end(render());
@@ -47,31 +45,20 @@ for(const lostUpdate of [false,true,'all','response-lost','post-page'])test(`sal
         `--disable-extensions-except=${ext}`,`--load-extension=${ext}`,
         `--host-resolver-rules=MAP * 127.0.0.1:${server.address().port}`,'--no-proxy-server','--ignore-certificate-errors']});
     const worker=context.serviceWorkers()[0]||await context.waitForEvent('serviceworker');
-    await worker.evaluate(()=>chrome.storage.local.set({aesReleaseNotesSeenVersion:chrome.runtime.getManifest().version_name,settings:{personnelManagement:{type:'absolute',value:50,auto:0,alreadyUpdated:[]}}}));
+    await worker.evaluate(()=>chrome.storage.local.set({aesReleaseNotesSeenVersion:chrome.runtime.getManifest().version_name,settings:{personnelManagement:{type:'perc',value:200,auto:0,alreadyUpdated:[]}}}));
     const page=await context.newPage();
     let navigations=0;page.on('framenavigated',frame=>{if(frame===page.mainFrame())navigations++;});
     await page.goto('https://paine.airlinesim.aero/action/enterprise/staffOverview');
-    if(lostUpdate==='post-page'){
-        await Promise.all([page.waitForNavigation(),page.getByRole('button',{name:'adjust',exact:true}).first().click()]);
-    }
-    await page.locator('#aes-input-personnelManagement-value').fill('50');
+    await page.locator('#aes-select-personnelManagement-type').selectOption('perc');
+    await page.locator('#aes-input-personnelManagement-value').fill('200');
     await page.locator('.aes-personnel-management-apply').click();
-    // Poll only the test's final server/storage outcome, never drive production actions.
-    await assert.doesNotReject(async()=>{
-        const deadline=Date.now()+15000;
-        while(Date.now()<deadline){
-            const record=await worker.evaluate(async()=>(await chrome.storage.local.get('paine42personnelManagement')).paine42personnelManagement);
-            if(record?.date==='20260908'&&!record.pending)return;
-            await new Promise(resolve=>setTimeout(resolve,50));
-        }
-        throw new Error('salary batch did not reach confirmed state: '+JSON.stringify({requests,storage:await worker.evaluate(()=>chrome.storage.local.get(null)),body:await page.locator('body').innerText()}));
-    });
-    assert.deepEqual(requests,lostUpdate==='all'?[{id:0,amount:1050},{id:1,amount:950},{id:0,amount:1050},{id:1,amount:950}]:lostUpdate===true?[{id:0,amount:1050},{id:1,amount:950},{id:1,amount:950}]:[{id:0,amount:1050},{id:1,amount:950}]);
-    assert.deepEqual(amounts,[1050,950]);
-    await page.waitForFunction(()=>document.querySelector('input[name=amount]')?.defaultValue==='1050');
+    await page.waitForFunction(()=>document.querySelector('input[name=amount]')?.defaultValue==='1100');
     await page.locator('.aes-personnel-management-apply:not([disabled])').waitFor();
-    assert.equal(navigations,lostUpdate==='post-page'?3:2,'initial load plus one final refresh, without per-position navigation');
-    assert.match(await page.locator('#aes-personnel-management-last-update').innerText(),/Last update/);
-    assert.deepEqual(amounts,[1050,950],'final navigation must not replay the original native salary POST');
-    assert.equal(requests.length,lostUpdate==='all'?4:lostUpdate===true?3:2,'final navigation must be GET');
+    assert.deepEqual(requests.map(({id,amount})=>({id,amount})),[{id:0,amount:3000},{id:1,amount:2700}]);
+    assert.ok(requests[1].time-requests[0].time>=50,'shared queue must pace native dispatch');
+    assert.deepEqual(amounts,[1100,1100]);
+    assert.equal(navigations,2,'initial page plus native response, with no AES refresh');
+    const record=await worker.evaluate(async()=>(await chrome.storage.local.get('paine42personnelManagement')).paine42personnelManagement);
+    assert.equal(record.date,'20260908');assert.equal(record.pending,undefined);
+    assert.doesNotMatch(await page.locator('#aes-personnel-management-last-update').innerText(),/awaiting|Updating/);
 });

@@ -68,7 +68,7 @@ function browser(t, { html = '', path = '/app/info/ors', data = {}, helpers = tr
         if (dispatch(message, pageSender, callback)) return;
         if (message.op === 'enqueue') {
             queueJobs.set(message.id, message);
-            if (message.kind !== 'price' && message.kind !== 'read') w.open(message.url, message.kind === 'navigate' ? '_self' : '_blank');
+            if (message.kind !== 'price' && message.kind !== 'read' && message.kind !== 'salary') w.open(message.url, message.kind === 'navigate' ? '_self' : '_blank');
         }
         callback({ok:true,state:'running',expires:Date.now()+10000});
     };

@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Recheck salary batches against fresh server values even when submission responses fail. Repair only unconfirmed positions once, sequentially with server verification, without resubmitting successful positions or recording incomplete batches as successful.
+- Restore native salary submission without post-submission verification or retries, allowing the game's salary limits to apply. Pace salary clicks through the shared 50–70 ms queue and retire old pending-confirmation journals.
 
 ### Added
 
