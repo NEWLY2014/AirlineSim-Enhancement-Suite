@@ -250,13 +250,14 @@ async function submitSalaryBatch(key: string, value: Record<string,unknown>, ini
             body.set('amount',String(amount));
             return {id,body,url:new URL(row.form.getAttribute('action') || location.href,location.href)};
         });
-        let requests = prepare(initialRows);
+        const requests = prepare(initialRows);
         const stored = (await chrome.storage.local.get(key))[key];
         if (!currentPage() || controller.signal.aborted || !AES.isRecord(stored) || !salaryJournalMatches(stored.pending,journal.pending)) throw fail();
         journal = {...stored,pending:{...(journal.pending as Record<string,unknown>),inFlight:requests.map(request => request.id)}};
         await chrome.storage.local.set({[key]:journal});
         if (!currentPage() || controller.signal.aborted) throw fail();
-        const signal = AbortSignal.any([controller.signal,context.signal,AbortSignal.timeout(20000)]);
+        const signal = AbortSignal.any([controller.signal,context.signal]);
+        const requestSignal = () => AbortSignal.any([signal,AbortSignal.timeout(20000)]);
         const readResponse = async(response: Response) => {
             const returned = new URL(response.url);
             if (!response.ok || returned.origin !== location.origin || returned.pathname !== '/action/enterprise/staffOverview') throw fail();
@@ -267,28 +268,39 @@ async function submitSalaryBatch(key: string, value: Record<string,unknown>, ini
         $('#aes-personnel-management-last-update').text(AESI18n.t('Updating...'));
         // Dispatch the whole table together. Wait for every request, including failures,
         // before checking one fresh server snapshot; individual responses may be stale.
-        let actual: Record<string,number> = {};
-        for (let attempt=0;attempt<2;attempt++) {
-            const latest = (await chrome.storage.local.get(key))[key];
-            if (!currentPage() || signal.aborted || !AES.isRecord(latest) || !salaryJournalMatches(latest.pending,journal.pending)) throw fail();
-            const results = await Promise.allSettled(requests.map(async request => {
-                await readResponse(await fetch(request.url,{method:'POST',credentials:'same-origin',body:request.body,signal}));
-            }));
-            if (results.some(result => result.status === 'rejected')) throw fail();
+        const checkJournal = async() => {
             const stored = (await chrome.storage.local.get(key))[key];
             if (!currentPage() || signal.aborted || !AES.isRecord(stored) || !salaryJournalMatches(stored.pending,journal.pending)) throw fail();
+        };
+        const snapshot = async() => {
+            await checkJournal();
             const doc = await readResponse(await fetch(new URL('/action/enterprise/staffOverview',location.href),{
-                method:'GET',credentials:'same-origin',cache:'no-store',signal
+                method:'GET',credentials:'same-origin',cache:'no-store',signal:requestSignal()
             }));
-            const received = getSalaryRows(doc);
-            if (!received || !canSubmitSalaryBatch(received) || Object.keys(expected).some(id => !received.has(id))) throw fail();
-            actual = Object.fromEntries([...received].map(([id,row]) => [id,AES.cleanInteger(row.input.defaultValue)]));
-            if (Object.entries(expected).every(([id,amount]) => actual[id] === amount)) break;
-            if (attempt===1) throw fail();
-            // Retry only unconfirmed positions once, using fresh server forms.
-            // Absolute target amounts make this repair idempotent.
-            requests = prepare(received);
+            const rows = getSalaryRows(doc);
+            if (!rows || !canSubmitSalaryBatch(rows) || Object.keys(expected).some(id => !rows.has(id))) throw fail();
+            return rows;
+        };
+        const submit = async(request: ReturnType<typeof prepare>[number]) => {
+            await readResponse(await fetch(request.url,{method:'POST',credentials:'same-origin',body:request.body,signal:requestSignal()}));
+        };
+        await checkJournal();
+        await Promise.allSettled(requests.map(submit));
+        // A lost response does not prove the write failed. Always read server state.
+        let received = await snapshot();
+        const missing = prepare(received).map(request => request.id);
+        for (const id of missing) {
+            // Repair remaining positions sequentially: concurrent writes can lose
+            // updates on servers that persist a shared salary record.
+            const request = prepare(received).find(request => request.id===id);
+            if (!request) continue;
+            await checkJournal();
+            try { await submit(request); } catch { /* Verify even if the response was lost. */ }
+            received = await snapshot();
+            if (AES.cleanInteger(received.get(id)!.input.defaultValue)!==expected[id]) throw fail();
         }
+        const actual = Object.fromEntries([...received].map(([id,row]) => [id,AES.cleanInteger(row.input.defaultValue)]));
+        if (!Object.entries(expected).every(([id,amount]) => actual[id]===amount)) throw fail();
         await confirmSalaryUpdate(key,journal,actual);
         const saved = (await chrome.storage.local.get(key))[key];
         if (currentPage() && AES.isRecord(saved) && !saved.pending) location.reload();

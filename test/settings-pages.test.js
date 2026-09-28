@@ -389,7 +389,7 @@ for(const failure of ['http','unchanged','wrong-airline','redirect','journal-cha
     };
     p.load('content_personnelManagement.js');await until(()=>p.w.document.querySelector('.aes-personnel-management-apply'));
     const button=p.w.document.querySelector('.aes-personnel-management-apply');button.click();
-    const expectedPosts=failure==='unchanged'?4:2;
+    const expectedPosts=failure==='unchanged'?3:2;
     await until(()=>posts===expectedPosts && !button.disabled);
     assert.equal(posts,expectedPosts);assert.equal(p.saved[key].date,undefined);assert.ok(p.saved[key].pending);
     if(failure==='journal-changed')assert.equal(p.saved[key].pending.targets.extra,100);

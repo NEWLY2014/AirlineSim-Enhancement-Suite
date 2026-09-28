@@ -93,7 +93,9 @@ the whole table and dispatches the requests together, without artificial delays 
 waiting between positions. After every request settles, it reads a fresh server
 snapshot and confirms all target salaries before recording success and refreshing
 once. If the snapshot shows unconfirmed positions, AES retries only those positions
-once using fresh server forms, then verifies the full table again. Failed or
+once, sequentially using fresh server forms and verifying each repair, then checks
+the full table again. Submission response errors still lead to a fresh server
+read, because a write can succeed even when its response is lost. Failed or
 unconfirmed batches retain their pending records. Unsupported
 forms retain the native submission fallback.
 

@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Recheck salary batches against fresh server values and retry only unconfirmed positions once, without resubmitting successful positions or recording incomplete batches as successful.
+- Recheck salary batches against fresh server values even when submission responses fail. Repair only unconfirmed positions once, sequentially with server verification, without resubmitting successful positions or recording incomplete batches as successful.
 
 ### Added
 
