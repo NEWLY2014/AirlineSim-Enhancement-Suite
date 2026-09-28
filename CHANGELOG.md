@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Copy and paste pricing configurations between compartments, including step rules, control points, price limits and unsaved edits. Keep the global pricing mode unchanged and require Save to apply pasted settings.
+- Copy and paste pricing configurations between compartments, including the current mode’s rules, price limits and unsaved edits. Preserve the target compartment’s inactive rules. Keep the global pricing mode unchanged and require Save to apply pasted settings.
 
 ## [0.9.0-beta.11] - 2026-09-28
 

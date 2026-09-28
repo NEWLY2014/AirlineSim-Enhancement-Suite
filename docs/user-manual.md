@@ -44,8 +44,9 @@ place, interior points can be added or removed, and duplicate loads are rejected
 The initial example curve is editable, not an optimized pricing recommendation.
 
 To reuse a compartment's configuration, click **Copy configuration**, select the
-target compartment, then click **Paste configuration**. This copies both rule sets
-(step rules and control points), price limits and any unsaved edits. Review the
+target compartment, then click **Paste configuration**. This copies the rules for the current pricing mode, price limits and any unsaved
+edits to those fields. The target compartment’s other rule set is preserved.
+Pasting is available only when the current mode matches the copied rules. Review the
 preview and click **Save** to apply the target compartment's settings. The global
 pricing mode is unchanged. The copied configuration is available within the current
 Settings page until it is reloaded; it does not use the system clipboard.

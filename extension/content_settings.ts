@@ -5,7 +5,8 @@ var settings: Record<string, unknown>;
 let settingsArea: JQuery;
 let cleanupSettings=()=>{};
 let rememberPricingDraft=()=>{};
-let pricingClipboard: {cabin: string; data: AESModel.PricingRecommendation} | undefined;
+let pricingClipboard: {cabin: string; mode: 'steps' | 'curve'; minPrice: number; maxPrice: number;
+    steps?: AESModel.PricingStep[]; points?: AESModel.PricingPoint[]} | undefined;
 let pricingModeDraft:'steps' | 'curve' | undefined;
 const pricingDrafts:Partial<Record<AESModel.Cabin,AESModel.PricingRecommendation>>={};
 const SETTINGS_SCRIPT_ENABLED = AES.runContentScript("content_settings", function() {
@@ -270,11 +271,6 @@ function invPricingAutoPricingHandle() {
 
 }
 
-function clonePricingConfiguration(value: AESModel.PricingRecommendation): AESModel.PricingRecommendation {
-    return {minPrice:value.minPrice,maxPrice:value.maxPrice,
-        steps:value.steps.map(step=>({...step})),points:value.points?.map(point=>({...point}))};
-}
-
 function invPricingRecStepHandle() {
     rememberPricingDraft();
     const selectedCabin = $("#aes-select-invPricing-cmp").val();
@@ -332,6 +328,7 @@ function invPricingRecStepHandle() {
     }
     const showMode=()=>{
         const isCurve=mode.val()==='curve';
+        paste.prop('disabled',!pricingClipboard || pricingClipboard.mode!==mode.val());
         tableDiv.prop('hidden',isCurve);curve.prop('hidden',!isCurve);
         curvePreview.prop('hidden',!isCurve);stepPreview.prop('hidden',isCurve);
         rulesTitle.text(AESI18n.t(isCurve ? 'Control-point pricing' : 'Step rules'));
@@ -343,17 +340,25 @@ function invPricingRecStepHandle() {
     divRight.append(previewTitle,units,stepPreview,curvePreview,explanation);
     divRow.append(divLeft,divRight);
     const copy=$('<button type="button" id="aes-pricing-copy" class="btn btn-default"></button>').text(AESI18n.t('Copy configuration'));
-    const paste=$('<button type="button" id="aes-pricing-paste" class="btn btn-default"></button>').text(AESI18n.t('Paste configuration')).prop('disabled',!pricingClipboard);
+    const paste=$('<button type="button" id="aes-pricing-paste" class="btn btn-default"></button>').text(AESI18n.t('Paste configuration')).prop('disabled',!pricingClipboard || pricingClipboard.mode!==mode.val());
     const transferStatus=$('<span id="aes-pricing-copy-status" role="status"></span>');
     const copiedText=()=>pricingClipboard ? AESI18n.t('Copied {0} configuration.',{'0':pricingClipboard.cabin}) : '';
     transferStatus.text(copiedText());
     copy.on('click',()=>{
-        pricingClipboard={cabin:$('#aes-select-invPricing-cmp option:selected').text(),data:clonePricingConfiguration(readDraft())};
+        const draft=readDraft();
+        const selectedMode=mode.val()==='curve'?'curve':'steps';
+        pricingClipboard={cabin:$('#aes-select-invPricing-cmp option:selected').text(),mode:selectedMode,
+            minPrice:draft.minPrice,maxPrice:draft.maxPrice,
+            ...(selectedMode==='curve' ? {points:draft.points?.map(point=>({...point}))} : {steps:draft.steps.map(step=>({...step}))})};
         paste.prop('disabled',false);transferStatus.text(copiedText());
     });
     paste.on('click',()=>{
-        if(!pricingClipboard)return;
-        pricingDrafts[cmp]=clonePricingConfiguration(pricingClipboard.data);
+        if(!pricingClipboard || pricingClipboard.mode!==mode.val())return;
+        const draft=readDraft();
+        draft.minPrice=pricingClipboard.minPrice;draft.maxPrice=pricingClipboard.maxPrice;
+        if(pricingClipboard.mode==='curve')draft.points=pricingClipboard.points?.map(point=>({...point}));
+        else draft.steps=pricingClipboard.steps!.map(step=>({...step}));
+        pricingDrafts[cmp]=draft;
         // Do not let rebuilding capture and overwrite the target's old form.
         rememberPricingDraft=()=>{};
         invPricingRecStepHandle();

@@ -232,7 +232,7 @@ test('salary queue rejection stops dispatch and restores the button',async t=>{
     assert.equal(p.saved.settings.personnelManagement.auto,0);
 });
 
-test('pricing clipboard copies both rule drafts and bounds without saving or sharing references',async t=>{
+test('pricing clipboard copies only active cabin rules and bounds without changing inactive rules',async t=>{
     const original=pricing();
     const p=browser(t,{html:header+'<div class="bootstrap container-fluid"><h1>Settings</h1></div>',path:'/app/enterprise/settings',data:{settings:{invPricing:original}}});
     p.load('content_settings.js');await until(()=>p.w.document.querySelector('#aes-pricing-copy'));
@@ -249,22 +249,31 @@ test('pricing clipboard copies both rule drafts and bounds without saving or sha
     assert.equal(p.calls.length,writes);
     assert.equal($('#aes-input-invPricing-min-price').val(),'72');
     assert.equal($('#aes-table-invPricing tbody input').first().val(),'Copied rule');
-    assert.equal($('.aes-curve-table tbody tr').first().find('input').eq(1).val(),'-12');
+    assert.notEqual($('.aes-curve-table tbody tr').first().find('input').eq(1).val(),'-12');
     assert.equal($('#aes-pricing-mode').val(),'steps');
     $('#aes-input-invPricing-min-price').val('80');
     $('#aes-btn-invPricing-save').trigger('click');
     assert.equal(p.saved.settings.invPricing.recommendation.C.minPrice,80);
     assert.equal(p.saved.settings.invPricing.recommendation.Y.minPrice,60);
-    assert.equal(p.saved.settings.invPricing.recommendation.C.points[0].change,-12);
+    assert.notEqual(p.saved.settings.invPricing.recommendation.C.points[0].change,-12);
     $('#aes-select-invPricing-cmp').val('F').trigger('change');
     $('#aes-pricing-mode').val('curve').trigger('change');
+    assert.equal($('#aes-pricing-paste').prop('disabled'),true,'do not paste rules for a different mode');
+    $('#aes-pricing-mode').val('steps').trigger('change');
     $('#aes-pricing-paste').trigger('click');
-    assert.equal($('#aes-pricing-mode').val(),'curve','global mode must stay unchanged');
+    assert.equal($('#aes-pricing-mode').val(),'steps','global mode must stay unchanged');
     assert.equal($('#aes-input-invPricing-min-price').val(),'72','clipboard is independent from edits to either cabin');
     $('#aes-btn-invPricing-save').trigger('click');
     assert.equal(p.saved.settings.invPricing.recommendation.F.steps[0].name,'Copied rule');
     $('#aes-select-invPricing-cmp').val('Y').trigger('change');
     assert.equal($('#aes-input-invPricing-min-price').val(),'74','source draft is preserved');
+    $('#aes-pricing-mode').val('curve').trigger('change');$('#aes-pricing-copy').trigger('click');
+    $('#aes-select-invPricing-cmp').val('C').trigger('change');$('#aes-pricing-paste').trigger('click');
+    assert.equal($('.aes-curve-table tbody tr').first().find('input').eq(1).val(),'-12');
+    assert.equal($('#aes-table-invPricing tbody input').first().val(),'Copied rule','curve paste preserves target steps');
+    $('#aes-btn-invPricing-save').trigger('click');
+    assert.equal(p.saved.settings.invPricing.recommendation.C.points[0].change,-12);
+    assert.equal(p.saved.settings.invPricing.recommendation.C.steps[0].name,'Copied rule');
     $('#aes-input-invPricing-min-price').val('250');$('#aes-pricing-copy').trigger('click');
     $('#aes-select-invPricing-cmp').val('Cargo').trigger('change');$('#aes-pricing-paste').trigger('click');
     $('#aes-btn-invPricing-save').trigger('click');
