@@ -744,5 +744,15 @@
   "Planner fixed arrival setting does not match the template.": "排班器的固定抵達設定與範本不符。",
   "Planner server updates could not be monitored. Reload the page and try again.": "無法監測排班表的伺服器更新。請重新載入頁面後再試。",
   "Planner server update failed. Scheduling stopped.": "排班表的伺服器更新失敗，已停止排班。",
-  "Timed out waiting for the planner server update. Scheduling stopped.": "等待排班表的伺服器更新逾時，已停止排班。"
+  "Timed out waiting for the planner server update. Scheduling stopped.": "等待排班表的伺服器更新逾時，已停止排班。",
+  "AES could not start: shared components are unavailable. Reload the page; if this continues, copy the diagnostics for support.": "AES 無法啟動：共用元件尚未就緒。請重新整理頁面；若問題持續，請複製診斷資訊以回報。",
+  "AES was updated or disconnected. Reload this page to reconnect.": "AES 已更新或連線中斷。請重新整理頁面以重新連線。",
+  "AES could not access saved data. Reload the page and try again.": "AES 無法存取已儲存的資料。請重新整理頁面後重試。",
+  "AES could not find the page area required by this feature.": "AES 找不到此功能所需的頁面區域。",
+  "An AES feature could not start. Copy the diagnostics for support.": "AES 功能無法啟動。請複製診斷資訊以回報。",
+  "Reload page": "重新整理頁面",
+  "Copy diagnostics": "複製診斷資訊",
+  "Diagnostics copied.": "已複製診斷資訊。",
+  "Copy the diagnostics below.": "請複製下方診斷資訊。",
+  "Dismiss": "關閉"
 }

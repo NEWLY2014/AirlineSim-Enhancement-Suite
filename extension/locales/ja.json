@@ -744,5 +744,15 @@
   "Planner fixed arrival setting does not match the template.": "固定到着設定がテンプレートと一致しません。",
   "Planner server updates could not be monitored. Reload the page and try again.": "スケジュール表のサーバー更新を監視できませんでした。ページを再読み込みして再試行してください。",
   "Planner server update failed. Scheduling stopped.": "スケジュール表のサーバー更新に失敗しました。自動スケジュールを停止しました。",
-  "Timed out waiting for the planner server update. Scheduling stopped.": "スケジュール表のサーバー更新待ちがタイムアウトしました。自動スケジュールを停止しました。"
+  "Timed out waiting for the planner server update. Scheduling stopped.": "スケジュール表のサーバー更新待ちがタイムアウトしました。自動スケジュールを停止しました。",
+  "AES could not start: shared components are unavailable. Reload the page; if this continues, copy the diagnostics for support.": "AES を起動できません。共通コンポーネントが利用できません。ページを再読み込みし、問題が続く場合は診断情報をコピーして報告してください。",
+  "AES was updated or disconnected. Reload this page to reconnect.": "AES が更新されたか、接続が切れました。ページを再読み込みして再接続してください。",
+  "AES could not access saved data. Reload the page and try again.": "AES は保存済みデータにアクセスできません。ページを再読み込みして再試行してください。",
+  "AES could not find the page area required by this feature.": "AES はこの機能に必要なページ領域を見つけられませんでした。",
+  "An AES feature could not start. Copy the diagnostics for support.": "AES の機能を起動できません。診断情報をコピーして報告してください。",
+  "Reload page": "ページを再読み込み",
+  "Copy diagnostics": "診断情報をコピー",
+  "Diagnostics copied.": "診断情報をコピーしました。",
+  "Copy the diagnostics below.": "以下の診断情報をコピーしてください。",
+  "Dismiss": "閉じる"
 }

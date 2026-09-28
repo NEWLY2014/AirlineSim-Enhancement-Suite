@@ -744,5 +744,15 @@
   "Planner fixed arrival setting does not match the template.": "De vaste aankomstinstelling komt niet overeen met het sjabloon.",
   "Planner server updates could not be monitored. Reload the page and try again.": "De serverupdates van de planner konden niet worden gevolgd. Herlaad de pagina en probeer het opnieuw.",
   "Planner server update failed. Scheduling stopped.": "De serverupdate van de planner is mislukt. Het inplannen is gestopt.",
-  "Timed out waiting for the planner server update. Scheduling stopped.": "De wachttijd voor de serverupdate van de planner is verstreken. Het inplannen is gestopt."
+  "Timed out waiting for the planner server update. Scheduling stopped.": "De wachttijd voor de serverupdate van de planner is verstreken. Het inplannen is gestopt.",
+  "AES could not start: shared components are unavailable. Reload the page; if this continues, copy the diagnostics for support.": "AES kon niet starten: gedeelde onderdelen zijn niet beschikbaar. Herlaad de pagina; blijft het probleem bestaan, kopieer dan de diagnosegegevens voor ondersteuning.",
+  "AES was updated or disconnected. Reload this page to reconnect.": "AES is bijgewerkt of de verbinding is verbroken. Herlaad deze pagina om opnieuw te verbinden.",
+  "AES could not access saved data. Reload the page and try again.": "AES kon de opgeslagen gegevens niet openen. Herlaad de pagina en probeer het opnieuw.",
+  "AES could not find the page area required by this feature.": "AES kon het benodigde paginagedeelte voor deze functie niet vinden.",
+  "An AES feature could not start. Copy the diagnostics for support.": "Een AES-functie kon niet starten. Kopieer de diagnosegegevens voor ondersteuning.",
+  "Reload page": "Pagina herladen",
+  "Copy diagnostics": "Diagnose kopiëren",
+  "Diagnostics copied.": "Diagnose gekopieerd.",
+  "Copy the diagnostics below.": "Kopieer de onderstaande diagnosegegevens.",
+  "Dismiss": "Sluiten"
 }

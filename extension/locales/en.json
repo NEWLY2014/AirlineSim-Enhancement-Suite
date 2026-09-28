@@ -744,5 +744,15 @@
   "Planner fixed arrival setting does not match the template.": "Planner fixed arrival setting does not match the template.",
   "Planner server updates could not be monitored. Reload the page and try again.": "Planner server updates could not be monitored. Reload the page and try again.",
   "Planner server update failed. Scheduling stopped.": "Planner server update failed. Scheduling stopped.",
-  "Timed out waiting for the planner server update. Scheduling stopped.": "Timed out waiting for the planner server update. Scheduling stopped."
+  "Timed out waiting for the planner server update. Scheduling stopped.": "Timed out waiting for the planner server update. Scheduling stopped.",
+  "AES could not start: shared components are unavailable. Reload the page; if this continues, copy the diagnostics for support.": "AES could not start: shared components are unavailable. Reload the page; if this continues, copy the diagnostics for support.",
+  "AES was updated or disconnected. Reload this page to reconnect.": "AES was updated or disconnected. Reload this page to reconnect.",
+  "AES could not access saved data. Reload the page and try again.": "AES could not access saved data. Reload the page and try again.",
+  "AES could not find the page area required by this feature.": "AES could not find the page area required by this feature.",
+  "An AES feature could not start. Copy the diagnostics for support.": "An AES feature could not start. Copy the diagnostics for support.",
+  "Reload page": "Reload page",
+  "Copy diagnostics": "Copy diagnostics",
+  "Diagnostics copied.": "Diagnostics copied.",
+  "Copy the diagnostics below.": "Copy the diagnostics below.",
+  "Dismiss": "Dismiss"
 }

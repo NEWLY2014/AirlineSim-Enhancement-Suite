@@ -57,3 +57,11 @@ for (const [entry, modules] of Object.entries(pageModules)) {
     const files = [...modules, entry];
     writeFileSync(join(output, entry), files.map(file => readFileSync(join(output, file), 'utf8')).join('\n;\n'));
 }
+
+// The startup fallback carries its own catalogs and does not depend on helpers.
+const startupPath = join(output, 'modules/startup-diagnostics.js');
+const startupSource = readFileSync(startupPath, 'utf8');
+const startupCatalogs = Object.fromEntries(Object.entries(catalogs).map(([lang, entries]) => [
+    lang, Object.fromEntries(Object.entries(entries).filter(([key]) => startupSource.includes(JSON.stringify(key).slice(1, -1))))
+]));
+writeFileSync(startupPath, 'const AES_STARTUP_CATALOG = ' + JSON.stringify(startupCatalogs) + ';\n' + startupSource);

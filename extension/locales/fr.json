@@ -744,5 +744,15 @@
   "Planner fixed arrival setting does not match the template.": "Le réglage d’arrivée fixe ne correspond pas au modèle.",
   "Planner server updates could not be monitored. Reload the page and try again.": "Impossible de surveiller les mises à jour du serveur du planificateur. Rechargez la page et réessayez.",
   "Planner server update failed. Scheduling stopped.": "La mise à jour du serveur du planificateur a échoué. La planification a été arrêtée.",
-  "Timed out waiting for the planner server update. Scheduling stopped.": "Le délai d’attente de la mise à jour du serveur du planificateur a expiré. La planification a été arrêtée."
+  "Timed out waiting for the planner server update. Scheduling stopped.": "Le délai d’attente de la mise à jour du serveur du planificateur a expiré. La planification a été arrêtée.",
+  "AES could not start: shared components are unavailable. Reload the page; if this continues, copy the diagnostics for support.": "AES ne peut pas démarrer : les composants partagés sont indisponibles. Rechargez la page ; si le problème persiste, copiez le diagnostic pour le support.",
+  "AES was updated or disconnected. Reload this page to reconnect.": "AES a été mis à jour ou déconnecté. Rechargez cette page pour rétablir la connexion.",
+  "AES could not access saved data. Reload the page and try again.": "AES ne peut pas accéder aux données enregistrées. Rechargez la page et réessayez.",
+  "AES could not find the page area required by this feature.": "AES ne trouve pas la zone de la page nécessaire à cette fonctionnalité.",
+  "An AES feature could not start. Copy the diagnostics for support.": "Une fonctionnalité AES ne peut pas démarrer. Copiez le diagnostic pour le support.",
+  "Reload page": "Recharger la page",
+  "Copy diagnostics": "Copier le diagnostic",
+  "Diagnostics copied.": "Diagnostic copié.",
+  "Copy the diagnostics below.": "Copiez le diagnostic ci-dessous.",
+  "Dismiss": "Fermer"
 }

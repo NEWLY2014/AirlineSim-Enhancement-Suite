@@ -744,5 +744,15 @@
   "Planner fixed arrival setting does not match the template.": "Ustawienie stałego przylotu nie jest zgodne z szablonem.",
   "Planner server updates could not be monitored. Reload the page and try again.": "Nie można monitorować aktualizacji planera z serwera. Odśwież stronę i spróbuj ponownie.",
   "Planner server update failed. Scheduling stopped.": "Aktualizacja planera z serwera nie powiodła się. Planowanie zostało zatrzymane.",
-  "Timed out waiting for the planner server update. Scheduling stopped.": "Przekroczono czas oczekiwania na aktualizację planera z serwera. Planowanie zostało zatrzymane."
+  "Timed out waiting for the planner server update. Scheduling stopped.": "Przekroczono czas oczekiwania na aktualizację planera z serwera. Planowanie zostało zatrzymane.",
+  "AES could not start: shared components are unavailable. Reload the page; if this continues, copy the diagnostics for support.": "Nie można uruchomić AES: wspólne komponenty są niedostępne. Odśwież stronę; jeśli problem nadal występuje, skopiuj dane diagnostyczne dla pomocy technicznej.",
+  "AES was updated or disconnected. Reload this page to reconnect.": "AES został zaktualizowany lub rozłączony. Odśwież stronę, aby połączyć ponownie.",
+  "AES could not access saved data. Reload the page and try again.": "AES nie ma dostępu do zapisanych danych. Odśwież stronę i spróbuj ponownie.",
+  "AES could not find the page area required by this feature.": "AES nie znalazł obszaru strony wymaganego przez tę funkcję.",
+  "An AES feature could not start. Copy the diagnostics for support.": "Nie można uruchomić funkcji AES. Skopiuj dane diagnostyczne dla pomocy technicznej.",
+  "Reload page": "Odśwież stronę",
+  "Copy diagnostics": "Kopiuj diagnostykę",
+  "Diagnostics copied.": "Skopiowano diagnostykę.",
+  "Copy the diagnostics below.": "Skopiuj poniższe dane diagnostyczne.",
+  "Dismiss": "Zamknij"
 }

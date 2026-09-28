@@ -744,5 +744,15 @@
   "Planner fixed arrival setting does not match the template.": "Die feste Ankunftseinstellung stimmt nicht mit der Vorlage überein.",
   "Planner server updates could not be monitored. Reload the page and try again.": "Die Serveraktualisierungen des Flugplaners konnten nicht überwacht werden. Lade die Seite neu und versuche es erneut.",
   "Planner server update failed. Scheduling stopped.": "Die Serveraktualisierung des Flugplaners ist fehlgeschlagen. Die Planung wurde gestoppt.",
-  "Timed out waiting for the planner server update. Scheduling stopped.": "Zeitüberschreitung beim Warten auf die Serveraktualisierung des Flugplaners. Die Planung wurde gestoppt."
+  "Timed out waiting for the planner server update. Scheduling stopped.": "Zeitüberschreitung beim Warten auf die Serveraktualisierung des Flugplaners. Die Planung wurde gestoppt.",
+  "AES could not start: shared components are unavailable. Reload the page; if this continues, copy the diagnostics for support.": "AES konnte nicht starten: Gemeinsame Komponenten sind nicht verfügbar. Laden Sie die Seite neu; kopieren Sie bei anhaltenden Problemen die Diagnosedaten für den Support.",
+  "AES was updated or disconnected. Reload this page to reconnect.": "AES wurde aktualisiert oder getrennt. Laden Sie die Seite neu, um die Verbindung wiederherzustellen.",
+  "AES could not access saved data. Reload the page and try again.": "AES konnte nicht auf gespeicherte Daten zugreifen. Laden Sie die Seite neu und versuchen Sie es erneut.",
+  "AES could not find the page area required by this feature.": "AES konnte den für diese Funktion benötigten Seitenbereich nicht finden.",
+  "An AES feature could not start. Copy the diagnostics for support.": "Eine AES-Funktion konnte nicht starten. Kopieren Sie die Diagnosedaten für den Support.",
+  "Reload page": "Seite neu laden",
+  "Copy diagnostics": "Diagnosedaten kopieren",
+  "Diagnostics copied.": "Diagnosedaten kopiert.",
+  "Copy the diagnostics below.": "Kopieren Sie die folgenden Diagnosedaten.",
+  "Dismiss": "Schließen"
 }

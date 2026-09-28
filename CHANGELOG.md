@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Show independent, localized startup failure notices with reload and diagnostic-copy actions, including when shared components cannot load. Omit URL query strings and fragments from diagnostics and provide a manual-copy fallback.
+
 ## [0.9.0-beta.10] - 2026-09-27
 
 This beta contains all changes since **0.8.13**. It previews the upcoming 0.9.0 release. Beta 10 submits the whole salary table together without waiting between positions.

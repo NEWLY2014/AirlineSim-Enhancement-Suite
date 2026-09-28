@@ -995,6 +995,19 @@ class AES {
 
         AES.#installContentScriptErrorReporter(scriptName);
 
+        const initialize = () => {
+            try {
+                const result = initializer();
+                if (result && typeof result.catch === 'function') return result.catch(error => {
+                    if (typeof AESStartup !== 'undefined') AESStartup.report(scriptName,error,AESStartup.classify(error) || 'init');
+                    else AES.reportContentScriptError(scriptName,error);
+                });
+                return result;
+            } catch (error) {
+                if (typeof AESStartup !== 'undefined') AESStartup.report(scriptName,error,AESStartup.classify(error) || 'init');
+                else AES.reportContentScriptError(scriptName,error);
+            }
+        };
         const run = function() {
             AESI18n.whenReady(()=>{
                 // The new React header initially renders an empty enterprise selector.
@@ -1002,13 +1015,13 @@ class AES {
                 // storage keys so the first load never saves under an empty airline.
                 if (!scriptName.startsWith('module:') && document.getElementById('header') &&
                     AES.getFrontendSettings().fixedEnterpriseId && !AES.getNavbarAirline().displayName) {
-                    AES.waitForElement(() => !!AES.getNavbarAirline().displayName, initializer, {
+                    AES.waitForElement(() => !!AES.getNavbarAirline().displayName, initialize, {
                         scriptName,
                         errorMessage: 'Current airline header did not finish loading'
                     });
                     return;
                 }
-                AES.tryRun(scriptName, initializer);
+                AES.tryRun(scriptName, initialize);
             });
         };
 
@@ -1052,6 +1065,10 @@ class AES {
      */
     static reportContentScriptError(scriptName: string, error: unknown) {
         const errorMessage = (error instanceof Error || AES.isRecord(error)) && error.message ? String(error.message) : String(error || "Unknown error");
+        if (typeof AESStartup !== 'undefined') {
+            const kind = AESStartup.classify(error);
+            if (kind) { AESStartup.report(scriptName,error,kind); return; }
+        }
         const message = AESI18n.t("AES {0} error: {1}", {0: scriptName || "content script", 1: AESI18n.errorMessage(errorMessage)});
         console.error(`[AES] ${scriptName || "content script"} failed`, error);
 

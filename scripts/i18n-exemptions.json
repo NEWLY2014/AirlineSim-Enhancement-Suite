@@ -36,7 +36,7 @@
   "{0}:{1} UTC": "UTC timestamp format; UTC is a standard timezone designation",
   "AirlineSim Enhancement Suite": "Product or service name, and product/version prefix",
   "Discord": "Product or service name, and product/version prefix",
-  "AES \u00b7": "Product or service name, and product/version prefix",
+  "AES ·": "Product or service name, and product/version prefix",
   "AES: v": "Product or service name, and product/version prefix",
   "AirlineSim Enhancement Suite Import/Export": "Initial document title, replaced with localized Import/Export before initialization in options.ts",
   "Drop High": "Editable pricing-rule names persisted as user data; never translate saved or custom rule names.",
@@ -49,5 +49,6 @@
   "Notification": "Internal notification class name field, not rendered in the interface.",
   "Notifications": "Internal notification class name field, not rendered in the interface.",
   "h2, #inventory-table, #inventory-grouped-table, .pricing, .exception, .stacktrace, .error-page": "CSS selector identifying native inventory content; never displayed to users.",
-  "(prefers-reduced-motion: reduce)": "CSS media query passed to matchMedia; never displayed to users."
+  "(prefers-reduced-motion: reduce)": "CSS media query passed to matchMedia; never displayed to users.",
+  "AES is not defined": "Raw JavaScript diagnostic identifier, copied for support; the visible explanation is localized."
 }

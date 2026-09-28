@@ -120,3 +120,16 @@ boundary, while unknown browser/service diagnostic details retain their source.
 - [Pricing data example](examples/pricing-data.js): illustrative stored pricing data, not a schema definition.
 - [Chrome Web Store listing](store/chrome-web-store-listing.md): store description copy.
 - [Historical records](README.md#historical-records): earlier audits, implementation reports and validation results.
+
+## Startup diagnostics
+
+An independent content script loads before jQuery and helpers. It reports startup
+failures with a localized, dismissible banner and reload/copy actions. Its small
+translation catalog is bundled separately so helper parsing failures cannot hide
+the notice. A final startup check detects missing helpers or storage interfaces.
+
+Diagnostics contain extension/browser versions, the module, error code/message,
+page origin/path and component availability. URL queries and fragments are
+removed; no business records or cookies are read. Copying requires a user click,
+and clipboard failure reveals a selectable read-only field. Nothing is sent
+automatically. A dismissed notice stays dismissed for that page load.

@@ -744,5 +744,15 @@
   "Planner fixed arrival setting does not match the template.": "El ajuste de llegada fija no coincide con la plantilla.",
   "Planner server updates could not be monitored. Reload the page and try again.": "No se pudieron supervisar las actualizaciones del servidor del planificador. Recarga la página e inténtalo de nuevo.",
   "Planner server update failed. Scheduling stopped.": "Falló la actualización del servidor del planificador. Se ha detenido la programación.",
-  "Timed out waiting for the planner server update. Scheduling stopped.": "Se agotó el tiempo de espera de la actualización del servidor del planificador. Se ha detenido la programación."
+  "Timed out waiting for the planner server update. Scheduling stopped.": "Se agotó el tiempo de espera de la actualización del servidor del planificador. Se ha detenido la programación.",
+  "AES could not start: shared components are unavailable. Reload the page; if this continues, copy the diagnostics for support.": "AES no pudo iniciarse: los componentes compartidos no están disponibles. Recarga la página; si el problema persiste, copia los datos de diagnóstico para soporte.",
+  "AES was updated or disconnected. Reload this page to reconnect.": "AES se ha actualizado o desconectado. Recarga esta página para volver a conectar.",
+  "AES could not access saved data. Reload the page and try again.": "AES no pudo acceder a los datos guardados. Recarga la página e inténtalo de nuevo.",
+  "AES could not find the page area required by this feature.": "AES no encontró la sección de la página necesaria para esta función.",
+  "An AES feature could not start. Copy the diagnostics for support.": "Una función de AES no pudo iniciarse. Copia los datos de diagnóstico para soporte.",
+  "Reload page": "Recargar página",
+  "Copy diagnostics": "Copiar diagnóstico",
+  "Diagnostics copied.": "Diagnóstico copiado.",
+  "Copy the diagnostics below.": "Copia el diagnóstico que aparece abajo.",
+  "Dismiss": "Cerrar"
 }

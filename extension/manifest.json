@@ -36,6 +36,7 @@
                 "css/content.css"
             ],
             "js": [
+                "modules/startup-diagnostics.js",
                 "js/vendor/jquery-4.0.0.min.js",
                 "helpers.js",
                 "modules/read-only.js",
@@ -43,7 +44,8 @@
                 "modules/about-dialog.js",
                 "modules/release-notes.js",
                 "modules/notification.js",
-                "modules/notifications.js"
+                "modules/notifications.js",
+                "modules/startup-check.js"
             ],
             "matches": [
                 "https://*.airlinesim.aero/app/*",

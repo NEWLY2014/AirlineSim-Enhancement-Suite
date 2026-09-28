@@ -5,7 +5,7 @@ const {readFileSync,readdirSync}=require('node:fs');
 const {join,relative}=require('node:path');
 const normalize=text=>text.trim().replace(/\s+/g,' ');
 const technicalCalls=new Set(['querySelector','querySelectorAll','getElementById','getElementsByClassName','closest','find','filter','children','parent','parents','nextAll','prevAll','siblings','is','hasClass','addClass','removeClass','toggleClass','on','off','trigger','css','getAttribute','removeAttribute','hasAttribute','addEventListener','removeEventListener','matches','matchMedia']);
-const technicalProperties=new Set(['className','class','id','href','src','role','type','rel','tabindex']);
+const technicalProperties=new Set(['className','class','id','href','src','role','type','rel','tabindex','cssText']);
 const readable=text=>/[A-Za-z]{3}/.test(text) && (/\s/.test(text.trim()) || /^[A-Z][a-z]+[!:]?$/.test(text.trim()));
 const member=node=>node?.type==='MemberExpression' ? node.property.name || node.property.value : node?.name;
 function auditSource(source,{file='',catalog,exemptions={}}){
@@ -30,7 +30,7 @@ function auditSource(source,{file='',catalog,exemptions={}}){
         if(node.type==='CallExpression' && (node.callee.object?.name==='console' || node.arguments[0]?.name==='AES_RELEASE_NOTES'))return;
         if(node.type==='AssignmentExpression' && technicalProperties.has(member(node.left)))return;
         if(node.type==='PropertyDefinition' && technicalProperties.has(node.key.name))return;
-        if(node.type==='VariableDeclarator' && ['AES_I18N_CATALOG','AES_RELEASE_NOTES'].includes(node.id?.name))return;
+        if(node.type==='VariableDeclarator' && ['AES_I18N_CATALOG','AES_STARTUP_CATALOG','AES_RELEASE_NOTES'].includes(node.id?.name))return;
         // The language implementation contains native language names and protocol constants.
         if(node.type==='CallExpression' && node.callee.type==='FunctionExpression' && node.callee.params[0]?.name==='AESI18n')return;
         if(node.type==='CallExpression' && node.callee.object?.name==='AESI18n' && member(node.callee)==='t'){
