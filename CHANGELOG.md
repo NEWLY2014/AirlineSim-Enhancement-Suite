@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Recheck salary batches against fresh server values and retry only unconfirmed positions once, without resubmitting successful positions or recording incomplete batches as successful.
+
 ### Added
 
 - Show independent, localized startup failure notices with reload and diagnostic-copy actions, including when shared components cannot load. Omit URL query strings and fragments from diagnostics and provide a manual-copy fallback.

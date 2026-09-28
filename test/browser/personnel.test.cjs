@@ -7,7 +7,7 @@ const {join,resolve}=require('node:path');
 const {createServer}=require('node:https');
 const {execFileSync}=require('node:child_process');
 
-test('salary batch posts all positions with one click and refreshes the page only once',{timeout:60000},async t=>{
+for(const lostUpdate of [false,true])test(`salary batch refreshes once and repairs only missing positions (lost update: ${lostUpdate})`,{timeout:60000},async t=>{
     const profile=await mkdtemp(join(tmpdir(),'aes-salary-'));
     let context,server;
     t.after(async()=>{
@@ -29,10 +29,11 @@ test('salary batch posts all positions with one click and refreshes the page onl
         if(req.method==='POST' && req.url==='/action/enterprise/staffOverview'){
             let body='';for await(const chunk of req)body+=chunk;
             const data=new URLSearchParams(body),id=Number(data.get('id')),amount=Number(data.get('amount'));
-            requests.push({id,amount});amounts[id]=amount;
+            requests.push({id,amount});if(!lostUpdate || id!==1 || requests.filter(r=>r.id===1).length>1)amounts[id]=amount;
             responses.push(res);
             // Neither response is released until BOTH requests arrive: serial dispatch deadlocks.
-            if(responses.length===2)for(const pending of responses){pending.writeHead(303,{Location:'/action/enterprise/staffOverview'});pending.end();}
+            if(responses.length>=2)for(const pending of responses.splice(0)){pending.writeHead(303,{Location:'/action/enterprise/staffOverview'});pending.end();}
+            else if(requests.length>2){responses.pop();res.writeHead(303,{Location:'/action/enterprise/staffOverview'});res.end();}
             return;
         }
         res.writeHead(200,{'Content-Type':'text/html'});res.end(render());
@@ -59,7 +60,7 @@ test('salary batch posts all positions with one click and refreshes the page onl
         }
         throw new Error('salary batch did not reach confirmed state: '+JSON.stringify({requests,storage:await worker.evaluate(()=>chrome.storage.local.get(null)),body:await page.locator('body').innerText()}));
     });
-    assert.deepEqual(requests,[{id:0,amount:1050},{id:1,amount:950}]);
+    assert.deepEqual(requests,lostUpdate?[{id:0,amount:1050},{id:1,amount:950},{id:1,amount:950}]:[{id:0,amount:1050},{id:1,amount:950}]);
     assert.deepEqual(amounts,[1050,950]);
     await page.waitForFunction(()=>performance.getEntriesByType('navigation')[0]?.type==='reload');
     await page.locator('.aes-personnel-management-apply:not([disabled])').waitFor();

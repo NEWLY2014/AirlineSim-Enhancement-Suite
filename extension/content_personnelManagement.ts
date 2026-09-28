@@ -237,11 +237,11 @@ async function submitSalaryBatch(key: string, value: Record<string,unknown>, ini
     try {
         if (!canSubmitSalaryBatch(initialRows) || Object.keys(expected).some(id => !initialRows.has(id))) throw fail();
         // Prepare every request before dispatch so invalid forms cannot cause a partial batch.
-        const requests = [...initialRows].filter(([id,row]) => expected[id] !== AES.cleanInteger(row.input.defaultValue)).map(([id,row]) => {
+        const prepare = (rows: typeof initialRows) => [...rows].filter(([id,row]) => expected[id] !== AES.cleanInteger(row.input.defaultValue)).map(([id,row]) => {
             const amount = expected[id];
             const button = row.form.querySelector<HTMLButtonElement | HTMLInputElement>('button[type="submit"], input[type="submit"]');
             if (!button || typeof amount !== 'number' || !Number.isFinite(amount) ||
-                [...initialRows.values()].filter(other => other.form === row.form).length !== 1) throw fail();
+                [...rows.values()].filter(other => other.form === row.form).length !== 1) throw fail();
             const body = new URLSearchParams();
             for (const [name,field] of new FormData(row.form,button)) {
                 if (typeof field !== 'string') throw fail();
@@ -250,6 +250,7 @@ async function submitSalaryBatch(key: string, value: Record<string,unknown>, ini
             body.set('amount',String(amount));
             return {id,body,url:new URL(row.form.getAttribute('action') || location.href,location.href)};
         });
+        let requests = prepare(initialRows);
         const stored = (await chrome.storage.local.get(key))[key];
         if (!currentPage() || controller.signal.aborted || !AES.isRecord(stored) || !salaryJournalMatches(stored.pending,journal.pending)) throw fail();
         journal = {...stored,pending:{...(journal.pending as Record<string,unknown>),inFlight:requests.map(request => request.id)}};
@@ -266,19 +267,28 @@ async function submitSalaryBatch(key: string, value: Record<string,unknown>, ini
         $('#aes-personnel-management-last-update').text(AESI18n.t('Updating...'));
         // Dispatch the whole table together. Wait for every request, including failures,
         // before checking one fresh server snapshot; individual responses may be stale.
-        const results = await Promise.allSettled(requests.map(async request => {
-            await readResponse(await fetch(request.url,{method:'POST',credentials:'same-origin',body:request.body,signal}));
-        }));
-        if (results.some(result => result.status === 'rejected')) throw fail();
-        const latest = (await chrome.storage.local.get(key))[key];
-        if (!currentPage() || signal.aborted || !AES.isRecord(latest) || !salaryJournalMatches(latest.pending,journal.pending)) throw fail();
-        const doc = await readResponse(await fetch(new URL('/action/enterprise/staffOverview',location.href),{
-            method:'GET',credentials:'same-origin',cache:'no-store',signal
-        }));
-        const received = getSalaryRows(doc);
-        if (!received) throw fail();
-        const actual = Object.fromEntries([...received].map(([id,row]) => [id,AES.cleanInteger(row.input.defaultValue)]));
-        if (!Object.entries(expected).every(([id,amount]) => actual[id] === amount)) throw fail();
+        let actual: Record<string,number> = {};
+        for (let attempt=0;attempt<2;attempt++) {
+            const latest = (await chrome.storage.local.get(key))[key];
+            if (!currentPage() || signal.aborted || !AES.isRecord(latest) || !salaryJournalMatches(latest.pending,journal.pending)) throw fail();
+            const results = await Promise.allSettled(requests.map(async request => {
+                await readResponse(await fetch(request.url,{method:'POST',credentials:'same-origin',body:request.body,signal}));
+            }));
+            if (results.some(result => result.status === 'rejected')) throw fail();
+            const stored = (await chrome.storage.local.get(key))[key];
+            if (!currentPage() || signal.aborted || !AES.isRecord(stored) || !salaryJournalMatches(stored.pending,journal.pending)) throw fail();
+            const doc = await readResponse(await fetch(new URL('/action/enterprise/staffOverview',location.href),{
+                method:'GET',credentials:'same-origin',cache:'no-store',signal
+            }));
+            const received = getSalaryRows(doc);
+            if (!received || !canSubmitSalaryBatch(received) || Object.keys(expected).some(id => !received.has(id))) throw fail();
+            actual = Object.fromEntries([...received].map(([id,row]) => [id,AES.cleanInteger(row.input.defaultValue)]));
+            if (Object.entries(expected).every(([id,amount]) => actual[id] === amount)) break;
+            if (attempt===1) throw fail();
+            // Retry only unconfirmed positions once, using fresh server forms.
+            // Absolute target amounts make this repair idempotent.
+            requests = prepare(received);
+        }
         await confirmSalaryUpdate(key,journal,actual);
         const saved = (await chrome.storage.local.get(key))[key];
         if (currentPage() && AES.isRecord(saved) && !saved.pending) location.reload();

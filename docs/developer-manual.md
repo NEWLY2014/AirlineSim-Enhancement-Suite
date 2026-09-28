@@ -92,7 +92,9 @@ Native salary batches use current-page POST requests outside this queue. AES pre
 the whole table and dispatches the requests together, without artificial delays or
 waiting between positions. After every request settles, it reads a fresh server
 snapshot and confirms all target salaries before recording success and refreshing
-once. Failed or unconfirmed batches retain their pending records. Unsupported
+once. If the snapshot shows unconfirmed positions, AES retries only those positions
+once using fresh server forms, then verifies the full table again. Failed or
+unconfirmed batches retain their pending records. Unsupported
 forms retain the native submission fallback.
 
 ## Localization checks

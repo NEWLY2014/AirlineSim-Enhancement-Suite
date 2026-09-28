@@ -389,8 +389,9 @@ for(const failure of ['http','unchanged','wrong-airline','redirect','journal-cha
     };
     p.load('content_personnelManagement.js');await until(()=>p.w.document.querySelector('.aes-personnel-management-apply'));
     const button=p.w.document.querySelector('.aes-personnel-management-apply');button.click();
-    await until(()=>posts===2 && !button.disabled);
-    assert.equal(posts,2);assert.equal(p.saved[key].date,undefined);assert.ok(p.saved[key].pending);
+    const expectedPosts=failure==='unchanged'?4:2;
+    await until(()=>posts===expectedPosts && !button.disabled);
+    assert.equal(posts,expectedPosts);assert.equal(p.saved[key].date,undefined);assert.ok(p.saved[key].pending);
     if(failure==='journal-changed')assert.equal(p.saved[key].pending.targets.extra,100);
     assert.match(p.w.document.querySelector('#aes-personnel-management-last-update').textContent,/awaiting confirmation/);
 });
