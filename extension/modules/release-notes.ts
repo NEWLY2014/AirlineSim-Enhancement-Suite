@@ -1,5 +1,19 @@
 const AES_RELEASE_NOTES_STORAGE_KEY = "aesReleaseNotesSeenVersion"
 const AES_RELEASE_NOTES: Record<string, AESModel.ReleaseNotes | undefined> = {
+    "0.9.0-beta.12": {
+        "title": "Release Notes",
+        "releaseDate": "2026-10-05",
+        "summary": "Copy pricing settings between compartments.",
+        "sections": [
+                {
+                        "title": "Added",
+                        "items": [
+                                "Copy and paste the current pricing mode’s rules and price limits between compartments, including unsaved edits. Review and Save to apply.",
+                                "Preserve the target compartment’s inactive rules and the global pricing mode. Copied settings remain available until the Settings page is reloaded."
+                        ]
+                }
+        ]
+},
     "0.9.0-beta.11": {
         "title": "Release Notes",
         "releaseDate": "2026-09-28",
