@@ -83,6 +83,14 @@ automatically. Pending price submissions are cancelled if the page or inputs
 change while waiting. Browser session storage preserves queue state across
 background-worker restarts; closing the browser clears the session.
 
+Chrome's explicit tab-strip drag rejection leaves an open/navigation job at the
+head of the queue. Retry delays increase from 100 ms to at most 1 second; another
+drag rejection after 30 seconds ends the job. A delayed client first checks
+whether Chrome has recovered, so background timer throttling alone does not
+cause a timeout. Retry state survives worker suspension through session storage
+and the existing client notifications. Other errors and unknown dispatch outcomes
+are not retried. Successful operations retain the normal 55–65 ms spacing.
+
 This paces AES-triggered operations, including native Inventory form submissions
 intercepted on initialized pages. It does not intercept unrelated manual browser
 navigation, game resource requests, or requests from a separate installed AES copy.

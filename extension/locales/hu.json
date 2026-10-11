@@ -758,5 +758,6 @@
   "Copy configuration": "Beállítások másolása",
   "Paste configuration": "Beállítások beillesztése",
   "Copied {0} configuration.": "{0} beállításai másolva.",
-  "Configuration pasted. Click Save to apply.": "Beállítások beillesztve. Az alkalmazáshoz kattintson a Mentés gombra."
+  "Configuration pasted. Click Save to apply.": "Beállítások beillesztve. Az alkalmazáshoz kattintson a Mentés gombra.",
+  "Tabs cannot be edited right now (user may be dragging a tab).": "A lapok jelenleg nem módosíthatók (lehet, hogy egy lap húzása folyamatban van)."
 }

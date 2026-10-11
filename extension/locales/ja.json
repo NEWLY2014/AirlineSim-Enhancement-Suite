@@ -758,5 +758,6 @@
   "Copy configuration": "設定をコピー",
   "Paste configuration": "設定を貼り付け",
   "Copied {0} configuration.": "{0}の設定をコピーしました。",
-  "Configuration pasted. Click Save to apply.": "設定を貼り付けました。保存を押すと適用されます。"
+  "Configuration pasted. Click Save to apply.": "設定を貼り付けました。保存を押すと適用されます。",
+  "Tabs cannot be edited right now (user may be dragging a tab).": "現在タブを変更できません（タブをドラッグしている可能性があります）。"
 }

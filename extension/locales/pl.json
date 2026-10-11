@@ -758,5 +758,6 @@
   "Copy configuration": "Kopiuj konfigurację",
   "Paste configuration": "Wklej konfigurację",
   "Copied {0} configuration.": "Skopiowano konfigurację: {0}.",
-  "Configuration pasted. Click Save to apply.": "Wklejono konfigurację. Kliknij Zapisz, aby ją zastosować."
+  "Configuration pasted. Click Save to apply.": "Wklejono konfigurację. Kliknij Zapisz, aby ją zastosować.",
+  "Tabs cannot be edited right now (user may be dragging a tab).": "Nie można teraz modyfikować kart (być może trwa przeciąganie karty)."
 }

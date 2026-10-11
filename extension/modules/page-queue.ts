@@ -5,11 +5,14 @@
     const gap = () => 55 + Math.floor(Math.random() * 11);
     const LEASE = 10000;
     const CLIENT_TIMEOUT = 120000; // Background-tab polling can be throttled to once a minute.
+    const TAB_EDIT_ERROR = 'Tabs cannot be edited right now (user may be dragging a tab).';
+    const TAB_EDIT_TIMEOUT = 30000;
     type Kind = 'open' | 'price' | 'navigate' | 'read' | 'salary';
     interface Job {
         id: string; kind: Kind; url: string; source: number; document: string;
         seen: number; state: 'queued' | 'running' | 'done' | 'failed';
         started?: number; expires?: number; target?: number; loading?: boolean;
+        tabEditDeadline?: number; tabEditRetries?: number;
         error?: string;
     }
     interface State { jobs: Job[]; next: number }
@@ -33,6 +36,8 @@
             typeof x.url === 'string' && typeof x.source === 'number' && typeof x.document === 'string' && typeof x.seen === 'number' &&
             ['queued','running','done','failed'].includes(String(x.state)) &&
             (x.started === undefined || typeof x.started === 'number') && (x.expires === undefined || typeof x.expires === 'number') &&
+            (x.tabEditDeadline === undefined || typeof x.tabEditDeadline === 'number') &&
+            (x.tabEditRetries === undefined || typeof x.tabEditRetries === 'number') &&
             (x.target === undefined || typeof x.target === 'number') && (x.loading === undefined || typeof x.loading === 'boolean');
     }
     async function transaction(change: (s: State) => Promise<unknown>) {
@@ -98,7 +103,22 @@
             if (job.target === undefined) fail(job, 'No tab was created.');
             else job.state = 'done';
             s.next = Math.max(s.next, Date.now() + gap());
-        } catch (e) { fail(job, e instanceof Error ? e.message : String(e)); }
+        } catch (e) {
+            const error = (e instanceof Error ? e.message : String(e)).replace(/^Error: /, '');
+            if (error === TAB_EDIT_ERROR) {
+                // Chrome rejects this operation before editing the tab strip. It
+                // is safe to retry this exact failure, unlike an unknown outcome.
+                job.tabEditDeadline ??= Date.now() + TAB_EDIT_TIMEOUT;
+                // A throttled client may wake late. Check Chrome once before
+                // timing out so an already-cleared drag does not cause failure.
+                if (Date.now() >= job.tabEditDeadline) { fail(job, error); return; }
+                job.tabEditRetries = (job.tabEditRetries || 0) + 1;
+                job.state = 'queued'; delete job.started; delete job.target;
+                s.next = Math.min(job.tabEditDeadline, Date.now() + Math.min(1000, 100 * 2 ** Math.min(job.tabEditRetries - 1, 4)));
+                // save() tells the existing client when to poll. No worker timer
+                // or open message channel must survive suspension during a drag.
+            } else fail(job, error);
+        }
     }
     chrome.runtime.onMessage.addListener((message: unknown, sender, reply) => {
         if (!record(message) || message.type !== 'AES_PAGE_QUEUE') return false;

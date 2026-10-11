@@ -758,5 +758,6 @@
   "Copy configuration": "Konfiguration kopieren",
   "Paste configuration": "Konfiguration einfügen",
   "Copied {0} configuration.": "Konfiguration für {0} kopiert.",
-  "Configuration pasted. Click Save to apply.": "Konfiguration eingefügt. Zum Übernehmen auf Speichern klicken."
+  "Configuration pasted. Click Save to apply.": "Konfiguration eingefügt. Zum Übernehmen auf Speichern klicken.",
+  "Tabs cannot be edited right now (user may be dragging a tab).": "Tabs können derzeit nicht geändert werden (möglicherweise wird ein Tab gezogen)."
 }

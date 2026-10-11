@@ -6,7 +6,8 @@ const source=readFileSync(`${__dirname}/../build/extension/modules/page-queue.js
 const url='https://paine.airlinesim.aero/app/com/inventory/AAABBB';
 function queue(random=0.5) {
     let now=100000, nextTab=100, failWrite=false, failCreate=false;
-    const notices=[];
+    const notices=[],editErrors=[],attempts=[];
+    const edit=kind=>{attempts.push({kind,time:now});if(editErrors.length)throw Error(editErrors.shift());};
     const saved={}, tabs=new Map([[1,{id:1,status:'complete'}],[2,{id:2,status:'complete'}]]), opened=[];
     let listeners;
     const clone=x=>JSON.parse(JSON.stringify(x));
@@ -14,19 +15,65 @@ function queue(random=0.5) {
         listeners={};
         const chrome={runtime:{id:'aes',onMessage:{addListener:f=>listeners.message=f}},
             storage:{session:{get:async()=>clone(saved),set:async x=>{if(failWrite)throw Error('storage failed');Object.assign(saved,clone(x));}}},
-            tabs:{sendMessage:async(tab,message,options)=>{notices.push({tab,message,options});},create:async options=>{if(failCreate)throw Error('create failed');const tab={id:nextTab++,status:'loading'};tabs.set(tab.id,tab);opened.push({...options,time:now,id:tab.id});return tab;},
-                update:async(id,options)=>{const tab=tabs.get(id);if(!tab)throw Error('closed');tab.status='loading';opened.push({...options,time:now,id});return tab;},
+            tabs:{sendMessage:async(tab,message,options)=>{notices.push({tab,message,options});},create:async options=>{edit('open');if(failCreate)throw Error('create failed');const tab={id:nextTab++,status:'loading'};tabs.set(tab.id,tab);opened.push({...options,time:now,id:tab.id});return tab;},
+                update:async(id,options)=>{edit('navigate');const tab=tabs.get(id);if(!tab)throw Error('closed');tab.status='loading';opened.push({...options,time:now,id});return tab;},
                 get:async id=>{if(!tabs.has(id))throw Error('closed');return tabs.get(id);},
                 onUpdated:{addListener:f=>listeners.updated=f},onRemoved:{addListener:f=>listeners.removed=f}}};
-        runInNewContext(source,{chrome,URL,Date:{now:()=>now},Math:{random:()=>random,floor:Math.floor,max:Math.max},console});
+        runInNewContext(source,{chrome,URL,Date:{now:()=>now},Math:{random:()=>random,floor:Math.floor,max:Math.max,min:Math.min},console});
     }
     boot();
     function message(op,id,kind='open',tab=1,destination=url,doc='doc'+tab,sourceUrl=url) {
         return new Promise(resolve=>listeners.message({type:'AES_PAGE_QUEUE',op,id,kind,url:destination},{id:'aes',tab:{id:tab},documentId:doc,frameId:0,url:sourceUrl},resolve));
     }
-    return {message,notices,opened,saved,tabs,boot,advance:ms=>now+=ms,failWrite:()=>failWrite=true,failCreate:()=>failCreate=true,
+    return {message,notices,opened,saved,tabs,boot,attempts,editErrors,advance:ms=>now+=ms,failWrite:()=>failWrite=true,failCreate:()=>failCreate=true,
         updated:(id,status)=>{tabs.get(id).status=status;listeners.updated(id,{status});},closed:id=>{tabs.delete(id);listeners.removed(id);}};
 }
+
+const dragging='Tabs cannot be edited right now (user may be dragging a tab).';
+for(const kind of ['open','navigate'])test(`${kind} waits through a tab drag across worker restarts and preserves FIFO`,async()=>{
+    const q=queue(0);q.editErrors.push(dragging,dragging);
+    assert.equal((await q.message('enqueue','a',kind)).state,'queued');
+    assert.equal(q.opened.length,0);
+    assert.equal(q.notices.at(-1).message.notBefore,100100,'notify the source to resume after backoff');
+    await q.message('enqueue','b','open',2);q.boot();
+    q.advance(99);await q.message('poll','b','open',2);assert.equal(q.attempts.length,1);
+    q.advance(1);assert.equal((await q.message('poll','a',kind)).state,'queued');
+    q.advance(199);await q.message('poll','b','open',2);assert.equal(q.attempts.length,2);
+    q.advance(1);assert.equal((await q.message('poll','a',kind)).state,'done');
+    assert.equal(q.opened.length,1);
+    q.advance(54);await q.message('poll','b','open',2);assert.equal(q.opened.length,1);
+    q.advance(1);assert.equal((await q.message('poll','b','open',2)).state,'done');
+    assert.deepEqual(q.opened.map(t=>t.id),kind==='open'?[100,101]:[1,100]);
+    await q.message('poll','a',kind);assert.equal(q.opened.length,2,'successful opens are never replayed');
+});
+
+for(const cancel of ['cancel','navigate','close'])test(`waiting tab-drag operation is cancelled on ${cancel}`,async()=>{
+    const q=queue();q.editErrors.push(dragging);
+    await q.message('enqueue','a');
+    if(cancel==='cancel')await q.message('cancel','a');
+    else if(cancel==='navigate')q.updated(1,'loading');
+    else q.closed(1);
+    q.advance(1000);assert.equal((await q.message('poll','a')).ok,false);
+    assert.equal(q.attempts.length,1);assert.equal(q.opened.length,0);
+});
+
+test('persistent tab drag expires after 30 seconds and lets following jobs continue',async()=>{
+    const q=queue(0);q.editErrors.push(dragging,dragging);
+    await q.message('enqueue','a');await q.message('enqueue','b','open',2);
+    q.advance(30000);q.boot();
+    assert.equal((await q.message('poll','a')).ok,false);
+    assert.equal(q.attempts.length,2,'confirm Chrome is still locked before timing out');
+    await q.message('poll','a');assert.equal(q.attempts.length,2);
+    q.advance(55);assert.equal((await q.message('poll','b','open',2)).state,'done');
+    assert.equal(q.opened.length,1);
+});
+
+test('late retry after client throttling succeeds if Chrome is no longer locked',async()=>{
+    const q=queue(0);q.editErrors.push(dragging);
+    await q.message('enqueue','a');q.advance(60000);q.boot();
+    assert.equal((await q.message('poll','a')).state,'done');
+    assert.equal(q.opened.length,1);
+});
 
 test('queue applies randomized 55–65 ms dispatch gaps without waiting for loading',async()=>{
     for(const random of [0,0.5,0.999999]) {

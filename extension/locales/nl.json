@@ -758,5 +758,6 @@
   "Copy configuration": "Configuratie kopiëren",
   "Paste configuration": "Configuratie plakken",
   "Copied {0} configuration.": "Configuratie van {0} gekopieerd.",
-  "Configuration pasted. Click Save to apply.": "Configuratie geplakt. Klik op Opslaan om deze toe te passen."
+  "Configuration pasted. Click Save to apply.": "Configuratie geplakt. Klik op Opslaan om deze toe te passen.",
+  "Tabs cannot be edited right now (user may be dragging a tab).": "Tabbladen kunnen nu niet worden gewijzigd (mogelijk wordt een tabblad versleept)."
 }

@@ -758,5 +758,6 @@
   "Copy configuration": "Copier la configuration",
   "Paste configuration": "Coller la configuration",
   "Copied {0} configuration.": "Configuration de {0} copiée.",
-  "Configuration pasted. Click Save to apply.": "Configuration collée. Cliquez sur Enregistrer pour l’appliquer."
+  "Configuration pasted. Click Save to apply.": "Configuration collée. Cliquez sur Enregistrer pour l’appliquer.",
+  "Tabs cannot be edited right now (user may be dragging a tab).": "Les onglets ne peuvent pas être modifiés pour le moment (un onglet est peut-être en cours de déplacement)."
 }
