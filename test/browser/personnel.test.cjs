@@ -7,7 +7,7 @@ const {join,resolve}=require('node:path');
 const {createServer}=require('node:https');
 const {execFileSync}=require('node:child_process');
 
-test('salary native submissions share queue pacing without response verification or retries',{timeout:60000},async t=>{
+for(const fast of [true,false])test(`salary submissions finish the table without navigation (fast responses: ${fast})`,{timeout:60000},async t=>{
     const profile=await mkdtemp(join(tmpdir(),'aes-salary-'));
     let context,server;
     t.after(async()=>{
@@ -32,9 +32,9 @@ test('salary native submissions share queue pacing without response verification
             const data=new URLSearchParams(body),id=Number(data.get('id')),amount=Number(data.get('amount'));
             requests.push({id,amount,time:Date.now()});amounts[id]=Math.min(amount,1100);
             responses.push(res);
-            // Delay all responses until both native forms have been dispatched.
-            // A verifier would stall here; the server deliberately clamps the values.
-            if(responses.length===2)for(const pending of responses){pending.writeHead(200,{'Content-Type':'text/html'});pending.end(render());}
+            // Cover both an immediate response and responses held until all POSTs arrive.
+            // Serial response waits would stall; the server also clamps the values.
+            if(fast || responses.length===2)for(const pending of responses.splice(0)){pending.writeHead(200,{'Content-Type':'text/html'});pending.end(render());}
             return;
         }
         res.writeHead(200,{'Content-Type':'text/html'});res.end(render());
@@ -52,12 +52,16 @@ test('salary native submissions share queue pacing without response verification
     await page.locator('#aes-select-personnelManagement-type').selectOption('perc');
     await page.locator('#aes-input-personnelManagement-value').fill('200');
     await page.locator('.aes-personnel-management-apply').click();
-    await page.waitForFunction(()=>document.querySelector('input[name=amount]')?.defaultValue==='1100');
+    await assert.doesNotReject(async()=>{
+        const end=Date.now()+3000;
+        while(requests.length<2 && Date.now()<end)await new Promise(r=>setTimeout(r,20));
+        assert.equal(requests.length,2,'one click must dispatch every position even when the first response is immediate');
+    });
     await page.locator('.aes-personnel-management-apply:not([disabled])').waitFor();
     assert.deepEqual(requests.map(({id,amount})=>({id,amount})),[{id:0,amount:3000},{id:1,amount:2700}]);
-    assert.ok(requests[1].time-requests[0].time>=55,'shared queue must pace native dispatch');
+    assert.ok(requests[1].time-requests[0].time>=55,'shared queue must pace form dispatch');
     assert.deepEqual(amounts,[1100,1100]);
-    assert.equal(navigations,2,'initial page plus native response, with no AES refresh');
+    assert.equal(navigations,1,'salary responses must not replace the submitting page');
     const record=await worker.evaluate(async()=>(await chrome.storage.local.get('paine42personnelManagement')).paine42personnelManagement);
     assert.equal(record.date,'20260908');assert.equal(record.pending,undefined);
     assert.doesNotMatch(await page.locator('#aes-personnel-management-last-update').innerText(),/awaiting|Updating/);

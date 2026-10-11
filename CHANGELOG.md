@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Keep salary form responses from navigating away before the remaining positions are submitted. Apply Salaries dispatches the entire table through the shared 55–65 ms queue without verifying wage values or retrying writes.
+
 ## [0.9.0-beta.12] - 2026-10-05
 
 This beta contains all changes since **0.8.13**. It previews the upcoming 0.9.0 release. Beta 12 adds copying and pasting compartment-specific pricing settings.

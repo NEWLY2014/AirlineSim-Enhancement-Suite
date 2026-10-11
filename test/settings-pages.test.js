@@ -41,7 +41,7 @@ test('pricing editor saves valid steps and rejects invalid price bounds', async 
 
 const staff = header + `<div class="bootstrap container-fluid"><h1>Employee Overview</h1><table>
 <thead><tr><th>Staff</th><th>Next week's salary</th><th>Country average</th></tr></thead>
-<tbody><tr><td>Pilots</td><td><form><input name="action" value="salary" type="hidden"><input name="amount" value="800"><button type="submit">Save salary</button></form></td><td>1,000 AS$</td></tr></tbody></table></div>`;
+<tbody><tr><td>Pilots</td><td><form method="post" action="staffOverview"><input name="action" value="salary" type="hidden"><input name="amount" value="800"><button type="submit">Save salary</button></form></td><td>1,000 AS$</td></tr></tbody></table></div>`;
 
 test('personnel applies percentage and absolute targets through salary forms only', async t => {
     for (const [type, value, target] of [['perc', 10, '1100'], ['absolute', 50, '1050']]) {
@@ -49,7 +49,11 @@ test('personnel applies percentage and absolute targets through salary forms onl
             settings: { personnelManagement: { type, value, auto: 0, alreadyUpdated: [] }, keep: true }
         } });
         let submissions = 0;
-        p.w.document.addEventListener('submit', event => { event.preventDefault(); submissions++; });
+        p.w.fetch = async (url, options) => {
+            assert.equal(options.method, 'POST');
+            assert.equal(options.body.get('amount'), target);
+            submissions++; return {ok:true};
+        };
         p.load('modules/notification.js');
         p.load('modules/notifications.js');
         p.load('content_personnelManagement.js');
@@ -193,22 +197,22 @@ test('step preview shows horizontal segments, rejects incomplete drafts and pres
     assert.equal($('.aes-step-preview svg').css('visibility'),'hidden');
 });
 
-const staffBatch = staff.replace('</tbody>', '<tr><td>Cabin crew</td><td><form><input name="action" value="salary" type="hidden"><input name="amount" value="700"><button type="submit">Save salary</button></form></td><td>900 AS$</td></tr></tbody>');
+const staffBatch = staff.replace('</tbody>', '<tr><td>Cabin crew</td><td><form method="post" action="staffOverview"><input name="action" value="salary" type="hidden"><input name="amount" value="700"><button type="submit">Save salary</button></form></td><td>900 AS$</td></tr></tbody>');
 
 
-for(const value of [200,-200])test(`salary native queue dispatch accepts game limits without verification (${value}%)`,async t=>{
+for(const value of [200,-200])test(`salary form queue dispatch accepts game limits without verification (${value}%)`,async t=>{
     const key='paine42personnelManagement';
     const p=browser(t,{html:staffBatch,path:'/action/enterprise/staffOverview',data:{settings:{personnelManagement:{type:'perc',value}},[key]:{date:'20260901',pending:{targets:{old:123},inFlight:['old']}}}});
     const submitted=[],events=[];
     p.run(`AES.queuePage=async(url,kind)=>{window.salaryEvents.push(kind);return {complete:async()=>window.salaryEvents.push('complete')}}`);
     p.w.salaryEvents=events;
-    p.w.fetch=()=>{throw Error('salary must not fetch or verify');};
-    p.w.document.addEventListener('submit',event=>{
-        event.preventDefault();submitted.push(event.target.querySelector('[name=amount]').value);
-        // Simulate server clamping without changing the input default value.
-        event.target.querySelector('[name=amount]').value='999';
+    p.w.fetch=async(url,options)=>{
+        assert.equal(options.method,'POST','no verification GETs');
+        submitted.push(options.body.get('amount'));
         events.push('submit');
-    });
+        // The returned page can contain clamped wages; do not compare or retry.
+        return {ok:true,text:()=>{throw Error('salary must not verify response values');}};
+    };
     p.load('content_personnelManagement.js');
     await until(()=>p.w.document.querySelector('.aes-personnel-management-apply'));
     assert.equal(submitted.length,0,'old journals must not resume');
@@ -224,12 +228,51 @@ for(const value of [200,-200])test(`salary native queue dispatch accepts game li
 test('salary queue rejection stops dispatch and restores the button',async t=>{
     const p=browser(t,{html:staffBatch,path:'/action/enterprise/staffOverview',data:{settings:{personnelManagement:{type:'absolute',value:50}}}});
     p.run(`AES.queuePage=async()=>{throw Error('queue unavailable')}`);
-    let submissions=0;p.w.document.addEventListener('submit',event=>{event.preventDefault();submissions++;});
+    let submissions=0;p.w.fetch=async()=>{submissions++;return {ok:true};};
     p.load('content_personnelManagement.js');await until(()=>p.w.document.querySelector('.aes-personnel-management-apply'));
     const button=p.w.document.querySelector('.aes-personnel-management-apply');button.click();
     await until(()=>!button.disabled);
     assert.equal(submissions,0);
     assert.equal(p.saved.settings.personnelManagement.auto,0);
+});
+
+test('a second salary adjustment can return to the original page salary',async t=>{
+    const p=browser(t,{html:staff,path:'/action/enterprise/staffOverview',data:{settings:{personnelManagement:{type:'absolute',value:3}}}});
+    const amounts=[];p.w.fetch=async(url,options)=>{amounts.push(options.body.get('amount'));return {ok:true};};
+    p.load('content_personnelManagement.js');await until(()=>p.w.document.querySelector('.aes-personnel-management-apply'));
+    const button=p.w.document.querySelector('.aes-personnel-management-apply');button.click();
+    await until(()=>amounts.length===1&&!button.disabled);
+    p.w.$('#aes-input-personnelManagement-value').val('-200').trigger('change');
+    button.click();await until(()=>amounts.length===2&&!button.disabled);
+    assert.deepEqual(amounts,['1003','800']);
+});
+
+for(const failure of ['http','network'])test(`salary ${failure} failure is reported without retrying writes`,async t=>{
+    const p=browser(t,{html:staffBatch,path:'/action/enterprise/staffOverview',data:{settings:{personnelManagement:{type:'absolute',value:3}}}});
+    let submissions=0;
+    p.w.fetch=async()=>{
+        submissions++;
+        if(failure==='network')throw Error('Network unavailable');
+        return {ok:false,status:503};
+    };
+    p.load('modules/notification.js');p.load('modules/notifications.js');
+    p.load('content_personnelManagement.js');await until(()=>p.w.document.querySelector('.aes-personnel-management-apply'));
+    const button=p.w.document.querySelector('.aes-personnel-management-apply');button.click();
+    await until(()=>submissions===2&&!button.disabled);
+    assert.equal(submissions,2,'each form is attempted once, never retried');
+    await until(()=>(failure==='http'?/503/:/Network unavailable/).test(p.w.document.body.textContent));
+});
+
+test('salary validates all form destinations before dispatching any request',async t=>{
+    const p=browser(t,{html:staffBatch,path:'/action/enterprise/staffOverview',data:{settings:{personnelManagement:{type:'absolute',value:3}}}});
+    p.w.document.querySelectorAll('form')[1].action='https://example.com/';
+    let submissions=0;p.w.fetch=async()=>{submissions++;return {ok:true};};
+    p.load('modules/notification.js');p.load('modules/notifications.js');
+    p.load('content_personnelManagement.js');await until(()=>p.w.document.querySelector('.aes-personnel-management-apply'));
+    const button=p.w.document.querySelector('.aes-personnel-management-apply');button.click();
+    await until(()=>!button.disabled);
+    assert.equal(submissions,0);
+    await until(()=>/Salary buttons not found/.test(p.w.document.body.textContent));
 });
 
 test('pricing clipboard copies only active cabin rules and bounds without changing inactive rules',async t=>{

@@ -6,6 +6,8 @@ var settings: Record<string, unknown>;
 var server: string;
 var airline: AESModel.Airline;
 var personnelNotifications: Notifications | undefined;
+// Once submitted, the original page values no longer describe server salaries.
+const submittedSalaryForms = new WeakSet<HTMLFormElement>();
 const PERSONNEL_MANAGEMENT_SCRIPT_ENABLED = AES.runContentScript("content_personnelManagement", function() {
     chrome.storage.local.get(['settings'], function(result) {
         AES.tryRun("content_personnelManagement", function() {
@@ -172,7 +174,7 @@ function salaryUpdate(options: AESModel.SalaryUpdateOptions = {}) {
                 failSalaryUpdate(AESI18n.t('Salary rows could not be identified.'),options);
                 return;
             }
-            if (newSalary !== salary) {
+            if (newSalary !== salary || submittedSalaryForms.has(salaryForm[0] as HTMLFormElement)) {
                 salaryInput.val(newSalary).trigger('input').trigger('change');
                 if (salaryBtn.length) {
                     salaryButtons.push(salaryBtn);
@@ -192,23 +194,50 @@ function salaryUpdate(options: AESModel.SalaryUpdateOptions = {}) {
     });
 }
 
-/** Use the game's submit buttons, with dispatch pacing shared by all AES jobs. */
+/** Dispatch ordinary salary form POSTs without letting a response unload the batch. */
 async function submitSalaryChanges(buttons: JQuery[]) {
     const forms = new Set<HTMLFormElement>();
     const current = AESRead.context();
-    for (const button of buttons) {
+    const submissions = buttons.flatMap(button => {
         const form = button.closest('form')[0] as HTMLFormElement | undefined;
-        if (!form || forms.has(form)) continue;
+        if (!form || forms.has(form)) return [];
         forms.add(form);
-        const permit = await AES.queuePage(location.href,'salary',current);
-        try {
-            if (!current() || !form.isConnected) throw new Error(AESI18n.t('The page changed.'));
-            button.trigger('click');
-        } finally {
-            // Release on dispatch, not on the server response. Never verify or retry.
-            await permit.complete();
+        const submitter = button[0] as HTMLButtonElement | HTMLInputElement;
+        const action = new URL(submitter.getAttribute('formaction') || form.getAttribute('action') || location.href, document.baseURI);
+        const method = submitter.getAttribute('formmethod') || form.getAttribute('method') || 'get';
+        if (method.toLowerCase() !== 'post' || action.origin !== location.origin ||
+            action.pathname !== '/action/enterprise/staffOverview' || action.search || action.hash) {
+            throw new Error(AESI18n.t('Salary buttons not found. AES could not submit the calculated salary changes.'));
         }
+        const body = new URLSearchParams();
+        for (const [name, value] of new FormData(form, submitter)) {
+            if (typeof value === 'string') body.append(name, value);
+        }
+        return [{form, action, body}];
+    });
+    const requests: Promise<unknown>[] = [];
+    const failures: unknown[] = [];
+    try {
+        for (const {form, action, body} of submissions) {
+            const permit = await AES.queuePage(location.href, 'salary', current);
+            try {
+                if (!current() || !form.isConnected) throw new Error(AESI18n.t('The page changed.'));
+                // Catch immediately: an early response must not interrupt dispatch or
+                // become an unhandled rejection while other positions await the queue.
+                submittedSalaryForms.add(form);
+                requests.push(fetch(action.href, {method: 'POST', body, credentials: 'same-origin'})
+                    .then(response => {
+                        if (!response.ok) throw new Error(AESI18n.t('Page request failed (HTTP {0}).', {0: response.status}));
+                    }).catch(error => { failures.push(error); }));
+            } finally {
+                // Pace dispatch only; do not wait for each server response or retry.
+                await permit.complete();
+            }
+        }
+    } finally {
+        await Promise.all(requests);
     }
+    if (failures.length) throw failures[0];
 }
 
 function getStaffSalaryTableInfo() {

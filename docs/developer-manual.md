@@ -88,11 +88,13 @@ intercepted on initialized pages. It does not intercept unrelated manual browser
 navigation, game resource requests, or requests from a separate installed AES copy.
 The interval is a conservative default, not a verified game firewall limit.
 
-Salary adjustments use the game's native submit buttons, once per affected form,
-through the shared 55–65 ms dispatch queue. Each permit is released immediately
-after the click; AES does not wait for responses, read salaries back, retry writes,
-or reload the page. Game salary limits are left to the server. The recorded update
-time represents an adjustment attempt, not verified persistence. Legacy pending
+Salary adjustments POST the game's form fields (including the submitter), once per
+affected form, using current-page fetch through the shared 55–65 ms dispatch queue.
+Responses cannot navigate away and interrupt the remaining positions. Each permit
+is released immediately after dispatch, without waiting for that response. AES
+waits for the dispatched requests to settle before re-enabling Apply and reports
+transport/HTTP errors; it does not read salaries back, retry writes, or reload the
+page. Game salary limits are left to the server. The recorded update time represents an adjustment attempt, not verified persistence. Legacy pending
 journals no longer resume submissions and are removed by the next adjustment.
 
 ## Localization checks
