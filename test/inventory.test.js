@@ -232,6 +232,45 @@ function curveSettings(extra={}) {
     config.invPricing.recommendation.Y={minPrice:60,maxPrice:200,steps:[],points:[{load:0,change:-15},{load:85,change:0},{load:95,change:3},{load:100,change:6}]};
     return config;
 }
+for(const mode of ['steps','curve']) for(const boundary of ['min','max']) {
+    test(`${mode} pricing at the ${boundary} limit closes without submitting, with or without today's snapshot`,async t=>{
+        const current=boundary==='min'?60:200;
+        for(const savedToday of [false,true]) for(const autoAnalysisSave of [0,1]) {
+            const config=(mode==='curve'?curveSettings:settings)({autoPriceUpdate:1,autoClose:1,autoAnalysisSave});
+            const data={settings:config};
+            if(savedToday) data[key]={date:{20260908:{data:{},pricingUpdated:0}}};
+            const p=inventory(t,{current,rows:row('Y',current,boundary==='min'?20:100),data});
+            await load(p);await until(()=>p.closed===1);
+            assert.equal(p.submissions.length,0);
+            assert.equal(p.w.document.querySelector('.pricing input').value,String(current));
+            if(savedToday || autoAnalysisSave) {
+                assert.equal(p.saved[key].date['20260908'].pricingUpdated,0);
+                assert.equal(p.saved[key].date['20260908'].pricingUpdatePending,undefined);
+            } else assert.equal(p.saved[key],undefined);
+            if(!savedToday && autoAnalysisSave) assert.equal(p.saved[key].date['20260908'].data.Y.currentPrice,current);
+        }
+    });
+}
+test('limit no-op waits for snapshot persistence and stays open after a failed save',async t=>{
+    const p=inventory(t,{current:200,rows:row('Y',200),data:{settings:settings({autoPriceUpdate:1,autoAnalysisSave:1,autoClose:1})}});
+    const original=p.w.chrome.storage.local.set;let finish;
+    p.w.chrome.storage.local.set=(values,callback)=>values[key]?new Promise((resolve,reject)=>{finish=()=>original(values,callback).then(resolve,reject);}):original(values,callback);
+    await load(p);await until(()=>finish);assert.equal(p.closed,0);
+    p.failures.set='Write failed';finish();
+    await until(()=>/Unable to save/.test(p.w.document.querySelector('#aes-div-analysis').textContent));
+    assert.equal(p.closed,0);assert.equal(p.saved[key],undefined);assert.equal(p.submissions.length,0);
+});
+test('limit no-op respects disabled closing, pending updates, other cabin changes and reference-only analysis',async t=>{
+    for(const scenario of ['disabled','pending','other cabin','reference','no data']) {
+        const data={settings:settings({autoPriceUpdate:1,autoClose:scenario==='disabled'?0:1})};
+        if(scenario==='pending') data[key]={date:{20260907:{data:{},pricingUpdated:0,pricingUpdatePending:{targetPrices:{Y:190}}}}};
+        const rows=scenario==='reference'?row('Y',190):scenario==='no data'?row('Y',200,80,'scheduled'):row('Y',200)+(scenario==='other cabin'?row('C',200,20):'');
+        const p=inventory(t,{current:200,rows,data});await load(p);
+        if(scenario==='other cabin') await until(()=>p.submissions.length===1);
+        assert.equal(p.closed,0);
+        if(scenario!=='other cabin') assert.equal(p.submissions.length,0);
+    }
+});
 test('curve pricing uses fractional loads and actual prices, and persists the rounded recommendation',async t=>{
     const p=inventory(t,{current:164,rows:row('Y',164,183).replace('<td>100</td>','<td>200</td>'),data:{settings:curveSettings()}});
     p.w.document.querySelectorAll('.pricing tr').forEach(tr=>tr.lastElementChild.textContent='137');
@@ -243,9 +282,10 @@ test('curve pricing uses fractional loads and actual prices, and persists the ro
     assert.equal(item.newPrice,167);assert.equal(item.recommendationIsCustom,false);
     assert.equal(item.totalCap,200);assert.equal(item.totalBkd,183);
 });
-test('curve no-op after rounding does not submit prices automatically',async t=>{
-    const config=curveSettings({autoPriceUpdate:1});config.invPricing.recommendation.Y.points=[{load:0,change:0.1},{load:100,change:0.1}];
+test('curve no-op after rounding closes without submitting prices automatically',async t=>{
+    const config=curveSettings({autoPriceUpdate:1,autoClose:1});config.invPricing.recommendation.Y.points=[{load:0,change:0.1},{load:100,change:0.1}];
     const p=inventory(t,{data:{settings:config}});await load(p);
+    await until(()=>p.closed===1);
     assert.equal(p.w.document.querySelector('.pricing input').value,'100');
     assert.equal(p.w.document.querySelector('#aes-btn-invPricing-apply-new-prices'),null);assert.equal(p.submissions.length,0);
     assert.match(p.w.document.querySelector('#aes-table-analysis').textContent,/Keep price/);
@@ -341,6 +381,13 @@ test('confirmed inventory closes even when the new prices leave no valid analysi
     await load(p);await until(()=>p.closed===1);
     assert.equal(p.saved[key].date['20260908'].pricingUpdated,1);
     assert.equal(p.saved[key].date['20260908'].pricingUpdatePending,undefined);
+});
+
+test('confirmed prices at a limit request closure only once',async t=>{
+    const pending={date:{20260908:{data:{},pricingUpdated:0,pricingUpdatePending:{targetPrices:{Y:200}}}}};
+    const p=inventory(t,{current:200,rows:row('Y',200),data:{[key]:pending,settings:settings({autoClose:1})}});
+    await load(p);assert.equal(p.closed,1);
+    assert.equal(p.saved[key].date['20260908'].pricingUpdated,1);
 });
 
 

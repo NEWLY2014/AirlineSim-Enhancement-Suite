@@ -208,12 +208,31 @@ async function displayInventory(revision: number) {
     displayAnalysis(analysis, prices);
     //Display history
     displayHistory(analysis);
-    if (settings.invPricing.autoClose && (confirmed || getSnapshot(todayDate).pricingUpdated)) closeInventoryTab(revision);
+    if (settings.invPricing.autoClose && (confirmed || getSnapshot(todayDate).pricingUpdated)) {
+        closeInventoryTab(revision);
+        return;
+    }
 
 
     //Automation
     //Check if valid analysis exists
     if (analysis.hasValue('valid') || analysis.hasValue('newPrice')) {
+        // Limits and curve rounding can complete pricing without a submission.
+        // Leave incomplete/reference-only analysis open, and save first when requested.
+        const unchangedPricing = analysis.hasValue('valid') && !analysis.hasValue('newPrice') &&
+            cabins.every(cmp => {
+                const item = analysis.data[cmp];
+                return !item.valid || (item.canRecommend && item.recommendationIsCustom === false &&
+                    ['At lowest', 'At highest', 'Keep price'].includes(String(item.recommendation)));
+            });
+        if (settings.invPricing.autoClose && unchangedPricing) {
+            if (settings.invPricing.autoAnalysisSave && !pricingData.date[todayDate]) {
+                $('#aes-btn-invPricing-save-snapshot').click();
+            } else {
+                closeInventoryTab(revision);
+            }
+            return;
+        }
         //CHeck if updated todayDate
         if (pricingData.date[todayDate]) {
             //Today update exists
