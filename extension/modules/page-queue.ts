@@ -2,7 +2,7 @@
  * own permit. No timer or open response channel must survive worker suspension. */
 (() => {
     const KEY = 'aesPageQueueV1';
-    const gap = () => 55 + Math.floor(Math.random() * 11);
+    const gap = () => 60 + Math.floor(Math.random() * 11);
     const LEASE = 10000;
     const CLIENT_TIMEOUT = 120000; // Background-tab polling can be throttled to once a minute.
     const TAB_EDIT_ERROR = 'Tabs cannot be edited right now (user may be dragging a tab).';

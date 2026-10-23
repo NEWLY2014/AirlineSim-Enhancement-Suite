@@ -7,10 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Increase the shared page queue’s randomized dispatch interval from 55–65 ms to 60–70 ms for all operation types.
+
 ### Fixed
 
 - Resume queued page opening and navigation when Chrome temporarily locks the tab strip during a drag. Preserve ordering, cancellation and dispatch spacing without replaying successful operations.
-- Keep salary form responses from navigating away before the remaining positions are submitted. Apply Salaries dispatches the entire table through the shared 55–65 ms queue without verifying wage values or retrying writes.
+- Keep salary form responses from navigating away before the remaining positions are submitted. Apply Salaries dispatches the entire table through the shared 60–70 ms queue without verifying wage values or retrying writes.
 
 ## [0.9.0-beta.12] - 2026-10-05
 
