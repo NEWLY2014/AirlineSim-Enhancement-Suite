@@ -1,5 +1,26 @@
 const AES_RELEASE_NOTES_STORAGE_KEY = "aesReleaseNotesSeenVersion"
 const AES_RELEASE_NOTES: Record<string, AESModel.ReleaseNotes | undefined> = {
+    "0.9.0-beta.13": {
+        "title": "Release Notes",
+        "releaseDate": "2026-10-23",
+        "summary": "Improve automatic page closing and queued operations.",
+        "sections": [
+            {
+                "title": "Fixed",
+                "items": [
+                    "Automatically close Inventory pages when price limits or curve rounding leave prices unchanged. Wait for snapshot saves to succeed when automatic saving is enabled.",
+                    "Resume queued page opening and navigation after dragging a browser tab.",
+                    "Apply Salaries finishes submitting all positions without an earlier response navigating away from the page."
+                ]
+            },
+            {
+                "title": "Changed",
+                "items": [
+                    "Use randomized 60–70 ms intervals for all shared queue operations."
+                ]
+            }
+        ]
+    },
     "0.9.0-beta.12": {
         "title": "Release Notes",
         "releaseDate": "2026-10-05",

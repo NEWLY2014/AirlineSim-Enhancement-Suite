@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0-beta.13] - 2026-10-23
+
 ### Security
 
 - Update the transitive development dependency `source-map-js` from 1.2.1 to 1.2.2 to fix CVE-2026-93749 (GHSA-68fv-2mgg-jv7q).
@@ -17,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Close Inventory pages when price limits or curve rounding leave prices unchanged, waiting for requested snapshot saves and retaining pending-update safeguards.
 - Resume queued page opening and navigation when Chrome temporarily locks the tab strip during a drag. Preserve ordering, cancellation and dispatch spacing without replaying successful operations.
 - Keep salary form responses from navigating away before the remaining positions are submitted. Apply Salaries dispatches the entire table through the shared 60–70 ms queue without verifying wage values or retrying writes.
 
