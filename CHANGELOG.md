@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- Update the transitive development dependency `source-map-js` from 1.2.1 to 1.2.2 to fix CVE-2026-93749 (GHSA-68fv-2mgg-jv7q).
+
 ### Changed
 
 - Increase the shared page queue’s randomized dispatch interval from 55–65 ms to 60–70 ms for all operation types.
