@@ -759,5 +759,10 @@
   "Paste configuration": "設定を貼り付け",
   "Copied {0} configuration.": "{0}の設定をコピーしました。",
   "Configuration pasted. Click Save to apply.": "設定を貼り付けました。保存を押すと適用されます。",
-  "Tabs cannot be edited right now (user may be dragging a tab).": "現在タブを変更できません（タブをドラッグしている可能性があります）。"
+  "Tabs cannot be edited right now (user may be dragging a tab).": "現在タブを変更できません（タブをドラッグしている可能性があります）。",
+  "The server returned an error page. Automatic requests are paused. Please try again later.": "サーバーからエラーページが返されました。自動リクエストを一時停止しました。しばらくしてから再試行してください。",
+  "Reduce request overlap and pause automatic requests after server errors.": "リクエストの重複を減らし、サーバーエラー後は自動リクエストを一時停止します。",
+  "Wait for page loads and salary responses before starting the next queued operation.": "ページの読み込みと給与変更の応答が完了してから、次のキュー処理を開始します。",
+  "Pause automatic requests after HTTP 429 or Unexpected Error pages, and wait longer if errors repeat.": "HTTP 429 または Unexpected Error ページの後は自動リクエストを一時停止し、エラーが続く場合は待機時間を延長します。",
+  "Stop the remaining salary submissions after an error without retrying writes.": "エラー後は残りの給与送信を停止し、書き込みを自動再試行しません。"
 }

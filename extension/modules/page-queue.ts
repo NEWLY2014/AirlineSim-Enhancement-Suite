@@ -2,7 +2,9 @@
  * own permit. No timer or open response channel must survive worker suspension. */
 (() => {
     const KEY = 'aesPageQueueV1';
-    const gap = () => 60 + Math.floor(Math.random() * 11);
+    const gap = () => 55 + Math.floor(Math.random() * 11);
+    const PAGE_TIMEOUT = 120000;
+    const COOLDOWN = 60000;
     const LEASE = 10000;
     const CLIENT_TIMEOUT = 120000; // Background-tab polling can be throttled to once a minute.
     const TAB_EDIT_ERROR = 'Tabs cannot be edited right now (user may be dragging a tab).';
@@ -12,10 +14,10 @@
         id: string; kind: Kind; url: string; source: number; document: string;
         seen: number; state: 'queued' | 'running' | 'done' | 'failed';
         started?: number; expires?: number; target?: number; loading?: boolean;
-        tabEditDeadline?: number; tabEditRetries?: number;
+        tabEditDeadline?: number; tabEditRetries?: number; navigationStarted?: boolean;
         error?: string;
     }
-    interface State { jobs: Job[]; next: number }
+    interface State { jobs: Job[]; next: number; backoff?: number; lastFailure?: number }
     let serial: Promise<unknown> = Promise.resolve();
     const record = (x: unknown): x is Record<string, unknown> => !!x && typeof x === 'object' && !Array.isArray(x);
     function allowed(url: unknown, kind: Kind): url is string {
@@ -38,13 +40,16 @@
             (x.started === undefined || typeof x.started === 'number') && (x.expires === undefined || typeof x.expires === 'number') &&
             (x.tabEditDeadline === undefined || typeof x.tabEditDeadline === 'number') &&
             (x.tabEditRetries === undefined || typeof x.tabEditRetries === 'number') &&
-            (x.target === undefined || typeof x.target === 'number') && (x.loading === undefined || typeof x.loading === 'boolean');
+            (x.target === undefined || typeof x.target === 'number') && (x.loading === undefined || typeof x.loading === 'boolean') &&
+            (x.navigationStarted === undefined || typeof x.navigationStarted === 'boolean');
     }
     async function transaction(change: (s: State) => Promise<unknown>) {
         const result = serial.then(async () => {
             const stored = (await chrome.storage.session.get(KEY))[KEY];
             const state: State = record(stored) && Array.isArray(stored.jobs) && stored.jobs.every(isJob) && typeof stored.next === 'number'
-                ? { jobs: stored.jobs, next: stored.next } : {jobs: [], next: 0};
+                ? { jobs: stored.jobs, next: stored.next,
+                    backoff: typeof stored.backoff === 'number' ? stored.backoff : undefined,
+                    lastFailure: typeof stored.lastFailure === 'number' ? stored.lastFailure : undefined } : {jobs: [], next: 0};
             return change(state);
         });
         serial = result.catch(() => {});
@@ -52,7 +57,7 @@
     }
     const notices = new Map<string,string>();
     function wakeAt(s: State) {
-        const active = s.jobs.find(j => (j.kind === 'price' || j.kind === 'read' || j.kind === 'salary') && j.state === 'running');
+        const active = s.jobs.find(j => j.state === 'running' || j.loading);
         return Math.max(s.next, active?.expires || 0);
     }
     const save = async (s: State) => {
@@ -75,15 +80,27 @@
     function fail(job: Job, error: string) { job.state = 'failed'; job.error = error; }
     async function pump(s: State) {
         const now = Date.now();
-        s.jobs = s.jobs.filter(j => j.state === 'queued' || now - j.seen < 60000);
+        s.jobs = s.jobs.filter(j => j.state === 'queued' || j.state === 'running' || j.loading || now - j.seen < 60000);
         for (const job of s.jobs) {
             if (job.state === 'queued' && now - job.seen > CLIENT_TIMEOUT) fail(job, 'The requesting page stopped waiting.');
         }
-        const submitting = s.jobs.find(j => (j.kind === 'price' || j.kind === 'read' || j.kind === 'salary') && j.state === 'running');
-        if (submitting) {
-            if (now < (submitting.expires || 0)) return;
-            fail(submitting, 'Request dispatch permit expired.');
-            s.next = Math.max(s.next, now + gap());
+        for (const active of s.jobs.filter(j => j.state === 'running' || j.loading)) {
+            // Recover missed completion events after worker suspension. Until a
+            // navigation has started, the old complete state is not an ack.
+            if (active.loading && active.target !== undefined && active.navigationStarted) {
+                try {
+                    if ((await chrome.tabs.get(active.target)).status === 'complete') {
+                        active.loading = false; s.next = Math.max(s.next, now + gap());
+                    }
+                } catch { active.loading = false; s.next = Math.max(s.next, now + gap()); }
+            }
+            if (!active.loading && active.state !== 'running') continue;
+            if (now < (active.expires || 0)) return;
+            // Unknown outcomes are never replayed. Give slow/abandoned requests
+            // a recovery pause rather than immediately overlapping another one.
+            active.loading = false;
+            fail(active, 'Request dispatch permit expired.');
+            s.next = Math.max(s.next, now + COOLDOWN);
         }
         if (now < s.next) return;
         const job = s.jobs.find(j => j.state === 'queued');
@@ -91,7 +108,7 @@
         // Request permits are granted only by their source page's poll.
         // Another client must never dispatch a pending request for that page.
         if (job.kind === 'price' || job.kind === 'read' || job.kind === 'salary') return;
-        job.state = 'running'; job.started = now; s.next = now + gap();
+        job.state = 'running'; job.started = now; job.expires = now + PAGE_TIMEOUT; s.next = now + gap();
         job.target = job.kind === 'navigate' ? job.source : undefined;
         // Persist intent before the side effect. Restarting must not replay it.
         await save(s);
@@ -101,7 +118,7 @@
                 : await chrome.tabs.create({url: job.url, active: false});
             job.target = tab?.id;
             if (job.target === undefined) fail(job, 'No tab was created.');
-            else job.state = 'done';
+            else { job.state = 'done'; job.loading = true; job.navigationStarted = tab?.status === 'loading'; }
             s.next = Math.max(s.next, Date.now() + gap());
         } catch (e) {
             const error = (e instanceof Error ? e.message : String(e)).replace(/^Error: /, '');
@@ -130,6 +147,17 @@
         const requestId = message.id;
         transaction(async s => {
             const now = Date.now();
+            if (message.op === 'cooldown') {
+                if (!sender.url || !/^https:\/\/[^/]+\.airlinesim\.aero\/(?:app|action)\//.test(sender.url)) return {ok:false,error:'Unsupported queue destination.'};
+                s.backoff = s.lastFailure !== undefined && now - s.lastFailure < 600000
+                    ? Math.min(900000, (s.backoff || COOLDOWN) * 2) : COOLDOWN;
+                s.lastFailure = now;
+                const requested = typeof message.delay === 'number' && Number.isFinite(message.delay)
+                    ? Math.min(86400000, Math.max(0, message.delay)) : 0;
+                s.next = Math.max(s.next, now + Math.max(s.backoff, requested));
+                await save(s);
+                return {ok:true,notBefore:s.next};
+            }
             let job = s.jobs.find(j => j.id === requestId);
             if (job && (job.source !== source || job.document !== doc)) return {ok:false,error:'Queue request owner mismatch.'};
             if (message.op === 'enqueue' && !job) {
@@ -144,7 +172,9 @@
             if (!job) return {ok:false,error:'Queue request expired. Please retry.'};
             job.seen = now;
             if (message.op === 'complete' && (job.kind === 'price' || job.kind === 'read' || job.kind === 'salary') && job.state === 'running') {
-                job.state = 'done'; s.next = Math.max(s.next, now + gap());
+                job.state = 'done';
+                if (job.kind === 'price') { job.loading = true; job.expires = now + PAGE_TIMEOUT; }
+                s.next = Math.max(s.next, now + gap());
             }
             if (message.op === 'cancel') {
                 if (job.state === 'queued' || ((job.kind === 'price' || job.kind === 'read' || job.kind === 'salary') && !job.loading)) {
@@ -154,8 +184,8 @@
             }
             await pump(s);
             if (message.op === 'poll' && (job.kind === 'price' || job.kind === 'read' || job.kind === 'salary') && job.state === 'queued' &&
-                !s.jobs.some(j => (j.kind === 'price' || j.kind === 'read' || j.kind === 'salary') && j.state === 'running') && s.jobs.find(j => j.state === 'queued') === job && now >= s.next) {
-                job.state = 'running'; job.started = now; job.expires = now + (job.kind === 'read' ? 30000 : LEASE); job.target = source; s.next = now + gap();
+                !s.jobs.some(j => j.state === 'running' || j.loading) && s.jobs.find(j => j.state === 'queued') === job && now >= s.next) {
+                job.state = 'running'; job.started = now; job.expires = now + (job.kind === 'read' || job.kind === 'salary' ? 30000 : LEASE); job.target = source; s.next = now + gap();
             }
             await save(s);
             return {ok:job.state !== 'failed', state:job.state, expires:job.expires, error:job.error,
@@ -165,26 +195,33 @@
         }).then(reply, error => reply({ok:false,error:'Page queue unavailable: ' + String(error)}));
         return true;
     });
-    // Navigation only cancels waiting source requests; target load completion
-    // never holds or advances the dispatch clock.
+    // Target loads hold the shared slot through redirects and form navigation.
     chrome.tabs.onUpdated.addListener((id, change) => {
-        if (change.status !== 'loading') return;
+        if (change.status !== 'loading' && change.status !== 'complete') return;
         void transaction(async s => {
             for (const job of s.jobs) {
-                if (job.source === id && (job.state === 'queued' || (job.kind === 'read' && job.state === 'running'))) {
-                    fail(job, 'The requesting page navigated away.'); s.next = Math.max(s.next, Date.now() + gap());
+                if (change.status === 'loading') {
+                    if (job.source === id && (job.state === 'queued' || (job.kind === 'read' && job.state === 'running'))) {
+                        fail(job, 'The requesting page navigated away.'); s.next = Math.max(s.next, Date.now() + gap());
+                    }
+                    if (job.source === id && job.kind === 'price' && job.state === 'running') {
+                        job.state = 'done'; job.loading = true; job.expires = Date.now() + PAGE_TIMEOUT;
+                    }
+                    if (job.target === id && job.loading) job.navigationStarted = true;
+                } else if (job.target === id && job.loading) {
+                    job.loading = false; s.next = Math.max(s.next, Date.now() + gap());
                 }
-                // A navigation start is also a dispatch acknowledgement if the
-                // submitting document unloads before its explicit reply arrives.
-                if (job.source === id && (job.kind === 'price' || job.kind === 'salary') && job.state === 'running') {job.state = 'done'; s.next = Math.max(s.next, Date.now() + gap());}
             }
             await save(s);
         }).catch(console.error);
     });
     chrome.tabs.onRemoved.addListener(id => {
         void transaction(async s => {
-            for (const job of s.jobs) if (job.source === id && (job.state === 'queued' || (job.kind === 'read' && job.state === 'running'))) {
-                fail(job, 'Tab closed.'); s.next = Math.max(s.next, Date.now() + gap());
+            for (const job of s.jobs) {
+                if (job.target === id && job.loading) {job.loading = false; s.next = Math.max(s.next, Date.now() + gap());}
+                if (job.source === id && (job.state === 'queued' || (job.kind === 'read' && job.state === 'running'))) {
+                    fail(job, 'Tab closed.'); s.next = Math.max(s.next, Date.now() + gap());
+                }
             }
             await save(s);
         }).catch(console.error);

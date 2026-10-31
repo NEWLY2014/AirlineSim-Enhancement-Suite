@@ -59,13 +59,14 @@ class AESRead {
         try {
             if (!current() || Date.now() >= (slot.expires || 0)) throw new Error(AESI18n.t("Read request expired or page changed."));
             const response = await fetch(url.href, {method:'GET', credentials:'same-origin', signal:controller.signal});
-            if (!response.ok) throw new Error(AESI18n.t("Page request failed (HTTP {0}).", {0: response.status}));
+            await AES.checkServerResponse(response);
             const returned = new URL(response.url);
             const path = (u: URL) => u.pathname.replace(/;[^/]+/g,'');
             if (returned.origin !== url.origin || path(returned) !== path(url) || (readFlight && returned.searchParams.get('id') !== url.searchParams.get('id'))) throw new Error(AESI18n.t("The request was redirected to another page."));
             const html = await response.text();
             if (!current() || controller.signal.aborted || Date.now() >= (slot.expires || 0)) throw new Error(AESI18n.t("Read request expired or page changed."));
             const doc = new DOMParser().parseFromString(html, 'text/html');
+            await AES.checkServerResponse(response, doc);
             if (String(AESRead.frontend(doc).fixedEnterpriseId || '') !== owner) throw new Error(AESI18n.t("The active airline changed. Reload before collecting data."));
             if (readEnterprise && !doc.querySelector('.nav-tabs .tab'+url.searchParams.get('tab')+'.active')) throw new Error(AESI18n.t("The response contains the wrong enterprise tab."));
             await slot.complete();

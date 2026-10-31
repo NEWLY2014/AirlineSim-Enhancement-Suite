@@ -1,5 +1,26 @@
 const AES_RELEASE_NOTES_STORAGE_KEY = "aesReleaseNotesSeenVersion"
 const AES_RELEASE_NOTES: Record<string, AESModel.ReleaseNotes | undefined> = {
+    "0.9.0-beta.14": {
+        "title": "Release Notes",
+        "releaseDate": "2026-10-31",
+        "summary": "Reduce request overlap and pause automatic requests after server errors.",
+        "sections": [
+            {
+                "title": "Fixed",
+                "items": [
+                    "Wait for page loads and salary responses before starting the next queued operation.",
+                    "Pause automatic requests after HTTP 429 or Unexpected Error pages, and wait longer if errors repeat.",
+                    "Stop the remaining salary submissions after an error without retrying writes."
+                ]
+            },
+            {
+                "title": "Changed",
+                "items": [
+                    "Use randomized 55–65 ms intervals for all shared queue operations, including salary submissions."
+                ]
+            }
+        ]
+    },
     "0.9.0-beta.13": {
         "title": "Release Notes",
         "releaseDate": "2026-10-23",

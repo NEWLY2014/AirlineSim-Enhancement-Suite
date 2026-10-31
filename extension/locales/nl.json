@@ -759,5 +759,10 @@
   "Paste configuration": "Configuratie plakken",
   "Copied {0} configuration.": "Configuratie van {0} gekopieerd.",
   "Configuration pasted. Click Save to apply.": "Configuratie geplakt. Klik op Opslaan om deze toe te passen.",
-  "Tabs cannot be edited right now (user may be dragging a tab).": "Tabbladen kunnen nu niet worden gewijzigd (mogelijk wordt een tabblad versleept)."
+  "Tabs cannot be edited right now (user may be dragging a tab).": "Tabbladen kunnen nu niet worden gewijzigd (mogelijk wordt een tabblad versleept).",
+  "The server returned an error page. Automatic requests are paused. Please try again later.": "De server heeft een foutpagina teruggestuurd. Automatische verzoeken zijn gepauzeerd. Probeer het later opnieuw.",
+  "Reduce request overlap and pause automatic requests after server errors.": "Verminder overlappende verzoeken en pauzeer automatische verzoeken na serverfouten.",
+  "Wait for page loads and salary responses before starting the next queued operation.": "Wacht op het laden van pagina’s en salarisreacties voordat de volgende wachtrijbewerking begint.",
+  "Pause automatic requests after HTTP 429 or Unexpected Error pages, and wait longer if errors repeat.": "Pauzeer automatische verzoeken na HTTP 429 of Unexpected Error-pagina’s en wacht langer bij herhaalde fouten.",
+  "Stop the remaining salary submissions after an error without retrying writes.": "Stop na een fout de resterende salarisinzendingen zonder schrijfacties opnieuw te proberen."
 }

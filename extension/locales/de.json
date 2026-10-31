@@ -759,5 +759,10 @@
   "Paste configuration": "Konfiguration einfügen",
   "Copied {0} configuration.": "Konfiguration für {0} kopiert.",
   "Configuration pasted. Click Save to apply.": "Konfiguration eingefügt. Zum Übernehmen auf Speichern klicken.",
-  "Tabs cannot be edited right now (user may be dragging a tab).": "Tabs können derzeit nicht geändert werden (möglicherweise wird ein Tab gezogen)."
+  "Tabs cannot be edited right now (user may be dragging a tab).": "Tabs können derzeit nicht geändert werden (möglicherweise wird ein Tab gezogen).",
+  "The server returned an error page. Automatic requests are paused. Please try again later.": "Der Server hat eine Fehlerseite zurückgegeben. Automatische Anfragen sind pausiert. Bitte versuche es später erneut.",
+  "Reduce request overlap and pause automatic requests after server errors.": "Weniger überlappende Anfragen und automatische Pausen nach Serverfehlern.",
+  "Wait for page loads and salary responses before starting the next queued operation.": "Warte auf geladene Seiten und Gehaltsantworten, bevor der nächste Vorgang in der Warteschlange startet.",
+  "Pause automatic requests after HTTP 429 or Unexpected Error pages, and wait longer if errors repeat.": "Pausiere automatische Anfragen nach HTTP 429 oder Unexpected Error und warte bei wiederholten Fehlern länger.",
+  "Stop the remaining salary submissions after an error without retrying writes.": "Stoppe nach einem Fehler die verbleibenden Gehaltsübermittlungen, ohne Schreibvorgänge zu wiederholen."
 }

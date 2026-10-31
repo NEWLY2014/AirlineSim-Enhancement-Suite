@@ -759,5 +759,10 @@
   "Paste configuration": "Paste configuration",
   "Copied {0} configuration.": "Copied {0} configuration.",
   "Configuration pasted. Click Save to apply.": "Configuration pasted. Click Save to apply.",
-  "Tabs cannot be edited right now (user may be dragging a tab).": "Tabs cannot be edited right now (user may be dragging a tab)."
+  "Tabs cannot be edited right now (user may be dragging a tab).": "Tabs cannot be edited right now (user may be dragging a tab).",
+  "The server returned an error page. Automatic requests are paused. Please try again later.": "The server returned an error page. Automatic requests are paused. Please try again later.",
+  "Reduce request overlap and pause automatic requests after server errors.": "Reduce request overlap and pause automatic requests after server errors.",
+  "Wait for page loads and salary responses before starting the next queued operation.": "Wait for page loads and salary responses before starting the next queued operation.",
+  "Pause automatic requests after HTTP 429 or Unexpected Error pages, and wait longer if errors repeat.": "Pause automatic requests after HTTP 429 or Unexpected Error pages, and wait longer if errors repeat.",
+  "Stop the remaining salary submissions after an error without retrying writes.": "Stop the remaining salary submissions after an error without retrying writes."
 }

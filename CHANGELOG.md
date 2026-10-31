@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0-beta.14] - 2026-10-31
+
+### Fixed
+
+- Prevent shared queue operations from overlapping slow page loads and salary responses. Wait for completion plus a randomized 55–65 ms gap across tabs, preserving loading state across worker restarts.
+- Pause the shared queue on HTTP 429, server errors and recognized Unexpected Error pages, including error pages returned with HTTP 200. Honor Retry-After and increase the cooldown on repeated failures. Stop salary batches on the first error without retrying writes.
+
 ## [0.9.0-beta.13] - 2026-10-23
 
 ### Security

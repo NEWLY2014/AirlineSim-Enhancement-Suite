@@ -215,29 +215,26 @@ async function submitSalaryChanges(buttons: JQuery[]) {
         }
         return [{form, action, body}];
     });
-    const requests: Promise<unknown>[] = [];
-    const failures: unknown[] = [];
-    try {
-        for (const {form, action, body} of submissions) {
-            const permit = await AES.queuePage(location.href, 'salary', current);
-            try {
-                if (!current() || !form.isConnected) throw new Error(AESI18n.t('The page changed.'));
-                // Catch immediately: an early response must not interrupt dispatch or
-                // become an unhandled rejection while other positions await the queue.
-                submittedSalaryForms.add(form);
-                requests.push(fetch(action.href, {method: 'POST', body, credentials: 'same-origin'})
-                    .then(response => {
-                        if (!response.ok) throw new Error(AESI18n.t('Page request failed (HTTP {0}).', {0: response.status}));
-                    }).catch(error => { failures.push(error); }));
-            } finally {
-                // Pace dispatch only; do not wait for each server response or retry.
-                await permit.complete();
-            }
-        }
-    } finally {
-        await Promise.all(requests);
+    for (const {form, action, body} of submissions) {
+        const permit = await AES.queuePage(location.href, 'salary', current);
+        const controller = new AbortController();
+        const timeout = window.setTimeout(() => controller.abort(), 20000);
+        try {
+            if (!current() || !form.isConnected || Date.now() >= (permit.expires || 0)) throw new Error(AESI18n.t('The page changed.'));
+            submittedSalaryForms.add(form);
+            const response = await fetch(action.href, {method:'POST', body, credentials:'same-origin', signal:controller.signal});
+            await AES.checkServerResponse(response);
+            // Consume the response before releasing the shared slot. Inspect only
+            // server errors; wage clamping remains the game's responsibility.
+            const doc = new DOMParser().parseFromString(await response.text(), 'text/html');
+            await AES.checkServerResponse(response, doc);
+            await permit.complete();
+        } catch (error) {
+            controller.abort();
+            await permit.cancel();
+            throw error;
+        } finally { window.clearTimeout(timeout); }
     }
-    if (failures.length) throw failures[0];
 }
 
 function getStaffSalaryTableInfo() {

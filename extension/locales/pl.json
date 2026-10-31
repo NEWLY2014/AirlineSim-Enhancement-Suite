@@ -759,5 +759,10 @@
   "Paste configuration": "Wklej konfigurację",
   "Copied {0} configuration.": "Skopiowano konfigurację: {0}.",
   "Configuration pasted. Click Save to apply.": "Wklejono konfigurację. Kliknij Zapisz, aby ją zastosować.",
-  "Tabs cannot be edited right now (user may be dragging a tab).": "Nie można teraz modyfikować kart (być może trwa przeciąganie karty)."
+  "Tabs cannot be edited right now (user may be dragging a tab).": "Nie można teraz modyfikować kart (być może trwa przeciąganie karty).",
+  "The server returned an error page. Automatic requests are paused. Please try again later.": "Serwer zwrócił stronę błędu. Automatyczne żądania zostały wstrzymane. Spróbuj ponownie później.",
+  "Reduce request overlap and pause automatic requests after server errors.": "Mniej nakładających się żądań i automatyczna przerwa po błędach serwera.",
+  "Wait for page loads and salary responses before starting the next queued operation.": "Poczekaj na załadowanie stron i odpowiedzi dotyczące wynagrodzeń przed rozpoczęciem kolejnej operacji w kolejce.",
+  "Pause automatic requests after HTTP 429 or Unexpected Error pages, and wait longer if errors repeat.": "Wstrzymaj automatyczne żądania po HTTP 429 lub stronach Unexpected Error i wydłuż oczekiwanie przy kolejnych błędach.",
+  "Stop the remaining salary submissions after an error without retrying writes.": "Po błędzie zatrzymaj pozostałe zgłoszenia wynagrodzeń bez ponawiania zapisów."
 }

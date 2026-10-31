@@ -35,6 +35,9 @@ test('Chromium loads the extension runtime, exports real storage and injects the
         if (req.url.startsWith('/app/com/inventory/')) {
             if (req.method === 'POST') priceRequests.push(Date.now());
             else {inventoryRequests.push(Date.now()); if (inventoryRequests.length === 1) await firstGate;}
+            if (req.url.endsWith('/RATE-LIMIT')) {
+                res.writeHead(200,{'Content-Type':'text/html'});res.end('<title>Unexpected Error</title><h1>Unexpected Error</h1>');return;
+            }
         }
         res.writeHead(200,{'Content-Type':'text/html'});req.resume();res.end(req.url.startsWith('/app/com/inventory/') ? inventoryFixture : fixture);
     });
@@ -123,6 +126,9 @@ test('Chromium loads the extension runtime, exports real storage and injects the
     };
     assert.equal(await page.locator('#aes-table-routeManagement tbody input:checked').count(), 10);
     await waitUntil(()=>inventoryRequests.length>=1);
+    await new Promise(resolve=>setTimeout(resolve,1700));
+    assert.equal(inventoryRequests.length,1,'loading first tab blocks the rest of the batch');
+    releaseFirst();
     await waitUntil(()=>inventoryRequests.length===10);
     await page.getByText('Opened 10 pages.',{exact:true}).waitFor();
     const alignment=await page.locator('.aes-page-queue-status').evaluate(status=>{
@@ -130,7 +136,6 @@ test('Chromium loads the extension runtime, exports real storage and injects the
         return Math.abs((text.top+text.bottom)/2-(button.top+button.bottom)/2);
     });
     assert.ok(alignment<=1,'batch status is vertically centered with its button');
-    releaseFirst(); // All ten dispatch while the first page is still loading.
     const pageDispatches=await worker.evaluate(()=>globalThis.auditPageDispatches);
     assert.equal(pageDispatches.length,10);
     for(let i=1;i<pageDispatches.length;i++) assert.ok(pageDispatches[i].time-pageDispatches[i-1].time>=55,
@@ -173,4 +178,20 @@ test('Chromium loads the extension runtime, exports real storage and injects the
     assert.equal(confirmedRecord.date['20260908'].pricingUpdated,1);
     assert.equal(confirmedRecord.date['20260908'].pricingUpdatePending,undefined);
     assert.deepEqual(errors, []);
+    // An HTTP 200 game error page must pause future operations from other tabs.
+    const rejected=await context.newPage();
+    await rejected.goto('https://paine.airlinesim.aero/app/com/inventory/RATE-LIMIT');
+    assert.equal(await worker.evaluate(async()=>{
+        for(let i=0;i<100;i++){
+            const state=(await chrome.storage.session.get('aesPageQueueV1')).aesPageQueueV1;
+            if(state.next>Date.now()+50000)return true;
+            await new Promise(resolve=>setTimeout(resolve,20));
+        }
+        return false;
+    }),true,'standalone Unexpected Error triggers a shared cooldown');
+    const beforePause=inventoryRequests.length;
+    await page.getByRole('button',{name:'Open inventory (max 10)',exact:true}).click();
+    await new Promise(resolve=>setTimeout(resolve,1700));
+    assert.equal(inventoryRequests.length,beforePause,'another tab cannot dispatch during the shared cooldown');
+    assert.ok(await worker.evaluate(async()=>(await chrome.storage.session.get('aesPageQueueV1')).aesPageQueueV1.jobs.some(j=>j.state==='queued')));
 });

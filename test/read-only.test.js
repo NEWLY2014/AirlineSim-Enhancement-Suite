@@ -118,3 +118,37 @@ test('direct empty timetable supports manual extraction without waiting for a mi
     await until(()=>p.saved.paine99schedule);
     assert.deepEqual(p.saved.paine99schedule.date['20260908'].schedule,[]);
 });
+
+test('429 honors Retry-After before cancelling its read permit and never retries',async t=>{
+    const p=page(t),send=p.w.chrome.runtime.sendMessage,messages=[];let requests=0;
+    p.w.chrome.runtime.sendMessage=(m,cb)=>{messages.push(m);return send(m,cb);};
+    p.w.fetch=async()=>{requests++;return {ok:false,status:429,headers:{get:()=> '180'}};};
+    await assert.rejects(p.run("AESRead.fetchDocument('/action/info/flight?id=1')"),/429/);
+    const pause=messages.find(m=>m.op==='cooldown');assert.equal(pause.delay,180000);
+    assert.ok(messages.indexOf(pause)<messages.findIndex(m=>m.op==='cancel'));
+    assert.equal(requests,1);assert.deepEqual(p.saved,{});
+});
+
+test('HTTP 200 Unexpected Error stops collection and pauses the shared queue',async t=>{
+    const p=page(t),send=p.w.chrome.runtime.sendMessage,messages=[];let requests=0;
+    p.w.chrome.runtime.sendMessage=(m,cb)=>{messages.push(m);return send(m,cb);};
+    p.w.fetch=async url=>{requests++;return respond(url,'<title>AirlineSim — Unexpected Error</title><h1>Unexpected Error</h1>');};
+    await assert.rejects(p.run("AESRead.collectCompetitor({id:'99',name:'Other',displayName:'Other',code:'OA'},()=>{})"),/Automatic requests are paused/);
+    assert.equal(requests,1);assert.equal(messages.filter(m=>m.op==='cooldown').length,1);assert.deepEqual(p.saved,{});
+});
+
+test('error detection ignores script text and Retry-After supports HTTP dates',async t=>{
+    const p=page(t),send=p.w.chrome.runtime.sendMessage,messages=[];
+    p.w.chrome.runtime.sendMessage=(m,cb)=>{messages.push(m);return send(m,cb);};
+    assert.equal(p.run("AES.isServerErrorPage(new DOMParser().parseFromString('<script>const example=\"Unexpected Error\";</script><p>Too many requests in an example</p>','text/html'))"),false);
+    p.w.retryDate=new Date(Date.now()+180000).toUTCString();
+    await p.run('AES.pausePageQueue(window.retryDate)');
+    assert.ok(messages[0].delay>=178000&&messages[0].delay<=180000);
+});
+
+test('standalone error page reports a cooldown even without a game header',async t=>{
+    const p=browser(t,{html:'<h1>Unexpected Error</h1>',helpers:false,path:'/app/com/inventory/AAABBB'}),send=p.w.chrome.runtime.sendMessage,messages=[];
+    p.w.chrome.runtime.sendMessage=(m,cb)=>{messages.push(m);return send(m,cb);};
+    p.load('helpers.js');await until(()=>messages.some(m=>m.op==='cooldown'));
+    assert.equal(messages.filter(m=>m.op==='cooldown').length,1);
+});

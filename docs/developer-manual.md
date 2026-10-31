@@ -75,35 +75,43 @@ completion; live-game acceptance still requires separate validation.
 
 ## Shared page queue
 
-AES batch navigation and Inventory price submissions share one queue across tabs.
-Dashboard batches accept up to 10 selections. The queue dispatches operations sequentially with a random 60–70 ms delay,
-without waiting for page loading to finish. Browser scheduling and message/storage
-latency may lengthen the actual interval. Dispatched operations are not replayed
-automatically. Pending price submissions are cancelled if the page or inputs
-change while waiting. Browser session storage preserves queue state across
-background-worker restarts; closing the browser clears the session.
+AES batch navigation, read-only collection, Inventory price submissions and salary
+POSTs share one session-persistent FIFO across tabs. Dashboard batches accept up to
+10 selections. Operations wait for the preceding response or target page load,
+then leave a randomized 55–65 ms gap. Browser scheduling and message/storage
+latency can lengthen the interval. Loading state survives worker restarts; missed
+load events are recovered from the target tab state. A stuck load or expired
+request receives a further one-minute recovery pause without replaying it.
+
+HTTP 429, server 5xx responses and recognized Unexpected Error / Too Many Requests
+error pages pause the shared queue for at least one minute. Repeated errors within
+ten minutes double the pause, up to fifteen minutes. A longer Retry-After value
+(seconds or an HTTP date) takes precedence, bounded to one day. Cooldown state is
+stored in browser session storage, so cancellation, a different tab or a worker
+restart cannot clear it. Waiting clients check in at least once a minute while
+awake, including during long cooldowns, to keep their waiting lease alive.
 
 Chrome's explicit tab-strip drag rejection leaves an open/navigation job at the
 head of the queue. Retry delays increase from 100 ms to at most 1 second; another
 drag rejection after 30 seconds ends the job. A delayed client first checks
-whether Chrome has recovered, so background timer throttling alone does not
-cause a timeout. Retry state survives worker suspension through session storage
-and the existing client notifications. Other errors and unknown dispatch outcomes
-are not retried. Successful operations retain the normal 60–70 ms spacing.
+whether Chrome has recovered. Other errors and unknown outcomes are not retried.
+Pending price submissions are cancelled if the page or inputs change while waiting.
 
-This paces AES-triggered operations, including native Inventory form submissions
-intercepted on initialized pages. It does not intercept unrelated manual browser
-navigation, game resource requests, or requests from a separate installed AES copy.
-The interval is a conservative default, not a verified game firewall limit.
+This paces operations routed through the AES queue, including native Inventory form
+submissions intercepted on initialized pages. It does not intercept unrelated
+manual browser navigation, planner AJAX, game resource requests, or requests from a
+separate installed AES copy. The server's actual rate limits are not published or
+verified; these safeguards cannot guarantee that the server never rejects a request.
 
 Salary adjustments POST the game's form fields (including the submitter), once per
-affected form, using current-page fetch through the shared 60–70 ms dispatch queue.
-Responses cannot navigate away and interrupt the remaining positions. Each permit
-is released immediately after dispatch, without waiting for that response. AES
-waits for the dispatched requests to settle before re-enabling Apply and reports
-transport/HTTP errors; it does not read salaries back, retry writes, or reload the
-page. Game salary limits are left to the server. The recorded update time represents an adjustment attempt, not verified persistence. Legacy pending
-journals no longer resume submissions and are removed by the next adjustment.
+affected form, using current-page fetch. Each response body is consumed and checked
+for server errors before releasing the queue slot or dispatching the next form.
+Responses cannot navigate away and interrupt the remaining positions. The first
+transport, HTTP or recognized error-page failure stops the remaining salary batch.
+AES does not read wages back or retry writes; game salary limits remain the
+server's responsibility. The recorded update time represents an adjustment attempt,
+not verified persistence. Legacy pending journals no longer resume submissions and
+are removed by the next adjustment.
 
 ## Localization checks
 

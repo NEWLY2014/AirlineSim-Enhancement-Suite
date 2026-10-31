@@ -40,3 +40,15 @@ test('ready queue notification dispatches even when background timers cannot run
     ready=true;notify(p.w.chrome,{type:'AES_PAGE_QUEUE_READY',id,notBefore:Date.now()});
     const permit=await waiting;assert.equal(polls,2);assert.ok(permit.expires>Date.now());
 });
+
+test('a long cooldown keeps the waiting lease alive with bounded recovery checks',async t=>{
+    const p=browser(t);let polls=0;
+    const timeout=p.w.setTimeout.bind(p.w);
+    p.w.setTimeout=(fn,ms,...args)=>timeout(fn,ms===60000?10:ms,...args);
+    p.w.chrome.runtime.sendMessage=(message,reply)=>{
+        if(message.op==='poll')polls++;
+        reply({ok:true,state:polls>=3?'running':'queued',expires:Date.now()+30000,notBefore:Date.now()+900000});
+    };
+    const permit=await p.run("AES.queuePage(location.href,'salary')");
+    assert.equal(polls,3);assert.ok(permit.expires>Date.now());
+});

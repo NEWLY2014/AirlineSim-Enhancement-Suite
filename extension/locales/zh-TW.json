@@ -759,5 +759,10 @@
   "Paste configuration": "貼上設定",
   "Copied {0} configuration.": "已複製{0}的設定。",
   "Configuration pasted. Click Save to apply.": "已貼上設定，請按儲存以套用。",
-  "Tabs cannot be edited right now (user may be dragging a tab).": "目前無法修改分頁（可能正在拖曳分頁）。"
+  "Tabs cannot be edited right now (user may be dragging a tab).": "目前無法修改分頁（可能正在拖曳分頁）。",
+  "The server returned an error page. Automatic requests are paused. Please try again later.": "伺服器回傳錯誤頁面，已暫停自動請求，請稍後再試。",
+  "Reduce request overlap and pause automatic requests after server errors.": "減少請求重疊，遇到伺服器錯誤時暫停自動請求。",
+  "Wait for page loads and salary responses before starting the next queued operation.": "等待頁面載入或薪資請求回應完成後，再執行下一項佇列作業。",
+  "Pause automatic requests after HTTP 429 or Unexpected Error pages, and wait longer if errors repeat.": "遇到 HTTP 429 或 Unexpected Error 頁面時暫停自動請求，連續錯誤會延長等待時間。",
+  "Stop the remaining salary submissions after an error without retrying writes.": "發生錯誤後停止剩餘薪資提交，不自動重試寫入。"
 }

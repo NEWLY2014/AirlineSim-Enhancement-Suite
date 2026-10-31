@@ -776,6 +776,29 @@ class AES {
         return true;
     }
 
+    /** Inspect headings only: normal game data/scripts can mention error messages. */
+    static isServerErrorPage(doc: Document) {
+        return Array.from(doc.querySelectorAll('title,h1,h2,h3,.feedbackPanelERROR,.errorBox')).some(node =>
+            /unexpected error|too many requests|访问(?:频率)?过[高快]|請求過於頻繁|请求过于频繁/i.test(node.textContent || ''));
+    }
+
+    static async pausePageQueue(retryAfter?: string | null) {
+        let delay = 0;
+        if (retryAfter) {
+            const seconds = /^\d+$/.test(retryAfter.trim()) ? Number(retryAfter) : NaN;
+            delay = Number.isFinite(seconds) ? seconds * 1000 : Math.max(0, Date.parse(retryAfter) - Date.now());
+        }
+        await AES.pageQueueMessage({op:'cooldown',id:crypto.randomUUID(),delay:Number.isFinite(delay) ? delay : 0});
+    }
+
+    static async checkServerResponse(response: Response, doc?: Document) {
+        if (response.status === 429 || response.status >= 500 || (doc && AES.isServerErrorPage(doc))) {
+            await AES.pausePageQueue(response.headers?.get('Retry-After'));
+            if (response.ok) throw new Error(AESI18n.t('The server returned an error page. Automatic requests are paused. Please try again later.'));
+        }
+        if (!response.ok) throw new Error(AESI18n.t('Page request failed (HTTP {0}).', {0: response.status}));
+    }
+
     static async pageQueueMessage(message: Record<string, unknown>): Promise<Record<string, unknown>> {
         return new Promise((resolve, reject) => {
             chrome.runtime.sendMessage({type: 'AES_PAGE_QUEUE', ...message}, (response: unknown) => {
@@ -815,7 +838,7 @@ class AES {
                     // Dispatch ready notifications directly; timer throttling must not delay them.
                     if (typeof notBefore === 'number' && notBefore <= Date.now()) { queueMicrotask(check); return; }
                     // Recover a missed message before the server's two-minute client lease ends.
-                    timer = window.setTimeout(check, typeof notBefore === 'number' ? notBefore-Date.now() : 60000);
+                    timer = window.setTimeout(check, typeof notBefore === 'number' ? Math.min(60000, notBefore-Date.now()) : 60000);
                 };
                 const check = async () => {
                     if (finished || polling) return;
@@ -1300,3 +1323,6 @@ class AES {
 }
 
 AES.claimPageControl();
+
+// Error documents often lack the game header; report them before feature startup.
+if (AES.isServerErrorPage(document)) void AES.pausePageQueue().catch(console.error);

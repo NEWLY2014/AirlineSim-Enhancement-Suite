@@ -32,9 +32,9 @@ for(const fast of [true,false])test(`salary submissions finish the table without
             const data=new URLSearchParams(body),id=Number(data.get('id')),amount=Number(data.get('amount'));
             requests.push({id,amount,time:Date.now()});amounts[id]=Math.min(amount,1100);
             responses.push(res);
-            // Cover both an immediate response and responses held until all POSTs arrive.
-            // Serial response waits would stall; the server also clamps the values.
-            if(fast || responses.length===2)for(const pending of responses.splice(0)){pending.writeHead(200,{'Content-Type':'text/html'});pending.end(render());}
+            // Hold the first response to verify that the second POST cannot overlap it.
+            if(!fast)await new Promise(resolve=>setTimeout(resolve,1600));
+            for(const pending of responses.splice(0)){pending.writeHead(200,{'Content-Type':'text/html'});pending.end(render());}
             return;
         }
         res.writeHead(200,{'Content-Type':'text/html'});res.end(render());
@@ -53,13 +53,13 @@ for(const fast of [true,false])test(`salary submissions finish the table without
     await page.locator('#aes-input-personnelManagement-value').fill('200');
     await page.locator('.aes-personnel-management-apply').click();
     await assert.doesNotReject(async()=>{
-        const end=Date.now()+3000;
+        const end=Date.now()+8000;
         while(requests.length<2 && Date.now()<end)await new Promise(r=>setTimeout(r,20));
         assert.equal(requests.length,2,'one click must dispatch every position even when the first response is immediate');
     });
     await page.locator('.aes-personnel-management-apply:not([disabled])').waitFor();
     assert.deepEqual(requests.map(({id,amount})=>({id,amount})),[{id:0,amount:3000},{id:1,amount:2700}]);
-    assert.ok(requests[1].time-requests[0].time>=55,'shared queue must pace form dispatch');
+    assert.ok(requests[1].time-requests[0].time>=55+(fast?0:1600),'shared queue must pace form dispatch');
     assert.deepEqual(amounts,[1100,1100]);
     assert.equal(navigations,1,'salary responses must not replace the submitting page');
     const record=await worker.evaluate(async()=>(await chrome.storage.local.get('paine42personnelManagement')).paine42personnelManagement);
