@@ -764,5 +764,7 @@
   "Reduce request overlap and pause automatic requests after server errors.": "Reduce request overlap and pause automatic requests after server errors.",
   "Wait for page loads and salary responses before starting the next queued operation.": "Wait for page loads and salary responses before starting the next queued operation.",
   "Pause automatic requests after HTTP 429 or Unexpected Error pages, and wait longer if errors repeat.": "Pause automatic requests after HTTP 429 or Unexpected Error pages, and wait longer if errors repeat.",
-  "Stop the remaining salary submissions after an error without retrying writes.": "Stop the remaining salary submissions after an error without retrying writes."
+  "Stop the remaining salary submissions after an error without retrying writes.": "Stop the remaining salary submissions after an error without retrying writes.",
+  "Save pricing settings": "Save pricing settings",
+  "Saves the pricing mode and the rules and price limits for the selected cabin.": "Saves the pricing mode and the rules and price limits for the selected cabin."
 }

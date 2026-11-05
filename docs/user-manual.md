@@ -47,7 +47,7 @@ To reuse a compartment's configuration, click **Copy configuration**, select the
 target compartment, then click **Paste configuration**. This copies the rules for the current pricing mode, price limits and any unsaved
 edits to those fields. The target compartment’s other rule set is preserved.
 Pasting is available only when the current mode matches the copied rules. Review the
-preview and click **Save** to apply the target compartment's settings. The global
+preview and click **Save pricing settings** to apply the target compartment's settings. The global
 pricing mode is unchanged. The copied configuration is available within the current
 Settings page until it is reloaded; it does not use the system clipboard.
 
@@ -67,8 +67,10 @@ Both pricing modes have a live preview beside the rule editor (below it on narro
 screens). Step rules draw horizontal segments with dashed jumps; control points
 draw interpolated lines. Invalid or incomplete drafts hide the chart until corrected.
 Step-rule loads retain their existing integer rounding and first-match behavior at
-shared boundaries. Price limits and the save action sit below the editor; switching
-compartments or modes preserves local rule drafts without applying prices.
+shared boundaries. The separate **Save pricing settings** area below the editor and
+price limits saves the global pricing mode and the selected compartment’s rules and
+limits together. Switching compartments or modes preserves local rule drafts without
+applying prices.
 
 ## Additional feature guide
 

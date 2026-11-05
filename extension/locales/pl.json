@@ -764,5 +764,7 @@
   "Reduce request overlap and pause automatic requests after server errors.": "Mniej nakładających się żądań i automatyczna przerwa po błędach serwera.",
   "Wait for page loads and salary responses before starting the next queued operation.": "Poczekaj na załadowanie stron i odpowiedzi dotyczące wynagrodzeń przed rozpoczęciem kolejnej operacji w kolejce.",
   "Pause automatic requests after HTTP 429 or Unexpected Error pages, and wait longer if errors repeat.": "Wstrzymaj automatyczne żądania po HTTP 429 lub stronach Unexpected Error i wydłuż oczekiwanie przy kolejnych błędach.",
-  "Stop the remaining salary submissions after an error without retrying writes.": "Po błędzie zatrzymaj pozostałe zgłoszenia wynagrodzeń bez ponawiania zapisów."
+  "Stop the remaining salary submissions after an error without retrying writes.": "Po błędzie zatrzymaj pozostałe zgłoszenia wynagrodzeń bez ponawiania zapisów.",
+  "Save pricing settings": "Zapisz ustawienia cen",
+  "Saves the pricing mode and the rules and price limits for the selected cabin.": "Zapisuje tryb cen oraz reguły i limity cen dla wybranej klasy."
 }

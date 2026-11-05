@@ -59,12 +59,18 @@ test('settings tabs preserve drafts, support the keyboard and open extension bac
     assert.equal(await page.locator('#aes-settings-group-1').getAttribute('aria-selected'),'true');
     await page.getByRole('tab',{name:'Inventory Pricing',exact:true}).click();
     assert.equal(await page.locator('#aes-language').isVisible(),false);
+    const pricingSave=page.getByRole('button',{name:'Save pricing settings',exact:true});
+    assert.equal(await pricingSave.evaluate(el=>!!el.closest('.aes-pricing-footer, .aes-pricing-workspace')),false);
+    assert.match(await page.locator('#aes-pricing-save-scope').textContent(),/rules and price limits/);
+    const limitsBox=await page.locator('.aes-pricing-footer').boundingBox();
+    const saveBox=await page.locator('.aes-pricing-actions').boundingBox();
+    assert.ok(saveBox.y>=limitsBox.y+limitsBox.height,'save action has its own area below both panels');
     for(const checkbox of await page.locator('.aes-pricing-automation input').all()){
         const box=await checkbox.boundingBox(),panel=await page.locator('.aes-pricing-automation').boundingBox();
         assert.ok(box.x>=panel.x && box.x+box.width<=panel.x+panel.width);
         assert.equal(await checkbox.evaluate(el=>getComputedStyle(el).position),'static');
     }
-    assert.equal(await page.locator('#aes-btn-invPricing-save').getAttribute('class'),'btn btn-default');
+    assert.equal(await page.locator('#aes-btn-invPricing-save').getAttribute('class'),'btn btn-primary');
     for(const suffix of await page.locator('.aes-pricing-rules .input-group-addon, .aes-price-bounds .input-group-addon').all()){
         assert.equal(await suffix.evaluate(el=>{
             const range=document.createRange();range.selectNodeContents(el);
@@ -105,7 +111,7 @@ test('settings tabs preserve drafts, support the keyboard and open extension bac
         await page.reload();await page.locator('#aes-settings-tab').click();
         await page.locator('#aes-settings-group-1').click();
         assert.equal(await page.locator('#aes-settings-tab').textContent(),messages['AES Settings']);
-        assert.equal(await page.locator('#aes-btn-invPricing-save').textContent(),messages.Save);
+        assert.equal(await page.locator('#aes-btn-invPricing-save').textContent(),messages['Save pricing settings']);
         assert.equal(await page.getByRole('tab',{name:'General settings',exact:true}).count(),1);
         assert.equal(await page.locator('#aes-input-invPricing-max-price').inputValue(),'200');
         assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,gameLanguage);

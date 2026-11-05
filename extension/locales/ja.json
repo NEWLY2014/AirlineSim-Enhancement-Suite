@@ -764,5 +764,7 @@
   "Reduce request overlap and pause automatic requests after server errors.": "リクエストの重複を減らし、サーバーエラー後は自動リクエストを一時停止します。",
   "Wait for page loads and salary responses before starting the next queued operation.": "ページの読み込みと給与変更の応答が完了してから、次のキュー処理を開始します。",
   "Pause automatic requests after HTTP 429 or Unexpected Error pages, and wait longer if errors repeat.": "HTTP 429 または Unexpected Error ページの後は自動リクエストを一時停止し、エラーが続く場合は待機時間を延長します。",
-  "Stop the remaining salary submissions after an error without retrying writes.": "エラー後は残りの給与送信を停止し、書き込みを自動再試行しません。"
+  "Stop the remaining salary submissions after an error without retrying writes.": "エラー後は残りの給与送信を停止し、書き込みを自動再試行しません。",
+  "Save pricing settings": "価格設定を保存",
+  "Saves the pricing mode and the rules and price limits for the selected cabin.": "価格設定モードと、選択したクラスのルールおよび価格の上下限を保存します。"
 }

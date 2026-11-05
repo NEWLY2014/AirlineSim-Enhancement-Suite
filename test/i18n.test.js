@@ -40,7 +40,7 @@ for(const locale of Object.keys(catalogs))test(`${locale}: settings translate on
     assert.equal(d.querySelector('#aes-settings-tab').textContent,catalogs[locale]['AES Settings']);
     assert.equal(d.querySelector('#aes-settings-group-0').textContent,catalogs[locale]['General Settings']);
     assert.equal(d.querySelector('.aes-settings-toolbar > button').textContent,catalogs[locale]['Backup & Restore']);
-    assert.equal(d.querySelector('#aes-btn-invPricing-save').textContent,catalogs[locale].Save);
+    assert.equal(d.querySelector('#aes-btn-invPricing-save').textContent,catalogs[locale]['Save pricing settings']);
     assert.equal(d.querySelector('#aes-input-invPricing-max-price').value,'200');
     assert.equal(d.querySelector('#airline').textContent,'Save');
     d.querySelector('#aes-input-invPricing-min-price').value='73';

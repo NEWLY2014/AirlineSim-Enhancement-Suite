@@ -764,5 +764,7 @@
   "Reduce request overlap and pause automatic requests after server errors.": "Kevesebb átfedő kérés és automatikus szünet szerverhiba után.",
   "Wait for page loads and salary responses before starting the next queued operation.": "A következő sorban álló művelet előtt várja meg az oldalak betöltését és a bérmódosítások válaszait.",
   "Pause automatic requests after HTTP 429 or Unexpected Error pages, and wait longer if errors repeat.": "HTTP 429 vagy Unexpected Error oldal után szüneteltesse az automatikus kéréseket, ismételt hibánál pedig várjon tovább.",
-  "Stop the remaining salary submissions after an error without retrying writes.": "Hiba után állítsa le a hátralévő bérküldéseket az írások újrapróbálása nélkül."
+  "Stop the remaining salary submissions after an error without retrying writes.": "Hiba után állítsa le a hátralévő bérküldéseket az írások újrapróbálása nélkül.",
+  "Save pricing settings": "Árazási beállítások mentése",
+  "Saves the pricing mode and the rules and price limits for the selected cabin.": "Menti az árazási módot, valamint a kiválasztott osztály szabályait és árkorlátait."
 }

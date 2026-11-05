@@ -764,5 +764,7 @@
   "Reduce request overlap and pause automatic requests after server errors.": "減少請求重疊，遇到伺服器錯誤時暫停自動請求。",
   "Wait for page loads and salary responses before starting the next queued operation.": "等待頁面載入或薪資請求回應完成後，再執行下一項佇列作業。",
   "Pause automatic requests after HTTP 429 or Unexpected Error pages, and wait longer if errors repeat.": "遇到 HTTP 429 或 Unexpected Error 頁面時暫停自動請求，連續錯誤會延長等待時間。",
-  "Stop the remaining salary submissions after an error without retrying writes.": "發生錯誤後停止剩餘薪資提交，不自動重試寫入。"
+  "Stop the remaining salary submissions after an error without retrying writes.": "發生錯誤後停止剩餘薪資提交，不自動重試寫入。",
+  "Save pricing settings": "儲存調價設定",
+  "Saves the pricing mode and the rules and price limits for the selected cabin.": "儲存調價模式，以及目前所選艙等的規則與價格上下限。"
 }

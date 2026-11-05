@@ -394,8 +394,10 @@ function invPricingRecStepHandle() {
         fields.append($('<div class="form-group"></div>').append(label,$('<div class="input-group"></div>').append(input,$('<span class="input-group-addon">%</span>'))));
     }
     bounds.append(fields);footer.append(bounds);
-    const actions=$('<div class="aes-pricing-actions"></div>').append($('<button type="button" id="aes-btn-invPricing-save" class="btn btn-default"></button>').text(AESI18n.t('Save')));
-    const saveStatus=$('<div class="aes-pricing-save-status" role="status"></div>');actions.append(saveStatus);footer.append(actions);
+    const actions=$('<div class="aes-pricing-actions as-panel"></div>').append($('<button type="button" id="aes-btn-invPricing-save" class="btn btn-primary" aria-describedby="aes-pricing-save-scope"></button>').text(AESI18n.t('Save pricing settings')));
+    const scope=$('<p id="aes-pricing-save-scope" class="aes-pricing-hint"></p>').text(AESI18n.t('Saves the pricing mode and the rules and price limits for the selected cabin.'));
+    const saveStatus=$('<div class="aes-pricing-save-status" role="status"></div>');
+    actions.append($('<div></div>').append(scope,saveStatus));$('#aes-div-recSettings').append(actions);
     function readDraft() {
         let newSteps: AESModel.PricingStep[] = [];
         let newCmpSettings: AESModel.PricingRecommendation = {

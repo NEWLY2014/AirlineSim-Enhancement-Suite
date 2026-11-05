@@ -995,7 +995,8 @@
 .aes-price-bounds { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; max-width: 496px; }
 .aes-price-bounds label { display: block; font-weight: 400; }
 .aes-price-bounds .input-group { max-width: 240px; }
-.aes-pricing-actions { display: grid; grid-template-columns: auto minmax(0,1fr); align-items: center; gap: 16px; margin-top: 16px; }
+.aes-pricing-actions { display: grid; grid-template-columns: auto minmax(0,1fr); align-items: center; gap: 16px; margin-top: 16px; padding: 16px 20px; border-top: 2px solid rgba(127,127,127,.4); }
+.aes-pricing-actions .aes-pricing-hint { margin: 0; }
 .aes-pricing-save-status { min-height: 1.5em; overflow-wrap: anywhere; }
 @media (max-width: 1000px) {
     .aes-pricing-workspace { grid-template-columns: minmax(0,1fr); }
@@ -1004,6 +1005,7 @@
 @media (max-width: 600px) {
     .aes-pricing-automation .checkbox, .aes-pricing-controls, .aes-price-bounds { grid-template-columns: minmax(0,1fr); }
     .aes-pricing-workspace, .aes-pricing-footer { padding: 12px; }
+    .aes-pricing-actions { grid-template-columns: minmax(0,1fr); padding: 12px; gap: 8px; }
 }
 
 .aes-pricing-rules input { min-height: 32px; padding: 5px 7px; font: inherit; }

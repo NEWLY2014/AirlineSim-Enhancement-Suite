@@ -764,5 +764,7 @@
   "Reduce request overlap and pause automatic requests after server errors.": "Verminder overlappende verzoeken en pauzeer automatische verzoeken na serverfouten.",
   "Wait for page loads and salary responses before starting the next queued operation.": "Wacht op het laden van pagina’s en salarisreacties voordat de volgende wachtrijbewerking begint.",
   "Pause automatic requests after HTTP 429 or Unexpected Error pages, and wait longer if errors repeat.": "Pauzeer automatische verzoeken na HTTP 429 of Unexpected Error-pagina’s en wacht langer bij herhaalde fouten.",
-  "Stop the remaining salary submissions after an error without retrying writes.": "Stop na een fout de resterende salarisinzendingen zonder schrijfacties opnieuw te proberen."
+  "Stop the remaining salary submissions after an error without retrying writes.": "Stop na een fout de resterende salarisinzendingen zonder schrijfacties opnieuw te proberen.",
+  "Save pricing settings": "Prijsinstellingen opslaan",
+  "Saves the pricing mode and the rules and price limits for the selected cabin.": "Slaat de prijsmodus en de regels en prijsgrenzen voor de geselecteerde klasse op."
 }
