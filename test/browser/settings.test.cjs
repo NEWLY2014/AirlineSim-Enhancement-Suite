@@ -205,6 +205,9 @@ test('settings tabs preserve drafts, support the keyboard and open extension bac
     const fleetPanel=page.locator('#aes-fleet-management-root');
     const filterDetails=page.locator('.aes-fleet-filters');
     await filterDetails.waitFor();
+    assert.deepEqual(await fleetPanel.evaluate(el=>{
+        const style=getComputedStyle(el);return [style.marginTop,style.marginBottom];
+    }),['0px','0px']);
     assert.equal(await filterDetails.getAttribute('open'),null);
     assert.equal(await page.getByLabel('Model',{exact:true}).isVisible(),false);
     assert.ok((await fleetPanel.boundingBox()).height<180);
