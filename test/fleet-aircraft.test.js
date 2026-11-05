@@ -15,10 +15,54 @@ function flights(t, rows, data = {}) {
 }
 const rows = flightRow(1, 'AAA', 'BBB', '08.09. 01:00', '08.09. 03:00') + flightRow(2, 'BBB', 'AAA', '08.09. 04:00', '08.09. 06:00', 'inflight');
 
+test('manual fleet extraction reads native columns repeatedly without duplicating data', async t => {
+    const p=fleet(t,aircraftRow(123,'AA-123'));
+    p.load('content_fleetManagement.js');
+    await until(()=>p.w.document.querySelector('#aes-fleet-management-root select'));
+    for(let i=0;i<2;i++) {
+        p.w.document.querySelector('#aes-fleet-extract').click();
+        await until(()=>!p.w.document.querySelector('#aes-fleet-extract').disabled);
+        const stored=p.saved[fleetKey].fleet;
+        assert.equal(stored.length,1);
+        assert.equal(stored[0].equipment,'A320');
+        assert.equal(stored[0].age,2.5);
+        assert.equal(stored[0].seatConfig,'100/10/0');
+        assert.equal(p.w.document.querySelectorAll('.aes-fleet-extra-cell').length,3);
+    }
+    assert.equal(p.errors.length,0);
+});
+
+test('fleet extraction handles wrapped headings and a different layout column',async t=>{
+    const p=fleet(t,aircraftRow(123,'AA-123'));
+    p.w.$('.col-md-9').removeClass('col-md-9').addClass('col-md-12');
+    p.w.$('h1').wrap('<header></header>');
+    p.w.$('table').wrap('<div class="as-table-well"></div>');
+    p.load('content_fleetManagement.js');
+    await until(()=>p.w.document.querySelector('#aes-fleet-management-root select'));
+    assert.equal(p.saved[fleetKey].fleet[0].aircraftId,123);
+    assert.equal(p.saved[fleetKey].fleet[0].fleet,'Main');
+});
+
+test('late fleet rows are collected and a replaced table refreshes stored data',async t=>{
+    const other={aircraftId:9,registration:'OTHER',fleet:'Other'};
+    const p=fleet(t,'',{[fleetKey]:{fleet:[other]}});
+    p.load('content_fleetManagement.js');
+    await until(()=>p.w.document.querySelector('#aes-fleet-extract'));
+    assert.deepEqual(p.saved[fleetKey].fleet,[other]);
+    p.w.$('tbody').html(aircraftRow(123,'AA-123'));
+    await until(()=>p.saved[fleetKey].fleet.some(a=>a.aircraftId===123));
+    await until(()=>p.w.document.querySelector('#aes-fleet-management-root select'));
+    p.w.$('tbody').replaceWith('<tbody>'+aircraftRow(124,'AA-124','B737')+'</tbody>');
+    await until(()=>p.saved[fleetKey].fleet.some(a=>a.aircraftId===124));
+    assert.deepEqual(p.saved[fleetKey].fleet.map(a=>a.aircraftId),[124,9]);
+    assert.equal(p.saved[fleetKey].fleet[0].equipment,'B737');
+    assert.equal(p.errors.length,0);
+});
+
 test('fleet merges registration-only aircraft, preserves other fleets and removes stale current rows', async t => {
     const p = fleet(t, aircraftRow(123, 'AA-123') + aircraftRow(null, 'AA-NEW'), { [fleetKey]: { fleet: [{ registration: 'AA-123', fleet: 'Main', hubOverride: 'CCC', extra: 'keep' }, {aircraftId: 9, registration:'OLD', fleet:'Other'}, {aircraftId:8, registration:'REMOVED',fleet:'Main'}, {fleet:'Other'}] } });
     p.load('content_fleetManagement.js');
-    await until(() => p.w.document.querySelector('#aes-fleet-management-root'));
+    await until(() => p.w.document.querySelector('#aes-fleet-management-root select'));
     const stored = p.saved[fleetKey].fleet;
     assert.equal(stored.length, 3);
     assert.equal(stored[0].aircraftId, 123);
@@ -42,7 +86,7 @@ test('fleet filters hide mismatched models and clear hidden aircraft selection',
     assert.equal(aircraft[0].style.display, '');
     assert.equal(aircraft[1].style.display, 'none');
     assert.equal(aircraft[1].querySelector('input').checked, false);
-    p.w.$('#aes-fleet-management-root button').trigger('click');
+    p.w.$('#aes-fleet-management-root button').filter((i,e)=>e.textContent==='Reset filters').trigger('click');
     await new Promise(resolve => setImmediate(resolve));
     assert.equal(aircraft[1].style.display, '');
 });
@@ -83,8 +127,13 @@ test('failed fleet reads and writes do not report a successful update', async t 
         p.load('content_fleetManagement.js');
         await until(() => p.errors.length);
         assert.deepEqual(p.saved[fleetKey], original);
-        assert.equal(p.w.document.querySelector('#aes-fleet-management-root'), null);
+        assert.match(p.w.document.querySelector('#aes-fleet-extract-status').textContent, /Fleet extraction failed/);
+        assert.equal(p.w.document.querySelector('#aes-fleet-extract').disabled, false);
         if (operation === 'get') assert.ok(!p.calls.some(c => c.values?.[fleetKey]));
+        delete p.failures[operation];
+        p.w.document.querySelector('#aes-fleet-extract').click();
+        await until(()=>p.w.document.querySelector('#aes-fleet-management-root select'));
+        assert.equal(p.saved[fleetKey].fleet[0].aircraftId,123);
     }
 });
 
@@ -149,7 +198,7 @@ test('pending storage reads stop after page ownership is lost in both modules', 
         p.run('AES.isPageOwner = () => false');
         pending();
         assert.equal(p.saved[key],undefined);
-        assert.equal(p.w.document.querySelector('#aes-fleet-management-root, .aes-aircraft-flights-block'),null);
+        assert.equal(p.w.document.querySelector('#aes-fleet-management-root select, .aes-aircraft-flights-block'),null);
     }
 });
 
@@ -175,7 +224,7 @@ test('legacy nullable HUB fields survive fleet refresh and valid profits are dis
     const other = {aircraftId:'9', registration:'OTHER',fleet:'Other',hubDetected:null,hubOverride:null,extra:'keep'};
     const p = fleet(t, aircraftRow(123,'AA-123'), {[fleetKey]:{fleet:[other]},paineaircraftFlights123:{aircraftId:123,date:'20260908',time:'00:00 UTC',finishedFlights:2,totalFlights:2,profit:80,profitFlights:2,hubDetected:'AAA',hubOverride:null}});
     p.load('content_fleetManagement.js');
-    await until(() => p.w.document.querySelector('#aes-fleet-management-root'));
+    await until(() => p.w.document.querySelector('#aes-fleet-management-root select'));
     assert.deepEqual(p.saved[fleetKey].fleet[1],other);
     assert.equal(p.saved[fleetKey].fleet[0].hubDetected,'AAA');
     assert.match(p.w.document.querySelector('.aes-fleet-table tbody').textContent,/80/);
@@ -255,7 +304,7 @@ test('fleet save reconnects after a closed message port without losing other fle
         send(message,reply);
     };
     p.load('content_fleetManagement.js');
-    await until(()=>p.w.document.querySelector('#aes-fleet-management-root'));
+    await until(()=>p.w.document.querySelector('#aes-fleet-management-root select'));
     assert.equal(requests,2);
     assert.deepEqual(p.saved[fleetKey].fleet.map(a=>a.aircraftId),[123,9]);
     assert.equal(p.errors.length,0);
@@ -291,14 +340,14 @@ test('lost acknowledgement retries an already saved patch without duplicating ai
         send(message,reply);
     };
     p.load('content_fleetManagement.js');
-    await until(()=>p.w.document.querySelector('#aes-fleet-management-root'));
+    await until(()=>p.w.document.querySelector('#aes-fleet-management-root select'));
     assert.equal(requests,2);assert.equal(p.saved[fleetKey].fleet.length,1);
 });
 
 test('fleet refresh retains unknown record metadata',async t=>{
     const p=fleet(t,aircraftRow(123,'AA-123'),{[fleetKey]:{fleet:[],extra:{keep:true}}});
     p.load('content_fleetManagement.js');
-    await until(()=>p.w.document.querySelector('#aes-fleet-management-root'));
+    await until(()=>p.w.document.querySelector('#aes-fleet-management-root select'));
     assert.deepEqual(p.saved[fleetKey].extra,{keep:true});
     assert.equal(p.saved[fleetKey].fleet[0].aircraftId,123);
 });
@@ -306,7 +355,7 @@ test('fleet refresh retains unknown record metadata',async t=>{
 for (const locale of ['en','de','es','fr','hu','nl','pl','zh-TW','ja']) test(`${locale}: saved fleet count and undelivered explanation are translated`,async t=>{
     const messages=require('../extension/locales/'+locale+'.json');
     const p=fleet(t,Array.from({length:22},(_,i)=>aircraftRow(i ? 100+i : null,'AA-'+i)).join(''),{aesLanguage:locale});
-    p.load('content_fleetManagement.js');await until(()=>p.w.document.querySelector('#aes-fleet-management-root'));
+    p.load('content_fleetManagement.js');await until(()=>p.w.document.querySelector('#aes-fleet-management-root select'));
     const text=p.w.document.querySelector('#aes-fleet-management-root').textContent;
     assert.ok(text.includes(messages['Currently {0} aircrafts stored in memory.'].replace('{0}','22')),text);
     assert.ok(text.includes(messages['Undelivered aircraft are stored by registration and will be merged once AirlineSim assigns an aircraft ID.']),text);

@@ -8,8 +8,15 @@ let server: string, aircraftFleetKey: string, aircraftFleetStorageData: AESModel
 let airline: AESModel.Airline, date: ReturnType<typeof AES.getServerDate>, currentFleet: string;
 var fltmngFilterActive = false;
 let fltmngTableObserver: MutationObserver | null = null;
+let extracting = false;
 const FLEET_MANAGEMENT_SCRIPT_ENABLED = AES.runContentScript("content_fleetManagement", function() {
-    AES.waitForElement(fltmng_getFleetManagementReadyTarget, initializeFleetManagement, {
+    AES.waitForElement(() => $('.as-page-fleet-management h1').first(), function() {
+        fltmng_mountExtractionControls();
+        AES.waitForElement(fltmng_getFleetManagementReadyTarget, initializeFleetManagement, {
+            scriptName: 'content_fleetManagement',
+            onTimeout: () => fltmng_extractionFailed(new Error(AESI18n.t('Fleet table not found. Wait for the aircraft list to load, then retry.')))
+        });
+    }, {
         scriptName: "content_fleetManagement",
         onTimeout: function() {
             if (fltmng_fleetManagementPageOpen()) {
@@ -20,15 +27,59 @@ const FLEET_MANAGEMENT_SCRIPT_ENABLED = AES.runContentScript("content_fleetManag
 });
 
 function initializeFleetManagement() {
-    aircraftData = [];
-    let currentAirline = AES.getCurrentAirline();
-    airline = currentAirline && currentAirline.id ? currentAirline : AES.getAirline();
-    server = AES.getServerName();
-    date = AES.getServerDate()
+    try {
+        if (extracting || !AES.isPageOwner()) return;
+        if (!fltmng_getFleetManagementReadyTarget()) {
+            fltmng_extractionFailed(new Error(AESI18n.t('Fleet table not found. Wait for the aircraft list to load, then retry.')));
+            return;
+        }
+        extracting = true;
+        fltmngTableObserver?.disconnect();
+        $('#aes-fleet-extract').prop('disabled', true);
+        $('#aes-fleet-extract-status').removeClass('bad good').text(AESI18n.t('Updating...'));
+        // Re-extraction must read the native column indexes, not AES's inserted cells.
+        fltmng_getTable().find('.aes-fleet-extra-header, .aes-fleet-extra-cell').remove();
+        aircraftData = [];
+        let currentAirline = AES.getCurrentAirline();
+        airline = currentAirline && currentAirline.id ? currentAirline : AES.getAirline();
+        server = AES.getServerName();
+        date = AES.getServerDate()
 
-    fltmng_getData();
-    //Async start
-    fltmng_getStorageData();
+        fltmng_getData();
+        //Async start
+        fltmng_getStorageData();
+    } catch (error) { fltmng_extractionFailed(error); }
+}
+
+function fltmng_mountExtractionControls() {
+    if ($('#aes-fleet-management-root').length) return;
+    const root=$('<div id="aes-fleet-management-root"></div>').append(
+        $('<h3></h3>').text(AESI18n.t('AES Fleet Management')),
+        $('<div class="as-panel"></div>').append(fltmng_extractionControls()));
+    AES.markOwnedElements(root);
+    $('.as-page-fleet-management h1').first().after(root);
+}
+
+function fltmng_extractionControls() {
+    const button=$('<button type="button" id="aes-fleet-extract" class="btn btn-default"></button>').text(AESI18n.t('Extract fleet data'));
+    button.on('click', () => AES.tryRun('content_fleetManagement', initializeFleetManagement));
+    return $('<div class="aes-fleet-extraction"></div>').append(button,
+        $('<p id="aes-fleet-extract-status" role="status"></p>'),
+        $('<p></p>').text(AESI18n.t('Aircraft on this fleet page are saved automatically. Use Extract fleet data to refresh them manually.')));
+}
+
+function fltmng_extractionFailed(error: unknown) {
+    extracting = false;
+    $('#aes-fleet-extract').prop('disabled', false);
+    $('#aes-fleet-extract-status').addClass('bad').text(AESI18n.t('Fleet extraction failed. {0}', {0: String(error instanceof Error ? error.message : error)}));
+    AES.reportContentScriptError('content_fleetManagement', error);
+    fltmng_watchFleetTable();
+}
+
+function fltmng_getTable() {
+    const tables=$('.as-page-fleet-management table').filter((_,table) => !$(table).closest('#aes-fleet-management-root').length);
+    const identified=tables.filter((_,table) => !!$(table).find('input[name="aircraftsContainer"], a[href*="aircraft/"]').length);
+    return identified.length ? identified.first() : $('.as-page-fleet-management .col-md-9 .as-panel table').first();
 }
 
 if (FLEET_MANAGEMENT_SCRIPT_ENABLED) {
@@ -52,15 +103,15 @@ function fltmng_fleetManagementPageOpen() {
 }
 
 function fltmng_getFleetManagementReadyTarget() {
-    return $('.as-page-fleet-management > h1:eq(0)').length &&
-        $('.as-page-fleet-management > .row > .col-md-9 > .as-panel:eq(0) table').length;
+    return $('.as-page-fleet-management h1').length && fltmng_getTable().find('tbody tr').length;
 }
 
 function fltmng_getData() {
 
     //Aircraft
-    let table = $('.as-page-fleet-management > .row > .col-md-9 > .as-panel:eq(0) table');
-    currentFleet = fltmng_normalizeFleetName($('.as-page-fleet-management > .row > .col-md-9 > h2:eq(0)').text());
+    let table = fltmng_getTable();
+    currentFleet = fltmng_normalizeFleetName(table.parents().filter((_,el) => !!$(el).children('h2').length).first().children('h2').first().text());
+    if (!currentFleet) throw new Error(AESI18n.t('Fleet name not found. Reload the fleet page and retry.'));
     $<HTMLTableRowElement>('tbody tr', table).each(function() {
         let aircraftId = fltmng_getAircraftIdFromRow(this);
         let registration = $('td:eq(1) > span:eq(0)', this).text();
@@ -271,34 +322,34 @@ function fltmng_getStorageData() {
     });
     chrome.storage.local.get(keys, function(result) {
         if (!fltmng_storageCallbackSucceeded()) return;
-        AES.tryRun("content_fleetManagement", function() {
-        for (let aircraftFlightData in result) {
-            const summary: unknown = result[aircraftFlightData];
-            if (!AES.isRecord(summary) || !AES.isAircraftProfit(summary)) {
-                continue;
-            }
-            for (let i = 0; i < aircraftData.length; i++) {
-                if (aircraftData[i].aircraftId == summary.aircraftId) {
-                    aircraftData[i].profit = {
-                        date: summary.date,
-                        finishedFlights: summary.finishedFlights,
-                        hubDetected: summary.hubDetected,
-                        hubEffective: summary.hubEffective,
-                        hubOverride: summary.hubOverride,
-                        profit: summary.profit,
-                        profitFlights: summary.profitFlights,
-                        time: summary.time,
-                        totalFlights: summary.totalFlights,
-                    };
-                    aircraftData[i].hubOverride = summary.hubOverride || aircraftData[i].hubOverride || '';
-                    aircraftData[i].hubEffective = summary.hubEffective || aircraftData[i].hubEffective || summary.hubDetected || '';
-                    aircraftData[i].hubDetected = summary.hubDetected || aircraftData[i].hubDetected || '';
+        try {
+            for (let aircraftFlightData in result) {
+                const summary: unknown = result[aircraftFlightData];
+                if (!AES.isRecord(summary) || !AES.isAircraftProfit(summary)) {
+                    continue;
+                }
+                for (let i = 0; i < aircraftData.length; i++) {
+                    if (aircraftData[i].aircraftId == summary.aircraftId) {
+                        aircraftData[i].profit = {
+                            date: summary.date,
+                            finishedFlights: summary.finishedFlights,
+                            hubDetected: summary.hubDetected,
+                            hubEffective: summary.hubEffective,
+                            hubOverride: summary.hubOverride,
+                            profit: summary.profit,
+                            profitFlights: summary.profitFlights,
+                            time: summary.time,
+                            totalFlights: summary.totalFlights,
+                        };
+                        aircraftData[i].hubOverride = summary.hubOverride || aircraftData[i].hubOverride || '';
+                        aircraftData[i].hubEffective = summary.hubEffective || aircraftData[i].hubEffective || summary.hubDetected || '';
+                        aircraftData[i].hubDetected = summary.hubDetected || aircraftData[i].hubDetected || '';
+                    }
                 }
             }
-        }
-        //Async
-        fltmng_getAircraftStorageFleetData();
-        });
+            //Async
+            fltmng_getAircraftStorageFleetData();
+        } catch (error) { fltmng_extractionFailed(error); }
     });
 }
 
@@ -307,11 +358,11 @@ function fltmng_getAircraftStorageFleetData() {
     aircraftFleetKey = server + airline.id + 'aircraftFleet';
     chrome.storage.local.get([aircraftFleetKey], function(result) {
         if (!fltmng_storageCallbackSucceeded()) return;
-        AES.tryRun("content_fleetManagement", function() {
-        fltmng_updateAircraftFleetStorageData(AES.readFleetRecord(result[aircraftFleetKey]));
+        try {
+            fltmng_updateAircraftFleetStorageData(AES.readFleetRecord(result[aircraftFleetKey]));
 
-        fltmng_saveData();
-        });
+            fltmng_saveData();
+        } catch (error) { fltmng_extractionFailed(error); }
     });
 }
 
@@ -422,8 +473,9 @@ function fltmng_saveData() {
     void AES.patchRecord(aircraftFleetKey, fleetBaseline, aircraftFleetStorageData).then(value => {
         const updated = AES.readFleetRecord(value);
         if (updated) {aircraftFleetStorageData=updated;fleetBaseline=AES.cloneData(updated);}
+        extracting = false;
         if (AES.isPageOwner()) fltmng_display();
-    }, error => AES.reportContentScriptError('content_fleetManagement',error));
+    }).catch(fltmng_extractionFailed);
 }
 
 function fltmng_display() {
@@ -431,8 +483,10 @@ function fltmng_display() {
     fltmng_displayAircraftProfit();
 
     let p = [];
+    const controls=fltmng_extractionControls();
+    controls.find('#aes-fleet-extract-status').append(fltmng_displayNewUpdates());
+    p.push(controls);
     p.push($('<p></p>').text(fltmng_displaySavedAircrafts()));
-    p.push($('<p></p>').append(fltmng_displayNewUpdates()));
     p.push(fltmng_buildFilterPanel());
 
     let panel = $('<div class="as-panel"></div>').append(...p);
@@ -440,7 +494,7 @@ function fltmng_display() {
     let h = $('<h3></h3>').text(AESI18n.t('AES Fleet Management'));
     let div = $('<div id="aes-fleet-management-root"></div>').append(h, panel);
     AES.markOwnedElements(div);
-    let insertionTarget = $('.as-page-fleet-management > h1:eq(0)');
+    let insertionTarget = $('.as-page-fleet-management h1').first();
     if (!insertionTarget.length) {
         throw new Error(AESI18n.t("Fleet management insertion target .as-page-fleet-management > h1 was not found"));
     }
@@ -450,7 +504,7 @@ function fltmng_display() {
 }
 
 function fltmng_displayAircraftProfit() {
-    let table = $('.as-page-fleet-management > .row > .col-md-9 > .as-panel:eq(0) table');
+    let table = fltmng_getTable();
     if (!table.length) {
         return;
     }
@@ -461,7 +515,7 @@ function fltmng_displayAircraftProfit() {
     table.addClass('aes-fleet-table');
     //Head
     $('thead tr:eq(0) th:eq(2)', table).html(
-        $('thead tr:eq(0) th:eq(2)', table).html().replace('Aircraft model', AESI18n.t('Model'))
+        ($('thead tr:eq(0) th:eq(2)', table).html() || '').replace('Aircraft model', AESI18n.t('Model'))
     );
     $('thead tr:eq(0) th:eq(2)', table).after(
         $(AESI18n.html('<th rowspan="2" class="aes-fleet-extra-header">HUB</th>'))
@@ -524,7 +578,7 @@ function fltmng_syncTableRows(table: JQuery) {
 }
 
 function fltmng_watchFleetTable() {
-    let panel = document.querySelector('.as-page-fleet-management > .row > .col-md-9 > .as-panel');
+    let panel = document.querySelector('.as-page-fleet-management');
     if (!panel) {
         return;
     }
@@ -535,6 +589,7 @@ function fltmng_watchFleetTable() {
 
     fltmngTableObserver = new MutationObserver(function(mutations) {
         let shouldRefresh = mutations.some(function(mutation) {
+            if ($(mutation.target).closest('#aes-fleet-management-root').length) return false;
             return Array.from(mutation.addedNodes).some(fltmng_isFleetTableNode) ||
                 Array.from(mutation.removedNodes).some(fltmng_isFleetTableNode);
         });
@@ -543,7 +598,7 @@ function fltmng_watchFleetTable() {
             return;
         }
 
-        fltmng_refreshFleetTableEnhancements();
+        AES.tryRun('content_fleetManagement', initializeFleetManagement);
     });
 
     fltmngTableObserver.observe(panel, {
@@ -558,18 +613,7 @@ function fltmng_isFleetTableNode(node: Node) {
     }
 
     let tag = node.tagName;
-    return tag === 'TABLE' || tag === 'THEAD' || tag === 'TBODY' || tag === 'TR' || tag === 'TD' || tag === 'TH';
-}
-
-function fltmng_refreshFleetTableEnhancements() {
-    if (!AES.isPageOwner()) return;
-    if (fltmngTableObserver) {
-        fltmngTableObserver.disconnect();
-    }
-
-    fltmng_displayAircraftProfit();
-    fltmng_bindNativeSelectionLinks();
-    fltmng_watchFleetTable();
+    return ['TABLE','THEAD','TBODY','TR','TD','TH'].includes(tag) || !!node.querySelector('table');
 }
 
 function fltmng_getResolvedHub(aircraft: AESModel.FleetAircraft | AESModel.FleetPageAircraft | null) {
@@ -746,7 +790,7 @@ function fltmng_bindNativeSelectionLinks() {
                 return;
             }
 
-            let fleetTable = $('.as-page-fleet-management > .row > .col-md-9 > .as-panel:eq(0) table');
+            let fleetTable = fltmng_getTable();
             if (!fleetTable.length) {
                 return;
             }
@@ -845,7 +889,7 @@ function fltmng_storageCallbackSucceeded() {
     const error = chrome.runtime.lastError;
     if (!AES.isPageOwner()) return false;
     if (error) {
-        AES.reportContentScriptError('content_fleetManagement', new Error(error.message));
+        fltmng_extractionFailed(new Error(error.message));
         return false;
     }
     return true;

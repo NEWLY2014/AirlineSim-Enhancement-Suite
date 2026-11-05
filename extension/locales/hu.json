@@ -766,5 +766,10 @@
   "Pause automatic requests after HTTP 429 or Unexpected Error pages, and wait longer if errors repeat.": "HTTP 429 vagy Unexpected Error oldal után szüneteltesse az automatikus kéréseket, ismételt hibánál pedig várjon tovább.",
   "Stop the remaining salary submissions after an error without retrying writes.": "Hiba után állítsa le a hátralévő bérküldéseket az írások újrapróbálása nélkül.",
   "Save pricing settings": "Árazási beállítások mentése",
-  "Saves the pricing mode and the rules and price limits for the selected cabin.": "Menti az árazási módot, valamint a kiválasztott osztály szabályait és árkorlátait."
+  "Saves the pricing mode and the rules and price limits for the selected cabin.": "Menti az árazási módot, valamint a kiválasztott osztály szabályait és árkorlátait.",
+  "Extract fleet data": "Flottaadatok kinyerése",
+  "Aircraft on this fleet page are saved automatically. Use Extract fleet data to refresh them manually.": "Az ezen az oldalon látható repülőgépek adatai automatikusan mentődnek. A kézi frissítéshez használja a „Flottaadatok kinyerése” gombot.",
+  "Fleet table not found. Wait for the aircraft list to load, then retry.": "A flottatáblázat nem található. Várja meg a repülőgéplista betöltését, majd próbálja újra.",
+  "Fleet extraction failed. {0}": "A flottaadatok kinyerése sikertelen. {0}",
+  "Fleet name not found. Reload the fleet page and retry.": "A flotta neve nem található. Töltse újra a flottaoldalt, majd próbálja újra."
 }

@@ -188,10 +188,16 @@ test('settings tabs preserve drafts, support the keyboard and open extension bac
         gameLanguage=file.slice(0,-5);const messages=JSON.parse(readFileSync('extension/locales/'+file));
         await worker.evaluate(()=>chrome.storage.local.set({aesLanguage:'auto'}));
         await page.goto('https://paine.airlinesim.aero/app/fleets');
-        await page.locator('#aes-fleet-management-root').waitFor();
+        await page.locator('#aes-fleet-management-root select').first().waitFor();
         const text=await page.locator('#aes-fleet-management-root').textContent();
         assert.ok(text.includes(messages['Currently {0} aircrafts stored in memory.'].replace('{0}','22')),gameLanguage);
         assert.ok(text.includes(messages['Undelivered aircraft are stored by registration and will be merged once AirlineSim assigns an aircraft ID.']),gameLanguage);
+        await page.locator('#aes-fleet-extract').click();
+        await page.waitForFunction(()=>!document.querySelector('#aes-fleet-extract').disabled);
+        const fleet=await worker.evaluate(()=>chrome.storage.local.get('paine42aircraftFleet').then(v=>v.paine42aircraftFleet.fleet));
+        assert.equal(fleet.length,22);
+        assert.equal(fleet[0].seatConfig,'100/10/0');
+        assert.equal(fleet[0].equipment,'A320');
     }
     assert.equal(submissions,0);
 });

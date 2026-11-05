@@ -766,5 +766,10 @@
   "Pause automatic requests after HTTP 429 or Unexpected Error pages, and wait longer if errors repeat.": "Pauzeer automatische verzoeken na HTTP 429 of Unexpected Error-pagina’s en wacht langer bij herhaalde fouten.",
   "Stop the remaining salary submissions after an error without retrying writes.": "Stop na een fout de resterende salarisinzendingen zonder schrijfacties opnieuw te proberen.",
   "Save pricing settings": "Prijsinstellingen opslaan",
-  "Saves the pricing mode and the rules and price limits for the selected cabin.": "Slaat de prijsmodus en de regels en prijsgrenzen voor de geselecteerde klasse op."
+  "Saves the pricing mode and the rules and price limits for the selected cabin.": "Slaat de prijsmodus en de regels en prijsgrenzen voor de geselecteerde klasse op.",
+  "Extract fleet data": "Vlootgegevens ophalen",
+  "Aircraft on this fleet page are saved automatically. Use Extract fleet data to refresh them manually.": "De vliegtuigen op deze vlootpagina worden automatisch opgeslagen. Gebruik ‘Vlootgegevens ophalen’ om ze handmatig bij te werken.",
+  "Fleet table not found. Wait for the aircraft list to load, then retry.": "Vloottabel niet gevonden. Wacht tot de vliegtuiglijst geladen is en probeer het opnieuw.",
+  "Fleet extraction failed. {0}": "Ophalen van vlootgegevens mislukt. {0}",
+  "Fleet name not found. Reload the fleet page and retry.": "Vlootnaam niet gevonden. Laad de vlootpagina opnieuw en probeer het opnieuw."
 }

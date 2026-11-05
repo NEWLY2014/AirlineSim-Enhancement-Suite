@@ -766,5 +766,10 @@
   "Pause automatic requests after HTTP 429 or Unexpected Error pages, and wait longer if errors repeat.": "HTTP 429 または Unexpected Error ページの後は自動リクエストを一時停止し、エラーが続く場合は待機時間を延長します。",
   "Stop the remaining salary submissions after an error without retrying writes.": "エラー後は残りの給与送信を停止し、書き込みを自動再試行しません。",
   "Save pricing settings": "価格設定を保存",
-  "Saves the pricing mode and the rules and price limits for the selected cabin.": "価格設定モードと、選択したクラスのルールおよび価格の上下限を保存します。"
+  "Saves the pricing mode and the rules and price limits for the selected cabin.": "価格設定モードと、選択したクラスのルールおよび価格の上下限を保存します。",
+  "Extract fleet data": "機材データを取得",
+  "Aircraft on this fleet page are saved automatically. Use Extract fleet data to refresh them manually.": "このページの機材データは自動保存されます。「機材データを取得」で手動更新できます。",
+  "Fleet table not found. Wait for the aircraft list to load, then retry.": "機材一覧の表が見つかりません。一覧の読み込みを待ってから再試行してください。",
+  "Fleet extraction failed. {0}": "機材データの取得に失敗しました。{0}",
+  "Fleet name not found. Reload the fleet page and retry.": "機材グループ名が見つかりません。ページを再読み込みして再試行してください。"
 }

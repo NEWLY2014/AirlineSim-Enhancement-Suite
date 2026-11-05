@@ -766,5 +766,10 @@
   "Pause automatic requests after HTTP 429 or Unexpected Error pages, and wait longer if errors repeat.": "Suspendre les requêtes automatiques après HTTP 429 ou une page Unexpected Error et attendre davantage si les erreurs se répètent.",
   "Stop the remaining salary submissions after an error without retrying writes.": "Arrêter les envois de salaire restants après une erreur sans réessayer les écritures.",
   "Save pricing settings": "Enregistrer les paramètres tarifaires",
-  "Saves the pricing mode and the rules and price limits for the selected cabin.": "Enregistre le mode tarifaire ainsi que les règles et limites de prix de la classe sélectionnée."
+  "Saves the pricing mode and the rules and price limits for the selected cabin.": "Enregistre le mode tarifaire ainsi que les règles et limites de prix de la classe sélectionnée.",
+  "Extract fleet data": "Extraire les données de la flotte",
+  "Aircraft on this fleet page are saved automatically. Use Extract fleet data to refresh them manually.": "Les avions de cette page sont enregistrés automatiquement. Utilisez « Extraire les données de la flotte » pour les actualiser manuellement.",
+  "Fleet table not found. Wait for the aircraft list to load, then retry.": "Tableau de flotte introuvable. Attendez le chargement de la liste des avions, puis réessayez.",
+  "Fleet extraction failed. {0}": "Échec de l’extraction de la flotte. {0}",
+  "Fleet name not found. Reload the fleet page and retry.": "Nom de flotte introuvable. Rechargez la page de la flotte et réessayez."
 }

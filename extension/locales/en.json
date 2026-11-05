@@ -766,5 +766,10 @@
   "Pause automatic requests after HTTP 429 or Unexpected Error pages, and wait longer if errors repeat.": "Pause automatic requests after HTTP 429 or Unexpected Error pages, and wait longer if errors repeat.",
   "Stop the remaining salary submissions after an error without retrying writes.": "Stop the remaining salary submissions after an error without retrying writes.",
   "Save pricing settings": "Save pricing settings",
-  "Saves the pricing mode and the rules and price limits for the selected cabin.": "Saves the pricing mode and the rules and price limits for the selected cabin."
+  "Saves the pricing mode and the rules and price limits for the selected cabin.": "Saves the pricing mode and the rules and price limits for the selected cabin.",
+  "Extract fleet data": "Extract fleet data",
+  "Aircraft on this fleet page are saved automatically. Use Extract fleet data to refresh them manually.": "Aircraft on this fleet page are saved automatically. Use Extract fleet data to refresh them manually.",
+  "Fleet table not found. Wait for the aircraft list to load, then retry.": "Fleet table not found. Wait for the aircraft list to load, then retry.",
+  "Fleet extraction failed. {0}": "Fleet extraction failed. {0}",
+  "Fleet name not found. Reload the fleet page and retry.": "Fleet name not found. Reload the fleet page and retry."
 }

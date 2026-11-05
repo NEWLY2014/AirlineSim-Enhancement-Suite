@@ -72,6 +72,17 @@ price limits saves the global pricing mode and the selected compartment’s rule
 limits together. Switching compartments or modes preserves local rule drafts without
 applying prices.
 
+## Fleet extraction
+
+Open the game's Fleet Management page to save the aircraft in the displayed fleet
+automatically. AES refreshes the stored data when the game replaces the aircraft
+table. Other fleets remain in storage; visit each fleet you want to update.
+
+The **Extract fleet data** button in the AES Fleet Management panel repeats the
+extraction manually. The panel shows the number of stored and updated aircraft
+after a successful save. If extraction fails, it shows an error and keeps the
+button available to retry. Wait for the aircraft list to load before retrying.
+
 ## Additional feature guide
 
 Marcipanas wrote [a guide](https://docs.google.com/document/d/1hzMHb3hTBXSZNtuDKoBuvx1HP9CgB7wVYR59yDYympg/) on how to use the extension’s features.
