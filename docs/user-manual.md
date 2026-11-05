@@ -78,10 +78,15 @@ Open the game's Fleet Management page to save the aircraft in the displayed flee
 automatically. AES refreshes the stored data when the game replaces the aircraft
 table. Other fleets remain in storage; visit each fleet you want to update.
 
-The **Extract fleet data** button in the AES Fleet Management panel repeats the
-extraction manually. The panel shows the number of stored and updated aircraft
-after a successful save. If extraction fails, it shows an error and keeps the
-button available to retry. Wait for the aircraft list to load before retrying.
+The **Extract fleet data** button at the right of the AES Fleet Management toolbar
+repeats the extraction manually. The toolbar shows the update status and saved
+aircraft count. **Details** expands the explanation of automatic extraction and
+undelivered aircraft; **Filters** expands the six filtering controls. The visible
+result count stays in the filter heading even when the controls are collapsed.
+Refreshing preserves your filters and their expanded/collapsed state.
+
+If extraction fails, the toolbar shows an error and keeps the button available to
+retry. Wait for the aircraft list to load before retrying.
 
 ## Additional feature guide
 

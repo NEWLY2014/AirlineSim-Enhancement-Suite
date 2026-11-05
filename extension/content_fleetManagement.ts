@@ -9,6 +9,7 @@ let airline: AESModel.Airline, date: ReturnType<typeof AES.getServerDate>, curre
 var fltmngFilterActive = false;
 let fltmngTableObserver: MutationObserver | null = null;
 let extracting = false;
+const fleetFilterValues: Record<string, string> = {};
 const FLEET_MANAGEMENT_SCRIPT_ENABLED = AES.runContentScript("content_fleetManagement", function() {
     AES.waitForElement(() => $('.as-page-fleet-management h1').first(), function() {
         fltmng_mountExtractionControls();
@@ -53,9 +54,7 @@ function initializeFleetManagement() {
 
 function fltmng_mountExtractionControls() {
     if ($('#aes-fleet-management-root').length) return;
-    const root=$('<div id="aes-fleet-management-root"></div>').append(
-        $('<h3></h3>').text(AESI18n.t('AES Fleet Management')),
-        $('<div class="as-panel"></div>').append(fltmng_extractionControls()));
+    const root=$('<section id="aes-fleet-management-root" class="as-panel" aria-labelledby="aes-fleet-title"></section>').append(fltmng_extractionControls());
     AES.markOwnedElements(root);
     $('.as-page-fleet-management h1').first().after(root);
 }
@@ -63,9 +62,11 @@ function fltmng_mountExtractionControls() {
 function fltmng_extractionControls() {
     const button=$('<button type="button" id="aes-fleet-extract" class="btn btn-default"></button>').text(AESI18n.t('Extract fleet data'));
     button.on('click', () => AES.tryRun('content_fleetManagement', initializeFleetManagement));
-    return $('<div class="aes-fleet-extraction"></div>').append(button,
-        $('<p id="aes-fleet-extract-status" role="status"></p>'),
-        $('<p></p>').text(AESI18n.t('Aircraft on this fleet page are saved automatically. Use Extract fleet data to refresh them manually.')));
+    return $('<div class="aes-fleet-toolbar"></div>').append(
+        $('<div class="aes-fleet-heading"></div>').append(
+            $('<h3 id="aes-fleet-title"></h3>').text(AESI18n.t('AES Fleet Management')),
+            $('<div id="aes-fleet-extract-status" role="status" aria-live="polite"></div>')),
+        button);
 }
 
 function fltmng_extractionFailed(error: unknown) {
@@ -479,26 +480,29 @@ function fltmng_saveData() {
 }
 
 function fltmng_display() {
+    const filtersOpen=$('.aes-fleet-filters').prop('open') === true;
+    const helpOpen=$('.aes-fleet-help').prop('open') === true;
+    const focusedId=$('#aes-fleet-management-root').find(':focus').attr('id');
     $('#aes-fleet-management-root').remove();
     fltmng_displayAircraftProfit();
 
-    let p = [];
     const controls=fltmng_extractionControls();
     controls.find('#aes-fleet-extract-status').append(fltmng_displayNewUpdates());
-    p.push(controls);
-    p.push($('<p></p>').text(fltmng_displaySavedAircrafts()));
-    p.push(fltmng_buildFilterPanel());
-
-    let panel = $('<div class="as-panel"></div>').append(...p);
-    //Header
-    let h = $('<h3></h3>').text(AESI18n.t('AES Fleet Management'));
-    let div = $('<div id="aes-fleet-management-root"></div>').append(h, panel);
+    const help=$('<details class="aes-fleet-help"></details>').prop('open',helpOpen).append(
+        $('<summary></summary>').text(AESI18n.t('Details')),
+        $('<p></p>').text(AESI18n.t('Aircraft on this fleet page are saved automatically. Use Extract fleet data to refresh them manually.')));
+    if (aircraftData.some(value=>!value.aircraftId)) help.append($('<p></p>').text(AESI18n.t('Undelivered aircraft are stored by registration and will be merged once AirlineSim assigns an aircraft ID.')));
+    const metadata=$('<div class="aes-fleet-metadata"></div>').append(
+        $('<span class="aes-fleet-saved-count"></span>').text(fltmng_displaySavedAircrafts()),help);
+    const filters=fltmng_buildFilterPanel().prop('open',filtersOpen);
+    let div = $('<section id="aes-fleet-management-root" class="as-panel" aria-labelledby="aes-fleet-title"></section>').append(controls,metadata,filters);
     AES.markOwnedElements(div);
     let insertionTarget = $('.as-page-fleet-management h1').first();
     if (!insertionTarget.length) {
         throw new Error(AESI18n.t("Fleet management insertion target .as-page-fleet-management > h1 was not found"));
     }
     insertionTarget.after(div);
+    if (focusedId) div.find('[id]').filter((_,el)=>el.id===focusedId).trigger('focus');
     fltmng_bindNativeSelectionLinks();
     fltmng_watchFleetTable();
 }
@@ -664,15 +668,11 @@ function fltmng_getAircraftHubDisplay(aircraftId: number | null) {
 }
 
 function fltmng_displaySavedAircrafts() {
-    let text = AESI18n.t('Currently {0} aircrafts stored in memory.', {0:aircraftFleetStorageData.fleet.length});
-    if (aircraftData.some(function(value) { return !value.aircraftId; })) {
-        text += AESI18n.t(' Undelivered aircraft are stored by registration and will be merged once AirlineSim assigns an aircraft ID.');
-    }
-    return text;
+    return AESI18n.t('Currently {0} aircrafts stored in memory.', {0:aircraftFleetStorageData.fleet.length});
 }
 
 function fltmng_displayNewUpdates() {
-    let span = $('<span class="good"></span>').text(AESI18n.t("Updated aircraft data for {0} from {1}", {"0": aircraftData.length, "1": currentFleet}));
+    let span = $('<span></span>').text(AESI18n.t("Updated aircraft data for {0} from {1}", {"0": aircraftData.length, "1": currentFleet}));
     return span;
 }
 
@@ -696,16 +696,20 @@ function fltmng_buildFilterPanel() {
         { value: 'undelivered', label: AESI18n.t('Undelivered') }
     ]);
     let resetBtn = $('<button type="button" class="btn btn-default"></button>').text(AESI18n.t('Reset filters'));
-    let status = $('<span class="text-muted"></span>');
+    let status = $('<span class="aes-fleet-filter-count" role="status"></span>');
+    const selects={equipment:equipmentSelect,hub:hubSelect,seats:seatConfigSelect,delivery:deliverySelect,ownership:ownershipSelect,schedule:scheduleSelect};
+    for (const [key,select] of Object.entries(selects)) {
+        const value=fleetFilterValues[key] || '';
+        select.val(select.find('option').toArray().some(option=>(option as HTMLOptionElement).value===value) ? value : '');
+    }
 
-    let form = $('<div class="row"></div>').append(
+    let form = $('<div class="aes-fleet-filter-grid"></div>').append(
         fltmng_wrapFilterControl('Model', equipmentSelect),
         fltmng_wrapFilterControl('HUB', hubSelect),
         fltmng_wrapFilterControl('Seats (Y/C/F)', seatConfigSelect),
         fltmng_wrapFilterControl('Delivery', deliverySelect),
         fltmng_wrapFilterControl('Ownership', ownershipSelect),
-        fltmng_wrapFilterControl('Schedule', scheduleSelect),
-        $('<div class="col-md-12" style="margin-top: 8px;"></div>').append(resetBtn, ' ', status)
+        fltmng_wrapFilterControl('Schedule', scheduleSelect)
     );
 
     [equipmentSelect, hubSelect, seatConfigSelect, deliverySelect, ownershipSelect, scheduleSelect].forEach(function(select) {
@@ -722,12 +726,13 @@ function fltmng_buildFilterPanel() {
     });
 
     applyFilters();
-    return $('<div></div>').append(
-        $(AESI18n.html('<p><strong>AES filters</strong></p>')),
-        form
+    return $('<details class="aes-fleet-filters"></details>').append(
+        $('<summary></summary>').append($('<span></span>').text(AESI18n.t('Filters')),status),
+        form,$('<div class="aes-fleet-filter-actions"></div>').append(resetBtn)
     );
 
     function applyFilters() {
+        for (const [key,select] of Object.entries(selects)) fleetFilterValues[key]=String(select.val() || '');
         let visibleCount = 0;
         let selectionStateChanged = false;
         let refreshCheckbox: HTMLInputElement | null = null;
@@ -837,8 +842,10 @@ function fltmng_bindNativeSelectionLinks() {
 }
 
 function fltmng_wrapFilterControl(label: string, control: JQuery) {
-    return $('<div class="col-md-2 col-sm-4" style="margin-top: 8px;"></div>').append(
-        $('<label class="control-label"></label>').text(AESI18n.t(label)),
+    const id='aes-fleet-filter-'+label.toLowerCase().replace(/[^a-z0-9]+/g,'-');
+    control.attr('id',id);
+    return $('<div class="aes-fleet-filter-field"></div>').append(
+        $('<label></label>').attr('for',id).text(AESI18n.t(label)),
         control
     );
 }

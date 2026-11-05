@@ -91,6 +91,24 @@ test('fleet filters hide mismatched models and clear hidden aircraft selection',
     assert.equal(aircraft[1].style.display, '');
 });
 
+test('fleet refresh preserves active filters and disclosure state',async t=>{
+    const p=fleet(t,aircraftRow(123,'AA-123')+aircraftRow(124,'AA-124','B737'));
+    p.load('content_fleetManagement.js');
+    await until(()=>p.w.document.querySelector('.aes-fleet-filters'));
+    const d=p.w.document;
+    assert.equal(d.querySelector('.aes-fleet-filters').open,false);
+    assert.equal(d.querySelector('.aes-fleet-help').open,false);
+    d.querySelector('.aes-fleet-filters').open=true;
+    p.w.$('#aes-fleet-filter-model').val('A320').trigger('change');
+    d.querySelector('#aes-fleet-extract').click();
+    await until(()=>!d.querySelector('#aes-fleet-extract').disabled);
+    assert.equal(d.querySelector('.aes-fleet-filters').open,true);
+    assert.equal(d.querySelector('#aes-fleet-filter-model').value,'A320');
+    assert.match(d.querySelector('.aes-fleet-filter-count').textContent,/Showing 1 of 2/);
+    assert.equal(d.querySelectorAll('.aes-fleet-table tbody tr')[1].style.display,'none');
+    for(const select of d.querySelectorAll('.aes-fleet-filter-grid select')) assert.equal(select.labels.length,1);
+});
+
 test('aircraft flights sum stored profits and preserve fleet HUB override', async t => {
     const p = flights(t, rows, { [fleetKey]: { fleet: [{aircraftId:123, hubOverride:'CCC', extra:'keep'}] }, paineflightInfo1: {flightId:1, money:{CM5:{Total:100}},date:'20260907',time:'00:00 UTC'}, paineflightInfo2: {flightId:2,money:{CM5:{Total:-20}},date:'20260908',time:'00:00 UTC'} });
     p.load('content_aircraftFlights.js');

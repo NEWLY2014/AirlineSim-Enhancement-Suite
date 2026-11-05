@@ -188,7 +188,7 @@ test('settings tabs preserve drafts, support the keyboard and open extension bac
         gameLanguage=file.slice(0,-5);const messages=JSON.parse(readFileSync('extension/locales/'+file));
         await worker.evaluate(()=>chrome.storage.local.set({aesLanguage:'auto'}));
         await page.goto('https://paine.airlinesim.aero/app/fleets');
-        await page.locator('#aes-fleet-management-root select').first().waitFor();
+        await page.locator('#aes-fleet-management-root select').first().waitFor({state:'attached'});
         const text=await page.locator('#aes-fleet-management-root').textContent();
         assert.ok(text.includes(messages['Currently {0} aircrafts stored in memory.'].replace('{0}','22')),gameLanguage);
         assert.ok(text.includes(messages['Undelivered aircraft are stored by registration and will be merged once AirlineSim assigns an aircraft ID.']),gameLanguage);
@@ -198,6 +198,34 @@ test('settings tabs preserve drafts, support the keyboard and open extension bac
         assert.equal(fleet.length,22);
         assert.equal(fleet[0].seatConfig,'100/10/0');
         assert.equal(fleet[0].equipment,'A320');
+    }
+    // The fleet toolbar stays compact; details and filters are optional.
+    await worker.evaluate(()=>chrome.storage.local.set({aesLanguage:'en'}));
+    await page.reload();
+    const fleetPanel=page.locator('#aes-fleet-management-root');
+    const filterDetails=page.locator('.aes-fleet-filters');
+    await filterDetails.waitFor();
+    assert.equal(await filterDetails.getAttribute('open'),null);
+    assert.equal(await page.getByLabel('Model',{exact:true}).isVisible(),false);
+    assert.ok((await fleetPanel.boundingBox()).height<180);
+    assert.equal(await page.locator('.aes-fleet-filter-count').isVisible(),true);
+    await filterDetails.locator('summary').focus();await page.keyboard.press('Enter');
+    assert.equal(await page.getByLabel('Model',{exact:true}).isVisible(),true);
+    await page.getByLabel('Model',{exact:true}).selectOption('A320');
+    await page.locator('#aes-fleet-extract').click();
+    await page.waitForFunction(()=>!document.querySelector('#aes-fleet-extract').disabled);
+    assert.equal(await page.getByLabel('Model',{exact:true}).inputValue(),'A320');
+    assert.equal(await filterDetails.evaluate(el=>el.open),true);
+    await page.setViewportSize({width:390,height:844});
+    assert.ok((await fleetPanel.boundingBox()).width<=390);
+    const fieldBoxes=await page.locator('.aes-fleet-filter-grid select').evaluateAll(els=>els.map(el=>{const r=el.getBoundingClientRect();return {x:r.x,right:r.right}}));
+    assert.ok(fieldBoxes.every(box=>box.x>=0&&box.right<=390));
+    await page.setViewportSize({width:1280,height:900});
+    if(process.env.AES_UI_SCREENSHOT_DIR){
+        const {mkdir}=require('node:fs/promises');await mkdir(process.env.AES_UI_SCREENSHOT_DIR,{recursive:true});
+        await fleetPanel.screenshot({path:join(process.env.AES_UI_SCREENSHOT_DIR,'fleet-panel-expanded.png')});
+        await filterDetails.locator('summary').click();
+        await fleetPanel.screenshot({path:join(process.env.AES_UI_SCREENSHOT_DIR,'fleet-panel-collapsed.png')});
     }
     assert.equal(submissions,0);
 });
