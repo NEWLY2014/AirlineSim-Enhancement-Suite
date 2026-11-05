@@ -77,8 +77,10 @@ completion; live-game acceptance still requires separate validation.
 
 AES batch navigation, read-only collection, Inventory price submissions and salary
 POSTs share one session-persistent FIFO across tabs. Dashboard batches accept up to
-10 selections. Operations wait for the preceding response or target page load,
-then leave a randomized 55–65 ms gap. Browser scheduling and message/storage
+10 selections. Up to five operations can be in flight across all tabs. Each
+response or target page load holds one slot until it finishes; the next waiting
+operation can then use that slot. Operations on the same target tab remain
+serialized. Dispatches retain a randomized 55–65 ms gap. Browser scheduling and message/storage
 latency can lengthen the interval. Loading state survives worker restarts; missed
 load events are recovered from the target tab state. A stuck load or expired
 request receives a further one-minute recovery pause without replaying it.

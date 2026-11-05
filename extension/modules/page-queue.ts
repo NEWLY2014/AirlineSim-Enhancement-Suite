@@ -2,6 +2,7 @@
  * own permit. No timer or open response channel must survive worker suspension. */
 (() => {
     const KEY = 'aesPageQueueV1';
+    const CONCURRENCY = 5;
     const gap = () => 55 + Math.floor(Math.random() * 11);
     const PAGE_TIMEOUT = 120000;
     const COOLDOWN = 60000;
@@ -57,8 +58,14 @@
     }
     const notices = new Map<string,string>();
     function wakeAt(s: State) {
-        const active = s.jobs.find(j => j.state === 'running' || j.loading);
-        return Math.max(s.next, active?.expires || 0);
+        const active = s.jobs.filter(j => j.state === 'running' || j.loading);
+        const head = s.jobs.find(j => j.state === 'queued');
+        // A tab must finish its current request/navigation before another
+        // operation can use that same document, even when other slots are free.
+        const sameTab = head?.kind !== 'open' ? active.filter(j => j.target === head?.source) : [];
+        return Math.max(s.next,
+            active.length >= CONCURRENCY ? Math.min(...active.map(j => j.expires || 0)) : 0,
+            ...sameTab.map(j => j.expires || 0));
     }
     const save = async (s: State) => {
         await chrome.storage.session.set({[KEY]: s});
@@ -95,20 +102,21 @@
                 } catch { active.loading = false; s.next = Math.max(s.next, now + gap()); }
             }
             if (!active.loading && active.state !== 'running') continue;
-            if (now < (active.expires || 0)) return;
+            if (now < (active.expires || 0)) continue;
             // Unknown outcomes are never replayed. Give slow/abandoned requests
             // a recovery pause rather than immediately overlapping another one.
             active.loading = false;
             fail(active, 'Request dispatch permit expired.');
             s.next = Math.max(s.next, now + COOLDOWN);
         }
-        if (now < s.next) return;
+        if (Date.now() < wakeAt(s)) return;
         const job = s.jobs.find(j => j.state === 'queued');
         if (!job) return;
         // Request permits are granted only by their source page's poll.
         // Another client must never dispatch a pending request for that page.
         if (job.kind === 'price' || job.kind === 'read' || job.kind === 'salary') return;
-        job.state = 'running'; job.started = now; job.expires = now + PAGE_TIMEOUT; s.next = now + gap();
+        const started = Date.now();
+        job.state = 'running'; job.started = started; job.expires = started + PAGE_TIMEOUT; s.next = started + gap();
         job.target = job.kind === 'navigate' ? job.source : undefined;
         // Persist intent before the side effect. Restarting must not replay it.
         await save(s);
@@ -184,8 +192,9 @@
             }
             await pump(s);
             if (message.op === 'poll' && (job.kind === 'price' || job.kind === 'read' || job.kind === 'salary') && job.state === 'queued' &&
-                !s.jobs.some(j => j.state === 'running' || j.loading) && s.jobs.find(j => j.state === 'queued') === job && now >= s.next) {
-                job.state = 'running'; job.started = now; job.expires = now + (job.kind === 'read' || job.kind === 'salary' ? 30000 : LEASE); job.target = source; s.next = now + gap();
+                s.jobs.find(j => j.state === 'queued') === job && Date.now() >= wakeAt(s)) {
+                const started = Date.now();
+                job.state = 'running'; job.started = started; job.expires = started + (job.kind === 'read' || job.kind === 'salary' ? 30000 : LEASE); job.target = source; s.next = started + gap();
             }
             await save(s);
             return {ok:job.state !== 'failed', state:job.state, expires:job.expires, error:job.error,
@@ -195,7 +204,7 @@
         }).then(reply, error => reply({ok:false,error:'Page queue unavailable: ' + String(error)}));
         return true;
     });
-    // Target loads hold the shared slot through redirects and form navigation.
+    // Target loads hold their slot through redirects and form navigation.
     chrome.tabs.onUpdated.addListener((id, change) => {
         if (change.status !== 'loading' && change.status !== 'complete') return;
         void transaction(async s => {

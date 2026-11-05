@@ -33,12 +33,20 @@ const dragging='Tabs cannot be edited right now (user may be dragging a tab).';
 const read='https://paine.airlinesim.aero/action/info/flight?id=1';
 const staff='https://paine.airlinesim.aero/action/enterprise/staffOverview';
 const salary=(q,op,id)=>q.message(op,id,'salary',1,staff,'doc1',staff);
+// Occupy four real permits when exercising the lifecycle of the final slot.
+const occupyFour=async q=>{
+    for(let i=0;i<4;i++){
+        await q.message('enqueue','held'+i,'read',10+i,read);
+        assert.equal((await q.message('poll','held'+i,'read',10+i,read)).state,'running');
+        q.advance(65);
+    }
+};
 const settle=async(q,id)=>{q.updated(id,'complete');await q.message('poll','a');};
 
 for(const kind of ['open','navigate'])test(`${kind} waits through tab dragging and page loading across worker restarts`,async()=>{
-    const q=queue(0);q.editErrors.push(dragging,dragging);
+    const q=queue(0);await occupyFour(q);q.editErrors.push(dragging,dragging);
     assert.equal((await q.message('enqueue','a',kind)).state,'queued');
-    assert.equal(q.notices.at(-1).message.notBefore,100100);
+    assert.equal(q.notices.at(-1).message.notBefore,100360);
     await q.message('enqueue','b','open',2);q.boot();
     q.advance(100);assert.equal((await q.message('poll','a',kind)).state,'queued');
     q.advance(200);assert.equal((await q.message('poll','a',kind)).state,'done');
@@ -68,7 +76,7 @@ test('persistent tab drag expires without replaying and a late recovered drag su
 
 for(const kind of ['open','navigate'])test(`${kind} waits for completion plus a randomized 55–65 ms gap`,async()=>{
     for(const random of [0,0.5,0.999999]) {
-        const q=queue(random),gap=55+Math.floor(random*11);
+        const q=queue(random),gap=55+Math.floor(random*11);await occupyFour(q);
         await q.message('enqueue','a',kind);await q.message('enqueue','b','open',2);
         q.advance(2000);await q.message('poll','b','open',2);assert.equal(q.opened.length,1,'loading page holds queue');
         await settle(q,kind==='open'?100:1);
@@ -79,7 +87,7 @@ for(const kind of ['open','navigate'])test(`${kind} waits for completion plus a 
 });
 
 test('price dispatch acknowledgement holds the slot until navigation completes',async()=>{
-    const q=queue(0);await q.message('enqueue','p','price');await q.message('poll','p','price');
+    const q=queue(0);await occupyFour(q);await q.message('enqueue','p','price');await q.message('poll','p','price');
     await q.message('complete','p','price');await q.message('enqueue','other','open',2);
     q.advance(2000);assert.equal((await q.message('poll','other','open',2)).state,'queued','old complete tab state is not a POST acknowledgement');
     q.updated(1,'loading');await q.message('poll','other','open',2);q.boot();
@@ -90,7 +98,7 @@ test('price dispatch acknowledgement holds the slot until navigation completes',
 });
 
 test('price navigation without an explicit completion releases after load and gap',async()=>{
-    const q=queue(0);await q.message('enqueue','p','price');await q.message('poll','p','price');
+    const q=queue(0);await occupyFour(q);await q.message('enqueue','p','price');await q.message('poll','p','price');
     q.updated(1,'loading');await q.message('enqueue','other','open',2);
     q.advance(2000);assert.equal(q.opened.length,0);
     q.updated(1,'complete');await q.message('poll','other','open',2);
@@ -98,7 +106,7 @@ test('price navigation without an explicit completion releases after load and ga
 });
 
 test('worker restart recovers missed load completion without replaying tabs',async()=>{
-    const q=queue(0);await q.message('enqueue','a');await q.message('enqueue','b','open',2);
+    const q=queue(0);await occupyFour(q);await q.message('enqueue','a');await q.message('enqueue','b','open',2);
     q.advance(2000);q.tabs.get(100).status='complete';q.boot();
     await q.message('poll','b','open',2);assert.equal(q.opened.length,1);
     q.advance(1000);await q.message('poll','b','open',2);assert.equal(q.opened.length,2);
@@ -124,7 +132,7 @@ for(const failure of ['storage','creation'])test(`${failure} failure prevents cr
 });
 
 test('request completion notifies the exact next document and preserves the gap',async()=>{
-    const q=queue(0);await q.message('enqueue','a','read',1,read);await q.message('poll','a','read',1,read);
+    const q=queue(0);await occupyFour(q);await q.message('enqueue','a','read',1,read);await q.message('poll','a','read',1,read);
     await q.message('enqueue','b','price',2);
     const before=q.notices.filter(n=>n.message.id==='b').at(-1);assert.equal(before.options.documentId,'doc2');assert.equal(before.tab,2);
     await q.message('complete','a','read',1,read);
@@ -139,9 +147,57 @@ test('abandoned waiting client expires and another page cannot grant a request p
     q.advance(120001);assert.equal((await q.message('enqueue','c','open',2)).state,'done');
 });
 
-test('simultaneous enqueues dispatch only one tab',async()=>{
+test('simultaneous enqueues preserve the dispatch gap',async()=>{
     const q=queue();await Promise.all([q.message('enqueue','a'),q.message('enqueue','b','open',2)]);
     assert.equal(q.opened.length,1);assert.equal(q.saved.aesPageQueueV1.jobs.filter(j=>j.state==='queued').length,1);
+});
+
+test('five tabs load concurrently; any completed slot admits the next FIFO job across restarts',async()=>{
+    const q=queue(0);
+    for(let i=0;i<7;i++) {
+        await q.message('enqueue','tab'+i);q.advance(55);
+    }
+    assert.equal(q.opened.length,5);
+    assert.equal(q.saved.aesPageQueueV1.jobs.filter(j=>j.loading).length,5);
+    q.boot();await q.message('poll','tab5');assert.equal(q.opened.length,5);
+    // A later job can release capacity even while the first tab is still loading.
+    q.updated(103,'complete');await q.message('poll','tab5');
+    q.advance(54);await q.message('poll','tab5');assert.equal(q.opened.length,5);
+    q.advance(1);assert.equal((await q.message('poll','tab5')).state,'done');
+    assert.equal(q.opened.length,6);
+    assert.equal(q.saved.aesPageQueueV1.jobs.find(j=>j.id==='tab6').state,'queued');
+    q.closed(101);await q.message('poll','tab6');q.advance(55);
+    assert.equal((await q.message('poll','tab6')).state,'done');
+    assert.equal(q.opened.length,7);
+});
+
+test('mixed requests share five slots and a source alone can claim its request',async()=>{
+    const q=queue(0);await occupyFour(q);
+    await q.message('enqueue','price','price');await q.message('enqueue','next','open',2);
+    assert.equal(q.opened.length,0);
+    assert.equal((await q.message('poll','price','price')).state,'running');
+    q.advance(1000);await q.message('poll','next','open',2);assert.equal(q.opened.length,0);
+    await q.message('complete','held2','read',12,read);q.advance(55);
+    assert.equal((await q.message('poll','next','open',2)).state,'done');
+    assert.equal(q.saved.aesPageQueueV1.jobs.filter(j=>j.state==='running'||j.loading).length,5);
+});
+
+test('requests on one tab remain serialized while other slots are available',async()=>{
+    const q=queue(0);await q.message('enqueue','read1','read',1,read);await q.message('poll','read1','read',1,read);
+    q.advance(55);await q.message('enqueue','read2','read',1,read);
+    assert.equal((await q.message('poll','read2','read',1,read)).state,'queued');
+    await q.message('complete','read1','read',1,read);q.advance(55);
+    assert.equal((await q.message('poll','read2','read',1,read)).state,'running');
+});
+
+test('a later expired permit is recovered even when an earlier tab is still loading',async()=>{
+    const q=queue(0);await q.message('enqueue','slow');q.advance(55);
+    await q.message('enqueue','expired','read',2,read);await q.message('poll','expired','read',2,read);
+    q.advance(30000);q.boot();await q.message('enqueue','next');
+    assert.equal(q.saved.aesPageQueueV1.jobs.find(j=>j.id==='expired').state,'failed');
+    assert.equal(q.opened.length,1);
+    q.advance(60000);assert.equal((await q.message('poll','next')).state,'done');
+    assert.equal(q.opened.length,2);
 });
 
 test('unknown dispatch outcome and stuck loads pause before continuing, never replay',async()=>{
@@ -155,9 +211,9 @@ test('unknown dispatch outcome and stuck loads pause before continuing, never re
     }
 });
 
-for(const kind of ['read','salary'])test(`${kind} holds all other operations until response completion across restarts`,async()=>{
+for(const kind of ['read','salary'])test(`${kind} holds the fifth slot until response completion across restarts`,async()=>{
     for (const random of [0,0.5,0.999999]){
-        const q=queue(random),gap=55+Math.floor(random*11);
+        const q=queue(random),gap=55+Math.floor(random*11);await occupyFour(q);
         const request=op=>kind==='salary'?salary(q,op,'a'):q.message(op,'a','read',1,read);
         await request('enqueue');assert.equal((await request('poll')).state,'running');
         await q.message('enqueue','b','open',2);q.advance(2000);q.boot();
@@ -200,7 +256,7 @@ test('cooldown honors Retry-After and completion/cancellation cannot shorten it'
 });
 
 for(const kind of ['open','navigate'])test(`${kind} cannot treat the tab API old complete state as a finished navigation`,async()=>{
-    const q=queue(0);q.initialStatus('complete');
+    const q=queue(0);await occupyFour(q);q.initialStatus('complete');
     await q.message('enqueue','a',kind);await q.message('enqueue','b','open',2);
     q.advance(2000);await q.message('poll','b','open',2);assert.equal(q.opened.length,1);
     q.updated(kind==='open'?100:1,'loading');await q.message('poll','b','open',2);

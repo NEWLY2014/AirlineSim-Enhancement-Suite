@@ -34,7 +34,7 @@ test('Chromium loads the extension runtime, exports real storage and injects the
     server=createServer({key:await readFile(join(profile,'key.pem')),cert:await readFile(join(profile,'cert.pem'))},async(req,res)=>{
         if (req.url.startsWith('/app/com/inventory/')) {
             if (req.method === 'POST') priceRequests.push(Date.now());
-            else {inventoryRequests.push(Date.now()); if (inventoryRequests.length === 1) await firstGate;}
+            else {inventoryRequests.push(Date.now()); if (inventoryRequests.length <= 5) await firstGate;}
             if (req.url.endsWith('/RATE-LIMIT')) {
                 res.writeHead(200,{'Content-Type':'text/html'});res.end('<title>Unexpected Error</title><h1>Unexpected Error</h1>');return;
             }
@@ -127,7 +127,7 @@ test('Chromium loads the extension runtime, exports real storage and injects the
     assert.equal(await page.locator('#aes-table-routeManagement tbody input:checked').count(), 10);
     await waitUntil(()=>inventoryRequests.length>=1);
     await new Promise(resolve=>setTimeout(resolve,1700));
-    assert.equal(inventoryRequests.length,1,'loading first tab blocks the rest of the batch');
+    assert.equal(inventoryRequests.length,5,'five loading tabs fill the queue; the sixth waits');
     releaseFirst();
     await waitUntil(()=>inventoryRequests.length===10);
     await page.getByText('Opened 10 pages.',{exact:true}).waitFor();
