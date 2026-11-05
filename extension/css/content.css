@@ -1076,9 +1076,8 @@
 #aes-fleet-management-root #aes-fleet-title { margin: 0 0 4px; padding: 0; border: 0; background: transparent; color: inherit; font-size: 1.1em; font-weight: 600; line-height: 1.4; }
 #aes-fleet-extract-status { min-height: 1.5em; line-height: 1.5; overflow-wrap: anywhere; }
 #aes-fleet-management-root #aes-fleet-extract { flex: 0 0 auto; min-height: 32px; white-space: normal; }
-.aes-fleet-metadata { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 18px; padding: 0 16px 12px; font-size: .9em; }
+.aes-fleet-metadata { display: grid; grid-template-columns: max-content minmax(0,1fr); align-items: start; gap: 4px 18px; padding: 0 16px 12px; font-size: .9em; }
 .aes-fleet-help { min-width: 0; }
-.aes-fleet-help[open] { flex-basis: 100%; }
 .aes-fleet-help p { max-width: 80ch; line-height: 1.5; margin: 8px 0 0; }
 .aes-fleet-help summary, .aes-fleet-filters summary { cursor: pointer; list-style: none; }
 .aes-fleet-help summary::-webkit-details-marker, .aes-fleet-filters summary::-webkit-details-marker { display: none; }
@@ -1095,6 +1094,7 @@
 .aes-fleet-filter-actions { padding: 0 16px 12px; }
 @media (max-width: 1000px) { .aes-fleet-filter-grid { grid-template-columns: repeat(3,minmax(0,1fr)); } }
 @media (max-width: 600px) {
+    .aes-fleet-metadata { grid-template-columns: minmax(0,1fr); }
     .aes-fleet-filter-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
     #aes-fleet-management-root .aes-fleet-heading { flex-basis: 100%; }
     .aes-fleet-filter-count { display: block; margin-inline-start: 0; }

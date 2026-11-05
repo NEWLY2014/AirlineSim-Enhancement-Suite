@@ -15,7 +15,7 @@ test('settings tabs preserve drafts, support the keyboard and open extension bac
         if(req.method==='POST' && req.headers.host==='paine.airlinesim.aero')submissions++;
         if(req.url.startsWith('/app/fleets')){
             const rows=Array.from({length:22},(_,i)=>`<tr><td><input type="checkbox" name="aircraftsContainer"></td><td><span>AA-${i}</span><div>...</div></td><td><a>A320</a></td><td></td><td><span>2 years</span><div><span></span><span>95%</span></div></td><td><span>100</span><span>10</span><span>0</span><div class="subrow">Yes</div></td><td></td><td>${i?`<a title="Flight Planning" class="btn-success" href="/app/fleets/aircraft/${100+i}/0"></a>`:''}</td></tr>`).join('');
-            req.resume();res.writeHead(200,{'Content-Type':'text/html'});res.end(`<script>window.frontendSettings={"fixedEnterpriseId":42,"languageSettings":{"currentLanguageTag":"${gameLanguage}"},"server":{"time":"2026-09-17T01:00:00Z"}};</script><div id="header"><button aria-haspopup="menu"><span class="_name_test">Test Air</span></button><div role="menubar"></div></div><div class="as-page-fleet-management"><h1>Fleet</h1><div class="row"><div class="col-md-9"><h2>Main</h2><div class="as-panel"><table><thead><tr>${'<th>Aircraft model</th>'.repeat(8)}</tr></thead><tbody>${rows}</tbody></table></div></div></div></div>`);return;
+            req.resume();res.writeHead(200,{'Content-Type':'text/html'});res.end(`<script>window.frontendSettings={"fixedEnterpriseId":42,"languageSettings":{"currentLanguageTag":"${gameLanguage}"},"server":{"time":"2026-09-17T01:00:00Z"}};</script><div id="header"><button aria-haspopup="menu"><span class="_name_test">Test Air</span></button><div role="menubar"></div></div><div class="as-page-fleet-management"><h1 style="margin:0">Fleet</h1><div class="as-action-bar as-panel" style="margin:0;padding:5px">Fleet actions</div><div class="row"><div class="col-md-9"><h2>Main</h2><div class="as-panel"><table><thead><tr>${'<th>Aircraft model</th>'.repeat(8)}</tr></thead><tbody>${rows}</tbody></table></div></div></div></div>`);return;
         }
         const game=req.url.includes('tab=game');
         const html=`<script>window.frontendSettings={"fixedEnterpriseId":42,"theme":"light","languageSettings":{"currentLanguageTag":"${gameLanguage}"},"server":{"time":"2026-09-17T01:00:00Z"}};</script>
@@ -205,9 +205,22 @@ test('settings tabs preserve drafts, support the keyboard and open extension bac
     const fleetPanel=page.locator('#aes-fleet-management-root');
     const filterDetails=page.locator('.aes-fleet-filters');
     await filterDetails.waitFor();
-    assert.deepEqual(await fleetPanel.evaluate(el=>{
-        const style=getComputedStyle(el);return [style.marginTop,style.marginBottom];
-    }),['0px','0px']);
+    const gaps=await fleetPanel.evaluate(el=>{
+        const box=el.getBoundingClientRect();
+        return [box.top-el.previousElementSibling.getBoundingClientRect().bottom,el.nextElementSibling.getBoundingClientRect().top-box.bottom];
+    });
+    assert.ok(gaps.every(gap=>Math.abs(gap)<0.1),'panel must meet its neighbors without exposing the page background');
+    const helpToggle=page.locator('.aes-fleet-help > summary');
+    for(const width of [1280,390]) {
+        await page.setViewportSize({width,height:900});
+        const before=await helpToggle.boundingBox();
+        for(let i=0;i<2;i++) {
+            await helpToggle.click();
+            const after=await helpToggle.boundingBox();
+            assert.ok(Math.abs(after.x-before.x)<0.1&&Math.abs(after.y-before.y)<0.1,'Details toggle must stay in place when opened or closed');
+        }
+    }
+    await page.setViewportSize({width:1280,height:900});
     assert.equal(await filterDetails.getAttribute('open'),null);
     assert.equal(await page.getByLabel('Model',{exact:true}).isVisible(),false);
     assert.ok((await fleetPanel.boundingBox()).height<180);
