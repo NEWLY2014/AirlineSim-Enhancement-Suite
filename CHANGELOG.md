@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0-beta.15] - 2026-11-05
+
+### Changed
+
+- Run up to five shared queue operations concurrently while retaining randomized 55–65 ms dispatch spacing, same-target serialization and server-error cooldowns.
+- Give pricing settings a separate Save action with an explicit scope covering pricing rules and price limits.
+- Simplify the fleet panel with a compact extraction toolbar and collapsible details and filters.
+
+### Fixed
+
+- Add manual fleet extraction and recover from interrupted saves. Refresh data when fleet tables change, preserve filters and existing aircraft metadata, and retain undelivered aircraft until their aircraft IDs become available.
+- Remove dark gaps above and below the fleet panel and keep Details in place when expanded or collapsed.
+
+### Security
+
+- Upgrade the transitive development dependency `undici` from 8.10.2 to 8.12.3, addressing Dependabot alerts #2–9.
+
 ## [0.9.0-beta.14] - 2026-10-31
 
 ### Fixed

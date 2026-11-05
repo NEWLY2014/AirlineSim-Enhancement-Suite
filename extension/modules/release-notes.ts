@@ -1,5 +1,34 @@
 const AES_RELEASE_NOTES_STORAGE_KEY = "aesReleaseNotesSeenVersion"
 const AES_RELEASE_NOTES: Record<string, AESModel.ReleaseNotes | undefined> = {
+    "0.9.0-beta.15": {
+        "title": "Release Notes",
+        "releaseDate": "2026-11-05",
+        "summary": "Faster queued operations, clearer pricing saves and simpler fleet management.",
+        "sections": [
+            {
+                "title": "Changed",
+                "items": [
+                    "Run up to five queued operations at once, retaining request spacing and pauses after server errors.",
+                    "Give pricing settings a separate Save action that clearly covers both pricing rules and price limits.",
+                    "Use a compact fleet toolbar with collapsible details and filters."
+                ]
+            },
+            {
+                "title": "Fixed",
+                "items": [
+                    "Refresh fleet data manually with Extract fleet data, recover interrupted saves and preserve filters during refreshes.",
+                    "Capture fleet table changes and retain undelivered aircraft until their aircraft IDs become available.",
+                    "Remove dark gaps around the fleet panel and keep Details in place when opened or closed."
+                ]
+            },
+            {
+                "title": "Security",
+                "items": [
+                    "Update the development dependency undici to address the reported security vulnerabilities."
+                ]
+            }
+        ]
+    },
     "0.9.0-beta.14": {
         "title": "Release Notes",
         "releaseDate": "2026-10-31",
