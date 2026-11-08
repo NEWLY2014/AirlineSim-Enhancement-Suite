@@ -771,5 +771,11 @@
   "Aircraft on this fleet page are saved automatically. Use Extract fleet data to refresh them manually.": "De vliegtuigen op deze vlootpagina worden automatisch opgeslagen. Gebruik ‘Vlootgegevens ophalen’ om ze handmatig bij te werken.",
   "Fleet table not found. Wait for the aircraft list to load, then retry.": "Vloottabel niet gevonden. Wacht tot de vliegtuiglijst geladen is en probeer het opnieuw.",
   "Fleet extraction failed. {0}": "Ophalen van vlootgegevens mislukt. {0}",
-  "Fleet name not found. Reload the fleet page and retry.": "Vlootnaam niet gevonden. Laad de vlootpagina opnieuw en probeer het opnieuw."
+  "Fleet name not found. Reload the fleet page and retry.": "Vlootnaam niet gevonden. Laad de vlootpagina opnieuw en probeer het opnieuw.",
+  "Preparing salary updates...": "Salariswijzigingen voorbereiden…",
+  "Updating salaries: {0}/{1} completed.": "Salarissen bijwerken: {0}/{1} voltooid.",
+  "Salary update stopped: {0}/{1} completed. {2}": "Salarisupdate gestopt: {0}/{1} voltooid. {2}",
+  "Salary update completed: {0} positions submitted.": "Salarisupdate voltooid: {0} functies verzonden.",
+  "Price update completed.": "Prijsupdate voltooid.",
+  "Submitting prices; waiting for confirmation...": "Prijzen verzenden; wachten op bevestiging…"
 }

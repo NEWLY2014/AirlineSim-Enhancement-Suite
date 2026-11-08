@@ -771,5 +771,11 @@
   "Aircraft on this fleet page are saved automatically. Use Extract fleet data to refresh them manually.": "Los aviones de esta página se guardan automáticamente. Use «Extraer datos de la flota» para actualizarlos manualmente.",
   "Fleet table not found. Wait for the aircraft list to load, then retry.": "No se encontró la tabla de la flota. Espere a que cargue la lista de aviones e inténtelo de nuevo.",
   "Fleet extraction failed. {0}": "Error al extraer la flota. {0}",
-  "Fleet name not found. Reload the fleet page and retry.": "No se encontró el nombre de la flota. Recargue la página e inténtelo de nuevo."
+  "Fleet name not found. Reload the fleet page and retry.": "No se encontró el nombre de la flota. Recargue la página e inténtelo de nuevo.",
+  "Preparing salary updates...": "Preparando cambios salariales…",
+  "Updating salaries: {0}/{1} completed.": "Actualizando salarios: {0}/{1} completados.",
+  "Salary update stopped: {0}/{1} completed. {2}": "Actualización salarial detenida: {0}/{1} completados. {2}",
+  "Salary update completed: {0} positions submitted.": "Actualización salarial completada: {0} puestos enviados.",
+  "Price update completed.": "Actualización de precios completada.",
+  "Submitting prices; waiting for confirmation...": "Enviando precios; esperando confirmación…"
 }

@@ -206,6 +206,14 @@ async function displayInventory(revision: number) {
     analysis = getAnalysis(flights, prices, pricingData.date);
     //Display analysis
     displayAnalysis(analysis, prices);
+    if (!$('#aes-pricing-status').length) {
+        $('#aes-div-analysis').prepend($('<div id="aes-pricing-status" role="status" aria-live="polite"></div>'));
+    }
+    if (confirmed || getSnapshot(todayDate).pricingUpdated) {
+        $('#aes-pricing-status').removeClass('warning bad').addClass('good').text(AESI18n.t('Price update completed.'));
+    } else if (Object.keys(pricingData.date).some(hasPendingUpdate)) {
+        $('#aes-pricing-status').text(AESI18n.t('Price update submitted but not confirmed.'));
+    }
     //Display history
     displayHistory(analysis);
     if (settings.invPricing.autoClose && (confirmed || getSnapshot(todayDate).pricingUpdated)) {
@@ -1097,7 +1105,7 @@ function displayAnalysis(analysis: AESModel.InventoryAnalysis, prices: AESModel.
     //Display pricing and data save buttons
     if (analysis.hasValue('valid') || analysis.hasValue('newPrice')) {
         let invPricingAnalysisBar = $('<ul class="as-action-bar as-panel"></ul>');
-        let invPricingAnalysisBarSpan = $('<span class="warning"></span>');
+        let invPricingAnalysisBarSpan = $('<span id="aes-pricing-status" class="warning" role="status" aria-live="polite"></span>');
         invPricingAnalysisBar.append($('<li></li>').append(invPricingAnalysisBarSpan));
         $("#aes-div-analysis").prepend(invPricingAnalysisBar);
         //create buttons
@@ -1278,6 +1286,7 @@ async function submitPendingPricingUpdate(targetPrices: Partial<Record<AESModel.
         await chrome.storage.local.set({[next.key]: next});
         if (!current() || Date.now() >= (slot.expires || 0)) throw new Error(AESI18n.t("Prices or page changed while saving. Please review and retry."));
         pricingData = next;
+        status.text(AESI18n.t('Submitting prices; waiting for confirmation...'));
         authorizedPriceSubmit = true;
         try { $(submitter).trigger('click'); } finally { authorizedPriceSubmit = false; }
         void slot.complete();

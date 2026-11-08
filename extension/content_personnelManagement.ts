@@ -60,7 +60,7 @@ function displayPersonnelManagement() {
         $('<div class="form-group aes-personnel-management-action"></div>').append(btn)
     );
 
-    let panel = $('<div class="as-panel aes-personnel-management-panel"></div>').append(controls, lastUpdate);
+    let panel = $('<div class="as-panel aes-personnel-management-panel"></div>').append(controls, $('<div id="aes-salary-status" role="status" aria-live="polite"></div>'), lastUpdate);
 
     //Final
     let mainDiv = getPersonnelManagementHeading();
@@ -97,6 +97,7 @@ function displayPersonnelManagement() {
         ensurePersonnelManagementSettings(settings).value = AES.cleanInteger(input.val());
         input.val(ensurePersonnelManagementSettings(settings).value);
         setPersonnelManagementBusy(btn, true);
+        salaryStatus(AESI18n.t('Preparing salary updates...'));
         AES.updateSettings(function(currentSettings) {
             let personnelSettings = ensurePersonnelManagementSettings(currentSettings);
             personnelSettings.type = ensurePersonnelManagementSettings(settings).type;
@@ -215,8 +216,15 @@ async function submitSalaryChanges(buttons: JQuery[]) {
         }
         return [{form, action, body}];
     });
-    for (const {form, action, body} of submissions) {
-        const permit = await AES.queuePage(location.href, 'salary', current);
+    let completed = 0;
+    let stopped = false;
+    let failure: unknown;
+    const active = new Set<Promise<void>>();
+    const progress = () => salaryStatus(AESI18n.t('Updating salaries: {0}/{1} completed.', {0:completed, 1:submissions.length}));
+    progress();
+    const submit = async ({form, action, body}: typeof submissions[number]) => {
+        const permit = await AES.queuePage(location.href, 'salary', () => current() && !stopped);
+        if (stopped) { await permit.cancel(); return; }
         const controller = new AbortController();
         const timeout = window.setTimeout(() => controller.abort(), 20000);
         try {
@@ -229,12 +237,34 @@ async function submitSalaryChanges(buttons: JQuery[]) {
             const doc = new DOMParser().parseFromString(await response.text(), 'text/html');
             await AES.checkServerResponse(response, doc);
             await permit.complete();
+            completed++;
+            progress();
         } catch (error) {
+            if (!stopped) failure = error;
+            stopped = true;
             controller.abort();
             await permit.cancel();
             throw error;
         } finally { window.clearTimeout(timeout); }
+    };
+    for (const submission of submissions) {
+        if (stopped) break;
+        const task = submit(submission).catch(error => {
+            if (!stopped) failure = error;
+            stopped = true;
+        });
+        active.add(task);
+        void task.then(() => active.delete(task));
+        // Each request retains its global permit until its full response arrives.
+        if (active.size >= 5) await Promise.race(active);
     }
+    await Promise.all(active);
+    if (stopped) throw new Error(AESI18n.t('Salary update stopped: {0}/{1} completed. {2}', {0:completed, 1:submissions.length, 2:String(failure)}));
+    return completed;
+}
+
+function salaryStatus(message: string, state = 'warning') {
+    $('#aes-salary-status').removeClass('warning good bad').addClass(state).text(message);
 }
 
 function getStaffSalaryTableInfo() {
@@ -444,6 +474,7 @@ function failSalaryUpdate(message: string, options: AESModel.SalaryUpdateOptions
     }, function(finalSettings) {
         settings = finalSettings;
         setPersonnelManagementBusy(options.actionButton, false);
+        salaryStatus(message, 'bad');
         showPersonnelNotification(message, 'error', 8000);
     });
 }
@@ -454,11 +485,13 @@ function finishSalaryUpdate(message: string | null, options: AESModel.SalaryUpda
         ensurePersonnelManagementSettings(currentSettings).auto = 0;
     }, function(finalSettings) {
         settings = finalSettings;
-        const today = AES.getServerDate();
         const key = server + airline.id + 'personnelManagement';
         void (async () => {
+            const completed = await submitSalaryChanges(buttons);
+            if (!AES.isPageOwner()) return;
             const stored = await chrome.storage.local.get(key);
             if (!AES.isPageOwner()) return;
+            const today = AES.getServerDate();
             const previous = AES.isRecord(stored[key]) ? stored[key] : {};
             const data: Record<string,unknown> = {...previous, server, airline, type:'personnelManagement', date:today.date,time:today.time};
             // Retire journals from versions that verified and resumed salary writes.
@@ -467,8 +500,7 @@ function finishSalaryUpdate(message: string | null, options: AESModel.SalaryUpda
             if (!AES.isPageOwner()) return;
             updatePersonnelLastUpdate(data);
 
-            if (message) showPersonnelNotification(message,'success');
-            await submitSalaryChanges(buttons);
+            salaryStatus(message ? AESI18n.t(message) : AESI18n.t('Salary update completed: {0} positions submitted.', {0:completed}), 'good');
             setPersonnelManagementBusy(options.actionButton,false);
         })().catch(error => failSalaryUpdate(String(error),options));
     });

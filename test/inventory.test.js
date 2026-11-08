@@ -59,6 +59,7 @@ test('pending updates are persisted before submit and confirmed only at matching
     const saved=p.submissions[0];assert.equal(saved.date['20260908'].pricingUpdated,0);
     const q=inventory(t,{current:110,data:{[key]:saved}});await load(q);
     assert.equal(q.saved[key].date['20260908'].pricingUpdated,1);
+    assert.match(q.w.document.querySelector('#aes-pricing-status').textContent,/Price update completed/);
     assert.equal(q.saved[key].date['20260908'].pricingUpdatePending,undefined);
     assert.equal(q.submissions.length,0);
 });

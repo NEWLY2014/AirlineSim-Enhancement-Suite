@@ -32,7 +32,7 @@ for(const fast of [true,false])test(`salary submissions finish the table without
             const data=new URLSearchParams(body),id=Number(data.get('id')),amount=Number(data.get('amount'));
             requests.push({id,amount,time:Date.now()});amounts[id]=Math.min(amount,1100);
             responses.push(res);
-            // Hold the first response to verify that the second POST cannot overlap it.
+            // Hold the first response to verify that the second POST can overlap it.
             if(!fast)await new Promise(resolve=>setTimeout(resolve,1600));
             for(const pending of responses.splice(0)){pending.writeHead(200,{'Content-Type':'text/html'});pending.end(render());}
             return;
@@ -59,7 +59,9 @@ for(const fast of [true,false])test(`salary submissions finish the table without
     });
     await page.locator('.aes-personnel-management-apply:not([disabled])').waitFor();
     assert.deepEqual(requests.map(({id,amount})=>({id,amount})),[{id:0,amount:3000},{id:1,amount:2700}]);
-    assert.ok(requests[1].time-requests[0].time>=55+(fast?0:1600),'shared queue must pace form dispatch');
+    assert.ok(requests[1].time-requests[0].time>=55,'shared queue must pace form dispatch');
+    if(!fast) assert.ok(requests[1].time-requests[0].time<1600,'independent positions must overlap');
+    assert.match(await page.locator('#aes-salary-status').innerText(),/completed: 2/);
     assert.deepEqual(amounts,[1100,1100]);
     assert.equal(navigations,1,'salary responses must not replace the submitting page');
     const record=await worker.evaluate(async()=>(await chrome.storage.local.get('paine42personnelManagement')).paine42personnelManagement);

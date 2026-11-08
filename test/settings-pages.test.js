@@ -59,7 +59,7 @@ test('personnel applies percentage and absolute targets through salary forms onl
         p.load('content_personnelManagement.js');
         await until(() => p.w.document.querySelector('.aes-personnel-management-apply'));
         p.w.document.querySelector('.aes-personnel-management-apply').click();
-        await until(() => submissions > 0);
+        await until(() => submissions > 0 && !p.w.document.querySelector('.aes-personnel-management-apply').disabled);
         assert.equal(p.w.document.querySelector('input[name="amount"]').value, target);
         assert.equal(submissions, 1);
         assert.equal(p.saved.settings.personnelManagement.auto, 0);
@@ -220,7 +220,8 @@ for(const value of [200,-200])test(`salary form queue dispatch accepts game limi
     const button=p.w.document.querySelector('.aes-personnel-management-apply');button.click();
     await until(()=>submitted.length===2&&!button.disabled);
     assert.deepEqual(submitted,value===200?['3000','2700']:['-1000','-900']);
-    assert.deepEqual(events,['salary','submit','complete','salary','submit','complete']);
+    assert.equal(events.filter(event=>event==='complete').length,2);
+    assert.match(p.w.document.querySelector('#aes-salary-status').textContent,/completed: 2/);
     assert.equal(p.saved[key].pending,undefined);
     assert.equal(p.saved[key].date,'20260908');
 });
@@ -324,17 +325,19 @@ test('pricing clipboard copies only active cabin rules and bounds without changi
     assert.equal(p.saved.settings.invPricing.recommendation.Cargo.minPrice,60);
 });
 
-test('salary waits for the response body before requesting the next permit',async t=>{
+test('salary overlaps independent positions but waits for all response bodies before completion',async t=>{
     const p=browser(t,{html:staffBatch,path:'/action/enterprise/staffOverview',data:{settings:{personnelManagement:{type:'absolute',value:3}}}});
     let permits=0,submissions=0,releaseBody;
     const pending=new Promise(resolve=>{releaseBody=resolve;});
     p.run('AES.queuePage=async()=>window.salaryPermit()');
     p.w.salaryPermit=async()=>{permits++;return {expires:Date.now()+30000,complete:async()=>{},cancel:async()=>{}};};
-    p.w.fetch=async()=>{submissions++;return {ok:true,text:async()=>{if(submissions===1)await pending;return staff;}};};
+    p.w.fetch=async()=>{const index=++submissions;return {ok:true,text:async()=>{if(index===1)await pending;return staff;}};};
     p.load('content_personnelManagement.js');await until(()=>p.w.document.querySelector('.aes-personnel-management-apply'));
     const button=p.w.document.querySelector('.aes-personnel-management-apply');button.click();
-    await until(()=>submissions===1);await new Promise(resolve=>setTimeout(resolve,30));
-    assert.equal(permits,1);assert.equal(button.disabled,true);
+    await until(()=>submissions===2);await new Promise(resolve=>setTimeout(resolve,30));
+    assert.equal(permits,2);assert.equal(button.disabled,true);
+    assert.equal(p.saved.paine42personnelManagement,undefined);
+    assert.match(p.w.document.querySelector('#aes-salary-status').textContent,/1\/2/);
     releaseBody();await until(()=>submissions===2&&!button.disabled);assert.equal(permits,2);
 });
 
@@ -349,4 +352,26 @@ for(const status of [200,429])test(`salary error page (${status}) pauses all tab
     assert.equal(submissions,1);assert.equal(messages.filter(m=>m.op==='cooldown').length,1);
     assert.equal(messages.find(m=>m.op==='cooldown').delay,120000);
     assert.ok(messages.some(m=>m.op==='cancel'));assert.ok(!messages.some(m=>m.op==='complete'));
+});
+
+test('salary caps in-flight work at five and preserves the last successful date on partial failure',async t=>{
+    const many=staff.replace('</tbody>',Array.from({length:5},()=>'<tr><td>Crew</td><td><form method="post" action="staffOverview"><input name="action" value="salary" type="hidden"><input name="amount" value="700"><button type="submit">Save salary</button></form></td><td>900 AS$</td></tr>').join('')+'</tbody>');
+    const key='paine42personnelManagement';
+    const p=browser(t,{html:many,path:'/action/enterprise/staffOverview',data:{settings:{personnelManagement:{type:'absolute',value:3}},[key]:{date:'20260901'}}});
+    p.run('AES.queuePage=async()=>({expires:Date.now()+30000,complete:async()=>{},cancel:async()=>{}})');
+    const releases=[];
+    p.w.fetch=()=>new Promise(resolve=>releases.push(resolve));
+    p.load('content_personnelManagement.js');await until(()=>p.w.document.querySelector('.aes-personnel-management-apply'));
+    const button=p.w.document.querySelector('.aes-personnel-management-apply');button.click();
+    await until(()=>releases.length===5);
+    assert.equal(button.disabled,true);
+    assert.match(p.w.document.querySelector('#aes-salary-status').textContent,/0\/6/);
+    releases[0]({ok:false,status:400});
+    await until(()=>p.w.document.querySelector('#aes-salary-status') && releases.length===5);
+    await new Promise(resolve=>setTimeout(resolve,20));
+    releases.slice(1).forEach(release=>release({ok:true,text:async()=>staff}));
+    await until(()=>!button.disabled);
+    assert.equal(releases.length,5,'do not start remaining positions after the first failure');
+    assert.equal(p.saved[key].date,'20260901');
+    assert.match(p.w.document.querySelector('#aes-salary-status').textContent,/stopped: 4\/6/);
 });

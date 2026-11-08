@@ -771,5 +771,11 @@
   "Aircraft on this fleet page are saved automatically. Use Extract fleet data to refresh them manually.": "このページの機材データは自動保存されます。「機材データを取得」で手動更新できます。",
   "Fleet table not found. Wait for the aircraft list to load, then retry.": "機材一覧の表が見つかりません。一覧の読み込みを待ってから再試行してください。",
   "Fleet extraction failed. {0}": "機材データの取得に失敗しました。{0}",
-  "Fleet name not found. Reload the fleet page and retry.": "機材グループ名が見つかりません。ページを再読み込みして再試行してください。"
+  "Fleet name not found. Reload the fleet page and retry.": "機材グループ名が見つかりません。ページを再読み込みして再試行してください。",
+  "Preparing salary updates...": "給与更新を準備しています…",
+  "Updating salaries: {0}/{1} completed.": "給与を更新中：{0}/{1} 件完了。",
+  "Salary update stopped: {0}/{1} completed. {2}": "給与更新を停止しました：{0}/{1} 件完了。{2}",
+  "Salary update completed: {0} positions submitted.": "給与更新が完了しました：{0} 職種を送信済み。",
+  "Price update completed.": "価格の更新が完了しました。",
+  "Submitting prices; waiting for confirmation...": "価格を送信中。確認を待っています…"
 }

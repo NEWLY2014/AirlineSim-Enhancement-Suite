@@ -771,5 +771,11 @@
   "Aircraft on this fleet page are saved automatically. Use Extract fleet data to refresh them manually.": "Az ezen az oldalon látható repülőgépek adatai automatikusan mentődnek. A kézi frissítéshez használja a „Flottaadatok kinyerése” gombot.",
   "Fleet table not found. Wait for the aircraft list to load, then retry.": "A flottatáblázat nem található. Várja meg a repülőgéplista betöltését, majd próbálja újra.",
   "Fleet extraction failed. {0}": "A flottaadatok kinyerése sikertelen. {0}",
-  "Fleet name not found. Reload the fleet page and retry.": "A flotta neve nem található. Töltse újra a flottaoldalt, majd próbálja újra."
+  "Fleet name not found. Reload the fleet page and retry.": "A flotta neve nem található. Töltse újra a flottaoldalt, majd próbálja újra.",
+  "Preparing salary updates...": "Bérmódosítások előkészítése…",
+  "Updating salaries: {0}/{1} completed.": "Bérek frissítése: {0}/{1} kész.",
+  "Salary update stopped: {0}/{1} completed. {2}": "Bérfrissítés leállítva: {0}/{1} kész. {2}",
+  "Salary update completed: {0} positions submitted.": "Bérfrissítés kész: {0} munkakör elküldve.",
+  "Price update completed.": "Árfrissítés befejezve.",
+  "Submitting prices; waiting for confirmation...": "Árak küldése; várakozás a megerősítésre…"
 }

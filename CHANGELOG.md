@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0-beta.16] - 2026-11-08
+
+### Changed
+
+- Submit up to five independent salary positions concurrently within the shared five-operation queue, preserving dispatch spacing and server-error cooldowns.
+
+### Fixed
+
+- Show persistent salary progress, completion and partial-failure counts; record the last salary update only after the batch finishes successfully.
+- Show confirmed pricing completion after navigation, including when the resulting inventory has no valid analysis actions.
+
 ## [0.9.0-beta.15] - 2026-11-05
 
 ### Changed

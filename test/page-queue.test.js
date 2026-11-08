@@ -263,3 +263,17 @@ for(const kind of ['open','navigate'])test(`${kind} cannot treat the tab API old
     q.updated(kind==='open'?100:1,'complete');await q.message('poll','b','open',2);
     q.advance(1000);await q.message('poll','b','open',2);assert.equal(q.opened.length,2);
 });
+
+
+test('independent salary requests share a document while retaining global capacity and pacing',async()=>{
+    const q=queue(0);
+    await salary(q,'enqueue','a');
+    assert.equal((await salary(q,'poll','a')).state,'running');
+    await salary(q,'enqueue','b');
+    assert.equal((await salary(q,'poll','b')).state,'queued');
+    q.advance(55);
+    assert.equal((await salary(q,'poll','b')).state,'running');
+    q.boot();
+    await salary(q,'enqueue','c');q.advance(55);
+    assert.equal((await salary(q,'poll','c')).state,'running');
+});

@@ -60,9 +60,9 @@
     function wakeAt(s: State) {
         const active = s.jobs.filter(j => j.state === 'running' || j.loading);
         const head = s.jobs.find(j => j.state === 'queued');
-        // A tab must finish its current request/navigation before another
-        // operation can use that same document, even when other slots are free.
-        const sameTab = head?.kind !== 'open' ? active.filter(j => j.target === head?.source) : [];
+        // Salary POSTs for independent positions may overlap in one document.
+        // Navigation and all other operations still require exclusive tab access.
+        const sameTab = head?.kind !== 'open' ? active.filter(j => j.target === head?.source && !(head?.kind === 'salary' && j.kind === 'salary' && j.document === head.document)) : [];
         return Math.max(s.next,
             active.length >= CONCURRENCY ? Math.min(...active.map(j => j.expires || 0)) : 0,
             ...sameTab.map(j => j.expires || 0));

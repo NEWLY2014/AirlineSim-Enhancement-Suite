@@ -771,5 +771,11 @@
   "Aircraft on this fleet page are saved automatically. Use Extract fleet data to refresh them manually.": "Aircraft on this fleet page are saved automatically. Use Extract fleet data to refresh them manually.",
   "Fleet table not found. Wait for the aircraft list to load, then retry.": "Fleet table not found. Wait for the aircraft list to load, then retry.",
   "Fleet extraction failed. {0}": "Fleet extraction failed. {0}",
-  "Fleet name not found. Reload the fleet page and retry.": "Fleet name not found. Reload the fleet page and retry."
+  "Fleet name not found. Reload the fleet page and retry.": "Fleet name not found. Reload the fleet page and retry.",
+  "Preparing salary updates...": "Preparing salary updates...",
+  "Updating salaries: {0}/{1} completed.": "Updating salaries: {0}/{1} completed.",
+  "Salary update stopped: {0}/{1} completed. {2}": "Salary update stopped: {0}/{1} completed. {2}",
+  "Salary update completed: {0} positions submitted.": "Salary update completed: {0} positions submitted.",
+  "Price update completed.": "Price update completed.",
+  "Submitting prices; waiting for confirmation...": "Submitting prices; waiting for confirmation..."
 }

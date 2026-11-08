@@ -771,5 +771,11 @@
   "Aircraft on this fleet page are saved automatically. Use Extract fleet data to refresh them manually.": "此機隊頁面的飛機資料會自動儲存。點選「擷取機隊資料」可手動更新。",
   "Fleet table not found. Wait for the aircraft list to load, then retry.": "找不到機隊表格。請等待飛機清單載入後重試。",
   "Fleet extraction failed. {0}": "機隊資料擷取失敗。{0}",
-  "Fleet name not found. Reload the fleet page and retry.": "找不到機隊名稱。請重新載入機隊頁面後重試。"
+  "Fleet name not found. Reload the fleet page and retry.": "找不到機隊名稱。請重新載入機隊頁面後重試。",
+  "Preparing salary updates...": "正在準備調整薪資…",
+  "Updating salaries: {0}/{1} completed.": "正在調整薪資：已完成 {0}/{1}。",
+  "Salary update stopped: {0}/{1} completed. {2}": "薪資調整已停止：已完成 {0}/{1}。{2}",
+  "Salary update completed: {0} positions submitted.": "薪資調整完成：已提交 {0} 個職位。",
+  "Price update completed.": "票價調整已完成。",
+  "Submitting prices; waiting for confirmation...": "正在提交票價，等待確認…"
 }

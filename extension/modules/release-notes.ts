@@ -1,5 +1,25 @@
 const AES_RELEASE_NOTES_STORAGE_KEY = "aesReleaseNotesSeenVersion"
 const AES_RELEASE_NOTES: Record<string, AESModel.ReleaseNotes | undefined> = {
+    "0.9.0-beta.16": {
+        "title": "Release Notes",
+        "releaseDate": "2026-11-08",
+        "summary": "Faster salary updates with visible progress and completion feedback.",
+        "sections": [
+            {
+                "title": "Changed",
+                "items": [
+                    "Submit up to five salary positions concurrently through the shared queue, retaining request spacing and server-error cooldowns."
+                ]
+            },
+            {
+                "title": "Fixed",
+                "items": [
+                    "Show salary progress, completion and partial-failure counts; save the last update time only after the entire batch succeeds.",
+                    "Show confirmed price updates after navigation, even when no valid analysis actions remain."
+                ]
+            }
+        ]
+    },
     "0.9.0-beta.15": {
         "title": "Release Notes",
         "releaseDate": "2026-11-05",
