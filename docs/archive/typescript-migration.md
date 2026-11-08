@@ -1,6 +1,6 @@
 # TypeScript migration
 
-## Tooling migration follow-up — 2026-11-08 (complete locally)
+## Tooling migration follow-up — 2026-11-08 (complete locally and in CI)
 
 The remaining first-party Node tools, tests and archived audit launchers now use
 CommonJS TypeScript (`.cts`); the pricing example uses `.ts`. Node 24 or newer
@@ -27,8 +27,14 @@ fixture tests, localization auditing and packaging. The former npm-resolution an
 fixture-server permission blockers are resolved. Browser fixtures use local HTTPS
 responses and do not access a live game account.
 
-GitHub CI execution, live-game acceptance and Beta publication remain separate
-release checks; this local migration does not publish a release.
+GitHub [validation](https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/actions/runs/42478717597)
+and [CodeQL](https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/actions/runs/42478716728)
+passed for release commit `c4616c5b10766996e15b448012dd5974e2ccb4a1`.
+The [Beta.16 release workflow](https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/actions/runs/42478889276)
+successfully uploaded version `0.9.0.16` and submitted it to the trusted-tester
+Beta listing on 2026-11-08; Chrome Web Store returned `PENDING_REVIEW`.
+No stable listing or GitHub Release was published. Store approval and live-game
+acceptance remain outstanding.
 
 > Historical record: implementation details, test counts and status statements describe the work at the time of writing. For current development instructions, see the [developer manual](../developer-manual.md).
 
