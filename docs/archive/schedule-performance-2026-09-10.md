@@ -35,4 +35,4 @@
 - `npm run package`、`unzip -t dist/AES-v0.8.13.zip`：通过。
 - 新增测试覆盖：大型提取分批、重复启动、提取中所有权丢失、表格变化、后台并发历史合并、读写失败重试和发送者/目标航司校验。
 
-性能用例：`test/browser/schedule-performance.test.cjs`。后台存储用例：`test/schedule-storage.test.js`。
+性能用例：`test/browser/schedule-performance.test.cts`。后台存储用例：`test/schedule-storage.test.cts`。

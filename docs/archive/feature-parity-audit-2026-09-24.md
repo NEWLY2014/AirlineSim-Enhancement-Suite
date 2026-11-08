@@ -55,7 +55,7 @@ Suggested repair: map known legacy labels to current canonical labels by stable 
 
 ### V01 — validation gap: queue browser assertion is intermittent
 
-Location: `test/browser/extension.test.cjs:122`.
+Location: `test/browser/extension.test.cts:122`.
 
 The full browser run passed 9 of 10 tests. The failed assertion required at least 20 ms between the local HTTPS server receiving an AES price POST and a native price POST. The same test passed on an isolated rerun, then passed three further instrumented runs.
 
@@ -107,7 +107,7 @@ Run the additional probes from the repository root:
 
 ```sh
 npm run build
-node docs/archive/parity-audit-2026-09-24.repro.cjs
+node docs/archive/parity-audit-2026-09-24.repro.cts
 ```
 
 The launcher reads `v0.8.13` through Git and requires the existing development dependencies. It uses synthetic pages and in-memory storage, prints the known regression observations, and does not contact AirlineSim. Its zero exit status means the audit probes completed, not that feature parity passed.

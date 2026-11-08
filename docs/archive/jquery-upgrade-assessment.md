@@ -57,8 +57,8 @@ not Slim API availability: the declarations also describe full-build APIs.
 - Add regressions for all three empty-selection actions, restoration after 900 ms,
   repeated clicks, view changes and ownership loss.
 - Replace the vendored asset and rename its references in `extension/manifest.json`,
-  `extension/options.html`, `test/build.test.js`, `test/helpers.test.js` and
-  `test/support/browser.cjs`. Keep a single jQuery copy per extension context.
+  `extension/options.html`, `test/build.test.cts`, `test/helpers.test.cts` and
+  `test/support/browser.cts`. Keep a single jQuery copy per extension context.
 - Update `@types/jquery` and the lockfile, then rerun type checking, regression
   tests, Chromium smoke tests and package verification.
 

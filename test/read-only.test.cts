@@ -1,0 +1,157 @@
+import type { TestContext } from 'node:test';
+import type { VMValue } from './support/fixtures.cts';
+
+const {test}=(require('node:test') as typeof import('node:test'));
+const assert: typeof import('node:assert/strict') = require('node:assert/strict');
+const {browser,until}=(require('./support/browser.cts') as import('./support/browser.cts').API);
+const {frontend,financial,enterprise,emptySchedule,respond,install}=(require('./support/read-pages.cts') as import('./support/read-pages.cts').API);
+const html=frontend()+'<div id="header"><div><button aria-haspopup="menu"><span class="_name_test">AES Airlines</span></button><div role="menubar"></div></div></div>';
+const page=(t: TestContext)=>browser(t,{html,path:'/app/enterprise/dashboard'});
+
+test('read-only collection uses same-origin GET without opening tabs or running response scripts',async t=>{
+    const p=page(t),requests=install(p);let opened=0;p.w.open=()=>{opened++;return null;};
+    const send=p.w.chrome.runtime.sendMessage,messages: VMValue[]=[];
+    p.w.chrome.runtime.sendMessage=(m,cb)=>{messages.push(m);return send!(m,cb);};
+    const doc: Document=await p.run("AESRead.fetchDocument('/action/info/flight?id=1')");
+    assert.ok(doc.querySelector<HTMLElement>('#privInf'));assert.equal(requests.length,1);
+    assert.equal(requests[0].options.method,'GET');assert.equal(requests[0].options.credentials,'same-origin');
+    assert.equal(messages[0].kind,'read');assert.ok(messages.some(m=>m.op==='complete'));assert.equal(opened,0);
+    p.w.fetch=async url=>respond(url,financial()+'<script>window.executed=true</script>');
+    await p.run("AESRead.fetchDocument('/action/info/flight?id=1')");assert.equal(p.w.executed,undefined);
+});
+test('unsupported or mutating URLs are rejected before any request',async t=>{
+    const p=page(t),requests=install(p);
+    for(const url of ['https://other.airlinesim.aero/action/info/flight?id=1','/action/enterprise/staffOverview','/app/info/enterprises/99?tab=3&select=99','/app/info/airports/99-1.ILinkListener-link.station~open']){
+        p.w.input=url;await assert.rejects(p.run('AESRead.fetchDocument(window.input)'),/Unsupported/);
+    }
+    assert.equal(requests.length,0);
+});
+test('HTTP errors, login responses, wrong airline, wrong tab and redirected targets release the read slot',async t=>{
+    const p=page(t),send=p.w.chrome.runtime.sendMessage;let cancels=0;
+    p.w.chrome.runtime.sendMessage=(m,cb)=>{if(m.op==='cancel')cancels++;return send!(m,cb);};
+    for(const response of [
+        {ok:false,status:503},respond('https://paine.airlinesim.aero/login','Login'),
+        respond('https://paine.airlinesim.aero/app/info/enterprises/99?tab=3','<form><input type="password"></form>'),
+        respond('https://paine.airlinesim.aero/app/info/enterprises/99?tab=3',enterprise('3').replace('"fixedEnterpriseId":42','"fixedEnterpriseId":43')),
+        respond('https://paine.airlinesim.aero/app/info/enterprises/99?tab=3',enterprise('2'))]){
+        p.w.fetch=async()=>response;await assert.rejects(p.run("AESRead.fetchDocument('/app/info/enterprises/99?tab=3')"));
+    }
+    assert.equal(cancels,5);assert.deepEqual(p.saved,{});
+});
+test('ownership loss aborts an in-flight read and cannot save its result',async t=>{
+    const p=page(t);let started=false;
+    p.w.fetch=(url,options)=>new Promise((resolve,reject)=>{started=true;options.signal.addEventListener('abort',()=>reject(new Error('aborted')));});
+    const result=p.run("AESRead.fetchDocument('/action/info/flight?id=1')");
+    const rejected=assert.rejects(result,/aborted/);
+    await until(()=>started);p.run('AES.isPageOwner=()=>false; AES._ownershipLostCallbacks.forEach(fn=>fn());');await rejected;assert.deepEqual(p.saved,{});
+});
+test('financial parser rejects incomplete and non-private pages rather than replacing old profits',async t=>{
+    const p=page(t);
+    for(const bad of [financial().replace('id="privInf"','id="public"'),financial().replace(/<tr class="cm">.*?<\/tr>/,''),financial().replace('<td>100</td>','<td>unknown</td>')]){
+        p.w.content=bad;assert.throws(()=>p.run("AESRead.flight(new DOMParser().parseFromString(window.content,'text/html'),1)"));
+    }
+});
+test('competitor refresh preserves existing metadata and same-week history',async t=>{
+    const p=page(t);install(p);const key='paine42_99competitorMonitoring';
+    p.saved[key]={key,type:'competitorMonitoring',id:'99',ownerId:'42',tracking:1,extra:'keep',tab0:{20260901:{keep:true}},tab2:{20260907:{week:362026,keep:true}}};
+    await p.run("AESRead.collectCompetitor({id:'99',name:'Other',displayName:'Other',code:'OA'},()=>{})");
+    assert.equal(p.saved[key].extra,'keep');assert.equal(p.saved[key].tracking,1);assert.equal(p.saved[key].tab0['20260901'].keep,true);
+    assert.equal(p.saved[key].tab0['20260908'].pax,1000);assert.deepEqual(p.saved[key].tab2,{20260907:{week:362026,keep:true}});
+    assert.ok(p.saved.paine99schedule);
+});
+test('incomplete competitor response stops the batch before later requests or history changes',async t=>{
+    const p=page(t);let requests=0;p.saved.paine99schedule={keep:true};
+    p.w.fetch=async url=>{requests++;return respond(url,enterprise('0').replace('<td>1000</td>','<td>missing</td>'));};
+    await assert.rejects(p.run("AESRead.collectCompetitor({id:'99',name:'Other',displayName:'Other',code:'OA'},()=>{})"),/Incomplete/);
+    assert.equal(requests,1);assert.deepEqual(p.saved,{paine99schedule:{keep:true}});
+});
+
+for(const locale of ['en','de','es','fr','hu','nl','pl','zh-TW','ja'])test(`${locale}: competitor phases remain stable independently of translated progress`,async t=>{
+    const p=browser(t,{html,path:'/app/enterprise/dashboard',data:{aesLanguage:locale}});install(p);
+    const progress: VMValue[]=[];p.w.reportProgress=(message: VMValue,phase: string)=>progress.push({message,phase});
+    await p.run("AESRead.collectCompetitor({id:'99',name:'Other',displayName:'Other',code:'OA'},window.reportProgress)");
+    assert.deepEqual([...new Set(progress.map(p=>p.phase))],['overview','facts','schedule']);
+    const messages=require('../extension/locales/'+locale+'.json');
+    assert.equal(progress[0].message,messages['Fetching overview...']);
+    assert.ok(progress.some(p=>p.phase==='facts' && p.message===messages['Fetching facts and figures...']));
+    assert.ok(p.saved.paine99schedule);
+});
+
+test('financial parser accepts explicit signs and localized grouping without stripping invalid signs',t=>{
+    const p=page(t);
+    for(const [text,expected] of [['+164,550 AS$',164550],['+164.550 AS$',164550],['+164\u202f550 AS$',164550],['−164,550 AS$',-164550],['-164,550 AS$',-164550],['+0 AS$',0]]){
+        p.w.content=financial().replaceAll('<td>100</td>','<td>'+text+'</td>');
+        assert.equal(p.run("AESRead.flight(new DOMParser().parseFromString(window.content,'text/html'),1).money.CM5.Total"),expected,String(text));
+    }
+    for(const text of ['++164','+-164','164+','+','+NaN','+164x','+9007199254740992']){
+        p.w.content=financial().replace('<td>100</td>','<td>'+text+'</td>');
+        assert.throws(()=>p.run("AESRead.flight(new DOMParser().parseFromString(window.content,'text/html'),1)"),/Invalid flight financial value/,text);
+    }
+});
+
+
+test('competitor save-all completes for a verified empty timetable',async t=>{
+    const p=page(t);
+    p.w.fetch=async (url: string|URL)=>respond(url,new URL(url).searchParams.get('tab')==='3'?emptySchedule():enterprise(new URL(url).searchParams.get('tab')));
+    await p.run("AESRead.collectCompetitor({id:'99',name:'Other',displayName:'Other',code:'OA'},()=>{})");
+    assert.deepEqual(p.saved.paine99schedule.date['20260908'].schedule,[]);
+    assert.ok(p.saved.paine42_99competitorMonitoring.tab0['20260908']);
+    assert.ok(p.saved.paine42_99competitorMonitoring.tab2['20260908']);
+});
+
+test('missing, malformed and wrong-tab empty timetables cannot overwrite history',async t=>{
+    const p=page(t),original={keep:true};p.saved.paine99schedule=original;
+    for(const content of [enterprise('3').replace(/<div class="flight-schedule">[\s\S]*$/, ''),
+        enterprise('3').replace('OA 100','invalid'),
+        emptySchedule().replace('tab3 active','tab2 active'),
+        emptySchedule().replace('warnBox','alert-danger'),
+        emptySchedule().replace('No data available.','<a href="/login">Sign in</a>'),
+        emptySchedule().replace('</div></div></div></div>','</div><table><tr><td>unrecognized</td></tr></table></div></div></div>')]){
+        p.w.fetch=async url=>respond(url,content);
+        await assert.rejects(p.run("AESRead.collectSchedule({id:'99'},()=>{})"));
+        assert.deepEqual(p.saved.paine99schedule,original);
+    }
+});
+
+test('direct empty timetable supports manual extraction without waiting for a missing table',async t=>{
+    const p=browser(t,{html:html+emptySchedule(),path:'/app/info/enterprises/99?tab=3'});
+    p.load('content_flightSchedule.js');
+    await until(()=>p.w.document.querySelector<HTMLButtonElement>('#aes-extractSchedule-btn'));
+    p.w.document.querySelector<HTMLButtonElement>('#aes-extractSchedule-btn')!.click();
+    await until(()=>p.saved.paine99schedule);
+    assert.deepEqual(p.saved.paine99schedule.date['20260908'].schedule,[]);
+});
+
+test('429 honors Retry-After before cancelling its read permit and never retries',async t=>{
+    const p=page(t),send=p.w.chrome.runtime.sendMessage,messages: VMValue[]=[];let requests=0;
+    p.w.chrome.runtime.sendMessage=(m,cb)=>{messages.push(m);return send!(m,cb);};
+    p.w.fetch=async()=>{requests++;return {ok:false,status:429,headers:{get:()=> '180'}};};
+    await assert.rejects(p.run("AESRead.fetchDocument('/action/info/flight?id=1')"),/429/);
+    const pause=messages.find(m=>m.op==='cooldown');assert.equal(pause.delay,180000);
+    assert.ok(messages.indexOf(pause)<messages.findIndex(m=>m.op==='cancel'));
+    assert.equal(requests,1);assert.deepEqual(p.saved,{});
+});
+
+test('HTTP 200 Unexpected Error stops collection and pauses the shared queue',async t=>{
+    const p=page(t),send=p.w.chrome.runtime.sendMessage,messages: VMValue[]=[];let requests=0;
+    p.w.chrome.runtime.sendMessage=(m,cb)=>{messages.push(m);return send!(m,cb);};
+    p.w.fetch=async url=>{requests++;return respond(url,'<title>AirlineSim — Unexpected Error</title><h1>Unexpected Error</h1>');};
+    await assert.rejects(p.run("AESRead.collectCompetitor({id:'99',name:'Other',displayName:'Other',code:'OA'},()=>{})"),/Automatic requests are paused/);
+    assert.equal(requests,1);assert.equal(messages.filter(m=>m.op==='cooldown').length,1);assert.deepEqual(p.saved,{});
+});
+
+test('error detection ignores script text and Retry-After supports HTTP dates',async t=>{
+    const p=page(t),send=p.w.chrome.runtime.sendMessage,messages: VMValue[]=[];
+    p.w.chrome.runtime.sendMessage=(m,cb)=>{messages.push(m);return send!(m,cb);};
+    assert.equal(p.run("AES.isServerErrorPage(new DOMParser().parseFromString('<script>const example=\"Unexpected Error\";</script><p>Too many requests in an example</p>','text/html'))"),false);
+    p.w.retryDate=new Date(Date.now()+180000).toUTCString();
+    await p.run('AES.pausePageQueue(window.retryDate)');
+    assert.ok(messages[0].delay>=178000&&messages[0].delay<=180000);
+});
+
+test('standalone error page reports a cooldown even without a game header',async t=>{
+    const p=browser(t,{html:'<h1>Unexpected Error</h1>',helpers:false,path:'/app/com/inventory/AAABBB'}),send=p.w.chrome.runtime.sendMessage,messages: VMValue[]=[];
+    p.w.chrome.runtime.sendMessage=(m,cb)=>{messages.push(m);return send!(m,cb);};
+    p.load('helpers.js');await until(()=>messages.some(m=>m.op==='cooldown'));
+    assert.equal(messages.filter(m=>m.op==='cooldown').length,1);
+});

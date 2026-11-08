@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Complete the remaining TypeScript migration for build/release tools, tests, audit launchers and examples, with strict checking and Node 24 type dependencies.
 - Submit up to five independent salary positions concurrently within the shared five-operation queue, preserving dispatch spacing and server-error cooldowns.
 
 ### Fixed

@@ -1,0 +1,251 @@
+import type { BrowserContext } from '@playwright/test';
+import type { IncomingMessage,Server,ServerResponse } from 'node:http';
+import type { VMValue } from '../support/fixtures.cts';
+
+const {test}=(require('node:test') as typeof import('node:test'));
+const assert: typeof import('node:assert/strict') = require('node:assert/strict');
+const {chromium}=(require('@playwright/test') as typeof import('@playwright/test'));
+const {mkdtemp,rm,readFile}=(require('node:fs/promises') as typeof import('node:fs/promises'));
+const {tmpdir}=(require('node:os') as typeof import('node:os'));
+const {join,resolve}=(require('node:path') as typeof import('node:path'));
+const {createServer}=(require('node:https') as typeof import('node:https'));
+const {execFileSync}=(require('node:child_process') as typeof import('node:child_process'));
+
+test('settings tabs preserve drafts, support the keyboard and open extension backup options', {timeout:60000},async t=>{
+    const profile=await mkdtemp(join(tmpdir(),'aes-settings-browser-'));let context: BrowserContext,server: Server<typeof IncomingMessage,typeof ServerResponse>;let submissions=0;let gameLanguage='en';
+    t.after(async()=>{if(context)await context.close();if(server){server.closeAllConnections();await new Promise(resolve=>server.close(()=>resolve(undefined)));}await rm(profile,{recursive:true,force:true});});
+    execFileSync('openssl',['req','-x509','-newkey','rsa:2048','-nodes','-keyout',join(profile,'key.pem'),'-out',join(profile,'cert.pem'),'-days','1','-subj','/CN=paine.airlinesim.aero'],{stdio:'ignore'});
+    server=createServer({key:await readFile(join(profile,'key.pem')),cert:await readFile(join(profile,'cert.pem'))},(req,res)=>{
+        if(req.method==='POST' && req.headers.host==='paine.airlinesim.aero')submissions++;
+        if(req.url!!.startsWith('/app/fleets')){
+            const rows=Array.from({length:22},(_,i)=>`<tr><td><input type="checkbox" name="aircraftsContainer"></td><td><span>AA-${i}</span><div>...</div></td><td><a>A320</a></td><td></td><td><span>2 years</span><div><span></span><span>95%</span></div></td><td><span>100</span><span>10</span><span>0</span><div class="subrow">Yes</div></td><td></td><td>${i?`<a title="Flight Planning" class="btn-success" href="/app/fleets/aircraft/${100+i}/0"></a>`:''}</td></tr>`).join('');
+            req.resume();res.writeHead(200,{'Content-Type':'text/html'});res.end(`<script>window.frontendSettings={"fixedEnterpriseId":42,"languageSettings":{"currentLanguageTag":"${gameLanguage}"},"server":{"time":"2026-09-17T01:00:00Z"}};</script><div id="header"><button aria-haspopup="menu"><span class="_name_test">Test Air</span></button><div role="menubar"></div></div><div class="as-page-fleet-management"><h1 style="margin:0">Fleet</h1><div class="as-action-bar as-panel" style="margin:0;padding:5px">Fleet actions</div><div class="row"><div class="col-md-9"><h2>Main</h2><div class="as-panel"><table><thead><tr>${'<th>Aircraft model</th>'.repeat(8)}</tr></thead><tbody>${rows}</tbody></table></div></div></div></div>`);return;
+        }
+        const game=req.url!!.includes('tab=game');
+        const html=`<script>window.frontendSettings={"fixedEnterpriseId":42,"theme":"light","languageSettings":{"currentLanguageTag":"${gameLanguage}"},"server":{"time":"2026-09-17T01:00:00Z"}};</script>
+        <style>.nav-tabs{display:flex;gap:20px;list-style:none}.nav-tabs a{display:block;padding:10px}.nav-tabs .active{border-bottom:2px solid}.tab-content{display:block}.bootstrap .input-group-addon{display:table-cell;width:1%;padding:6px 12px;background:#eee}.bootstrap .input-group .form-control{float:left;width:100%}.bootstrap .checkbox input[type="checkbox"]{position:absolute;margin-left:-20px}.bootstrap .checkbox label{padding-left:20px}</style>
+        <div id="header"><div><button aria-haspopup="menu"><span class="_name_test">Test Air</span></button><div role="menubar"></div></div></div>
+        <div class="bootstrap container-fluid"><h1>Settings</h1><div class="as-panel"><ul class="nav nav-tabs">
+        <li class="tab0 ${game?'':'active'}"><a href="./settings?tab=general">General settings</a></li><li class="tab1 ${game?'active':''}"><a href="./settings?tab=game">Game settings</a></li></ul>
+        <div class="tab-content"><div class="tab-pane active"><form method="post"><label>Native draft<textarea id="native-draft">${game?'Game':'General'}</textarea></label><button type="submit">Save native</button></form></div></div></div></div>`;
+        req.resume();res.writeHead(200,{'Content-Type':'text/html'});res.end(html);
+    });
+    await new Promise<void>(resolve=>server.listen(0,'127.0.0.1',resolve));
+    const extension=resolve('build/extension');
+    context=await chromium.launchPersistentContext(profile,{channel:'chromium',headless:true,ignoreHTTPSErrors:true,args:[`--disable-extensions-except=${extension}`,`--load-extension=${extension}`,`--host-resolver-rules=MAP * 127.0.0.1:${(server.address() as import('node:net').AddressInfo).port}`,'--no-proxy-server','--ignore-certificate-errors']});
+    const worker=context.serviceWorkers()[0]||await context.waitForEvent('serviceworker');
+    await worker.evaluate(()=>{
+        // Seed a complete fixture rather than racing background default initialization.
+        const boundaries=[0,40,60,70,80,90,99,100],changes=[-8,-4,-2,0,1,2,5];
+        const steps=changes.map((step,i)=>({min:boundaries[i],max:boundaries[i+1],name:'Rule '+i,step}));
+        const recommendation=Object.fromEntries(['Y','C','F','Cargo'].map(cabin=>[cabin,{minPrice:60,maxPrice:200,steps}]));
+        return chrome.storage.local.set({aesReleaseNotesSeenVersion:chrome.runtime.getManifest().version_name || chrome.runtime.getManifest().version,settings:{invPricing:{recommendation}}});
+    });
+    const page=await context.newPage();await page.goto('https://paine.airlinesim.aero/app/enterprise/settings');
+    const aes=page.getByRole('tab',{name:'AES Settings',exact:true});await aes.waitFor();
+    assert.equal(await page.locator('#aes-settings-root').isVisible(),false);
+    await page.getByLabel('Native draft').fill('Keep unsaved company profile');
+    const before=await page.locator('.nav-tabs').boundingBox();
+    await page.getByRole('tab',{name:'General settings',exact:true}).focus();
+    await page.keyboard.press('End');await page.keyboard.press('Enter');
+    assert.equal(await aes.getAttribute('aria-selected'),'true');
+    assert.equal(await page.locator('.tab-content').isVisible(),false);
+    assert.deepEqual(await page.locator('.nav-tabs').boundingBox(),before);
+    await page.getByRole('tab',{name:'General Settings',exact:true}).waitFor();
+    assert.equal(await page.locator('#aes-language').isVisible(),true);
+    const tabStyle=await page.locator('#aes-settings-group-0').evaluate(el=>({
+        buttonStyle:el.classList.contains('btn'), border:getComputedStyle(el).borderBottomWidth,
+        radius:getComputedStyle(el).borderRadius, selected:el.getAttribute('aria-selected')
+    }));
+    assert.deepEqual(tabStyle,{buttonStyle:false,border:'3px',radius:'0px',selected:'true'});
+    await page.locator('#aes-settings-group-0').focus();
+    await page.keyboard.press('ArrowRight');await page.keyboard.press('Enter');
+    assert.equal(await page.locator('#aes-settings-group-1').getAttribute('aria-selected'),'true');
+    await page.getByRole('tab',{name:'Inventory Pricing',exact:true}).click();
+    assert.equal(await page.locator('#aes-language').isVisible(),false);
+    const pricingSave=page.getByRole('button',{name:'Save pricing settings',exact:true});
+    assert.equal(await pricingSave.evaluate(el=>!!el.closest('.aes-pricing-footer, .aes-pricing-workspace')),false);
+    assert.match((await page.locator('#aes-pricing-save-scope').textContent())!,/rules and price limits/);
+    const limitsBox=await page.locator('.aes-pricing-footer').boundingBox();
+    const saveBox=await page.locator('.aes-pricing-actions').boundingBox();
+    assert.ok(saveBox!.y>=limitsBox!.y+limitsBox!.height,'save action has its own area below both panels');
+    for(const checkbox of await page.locator('.aes-pricing-automation input').all()){
+        const box=await checkbox.boundingBox(),panel=await page.locator('.aes-pricing-automation').boundingBox();
+        assert.ok(box!.x>=panel!.x && box!.x+box!.width<=panel!.x+panel!.width);
+        assert.equal(await checkbox.evaluate(el=>getComputedStyle(el).position),'static');
+    }
+    assert.equal(await page.locator('#aes-btn-invPricing-save').getAttribute('class'),'btn btn-primary');
+    for(const suffix of await page.locator('.aes-pricing-rules .input-group-addon, .aes-price-bounds .input-group-addon').all()){
+        assert.equal(await suffix.evaluate(el=>{
+            const range=document.createRange();range.selectNodeContents(el);
+            const text=range.getBoundingClientRect(),box=el.getBoundingClientRect();
+            return text.left>=box.left && text.right<=box.right && text.top>=box.top && text.bottom<=box.bottom;
+        }),true);
+    }
+    const lower=await page.locator('#aes-input-invPricing-min-price').boundingBox();
+    const upper=await page.locator('#aes-input-invPricing-max-price').boundingBox();
+    assert.ok(upper!.x-lower!.x<=256);
+    assert.equal(await page.getByRole('button',{name:'Paste configuration',exact:true}).isEnabled(),false);
+    await page.getByRole('button',{name:'Copy configuration',exact:true}).click();
+    await page.locator('#aes-select-invPricing-cmp').selectOption('C');
+    await page.getByRole('button',{name:'Paste configuration',exact:true}).click();
+    assert.match(await page.locator('#aes-pricing-copy-status').innerText(),/Click Save/);
+    assert.equal(await page.locator('#aes-pricing-paste').evaluate(el=>el===document.activeElement),true);
+    await page.screenshot({path:'/tmp/aes-pricing-copy-paste.png',fullPage:true});
+    await page.locator('#aes-select-invPricing-cmp').selectOption('Y');
+    await page.locator('#aes-input-invPricing-min-price').fill('73');
+    await page.getByRole('tab',{name:'Flight Info',exact:true}).click();
+    await page.getByRole('tab',{name:'Inventory Pricing',exact:true}).click();
+    assert.equal(await page.locator('#aes-input-invPricing-min-price').inputValue(),'73');
+    await page.getByRole('tab',{name:'General settings',exact:true}).click();
+    assert.equal(await page.getByLabel('Native draft').inputValue(),'Keep unsaved company profile');
+    await aes.click();
+    const [options]=await Promise.all([context.waitForEvent('page'),page.getByRole('button',{name:'Backup & Restore',exact:true}).click()]);
+    await options.waitForURL(/options\.html/);assert.match(options.url(),/^chrome-extension:/);
+    await page.getByRole('tab',{name:'Flight Info',exact:true}).click();
+    await page.getByRole('tab',{name:'Game settings',exact:true}).click();
+    await page.waitForURL(/tab=game/);await aes.click();
+    assert.equal(await page.getByRole('tab',{name:'Flight Info',exact:true}).getAttribute('aria-selected'),'true');
+    // Exercise every supported game locale with the packaged extension, including long labels.
+    const {readdirSync,readFileSync}=(require('node:fs') as typeof import('node:fs'));
+    for(const file of readdirSync('extension/locales')){
+        gameLanguage=file.slice(0,-5);
+        const messages=JSON.parse(readFileSync('extension/locales/'+file, 'utf8'));
+        await worker.evaluate(()=>chrome.storage.local.set({aesLanguage:'auto'}));
+        await page.reload();await page.locator('#aes-settings-tab').click();
+        await page.locator('#aes-settings-group-1').click();
+        assert.equal((await page.locator('#aes-settings-tab').textContent())!,messages['AES Settings']);
+        assert.equal((await page.locator('#aes-btn-invPricing-save').textContent())!,messages['Save pricing settings']);
+        assert.equal(await page.getByRole('tab',{name:'General settings',exact:true}).count(),1);
+        assert.equal(await page.locator('#aes-input-invPricing-max-price').inputValue(),'200');
+        assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,gameLanguage);
+    }
+    await page.locator('#aes-input-invPricing-min-price').fill('79');
+    await page.locator('#aes-settings-group-0').click();
+    await page.locator('#aes-language').selectOption('fr');
+    await page.waitForFunction(()=>document.querySelector<HTMLElement>('.aes-language-control [role="status"]')!.textContent.length>0);
+    assert.equal((await page.locator('.aes-language-control [role="status"]').textContent())!,JSON.parse(readFileSync('extension/locales/fr.json', 'utf8'))['Language saved. Reload this page to apply.']);
+    assert.equal(await page.locator('.aes-language-control [role="status"]').getAttribute('lang'),'fr');
+    await page.locator('#aes-settings-group-1').click();
+    assert.equal(await page.locator('#aes-input-invPricing-min-price').inputValue(),'79');
+    assert.equal(await worker.evaluate(()=>chrome.storage.local.get<import('../support/fixtures.cts').FixtureData>('aesLanguage').then(v=>v.aesLanguage)),'fr');
+    await page.reload();await page.locator('#aes-settings-tab').click();
+    const french=JSON.parse(readFileSync('extension/locales/fr.json', 'utf8'));
+    assert.equal((await page.locator('#aes-settings-tab').textContent())!,french['AES Settings']);
+    await options.reload();
+    await options.waitForFunction(()=>document.documentElement.lang==='fr');
+    await options.getByRole('button',{name:french['Create Backup'],exact:true}).waitFor();
+    await page.locator('#aes-settings-group-1').click();
+    // Step preview responds to edits without changing saved rules or prices.
+    const stepInputs=page.locator('#aes-table-invPricing tbody tr').first().locator('input');
+    const boundary=await stepInputs.nth(2).inputValue();
+    await stepInputs.nth(3).fill('-10');
+    assert.equal(await page.locator('.aes-step-preview svg').isVisible(),true);
+    const segment=page.locator('.aes-step-preview line[stroke-width="2.5"]').first();
+    assert.equal(await segment.getAttribute('y1'),await segment.getAttribute('y2'));
+    await stepInputs.nth(2).fill('1');assert.equal(await page.locator('.aes-step-preview svg').isVisible(),false);
+    await stepInputs.nth(2).fill(boundary);
+    await page.locator('#aes-button-invPricing-add-row').click();
+    assert.equal(await page.locator('.aes-step-preview svg').isVisible(),false);
+    await page.locator('#aes-table-invPricing tbody .aes-a-invPricing-delete-row').last().click();
+    assert.equal(await page.locator('.aes-step-preview svg').isVisible(),true);
+    await page.setViewportSize({width:390,height:844});
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+    await page.setViewportSize({width:1280,height:900});
+    await page.locator('#aes-pricing-mode').selectOption('curve');
+    await page.locator('#aes-select-invPricing-cmp').selectOption('C');
+    assert.equal(await page.locator('#aes-pricing-mode').inputValue(),'curve');
+    await page.locator('#aes-select-invPricing-cmp').selectOption('Y');
+    assert.ok((await page.locator('#aes-pricing-mode').boundingBox())!.y<(await page.locator('#aes-select-invPricing-cmp').boundingBox())!.y);
+    assert.equal(await page.locator('.aes-curve-preview:visible').isVisible(),true);
+    const curveRows=page.locator('.aes-curve-table tbody tr');
+    assert.equal(await curveRows.count(),8);
+    const defaults=await worker.evaluate(()=>chrome.storage.local.get<import('../support/fixtures.cts').FixtureData>('settings').then(v=>v.settings.invPricing.recommendation.Y.steps));
+    const actualPoints=await curveRows.evaluateAll(rows=>rows.map(row=>Array.from(row.querySelectorAll<HTMLInputElement>('input')).map(input=>Number(input.value))));
+    const boundaries=[0,...defaults.map((step: VMValue)=>step.max)];
+    assert.deepEqual(actualPoints,boundaries.map(load=>[load,defaults.find((step: { min: number; max: number; })=>step.min<=load && load<=step.max).step]));
+    const chart=page.locator('.aes-curve-preview:visible');
+    await chart.focus();await page.keyboard.press('Home');
+    assert.equal(await chart.getAttribute('aria-valuenow'),'0');
+    await page.keyboard.press('ArrowRight');assert.equal(await chart.getAttribute('aria-valuenow'),'1');
+    const hoverPoint=await chart.evaluate(el=>{
+        const svg=el as SVGSVGElement;const point=svg.createSVGPoint();point.x=223;point.y=110;const screen=point.matrixTransform((el as SVGSVGElement).getScreenCTM()!);return {x:screen.x,y:screen.y};
+    });
+    await page.mouse.move(hoverPoint.x,hoverPoint.y);
+    assert.equal(await chart.getAttribute('aria-valuenow'),'50');
+    assert.match((await page.locator('.aes-pricing-readout:visible').textContent())!,/50/);
+    assert.ok((await chart.boundingBox())!.width<=440);
+    const beforeCurve=await page.locator('.aes-curve-preview polyline').getAttribute('points');
+    await curveRows.nth(1).locator('input').nth(1).fill('-2.5');
+    assert.notEqual(await page.locator('.aes-curve-preview polyline').getAttribute('points'),beforeCurve);
+    await page.locator('#aes-settings-group-0').click();await page.locator('#aes-settings-group-1').click();
+    assert.equal(await curveRows.nth(1).locator('input').nth(1).inputValue(),'-2.5');
+    await page.locator('#aes-btn-invPricing-save').click();
+    await page.waitForFunction(()=>document.querySelector<HTMLElement>('#aes-span-invPricing')!.classList.contains('good'));
+    const curveSettings=await worker.evaluate(()=>chrome.storage.local.get<import('../support/fixtures.cts').FixtureData>('settings').then(v=>v.settings.invPricing.recommendation.Y));
+    assert.equal(curveSettings.mode,undefined);assert.equal(await worker.evaluate(()=>chrome.storage.local.get<import('../support/fixtures.cts').FixtureData>('settings').then(v=>v.settings.invPricing.mode)),'curve');assert.equal(curveSettings.points[1].change,-2.5);
+    await page.reload();await page.locator('#aes-settings-tab').click();
+    assert.equal(await page.locator('#aes-pricing-mode').inputValue(),'curve');
+    assert.equal(await page.locator('.aes-curve-table tbody tr').nth(1).locator('input').nth(1).inputValue(),'-2.5');
+    // Regression for the reported fleet paragraph, using the installed extension in Chromium.
+    for(const file of readdirSync('extension/locales')){
+        gameLanguage=file.slice(0,-5);const messages=JSON.parse(readFileSync('extension/locales/'+file, 'utf8'));
+        await worker.evaluate(()=>chrome.storage.local.set({aesLanguage:'auto'}));
+        await page.goto('https://paine.airlinesim.aero/app/fleets');
+        await page.locator('#aes-fleet-management-root select').first().waitFor({state:'attached'});
+        const text=await page.locator('#aes-fleet-management-root').textContent();
+        assert.ok(text!.includes(messages['Currently {0} aircrafts stored in memory.'].replace('{0}','22')),gameLanguage);
+        assert.ok(text!.includes(messages['Undelivered aircraft are stored by registration and will be merged once AirlineSim assigns an aircraft ID.']),gameLanguage);
+        await page.locator('#aes-fleet-extract').click();
+        await page.waitForFunction(()=>!document.querySelector<HTMLButtonElement>('#aes-fleet-extract')!.disabled);
+        const fleet=await worker.evaluate(()=>chrome.storage.local.get<import('../support/fixtures.cts').FixtureData>('paine42aircraftFleet').then(v=>v.paine42aircraftFleet.fleet));
+        assert.equal(fleet.length,22);
+        assert.equal(fleet[0].seatConfig,'100/10/0');
+        assert.equal(fleet[0].equipment,'A320');
+    }
+    // The fleet toolbar stays compact; details and filters are optional.
+    await worker.evaluate(()=>chrome.storage.local.set({aesLanguage:'en'}));
+    await page.reload();
+    const fleetPanel=page.locator('#aes-fleet-management-root');
+    const filterDetails=page.locator('.aes-fleet-filters');
+    await filterDetails.waitFor();
+    const gaps=await fleetPanel.evaluate(el=>{
+        const box=el.getBoundingClientRect();
+        return [box.top-el.previousElementSibling!.getBoundingClientRect().bottom,el.nextElementSibling!.getBoundingClientRect().top-box.bottom];
+    });
+    assert.ok(gaps.every(gap=>Math.abs(gap)<0.1),'panel must meet its neighbors without exposing the page background');
+    const helpToggle=page.locator('.aes-fleet-help > summary');
+    for(const width of [1280,390]) {
+        await page.setViewportSize({width,height:900});
+        const before=await helpToggle.boundingBox();
+        for(let i=0;i<2;i++) {
+            await helpToggle.click();
+            const after=await helpToggle.boundingBox();
+            assert.ok(Math.abs(after!.x-before!.x)<0.1&&Math.abs(after!.y-before!.y)<0.1,'Details toggle must stay in place when opened or closed');
+        }
+    }
+    await page.setViewportSize({width:1280,height:900});
+    assert.equal(await filterDetails.getAttribute('open'),null);
+    assert.equal(await page.getByLabel('Model',{exact:true}).isVisible(),false);
+    assert.ok((await fleetPanel.boundingBox())!.height<180);
+    assert.equal(await page.locator('.aes-fleet-filter-count').isVisible(),true);
+    await filterDetails.locator('summary').focus();await page.keyboard.press('Enter');
+    assert.equal(await page.getByLabel('Model',{exact:true}).isVisible(),true);
+    await page.getByLabel('Model',{exact:true}).selectOption('A320');
+    await page.locator('#aes-fleet-extract').click();
+    await page.waitForFunction(()=>!document.querySelector<HTMLButtonElement>('#aes-fleet-extract')!.disabled);
+    assert.equal(await page.getByLabel('Model',{exact:true}).inputValue(),'A320');
+    assert.equal(await filterDetails.evaluate(el=>(el as HTMLDialogElement).open),true);
+    await page.setViewportSize({width:390,height:844});
+    assert.ok((await fleetPanel.boundingBox())!.width<=390);
+    const fieldBoxes=await page.locator('.aes-fleet-filter-grid select').evaluateAll(els=>els.map(el=>{const r=el.getBoundingClientRect();return {x:r.x,right:r.right}}));
+    assert.ok(fieldBoxes.every(box=>box.x>=0&&box.right<=390));
+    await page.setViewportSize({width:1280,height:900});
+    if(process.env.AES_UI_SCREENSHOT_DIR){
+        const {mkdir}=(require('node:fs/promises') as typeof import('node:fs/promises'));await mkdir(process.env.AES_UI_SCREENSHOT_DIR,{recursive:true});
+        await fleetPanel.screenshot({path:join(process.env.AES_UI_SCREENSHOT_DIR,'fleet-panel-expanded.png')});
+        await filterDetails.locator('summary').click();
+        await fleetPanel.screenshot({path:join(process.env.AES_UI_SCREENSHOT_DIR,'fleet-panel-collapsed.png')});
+    }
+    assert.equal(submissions,0);
+});

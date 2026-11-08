@@ -51,9 +51,9 @@ P1 表示应优先修复的安全边界、错误业务提交或历史数据覆�
 | `npm audit --json` | 本次查询报告 0 个已知依赖漏洞；范围为 npm 依赖图，不包含独立 vendored jQuery 文件的完整漏洞评估 |
 | `npm run package` | 通过，生成 `dist/AES-v0.8.13.zip` |
 | `unzip -t dist/AES-v0.8.13.zip` | 通过 |
-| `node --test test/audit-regressions.test.js test/storage-coordinator.test.js` | 21/21 通过，断言修复后的正确行为，已包含在 npm test 中 |
+| `node --test test/audit-regressions.test.cts test/storage-coordinator.test.cts` | 21/21 通过，断言修复后的正确行为，已包含在 npm test 中 |
 
-回归代码位于 `test/audit-regressions.test.js` 和 `test/storage-coordinator.test.js`，直接加载构建后的运行时代码；存储错误和回调交错由测试桩注入。原 `docs/archive/audit-2026-09-09.repro.cjs` 现为回归测试入口，不再断言错误行为。浏览器验证使用真实扩展后台和 Chrome 存储。
+回归代码位于 `test/audit-regressions.test.cts` 和 `test/storage-coordinator.test.cts`，直接加载构建后的运行时代码；存储错误和回调交错由测试桩注入。原 `docs/archive/audit-2026-09-09.repro.cts` 现为回归测试入口，不再断言错误行为。浏览器验证使用真实扩展后台和 Chrome 存储。
 
 ## 发现
 

@@ -1,0 +1,29 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": [
+      "ES2023",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "types": [
+      "node",
+      "chrome",
+      "jquery"
+    ],
+    "strict": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "erasableSyntaxOnly": true
+  },
+  "include": [
+    "scripts/**/*.cts",
+    ".github/scripts/**/*.cts",
+    "test/**/*.cts",
+    "docs/archive/**/*.cts",
+    "docs/examples/**/*.ts",
+    "test/**/*.d.ts"
+  ]
+}

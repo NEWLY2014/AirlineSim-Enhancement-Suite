@@ -95,7 +95,7 @@ jobs:
 
       - name: Validate source when present
         run: |
-          if [ -f release-source/test/helpers.test.js ]; then
+          if [ -f release-source/test/helpers.test.cts ] || [ -f release-source/test/helpers.test.js ]; then
             npm --prefix release-source ci
             npm --prefix release-source run typecheck --if-present
             npm --prefix release-source test
@@ -119,7 +119,7 @@ jobs:
         id: release_notes
         if: steps.version.outputs.channel == 'stable'
         run: |
-          node "${{ github.workspace }}/.github/scripts/prepare-release-notes.js" \
+          node "${{ github.workspace }}/.github/scripts/prepare-release-notes.cts" \
             "${{ steps.version.outputs.version }}" \
             "release-notes.md" \
             "release-source/CHANGELOG.md" \

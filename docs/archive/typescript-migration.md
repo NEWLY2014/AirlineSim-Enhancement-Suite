@@ -1,5 +1,35 @@
 # TypeScript migration
 
+## Tooling migration follow-up — 2026-11-08 (complete locally)
+
+The remaining first-party Node tools, tests and archived audit launchers now use
+CommonJS TypeScript (`.cts`); the pricing example uses `.ts`. Node 24 or newer
+executes them directly using type stripping. The extension continues to emit classic
+JavaScript into `build/extension`; vendored jQuery is the only JavaScript source.
+
+- Installed and locked `@types/node` 24 and `@types/jsdom` as project dependencies.
+- Added strict checking for tooling, release scripts, all unit/browser tests,
+  archived launchers and documentation examples in `tsconfig.tools.json`.
+- Typed the Acorn AST traversal and audit findings without ignored diagnostics.
+- Added shared test contracts for storage, message listeners, DOM windows,
+  cleanup, queue replies and planner state. CommonJS helper exports expose a
+  type-only API so imports are checked without introducing runtime ES modules.
+- Kept dynamic VM-injected globals and deliberately malformed legacy test records
+  behind the documented `VMValue` fixture boundary. That test-only alias uses
+  explicit `any`; runtime code and the audit walker do not use that escape hatch.
+  Strict checking remains enabled, with no ignored diagnostics or excluded tests.
+- Updated build/test/release commands and documentation for the new entry points.
+  Build regression tests reject first-party JavaScript sources in tooling, tests
+  and documentation examples.
+
+Local validation: strict type checking, 416 unit/regression tests, 12 Chromium
+fixture tests, localization auditing and packaging. The former npm-resolution and
+fixture-server permission blockers are resolved. Browser fixtures use local HTTPS
+responses and do not access a live game account.
+
+GitHub CI execution, live-game acceptance and Beta publication remain separate
+release checks; this local migration does not publish a release.
+
 > Historical record: implementation details, test counts and status statements describe the work at the time of writing. For current development instructions, see the [developer manual](../developer-manual.md).
 
 ## Milestone 1 — build pipeline and shared runtime

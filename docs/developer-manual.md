@@ -2,7 +2,7 @@
 
 [Project overview](../README.md) · [Documentation index](README.md) · [User manual](user-manual.md) · [Developer manual](developer-manual.md)
 
-Build, test and extend AES. Run the commands below from the repository root.
+Build, test and extend AES. Use Node.js 24 or newer and run the commands below from the repository root.
 
 ## Local development
 
@@ -19,7 +19,11 @@ AirlineSim page. The `extension/` directory contains TypeScript sources and stat
 assets; generated JavaScript is written only to `build/extension`. Vendored jQuery
 remains JavaScript (jQuery 4.0.0 full build). Packaging uses the same source-free build directory.
 
-`npm test` builds first and tests the generated JavaScript. `npm run package`
+`npm test` builds first and tests the generated JavaScript. Tests and Node tools use
+CommonJS TypeScript (`.cts`) and run directly with Node's built-in type stripping.
+`tsconfig.tools.json` covers tests, tooling, CI scripts and documentation examples;
+`tsconfig.json` covers the extension runtime. Node types track the supported Node 24 baseline. The shared test fixture contracts document the dynamic boundary for VM globals and malformed legacy records. Do not run build-producing commands
+concurrently, because they share `build/extension`. `npm run package`
 builds before creating `dist/AES-vX.X.X.zip`, whose root contains `manifest.json`.
 See the [TypeScript migration history](archive/typescript-migration.md) for the completed migration checkpoints.
 
@@ -117,7 +121,7 @@ are removed by the next adjustment.
 
 ## Localization checks
 
-`npm test` checks the nine locale catalogs and runs `scripts/audit-i18n.cjs` against
+`npm test` checks the nine locale catalogs and runs `scripts/audit-i18n.cts` against
 all built first-party scripts plus options/popup markup. `npm run test:i18n` runs
 the text coverage audit alone. It checks prose in metadata, variables, templates,
 errors and markup, and rejects literal text at common UI sinks. It is a static
@@ -137,7 +141,7 @@ boundary, while unknown browser/service diagnostic details retain their source.
 ## Further references
 
 - [Localization guide](development/localization.md): language detection, catalogs and translation conventions.
-- [Pricing data example](examples/pricing-data.js): illustrative stored pricing data, not a schema definition.
+- [Pricing data example](examples/pricing-data.ts): illustrative stored pricing data, not a schema definition.
 - [Chrome Web Store listing](store/chrome-web-store-listing.md): store description copy.
 - [Historical records](README.md#historical-records): earlier audits, implementation reports and validation results.
 

@@ -1,0 +1,73 @@
+import type { BrowserContext } from '@playwright/test';
+import type { IncomingMessage,Server,ServerResponse } from 'node:http';
+
+const {test}=(require('node:test') as typeof import('node:test'));
+const assert: typeof import('node:assert/strict') = require('node:assert/strict');
+const {chromium}=(require('@playwright/test') as typeof import('@playwright/test'));
+const {mkdtemp,rm,readFile}=(require('node:fs/promises') as typeof import('node:fs/promises'));
+const {tmpdir}=(require('node:os') as typeof import('node:os'));
+const {join,resolve}=(require('node:path') as typeof import('node:path'));
+const {createServer}=(require('node:https') as typeof import('node:https'));
+const {execFileSync}=(require('node:child_process') as typeof import('node:child_process'));
+
+for(const fast of [true,false])test(`salary submissions finish the table without navigation (fast responses: ${fast})`,{timeout:60000},async t=>{
+    const profile=await mkdtemp(join(tmpdir(),'aes-salary-'));
+    let context: BrowserContext,server: Server<typeof IncomingMessage,typeof ServerResponse>;
+    t.after(async()=>{
+        await context?.close();
+        if(server){server.closeAllConnections();await new Promise(resolve=>server.close(()=>resolve(undefined)));}
+        await rm(profile,{recursive:true,force:true});
+    });
+    execFileSync('openssl',['req','-x509','-newkey','rsa:2048','-nodes','-keyout',join(profile,'key.pem'),'-out',join(profile,'cert.pem'),'-days','1','-subj','/CN=paine.airlinesim.aero'],{stdio:'ignore'});
+    const amounts=[800,700],requests: {id: number; amount: number; time: number}[]=[],responses: (ServerResponse<IncomingMessage>&{ req: IncomingMessage; })[]=[];
+
+    const render=()=>`<!doctype html><script>window.frontendSettings = {"fixedEnterpriseId":42,"server":{"time":"2026-09-08T00:00:00Z"}};</script>
+    <div id="header"><div><button aria-haspopup="menu"><span class="_name_test">AES Airlines</span></button><div role="menubar"></div></div></div>
+    <div class="bootstrap container-fluid"><h1>Employee Overview</h1><table>
+    <thead><tr><th>Staff</th><th>Next week's salary</th><th>Country average</th></tr></thead><tbody>
+    ${amounts.map((amount,id)=>`<tr><td>${id?'Cabin crew':'Pilots'}</td><td><form method="post" action="staffOverview">
+    <input type="hidden" name="action" value="salary"><input type="hidden" name="id" value="${id}">
+    <input name="amount" value="${amount}"><div class="input-group-btn"><input type="submit" value="adjust"></div>
+    </form></td><td>${id?900:1000} AS$</td></tr>`).join('')}</tbody></table></div>`;
+    server=createServer({key:await readFile(join(profile,'key.pem')),cert:await readFile(join(profile,'cert.pem'))},async(req,res)=>{
+        if(req.method==='POST' && req.url==='/action/enterprise/staffOverview'){
+            let body='';for await(const chunk of req)body+=chunk;
+            const data=new URLSearchParams(body),id=Number(data.get('id')),amount=Number(data.get('amount'));
+            requests.push({id,amount,time:Date.now()});amounts[id]=Math.min(amount,1100);
+            responses.push(res);
+            // Hold the first response to verify that the second POST can overlap it.
+            if(!fast)await new Promise(resolve=>setTimeout(resolve,1600));
+            for(const pending of responses.splice(0)){pending.writeHead(200,{'Content-Type':'text/html'});pending.end(render());}
+            return;
+        }
+        res.writeHead(200,{'Content-Type':'text/html'});res.end(render());
+    });
+    await new Promise<void>(resolve=>server.listen(0,'127.0.0.1',resolve));
+    const ext=resolve('build/extension');
+    context=await chromium.launchPersistentContext(profile,{channel:'chromium',headless:true,ignoreHTTPSErrors:true,args:[
+        `--disable-extensions-except=${ext}`,`--load-extension=${ext}`,
+        `--host-resolver-rules=MAP * 127.0.0.1:${(server.address() as import('node:net').AddressInfo).port}`,'--no-proxy-server','--ignore-certificate-errors']});
+    const worker=context.serviceWorkers()[0]||await context.waitForEvent('serviceworker');
+    await worker.evaluate(()=>chrome.storage.local.set({aesReleaseNotesSeenVersion:chrome.runtime.getManifest().version_name,settings:{personnelManagement:{type:'perc',value:200,auto:0,alreadyUpdated:[]}}}));
+    const page=await context.newPage();
+    let navigations=0;page.on('framenavigated',frame=>{if(frame===page.mainFrame())navigations++;});
+    await page.goto('https://paine.airlinesim.aero/action/enterprise/staffOverview');
+    await page.locator('#aes-select-personnelManagement-type').selectOption('perc');
+    await page.locator('#aes-input-personnelManagement-value').fill('200');
+    await page.locator('.aes-personnel-management-apply').click();
+    await assert.doesNotReject(async()=>{
+        const end=Date.now()+8000;
+        while(requests.length<2 && Date.now()<end)await new Promise(r=>setTimeout(r,20));
+        assert.equal(requests.length,2,'one click must dispatch every position even when the first response is immediate');
+    });
+    await page.locator('.aes-personnel-management-apply:not([disabled])').waitFor();
+    assert.deepEqual(requests.map(({id,amount})=>({id,amount})),[{id:0,amount:3000},{id:1,amount:2700}]);
+    assert.ok(requests[1].time-requests[0].time>=55,'shared queue must pace form dispatch');
+    if(!fast) assert.ok(requests[1].time-requests[0].time<1600,'independent positions must overlap');
+    assert.match(await page.locator('#aes-salary-status').innerText(),/completed: 2/);
+    assert.deepEqual(amounts,[1100,1100]);
+    assert.equal(navigations,1,'salary responses must not replace the submitting page');
+    const record=await worker.evaluate(async()=>(await chrome.storage.local.get<import('../support/fixtures.cts').FixtureData>('paine42personnelManagement')).paine42personnelManagement);
+    assert.equal(record.date,'20260908');assert.equal(record.pending,undefined);
+    assert.doesNotMatch(await page.locator('#aes-personnel-management-last-update').innerText(),/awaiting|Updating/);
+});

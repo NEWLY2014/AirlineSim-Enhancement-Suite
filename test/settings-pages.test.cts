@@ -1,0 +1,381 @@
+import type { VMValue } from './support/fixtures.cts';
+const { test } = (require('node:test') as typeof import('node:test'));
+const assert: typeof import('node:assert/strict') = require('node:assert/strict');
+const { browser, until } = (require('./support/browser.cts') as import('./support/browser.cts').API);
+const header = `<script>window.frontendSettings = {"fixedEnterpriseId":42,"server":{"time":"2026-09-08T00:00:00Z"}};</script>
+<div id="header"><div><button aria-haspopup="menu"><span class="_name_test">AES Airlines</span></button><div role="menubar"></div></div></div>`;
+const pricing = () => ({ recommendation: Object.fromEntries(['Y','C','F','Cargo'].map(cabin => [cabin, {
+    minPrice: 60, maxPrice: 200, steps: [{ min: 0, max: 100, name: 'Keep', step: 0 }]
+}])) });
+
+test('settings edits preserve unrelated and newly stored preferences', async t => {
+    const p = browser(t, { html: header + '<div class="bootstrap container-fluid"><h1>Settings</h1></div>',
+        path: '/app/enterprise/settings', data: { settings: { invPricing: pricing(), custom: { keep: true } } } });
+    p.load('content_settings.js');
+    await until(() => p.w.document.querySelector<HTMLInputElement>('#aes-input-automateInvPricing'));
+    p.saved.settings.addedAfterLoad = 'keep';
+    p.w.document.querySelector<HTMLInputElement>('#aes-input-automateInvPricing')!.click();
+    assert.equal(p.saved.settings.invPricing.autoPriceUpdate, 1);
+    assert.equal(p.saved.settings.addedAfterLoad, 'keep');
+    assert.deepEqual(p.saved.settings.custom, { keep: true });
+    p.w.document.querySelector<HTMLElement>('#aes-settings-group-2')!.click();
+    p.w.document.querySelector<HTMLInputElement>('#aes-settings-section-2 input')!.click();
+    assert.equal(p.saved.settings.flightInfo.autoClose, 1);
+    assert.equal(p.saved.settings.invPricing.autoPriceUpdate, 1);
+});
+
+test('pricing editor saves valid steps and rejects invalid price bounds', async t => {
+    const p = browser(t, { html: header + '<div class="bootstrap container-fluid"><h1>Settings</h1></div>',
+        path: '/app/enterprise/settings', data: { settings: { invPricing: pricing() } } });
+    p.load('content_settings.js');
+    await until(() => p.w.document.querySelector<HTMLButtonElement>('#aes-btn-invPricing-save'));
+    p.w.document.querySelector<HTMLInputElement>('#aes-input-invPricing-min-price')!.value = '70';
+    p.w.document.querySelector<HTMLButtonElement>('#aes-btn-invPricing-save')!.click();
+    assert.equal(p.saved.settings.invPricing.recommendation.Y.minPrice, 70);
+    assert.equal(p.saved.settings.invPricing.recommendation.C.minPrice, 60);
+    const writes = p.calls.length;
+    p.w.document.querySelector<HTMLInputElement>('#aes-input-invPricing-min-price')!.value = '201';
+    p.w.document.querySelector<HTMLButtonElement>('#aes-btn-invPricing-save')!.click();
+    assert.equal(p.calls.length, writes);
+    assert.match(p.w.document.querySelector<HTMLElement>('#aes-span-invPricing')!.textContent, /Save Failed/);
+});
+
+const staff = header + `<div class="bootstrap container-fluid"><h1>Employee Overview</h1><table>
+<thead><tr><th>Staff</th><th>Next week's salary</th><th>Country average</th></tr></thead>
+<tbody><tr><td>Pilots</td><td><form method="post" action="staffOverview"><input name="action" value="salary" type="hidden"><input name="amount" value="800"><button type="submit">Save salary</button></form></td><td>1,000 AS$</td></tr></tbody></table></div>`;
+
+test('personnel applies percentage and absolute targets through salary forms only', async t => {
+    for (const [type, value, target] of [['perc', 10, '1100'], ['absolute', 50, '1050']]) {
+        const p = browser(t, { html: staff, path: '/action/enterprise/staffOverview', data: {
+            settings: { personnelManagement: { type, value, auto: 0, alreadyUpdated: [] }, keep: true }
+        } });
+        let submissions = 0;
+        p.w.fetch = async (url, options) => {
+            assert.equal(options.method, 'POST');
+            assert.equal(options.body.get('amount'), target);
+            submissions++; return {ok:true,text:async()=>staff};
+        };
+        p.load('modules/notification.js');
+        p.load('modules/notifications.js');
+        p.load('content_personnelManagement.js');
+        await until(() => p.w.document.querySelector<HTMLElement>('.aes-personnel-management-apply'));
+        p.w.document.querySelector<HTMLElement>('.aes-personnel-management-apply')!.click();
+        await until(() => submissions > 0 && !p.w.document.querySelector<HTMLButtonElement>('.aes-personnel-management-apply')!.disabled);
+        assert.equal(p.w.document.querySelector<HTMLInputElement>('input[name="amount"]')!.value, target);
+        assert.equal(submissions, 1);
+        assert.equal(p.saved.settings.personnelManagement.auto, 0);
+        assert.equal(p.saved.settings.keep, true);
+        assert.equal(p.saved.paine42personnelManagement.date, '20260908');
+        assert.equal(p.saved.paine42personnelManagement.pending,undefined);
+        assert.equal(p.errors.length, 0);
+    }
+});
+
+test('personnel stops automation and restores the action button when no salary table exists', async t => {
+    const p = browser(t, { html: header + '<div class="bootstrap container-fluid"><h1>Employee Overview</h1></div>', path: '/action/enterprise/staffOverview', data: { settings: {} } });
+    p.load('modules/notification.js');
+    p.load('modules/notifications.js');
+    p.load('content_personnelManagement.js');
+    await until(() => p.w.document.querySelector<HTMLElement>('.aes-personnel-management-apply'));
+    const button = p.w.document.querySelector<HTMLButtonElement>('.aes-personnel-management-apply');
+    button!.click();
+    assert.equal(button!.disabled, false);
+    assert.equal(p.saved.settings.personnelManagement.auto, 0);
+    assert.ok(p.w.document.querySelector<HTMLElement>('.feedbackPanelERROR'));
+    assert.equal(p.saved.paine42personnelManagement, undefined);
+});
+
+test('pricing step boundary errors display feedback instead of throwing', async t => {
+    const p = browser(t, { html: header + '<div class="bootstrap container-fluid"><h1>Settings</h1></div>',
+        path: '/app/enterprise/settings', data: { settings: { invPricing: pricing() } } });
+    p.load('content_settings.js');
+    await until(() => p.w.document.querySelector<HTMLButtonElement>('#aes-btn-invPricing-save'));
+    const inputs = p.w.document.querySelectorAll<HTMLInputElement>('#aes-table-invPricing tbody input');
+    inputs[1].value = '10';
+    p.w.document.querySelector<HTMLButtonElement>('#aes-btn-invPricing-save')!.click();
+    assert.match(p.w.document.querySelector<HTMLElement>('#aes-span-invPricing')!.textContent, /must start at 0/);
+    inputs[1].value = '0';
+    inputs[2].value = '90';
+    p.w.document.querySelector<HTMLButtonElement>('#aes-btn-invPricing-save')!.click();
+    assert.match(p.w.document.querySelector<HTMLElement>('#aes-span-invPricing')!.textContent, /must end at 100/);
+    assert.equal(p.calls.length, 0);
+    assert.equal(p.errors.length, 0);
+});
+
+test('settings renders incomplete preferences without saving fallback values', async t => {
+    const p = browser(t, { html: header + '<div class="bootstrap container-fluid"><h1>Settings</h1></div>',
+        path: '/app/enterprise/settings', data: { settings: { custom: true } } });
+    p.load('content_settings.js');
+    await until(() => p.w.document.querySelector<HTMLButtonElement>('#aes-btn-invPricing-save'));
+    assert.equal(p.w.document.querySelector<HTMLInputElement>('#aes-input-invPricing-min-price')!.value, '60');
+    assert.deepEqual(p.saved.settings, { custom: true });
+    assert.equal(p.calls.length, 0);
+});
+
+test('personnel normalizes old numeric settings and keeps page state isolated', async t => {
+    const p = browser(t, { html: staff, path: '/action/enterprise/staffOverview', data: {
+        settings: { personnelManagement: { type: 'absolute', value: '50', auto: 0, custom: true } }
+    } });
+    p.run('var settings = { sentinel: true }; var server = "other"; var airline = { id: "999" };');
+    p.load('content_personnelManagement.js');
+    await until(() => p.w.document.querySelector<HTMLElement>('.aes-personnel-management-apply'));
+    assert.equal(p.w.document.querySelector<HTMLInputElement>('#aes-input-personnelManagement-value')!.value, '50');
+    assert.equal(p.saved.settings.personnelManagement.value, 50);
+    assert.equal(p.saved.settings.personnelManagement.custom, true);
+    assert.equal(p.run('settings.sentinel'), true);
+    assert.equal(p.run('server'), 'other');
+    assert.equal(p.run('airline.id'), '999');
+});
+
+
+test('native settings tab integration restores the host DOM on ownership loss',async t=>{
+    const native='<div class="as-panel"><ul class="nav nav-tabs"><li class="tab0 active"><a href="?tab=0">General settings</a></li><li class="tab1"><a href="?tab=1">Game settings</a></li></ul><div class="tab-content"><form><textarea>Unsaved</textarea></form></div></div>';
+    const p=browser(t,{html:header+'<div class="bootstrap container-fluid"><h1>Settings</h1>'+native+'</div>',path:'/app/enterprise/settings',data:{settings:{settingsSection:'Flight Info'}}});
+    p.load('content_settings.js');await until(()=>p.w.document.querySelector<HTMLElement>('#aes-settings-tab'));
+    assert.equal(p.w.document.querySelector<HTMLElement>('#aes-settings-root')!.hidden,true);
+    assert.equal(p.w.document.querySelector<HTMLElement>('#aes-settings-group-2')!.getAttribute('aria-selected'),'true');
+    p.w.document.querySelector<HTMLElement>('#aes-settings-tab')!.click();
+    assert.equal(p.w.document.querySelector<HTMLElement>('.tab-content')!.hidden,true);
+    assert.equal(p.calls.length,0);
+    p.run('AES._ownershipLostCallbacks.forEach(fn=>fn())');
+    assert.equal(p.w.document.querySelector<HTMLElement>('#aes-settings-root'),null);
+    assert.equal(p.w.document.querySelector<HTMLElement>('.as-panel')!.outerHTML,native);
+});
+
+test('curve editor preserves legacy rules, validates points, sorts them and retains cabin drafts',async t=>{
+    const original=pricing();
+    const p=browser(t,{html:header+'<div class="bootstrap container-fluid"><h1>Settings</h1></div>',path:'/app/enterprise/settings',data:{settings:{invPricing:original}}});
+    p.load('content_settings.js');await until(()=>p.w.document.querySelector<HTMLElement>('#aes-pricing-mode'));
+    const $=p.w.$;
+    assert.equal($('#aes-pricing-mode').val(),'steps');assert.equal(p.saved.settings.invPricing.recommendation.Y.mode,undefined);
+    $('#aes-pricing-mode').val('curve').trigger('change');
+    const rows=$('.aes-curve-table tbody tr');
+    assert.equal(rows.first().find('input').first().prop('readOnly'),true);
+    assert.equal(rows.last().find('button').prop('disabled'),true);
+    rows.eq(1).find('input').first().val('60').trigger('input');
+    $('#aes-btn-invPricing-save').trigger('click');
+    assert.match($('#aes-span-invPricing').text(),/distinct loads/);assert.equal(p.saved.settings.invPricing.recommendation.Y.mode,undefined);
+    rows.eq(1).find('input').first().val('40.5').trigger('change');
+    rows.eq(1).find('input').eq(1).val('-2.5').trigger('input');
+    assert.ok($('.aes-curve-preview polyline').attr('points'));
+    $('#aes-select-invPricing-cmp').val('C').trigger('change');
+    assert.equal($('#aes-pricing-mode').val(),'curve');
+    $('#aes-select-invPricing-cmp').val('Y').trigger('change');
+    assert.equal($('#aes-pricing-mode').val(),'curve');assert.equal($('.aes-curve-table tbody tr').eq(1).find('input').eq(1).val(),'-2.5');
+    $('#aes-btn-invPricing-save').trigger('click');
+    assert.equal(p.saved.settings.invPricing.mode,'curve');
+    assert.deepEqual(p.saved.settings.invPricing.recommendation.Y.steps,original.recommendation.Y.steps);
+    assert.equal(p.saved.settings.invPricing.recommendation.Y.points[1].load,40.5);
+    assert.equal(p.saved.settings.invPricing.recommendation.C.mode,undefined);
+    $('.aes-curve-table tbody tr').eq(1).find('input').eq(1).val('').trigger('input');
+    $('#aes-select-invPricing-cmp').val('C').trigger('change');$('#aes-select-invPricing-cmp').val('Y').trigger('change');
+    assert.equal($('.aes-curve-table tbody tr').eq(1).find('input').eq(1).val(),'');
+    $('#aes-btn-invPricing-save').trigger('click');assert.match($('#aes-span-invPricing').text(),/distinct loads/);
+    $('.aes-curve-table tbody tr').eq(1).find('input').eq(1).val('-2.5').trigger('input');
+    $('#aes-pricing-mode').val('steps').trigger('change');$('#aes-btn-invPricing-save').trigger('click');
+    assert.equal(p.saved.settings.invPricing.mode,'steps');
+    assert.equal(p.saved.settings.invPricing.recommendation.Y.points[1].change,-2.5);
+});
+
+test('step preview shows horizontal segments, rejects incomplete drafts and preserves mode-switch edits',async t=>{
+    const original=pricing();original.recommendation.Y.steps=[{name:'Low',min:0,max:60,step:-5},{name:'High',min:60,max:100,step:3}];
+    const p=browser(t,{html:header+'<div class="bootstrap container-fluid"><h1>Settings</h1></div>',path:'/app/enterprise/settings',data:{settings:{invPricing:original}}});
+    p.load('content_settings.js');await until(()=>p.w.document.querySelector<SVGSVGElement>('.aes-step-preview svg'));
+    const $=p.w.$,segments=()=>$('.aes-step-preview line[stroke-width="2.5"]');
+    assert.equal(segments().length,2);
+    segments().each(function(){assert.equal($(this).attr('y1'),$(this).attr('y2'));});
+    const before=segments().first().attr('y1');
+    $('#aes-table-invPricing tbody tr').first().find('input').eq(3).val('6').trigger('input');
+    assert.notEqual(segments().first().attr('y1'),before);
+    $('#aes-pricing-mode').val('curve').trigger('change');$('#aes-select-invPricing-cmp').val('C').trigger('change');$('#aes-select-invPricing-cmp').val('Y').trigger('change');$('#aes-pricing-mode').val('steps').trigger('change');
+    assert.equal($('#aes-table-invPricing tbody tr').first().find('input').eq(3).val(),'6');
+    $('#aes-table-invPricing tbody tr').first().find('input').eq(2).val('60.5').trigger('input');
+    assert.equal($('.aes-step-preview svg').css('visibility'),'hidden');
+    $('#aes-btn-invPricing-save').trigger('click');assert.match($('#aes-span-invPricing').text(),/not an integer/);
+    assert.deepEqual(p.saved.settings.invPricing.recommendation.Y.steps,original.recommendation.Y.steps);
+    $('#aes-table-invPricing tbody tr').first().find('input').eq(2).val('60').trigger('input');
+    $('#aes-table-invPricing tbody tr').last().find('.aes-a-invPricing-delete-row').trigger('click');
+    assert.equal($('.aes-step-preview svg').css('visibility'),'hidden');
+});
+
+const staffBatch = staff.replace('</tbody>', '<tr><td>Cabin crew</td><td><form method="post" action="staffOverview"><input name="action" value="salary" type="hidden"><input name="amount" value="700"><button type="submit">Save salary</button></form></td><td>900 AS$</td></tr></tbody>');
+
+
+for(const value of [200,-200])test(`salary form queue dispatch accepts game limits without verification (${value}%)`,async t=>{
+    const key='paine42personnelManagement';
+    const p=browser(t,{html:staffBatch,path:'/action/enterprise/staffOverview',data:{settings:{personnelManagement:{type:'perc',value}},[key]:{date:'20260901',pending:{targets:{old:123},inFlight:['old']}}}});
+    const submitted: import("./support/fixtures.cts").VMValue[]=[],events: string[]=[];
+    p.run(`AES.queuePage=async(url,kind)=>{window.salaryEvents.push(kind);return {expires:Date.now()+30000,complete:async()=>window.salaryEvents.push('complete')}}`);
+    p.w.salaryEvents=events;
+    p.w.fetch=async(url,options)=>{
+        assert.equal(options.method,'POST','no verification GETs');
+        submitted.push(options.body.get('amount'));
+        events.push('submit');
+        // The returned page can contain clamped wages; do not compare or retry.
+        return {ok:true,text:async()=>staff.replace('value="800"','value="1100"')};
+    };
+    p.load('content_personnelManagement.js');
+    await until(()=>p.w.document.querySelector<HTMLElement>('.aes-personnel-management-apply'));
+    assert.equal(submitted.length,0,'old journals must not resume');
+    assert.doesNotMatch(p.w.document.querySelector<HTMLElement>('#aes-personnel-management-last-update')!.textContent,/awaiting/);
+    const button=p.w.document.querySelector<HTMLButtonElement>('.aes-personnel-management-apply');button!.click();
+    await until(()=>submitted.length===2&&!button!.disabled);
+    assert.deepEqual(submitted,value===200?['3000','2700']:['-1000','-900']);
+    assert.equal(events.filter(event=>event==='complete').length,2);
+    assert.match(p.w.document.querySelector<HTMLElement>('#aes-salary-status')!.textContent,/completed: 2/);
+    assert.equal(p.saved[key].pending,undefined);
+    assert.equal(p.saved[key].date,'20260908');
+});
+
+test('salary queue rejection stops dispatch and restores the button',async t=>{
+    const p=browser(t,{html:staffBatch,path:'/action/enterprise/staffOverview',data:{settings:{personnelManagement:{type:'absolute',value:50}}}});
+    p.run(`AES.queuePage=async()=>{throw Error('queue unavailable')}`);
+    let submissions=0;p.w.fetch=async()=>{submissions++;return {ok:true,text:async()=>staff};};
+    p.load('content_personnelManagement.js');await until(()=>p.w.document.querySelector<HTMLElement>('.aes-personnel-management-apply'));
+    const button=p.w.document.querySelector<HTMLButtonElement>('.aes-personnel-management-apply');button!.click();
+    await until(()=>!button!.disabled);
+    assert.equal(submissions,0);
+    assert.equal(p.saved.settings.personnelManagement.auto,0);
+});
+
+test('a second salary adjustment can return to the original page salary',async t=>{
+    const p=browser(t,{html:staff,path:'/action/enterprise/staffOverview',data:{settings:{personnelManagement:{type:'absolute',value:3}}}});
+    const amounts: import("./support/fixtures.cts").VMValue[]=[];p.w.fetch=async(url,options)=>{amounts.push(options.body.get('amount'));return {ok:true,text:async()=>staff};};
+    p.load('content_personnelManagement.js');await until(()=>p.w.document.querySelector<HTMLElement>('.aes-personnel-management-apply'));
+    const button=p.w.document.querySelector<HTMLButtonElement>('.aes-personnel-management-apply');button!.click();
+    await until(()=>amounts.length===1&&!button!.disabled);
+    p.w.$('#aes-input-personnelManagement-value').val('-200').trigger('change');
+    button!.click();await until(()=>amounts.length===2&&!button!.disabled);
+    assert.deepEqual(amounts,['1003','800']);
+});
+
+for(const failure of ['http','network'])test(`salary ${failure} failure is reported without retrying writes`,async t=>{
+    const p=browser(t,{html:staffBatch,path:'/action/enterprise/staffOverview',data:{settings:{personnelManagement:{type:'absolute',value:3}}}});
+    let submissions=0;
+    p.w.fetch=async()=>{
+        submissions++;
+        if(failure==='network')throw Error('Network unavailable');
+        return {ok:false,status:503};
+    };
+    p.load('modules/notification.js');p.load('modules/notifications.js');
+    p.load('content_personnelManagement.js');await until(()=>p.w.document.querySelector<HTMLElement>('.aes-personnel-management-apply'));
+    const button=p.w.document.querySelector<HTMLButtonElement>('.aes-personnel-management-apply');button!.click();
+    await until(()=>!button!.disabled);
+    assert.equal(submissions,2,'drain both already-dispatched positions without retrying either write');
+    assert.equal(p.saved.paine42personnelManagement,undefined,'failed batches must not record completion');
+    await until(()=>(failure==='http'?/503/:/Network unavailable/).test(p.w.document.body.textContent));
+});
+
+test('salary validates all form destinations before dispatching any request',async t=>{
+    const p=browser(t,{html:staffBatch,path:'/action/enterprise/staffOverview',data:{settings:{personnelManagement:{type:'absolute',value:3}}}});
+    p.w.document.querySelectorAll<HTMLFormElement>('form')[1].action='https://example.com/';
+    let submissions=0;p.w.fetch=async()=>{submissions++;return {ok:true,text:async()=>staff};};
+    p.load('modules/notification.js');p.load('modules/notifications.js');
+    p.load('content_personnelManagement.js');await until(()=>p.w.document.querySelector<HTMLElement>('.aes-personnel-management-apply'));
+    const button=p.w.document.querySelector<HTMLButtonElement>('.aes-personnel-management-apply');button!.click();
+    await until(()=>!button!.disabled);
+    assert.equal(submissions,0);
+    await until(()=>/Salary buttons not found/.test(p.w.document.body.textContent));
+});
+
+test('pricing clipboard copies only active cabin rules and bounds without changing inactive rules',async t=>{
+    const original=pricing();
+    const p=browser(t,{html:header+'<div class="bootstrap container-fluid"><h1>Settings</h1></div>',path:'/app/enterprise/settings',data:{settings:{invPricing:original}}});
+    p.load('content_settings.js');await until(()=>p.w.document.querySelector<HTMLElement>('#aes-pricing-copy'));
+    const $=p.w.$;
+    assert.equal($('#aes-pricing-paste').prop('disabled'),true);
+    $('#aes-input-invPricing-min-price').val('72');
+    $('#aes-table-invPricing tbody input').first().val('Copied rule');
+    $('.aes-curve-table tbody tr').first().find('input').eq(1).val('-12').trigger('input');
+    $('#aes-pricing-copy').trigger('click');
+    $('#aes-input-invPricing-min-price').val('74');
+    $('#aes-select-invPricing-cmp').val('C').trigger('change');
+    const writes=p.calls.length;
+    $('#aes-pricing-paste').trigger('click');
+    assert.equal(p.calls.length,writes);
+    assert.equal($('#aes-input-invPricing-min-price').val(),'72');
+    assert.equal($('#aes-table-invPricing tbody input').first().val(),'Copied rule');
+    assert.notEqual($('.aes-curve-table tbody tr').first().find('input').eq(1).val(),'-12');
+    assert.equal($('#aes-pricing-mode').val(),'steps');
+    $('#aes-input-invPricing-min-price').val('80');
+    $('#aes-btn-invPricing-save').trigger('click');
+    assert.equal(p.saved.settings.invPricing.recommendation.C.minPrice,80);
+    assert.equal(p.saved.settings.invPricing.recommendation.Y.minPrice,60);
+    assert.notEqual(p.saved.settings.invPricing.recommendation.C.points[0].change,-12);
+    $('#aes-select-invPricing-cmp').val('F').trigger('change');
+    $('#aes-pricing-mode').val('curve').trigger('change');
+    assert.equal($('#aes-pricing-paste').prop('disabled'),true,'do not paste rules for a different mode');
+    $('#aes-pricing-mode').val('steps').trigger('change');
+    $('#aes-pricing-paste').trigger('click');
+    assert.equal($('#aes-pricing-mode').val(),'steps','global mode must stay unchanged');
+    assert.equal($('#aes-input-invPricing-min-price').val(),'72','clipboard is independent from edits to either cabin');
+    $('#aes-btn-invPricing-save').trigger('click');
+    assert.equal(p.saved.settings.invPricing.recommendation.F.steps[0].name,'Copied rule');
+    $('#aes-select-invPricing-cmp').val('Y').trigger('change');
+    assert.equal($('#aes-input-invPricing-min-price').val(),'74','source draft is preserved');
+    $('#aes-pricing-mode').val('curve').trigger('change');$('#aes-pricing-copy').trigger('click');
+    $('#aes-select-invPricing-cmp').val('C').trigger('change');$('#aes-pricing-paste').trigger('click');
+    assert.equal($('.aes-curve-table tbody tr').first().find('input').eq(1).val(),'-12');
+    assert.equal($('#aes-table-invPricing tbody input').first().val(),'Copied rule','curve paste preserves target steps');
+    $('#aes-btn-invPricing-save').trigger('click');
+    assert.equal(p.saved.settings.invPricing.recommendation.C.points[0].change,-12);
+    assert.equal(p.saved.settings.invPricing.recommendation.C.steps[0].name,'Copied rule');
+    $('#aes-input-invPricing-min-price').val('250');$('#aes-pricing-copy').trigger('click');
+    $('#aes-select-invPricing-cmp').val('Cargo').trigger('change');$('#aes-pricing-paste').trigger('click');
+    $('#aes-btn-invPricing-save').trigger('click');
+    assert.match($('#aes-span-invPricing').text(),/Min Price must be between/);
+    assert.equal(p.saved.settings.invPricing.recommendation.Cargo.minPrice,60);
+});
+
+test('salary overlaps independent positions but waits for all response bodies before completion',async t=>{
+    const p=browser(t,{html:staffBatch,path:'/action/enterprise/staffOverview',data:{settings:{personnelManagement:{type:'absolute',value:3}}}});
+    let permits=0,submissions=0,releaseBody;
+    const pending=new Promise(resolve=>{releaseBody=resolve;});
+    p.run('AES.queuePage=async()=>window.salaryPermit()');
+    p.w.salaryPermit=async()=>{permits++;return {expires:Date.now()+30000,complete:async()=>{},cancel:async()=>{}};};
+    p.w.fetch=async()=>{const index=++submissions;return {ok:true,text:async()=>{if(index===1)await pending;return staff;}};};
+    p.load('content_personnelManagement.js');await until(()=>p.w.document.querySelector<HTMLElement>('.aes-personnel-management-apply'));
+    const button=p.w.document.querySelector<HTMLButtonElement>('.aes-personnel-management-apply');button!.click();
+    await until(()=>submissions===2);await new Promise(resolve=>setTimeout(resolve,30));
+    assert.equal(permits,2);assert.equal(button!.disabled,true);
+    assert.equal(p.saved.paine42personnelManagement,undefined);
+    assert.match(p.w.document.querySelector<HTMLElement>('#aes-salary-status')!.textContent,/1\/2/);
+    releaseBody!();await until(()=>submissions===2&&!button!.disabled);assert.equal(permits,2);
+});
+
+for(const status of [200,429])test(`salary error page (${status}) pauses all tabs and drains active writes`,async t=>{
+    const p=browser(t,{html:staffBatch,path:'/action/enterprise/staffOverview',data:{settings:{personnelManagement:{type:'absolute',value:3}}}});
+    const send=p.w.chrome.runtime.sendMessage,messages: VMValue[]=[];let submissions=0;
+    p.w.chrome.runtime.sendMessage=(m,cb)=>{messages.push(m);return send!(m,cb);};
+    p.w.fetch=async()=>{submissions++;return {ok:status===200,status,headers:{get:()=> '120'},text:async()=>'<h1>Unexpected Error</h1>'};};
+    p.load('content_personnelManagement.js');await until(()=>p.w.document.querySelector<HTMLElement>('.aes-personnel-management-apply'));
+    const button=p.w.document.querySelector<HTMLButtonElement>('.aes-personnel-management-apply');button!.click();
+    await until(()=>!button!.disabled);
+    assert.equal(submissions,2,'already-dispatched positions are drained without retry');
+    assert.equal(messages.filter(m=>m.op==='cooldown').length,2);
+    assert.equal(p.saved.paine42personnelManagement,undefined);
+    assert.equal(messages.find(m=>m.op==='cooldown')!.delay,120000);
+    assert.ok(messages.some(m=>m.op==='cancel'));assert.ok(!messages.some(m=>m.op==='complete'));
+});
+
+test('salary caps in-flight work at five and preserves the last successful date on partial failure',async t=>{
+    const many=staff.replace('</tbody>',Array.from({length:5},()=>'<tr><td>Crew</td><td><form method="post" action="staffOverview"><input name="action" value="salary" type="hidden"><input name="amount" value="700"><button type="submit">Save salary</button></form></td><td>900 AS$</td></tr>').join('')+'</tbody>');
+    const key='paine42personnelManagement';
+    const p=browser(t,{html:many,path:'/action/enterprise/staffOverview',data:{settings:{personnelManagement:{type:'absolute',value:3}},[key]:{date:'20260901'}}});
+    p.run('AES.queuePage=async()=>({expires:Date.now()+30000,complete:async()=>{},cancel:async()=>{}})');
+    const releases: ((arg0: {ok: boolean; status?: number; text?: () => Promise<string>}) => void)[]=[];
+    p.w.fetch=()=>new Promise(resolve=>releases.push(resolve));
+    p.load('content_personnelManagement.js');await until(()=>p.w.document.querySelector<HTMLElement>('.aes-personnel-management-apply'));
+    const button=p.w.document.querySelector<HTMLButtonElement>('.aes-personnel-management-apply');button!.click();
+    await until(()=>releases.length===5);
+    assert.equal(button!.disabled,true);
+    assert.match(p.w.document.querySelector<HTMLElement>('#aes-salary-status')!.textContent,/0\/6/);
+    releases[0]({ok:false,status:400});
+    await until(()=>p.w.document.querySelector<HTMLElement>('#aes-salary-status') && releases.length===5);
+    await new Promise(resolve=>setTimeout(resolve,20));
+    releases.slice(1).forEach(release=>release({ok:true,text:async()=>staff}));
+    await until(()=>!button!.disabled);
+    assert.equal(releases.length,5,'do not start remaining positions after the first failure');
+    assert.equal(p.saved[key].date,'20260901');
+    assert.match(p.w.document.querySelector<HTMLElement>('#aes-salary-status')!.textContent,/stopped: 4\/6/);
+});
