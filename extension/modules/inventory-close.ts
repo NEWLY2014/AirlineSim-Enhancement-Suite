@@ -11,15 +11,17 @@
         void (async () => {
             const stored = await chrome.storage.local.get('settings');
             const settings = stored.settings as {invPricing?: {autoClose?: unknown}} | undefined;
-            if (settings?.invPricing?.autoClose !== 1 && settings?.invPricing?.autoClose !== true) return reply({ok:false});
+            const autoClose = settings?.invPricing?.autoClose;
+            // Match readInventorySettings, including settings imported from older backups.
+            if (autoClose !== 1 && autoClose !== true && autoClose !== '1') return reply({ok:false,reason:'disabled'});
             const tab = await chrome.tabs.get(tabId);
-            if (tab.url !== sender.url || (tab.pendingUrl && tab.pendingUrl !== sender.url)) return reply({ok:false});
+            if (tab.url !== sender.url || (tab.pendingUrl && tab.pendingUrl !== sender.url)) return reply({ok:false,reason:'page-changed'});
             const confirmed = await chrome.tabs.sendMessage(tabId,
                 {type:'AES_CONFIRM_INVENTORY_CLOSE', token:message.token}, {documentId:sender.documentId});
-            if (confirmed?.ok !== true) return reply({ok:false});
+            if (confirmed?.ok !== true) return reply({ok:false,reason:'page-changed'});
             await chrome.tabs.remove(tabId);
             reply({ok:true});
-        })().catch(() => reply({ok:false}));
+        })().catch(error => reply({ok:false,error:error instanceof Error ? error.message : String(error)}));
         return true;
     });
 })();

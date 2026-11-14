@@ -24,7 +24,7 @@ The Chrome Web Store extension IDs are public and are set in the workflow:
 1. Choose a channel and set the version metadata:
 
    - Beta: `extension/manifest.json` `version` is `0.8.8`, while `version_name` and `package.json` `version` are `0.8.8-beta`.
-   - Stable: `extension/manifest.json` `version`, `version_name`, and `package.json` `version` are all `0.8.8`.
+   - Stable: `version_name` and `package.json` use the release version, such as `0.9.0`. The numeric `manifest.version` may include a fourth build component to remain greater than previous beta uploads; 0.9.0 uses `0.9.0.17`. The tag is `v0.9.0`.
 
 2. Commit and push the version change.
 3. Create and push the matching tag:
@@ -64,4 +64,4 @@ fourth component; do not downgrade it to `0.9.0`.
 A stable release Changelog compares the final release directly with the previous
 stable release. Consolidate all intervening beta changes into that stable entry;
 do not list beta versions, beta headings, beta links or beta iteration history
-in the stable Changelog. For 0.9.0, the comparison baseline is 0.8.13.
+in the stable entry or in-app release notes. Historical beta entries may remain as separate sections in `CHANGELOG.md`, with consistent linked version headings. For 0.9.0, the comparison baseline is 0.8.13.

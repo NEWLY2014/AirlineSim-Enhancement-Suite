@@ -169,7 +169,7 @@ test('Chromium loads the extension runtime, exports real storage and injects the
     // tabs.create pages cannot reliably close themselves with window.close().
     await worker.evaluate(async()=>{
         const {settings}=await chrome.storage.local.get<import('../support/fixtures.cts').FixtureData>('settings');
-        settings.invPricing.autoClose=1;settings.invPricing.autoPriceUpdate=0;
+        settings.invPricing.autoClose='1';settings.invPricing.autoPriceUpdate=0;
         await chrome.storage.local.set({settings,paine42AAABBBrouteAnalysis:{key:'paine42AAABBBrouteAnalysis',date:{'20260908':{
             data:{},pricingUpdated:0,pricingUpdatePending:{targetPrices:{Y:100},updateTime:'00:00'}
         }}}});

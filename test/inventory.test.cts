@@ -47,6 +47,22 @@ test('inventory clamps recommendations to bounds even without completed flights'
     assert.match(p.w.document.querySelector<HTMLElement>('#aes-table-analysis')!.textContent,/Drop to maximum/);
 });
 
+test('cancelled automatic close keeps confirmed pricing visible without a content error',async t=>{
+    for (const reason of ['disabled','page-changed']) {
+        const p=inventory(t,{data:{settings:settings({autoClose:1}),[key]:{key,date:{'20260908':{data:{},pricingUpdated:1}}}}});
+        const send=p.w.chrome.runtime.sendMessage;
+        let closes=0;
+        p.w.chrome.runtime.sendMessage=(message,reply)=>{
+            if(message.type==='AES_CLOSE_INVENTORY'){closes++;reply({ok:false,reason});return;}
+            return send!(message,reply);
+        };
+        p.load('content_inventory.js');await until(()=>closes===1);
+        assert.equal(p.closed,0);assert.equal(p.errors.length,0);
+        assert.match(p.w.document.querySelector<HTMLElement>('#aes-pricing-status')!.textContent,/Price update completed/);
+        assert.equal(p.submissions.length,0);
+    }
+});
+
 test('old active prices generate reference-only recommendations',async t=>{
     const p=inventory(t,{current:120});await load(p);
     assert.equal(p.w.document.querySelector<HTMLInputElement>('.pricing input')!.value,'120');

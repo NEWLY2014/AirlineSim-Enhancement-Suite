@@ -51,47 +51,11 @@ jobs:
       - name: Validate release version
         id: version
         run: |
-          VERSION="$(node -p "require('./release-source/extension/manifest.json').version")"
-          VERSION_NAME="$(node -p "require('./release-source/extension/manifest.json').version_name || ''")"
-          PACKAGE_VERSION="$(node -p "require('./release-source/package.json').version")"
           if [ "$GITHUB_EVENT_NAME" != "workflow_dispatch" ] && [ "$GITHUB_REF_TYPE" != "tag" ]; then
             echo "Push-triggered releases must run from a version tag." >&2
             exit 1
           fi
-
-          case "$RELEASE_TAG" in
-            "v$VERSION")
-              CHANNEL=stable
-              EXPECTED_DISPLAY_VERSION="$VERSION"
-              ;;
-            "v$VERSION-beta")
-              CHANNEL=beta
-              EXPECTED_DISPLAY_VERSION="$VERSION-beta"
-              ;;
-            *)
-              if [[ "$RELEASE_TAG" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)-beta\.([1-9][0-9]*)$ ]] && [ "$VERSION" = "${BASH_REMATCH[1]}.${BASH_REMATCH[2]}" ]; then
-                CHANNEL=beta
-                EXPECTED_DISPLAY_VERSION="${RELEASE_TAG#v}"
-              else
-                echo "Tag and manifest version do not match a supported stable or beta release." >&2
-                exit 1
-              fi
-              ;;
-          esac
-
-          if [ "$PACKAGE_VERSION" != "$EXPECTED_DISPLAY_VERSION" ]; then
-            echo "package.json version ($PACKAGE_VERSION) must be $EXPECTED_DISPLAY_VERSION." >&2
-            exit 1
-          fi
-
-          if [ -n "$VERSION_NAME" ] && [ "$VERSION_NAME" != "$EXPECTED_DISPLAY_VERSION" ]; then
-            echo "manifest version_name ($VERSION_NAME) must be $EXPECTED_DISPLAY_VERSION." >&2
-            exit 1
-          fi
-
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
-          echo "channel=$CHANNEL" >> "$GITHUB_OUTPUT"
+          node .github/scripts/validate-release-version.cts release-source "$RELEASE_TAG" >> "$GITHUB_OUTPUT"
 
       - name: Validate source when present
         run: |
@@ -120,7 +84,7 @@ jobs:
         if: steps.version.outputs.channel == 'stable'
         run: |
           node "${{ github.workspace }}/.github/scripts/prepare-release-notes.cts" \
-            "${{ steps.version.outputs.version }}" \
+            "${{ steps.version.outputs.display_version }}" \
             "release-notes.md" \
             "release-source/CHANGELOG.md" \
             >> "$GITHUB_OUTPUT"

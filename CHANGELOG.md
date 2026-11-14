@@ -7,6 +7,87 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-14
+
+All changes since the previous stable release, 0.8.13: multilingual AES, pricing curves, schedule comparisons, reliable scheduling, faster queued operations and improved data recovery.
+
+### Added
+
+- Copy and paste pricing configurations between compartments, including the current mode’s rules, price limits and unsaved edits. Preserve the target compartment’s inactive rules. Keep the global pricing mode unchanged and require Save to apply pasted settings.
+- Show independent, localized startup failure notices with reload and diagnostic-copy actions, including when shared components cannot load. Omit URL query strings and fragments from diagnostics and provide a manual-copy fallback.
+- Support all nine game languages (German, English, Spanish, French, Hungarian, Dutch, Polish, Traditional Chinese and Japanese), following the game language by default with an AES override in General Settings.
+- Add control-point pricing with linear interpolation, fractional load percentages and rounding only at the final ticket price. One global pricing mode applies to all cabins, with separate cabin rules and price bounds.
+- Add interactive previews for both step rules and control-point pricing, with pointer and keyboard inspection of load and price adjustments. Default control points match the default step-rule boundary values.
+- Retain multiple competitor schedule captures until manually deleted and compare selected captures in a searchable dialog, including flight additions, removals and operating-pattern changes.
+- Collect read-only airline, flight and schedule data through requests from the current game page without opening collection tabs.
+
+### Changed
+
+- Run up to five shared queue operations concurrently, with randomized 55–65 ms dispatch gaps, same-target serialization and server-error cooldowns. Support up to 10 Dashboard selections per batch.
+- Apply salary changes through the game's native submit buttons, with up to five independent positions running concurrently through the shared queue. Let the game enforce salary limits; stop remaining submissions after an error without retrying writes.
+- Honor reduced-motion preferences when dismissing notifications and highlighting menu actions, retaining the original reading time.
+- Declare AES language on owned UI and notifications while retaining explicit source-language text and the game document language; keep the Settings tab row aligned with native font metrics.
+- Announce notification outcomes through shared, persistent status and error regions without repeating rapid intermediate messages.
+- Cache schedule-diff counts and search text, reuse filtered pages, and cancel superseded searches while yielding during large scans.
+- Load backup-page metadata without transferring full histories and serialize exports record by record in a dedicated worker while preserving backup contents.
+- Use keyboard-accessible native disclosure buttons with linked expanded state for Dashboard controls.
+- Ignore unrelated inventory DOM changes and cache native-table signatures while retaining submission checks.
+- React directly to page/table mutations, serialize hub-data saves, and remove notifications when their animation finishes instead of waiting an assumed rendering delay.
+- Wake page-operation queues with document-specific notifications and persisted permit claims instead of frequent polling, retaining dispatch spacing and missed-notification recovery. Handle already-ready notifications without a zero-delay timer and recover missed notifications before the waiting lease expires.
+- Replace planner and read-collection state/cancellation polling with DOM, server-response and lifecycle events; resume ready scheduling jobs without a fixed startup delay.
+- Yield bulk schedule parsing and comparison through browser task scheduling at background priority, with compatibility fallbacks, to keep page input and rendering responsive.
+- Integrate AES Settings alongside the game's General Settings and Game Settings. Add a General Settings section for language and reorganize pricing controls with global mode above cabin-specific settings.
+- Queue inventory price submissions with navigation and recheck pending state and edited prices before submitting.
+- Keep large schedule extraction, saving and comparisons responsive; support cancelling long comparisons and sorting large result sets without blocking the page.
+- Refresh dashboard, competitor, enterprise and flight-profit summaries after collection. Keep progress in existing status areas and change the green schedule-saved confirmation to a normal timestamp after five seconds.
+- Give settings tabs a distinct tab appearance, keep pricing checkboxes in one column, contain percentage suffixes within their unit boxes, keep price bounds together, and scale preview typography consistently.
+- Give pricing settings a separate Save action that explicitly covers both pricing rules and price limits.
+- Simplify fleet management with a compact extraction toolbar, manual Extract fleet data action and collapsible details and filters.
+
+### Fixed
+
+- Accept legacy automatic-close settings after confirmed Inventory price updates, and avoid reporting cancelled tab closes as pricing or page-change errors. Preserve actual Chrome failure details.
+- Show the no-history message for personnel salary records without a valid confirmed date instead of displaying NaN days ago.
+- Use click-to-expand for the AES Header menu when the game navigation is collapsed, matching native narrow-screen controls; retain hover behavior for expanded mouse navigation.
+- Save verified empty airline schedules, retain earlier captures and show all removed flights in schedule comparisons; complete competitor collection even when no flights are scheduled.
+- Migrate legacy Dashboard delta labels to translated plain text while preserving column order, visibility, filters and custom labels.
+- Display Inventory load percentages as whole numbers while retaining full precision for pricing calculations.
+- Vertically align Dashboard batch-opening status text with action buttons and retain wrapping for narrow layouts.
+- Close Inventory tabs through the extension background after confirmed saves, including when no valid analysis remains; retain pages with unconfirmed prices and verify the requesting document before closing.
+- Avoid rejecting correct arrival settings when background-tab timer throttling delays the planner's stability check. Validate the initial state immediately and revalidate before submission.
+- Recover complete flight names from other blocks when short departure blocks omit the airline code, and include the airline code in scheduling status messages for existing numeric-only templates.
+- Wait for the server response to finish updating the planner after each day-selection, fixed-arrival or arrival-time change. Retry complete arrival settings after confirmed resets; stop on failed or missing responses before making another change or submitting.
+- Restore access to earlier release notes from beta versions by correctly comparing prerelease version numbers.
+- Preserve each source service day’s fixed-arrival setting when shifting schedules. Leave automatic arrivals unfixed and avoid forcing their times to match the source aircraft.
+- Reconcile fixed arrival times after planner refreshes and require stable template-matching arrival settings before submitting a schedule or an arrival correction. Stop without submitting if the planner keeps resetting these controls.
+- Locate inventory price submission buttons by the price inputs’ actual form ownership, including buttons outside the pricing panel and externally associated controls; retain queued-submission validation.
+- Validate planner dates, departure/arrival times and arrival-day offsets before submission. Confirm cyclic schedules by service days and actively correct target flight arrival times to match the template.
+- Record hubs from flight-plan pages and propagate them to fleet data; preserve hub names/counts, aircraft registration data and record metadata during refreshes.
+- Serialize shared-record and settings updates to prevent concurrent writes from overwriting each other. Recover record saves when a background message port disconnects and report storage failures accurately.
+- Preserve competitor history during legacy migration, include route-analysis records in pricing backups, and journal replacement restores so interrupted restores can recover.
+- Persist scheduling ownership across worker restarts and prevent stale or competing pages from changing the same scheduling job.
+- Parse financial values with explicit positive signs, preserve zero-profit results in dashboard averages.
+- Complete translations for dynamic messages and validation feedback; show the language-change reload notice in the newly selected language.
+- Make table sorting keyboard-accessible, isolate modal focus, restore focus after closing schedule comparisons, follow game theme colors, and keep release-note headings independent of host-page styling.
+- Render stored and external text safely without interpreting it as HTML; retain active-history pruning for expired analysis snapshots.
+- Show persistent salary progress, completion and partial-failure counts; record the last salary update only after the entire batch succeeds. Keep earlier form responses from navigating away before the batch finishes.
+- Close Inventory pages when price limits or curve rounding leave prices unchanged, waiting for requested snapshot saves. Show confirmed pricing completion after navigation even when no valid analysis actions remain.
+- Wait for page loads and salary responses before releasing shared queue slots, preserving loading state across worker restarts. Pause automatic requests on HTTP 429, server errors and Unexpected Error pages, honor Retry-After and increase cooldowns after repeated failures.
+- Resume queued page opening and navigation when Chrome temporarily locks the tab strip during a drag, preserving ordering, cancellation and dispatch spacing without replaying successful operations.
+- Recover interrupted fleet saves, refresh data when fleet tables change, preserve filters and existing aircraft metadata, and retain undelivered aircraft until their aircraft IDs become available.
+- Remove dark gaps around the fleet panel and keep Details in place when expanded or collapsed.
+
+### Development
+
+- Split the user and developer manuals from the README and organize documentation by audience and purpose.
+- Migrate extension runtime, build and release tools, tests, audit launchers and examples to strict TypeScript with Node 24 type dependencies. Package compiled JavaScript and upgrade to the full jQuery 4.0 build.
+- Consolidate page data rules, financial parsing and stable sorting helpers.
+- Add unit, isolated Chromium extension and localization-coverage regression checks, and validate builds and packages in CI and release workflows.
+
+### Security
+
+- Update the transitive development dependencies source-map-js and undici to address reported security vulnerabilities.
+
 ## [0.9.0-beta.16] - 2026-11-08
 
 ### Changed
@@ -1342,7 +1423,7 @@ _Last public release by Marcipanas_
     - profit column is also added to Fleet Management page
     - each aircraft page has a summary of its profits
 
-## 0.6.2 - 2020-06-24
+## [0.6.2] - 2020-06-24
 
 ### Fixed
 - Personnel Management module will no longer get stuck in a loop when trying to set an amount higher/lower than is allowed by AirlineSim backend.
@@ -1359,17 +1440,17 @@ _Last public release by Marcipanas_
 - Inventory Pricing module history table would go out of the page bounds if there are many dates, now the table remains within the page with horizontal scroll bar.
 - Inventory Pricing module history table now shows the most recent 5 or 10 dates if the option is selected instead of the oldest.
 
-## 0.6.1 - 2020-06-22
+## [0.6.1] - 2020-06-22
 
 ### Added
 - Competitor Monitoring - allows tracking other airlines
 
-## 0.5.4 - 2020-05-13
+## [0.5.4] - 2020-05-13
 
 ### Fixed
 - Personnel Management - clicking apply salary no longer fires any excess employees.
 
-## 0.5.3 - 2020-05-12
+## [0.5.3] - 2020-05-12
 
 ### Added
 - Personnel Management Module - allows to quickly change salary of your employees.
@@ -1384,11 +1465,30 @@ _Last public release by Marcipanas_
 - Inventory Pricing and Analysis not working with German language (thanks to @derMaster1
 for pointing it out).
 
-## 0.5.2 - 2020-05-09
+## [0.5.2] - 2020-05-09
 
 _First release._
 
-[unreleased]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.11...HEAD
+[Unreleased]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.13...v0.9.0
+[0.9.0-beta.16]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/7b39e680640fc4d1b9302fb5e7463a0bad82547d...c4616c5b10766996e15b448012dd5974e2ccb4a1
+[0.9.0-beta.15]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/637131313359b61ffcf9fcce39c9d64c530df686...7b39e680640fc4d1b9302fb5e7463a0bad82547d
+[0.9.0-beta.14]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/1462c582d3428b90b5be5d1179aedcd0c62a8c28...637131313359b61ffcf9fcce39c9d64c530df686
+[0.9.0-beta.13]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/d5bf01f07f7513ed13fd0ff066cb7287a4e2148b...1462c582d3428b90b5be5d1179aedcd0c62a8c28
+[0.9.0-beta.12]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.13...d5bf01f07f7513ed13fd0ff066cb7287a4e2148b
+[0.9.0-beta.11]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.13...7a863421fdf5fd72fd762aac98c16349ad6697d2
+[0.9.0-beta.10]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.13...67d5a6de781c4bec4a63858fc59c2eee94a3da78
+[0.9.0-beta.9]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.13...1c83e3ec01bc94cefb3ab75570c4324d4a76c5be
+[0.9.0-beta.8]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.13...eef103bb3c7f559a4c3faea116299ef553680f32
+[0.9.0-beta.7]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.13...05f358dfc884966679df69327be34311e19893f6
+[0.9.0-beta.6]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.13...e0fa52d11d873fc0b6e0d9f6f7601c55487557ce
+[0.9.0-beta.5]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.13...50bf2199c9ad2f6e7716fe14b8201ea74552afb3
+[0.9.0-beta.4]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.13...02742b5a7d2443a1d435d578e159d8774aac6625
+[0.9.0-beta.3]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.13...4124660f8109d4dc9d8d5f803e143332d1b06576
+[0.9.0-beta.2]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.13...060260f35314afe926a5a080e405963173ed1bcc
+[0.9.0-beta]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.13...faaed30c29d9cc98a7e6e2e6a5f30850acc0e5c5
+[0.8.13]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.12...v0.8.13
+[0.8.12]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.11...v0.8.12
 [0.8.11]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.10...v0.8.11
 [0.8.10]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.9...v0.8.10
 [0.8.9]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.8...v0.8.9
@@ -1418,34 +1518,9 @@ _First release._
 [0.6.8]: https://github.com/ZoeBijl/airlinesim-enhancement-suite/compare/v0.6.7...v0.6.8
 [0.6.7]: https://github.com/ZoeBijl/airlinesim-enhancement-suite/compare/v0.6.6...v0.6.7
 [0.6.6]: https://github.com/ZoeBijl/airlinesim-enhancement-suite/compare/v0.6.5...v0.6.6
-[0.6.5]: https://github.com/ZoeBijl/airlinesim-enhancement-suite/compare/v0.6.4...v0.6.5
 [0.6.4]: https://github.com/ZoeBijl/airlinesim-enhancement-suite/releases/tag/v0.6.4
-
-[0.9.0-beta]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.13...faaed30c29d9cc98a7e6e2e6a5f30850acc0e5c5
-[Unreleased]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/c4616c5b10766996e15b448012dd5974e2ccb4a1...HEAD
-
-[0.9.0-beta.2]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.13...060260f35314afe926a5a080e405963173ed1bcc
-
-[0.9.0-beta.3]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.13...4124660f8109d4dc9d8d5f803e143332d1b06576
-
-[0.9.0-beta.4]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.13...02742b5a7d2443a1d435d578e159d8774aac6625
-
-[0.9.0-beta.5]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.13...50bf2199c9ad2f6e7716fe14b8201ea74552afb3
-
-[0.9.0-beta.6]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.13...e0fa52d11d873fc0b6e0d9f6f7601c55487557ce
-
-[0.9.0-beta.7]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.13...05f358dfc884966679df69327be34311e19893f6
-
-[0.9.0-beta.8]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.13...eef103bb3c7f559a4c3faea116299ef553680f32
-
-[0.9.0-beta.9]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.13...1c83e3ec01bc94cefb3ab75570c4324d4a76c5be
-
-[0.9.0-beta.10]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.13...67d5a6de781c4bec4a63858fc59c2eee94a3da78
-
-[0.9.0-beta.13]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/d5bf01f07f7513ed13fd0ff066cb7287a4e2148b...1462c582d3428b90b5be5d1179aedcd0c62a8c28
-
-[0.9.0-beta.14]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/1462c582d3428b90b5be5d1179aedcd0c62a8c28...637131313359b61ffcf9fcce39c9d64c530df686
-
-[0.9.0-beta.15]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/637131313359b61ffcf9fcce39c9d64c530df686...7b39e680640fc4d1b9302fb5e7463a0bad82547d
-
-[0.9.0-beta.16]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/7b39e680640fc4d1b9302fb5e7463a0bad82547d...c4616c5b10766996e15b448012dd5974e2ccb4a1
+[0.6.2]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/blob/v0.9.0/CHANGELOG.md#062---2020-06-24
+[0.6.1]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/blob/v0.9.0/CHANGELOG.md#061---2020-06-22
+[0.5.4]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/blob/v0.9.0/CHANGELOG.md#054---2020-05-13
+[0.5.3]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/blob/v0.9.0/CHANGELOG.md#053---2020-05-12
+[0.5.2]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/blob/v0.9.0/CHANGELOG.md#052---2020-05-09

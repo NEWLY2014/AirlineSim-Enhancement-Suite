@@ -85,6 +85,27 @@ test('beta release notes retain stable history and support paging back to the cu
     } finally { p.close(); }
 });
 
+test('stable release dialog includes the complete Changelog since the previous stable version', () => {
+    const p = page(settings + header);
+    try {
+        p.aes.runContentScript = () => {};
+        p.w.HTMLDialogElement.prototype.showModal = function() { this.open = true; };
+        p.w.HTMLDialogElement.prototype.close = function() { this.open = false; };
+        p.load('modules/release-notes.js');
+        runInContext("new ReleaseNotesDialog('0.9.0')", p.dom.getInternalVMContext());
+        const d = p.w.document;
+        const changelog = readFileSync(`${__dirname}/../CHANGELOG.md`, 'utf8');
+        const stable = changelog.split('## [0.9.0] - ')[1].split('\n## ')[0];
+        const items = Array.from(stable.matchAll(/^- (.+)$/gm), match => match[1]);
+        assert.deepEqual(Array.from(d.querySelectorAll('.aes-release-notes-sections li'), item => item.textContent), items);
+        assert.match(d.querySelector('.aes-release-notes-sections')!.textContent!, /all nine game languages/);
+        assert.match(d.querySelector('.aes-release-notes-sections')!.textContent!, /partial-failure counts/);
+        assert.equal(d.querySelector('.aes-release-notes-page-indicator')!.textContent, 'v0.9.0');
+        d.querySelector<HTMLElement>('[aria-label="Previous release"]')!.click();
+        assert.equal(d.querySelector('.aes-release-notes-page-indicator')!.textContent, 'v0.9.0-beta.16');
+    } finally { p.close(); }
+});
+
 test('new header separates controlled airline from viewed competitor without a cache', () => {
     const p = page(settings + header + overview);
     assert.equal(p.aes.getCurrentAirline().id, '13150');

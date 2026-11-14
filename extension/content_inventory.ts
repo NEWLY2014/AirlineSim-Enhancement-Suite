@@ -35,12 +35,15 @@ function closeInventoryTab(revision: number) {
         return false;
     };
     chrome.runtime.onMessage.addListener(verify);
-    chrome.runtime.sendMessage({type:'AES_CLOSE_INVENTORY',token}, (response: {ok?:boolean} | undefined) => {
+    chrome.runtime.sendMessage({type:'AES_CLOSE_INVENTORY',token}, (response: {ok?:boolean;reason?:string;error?:string} | undefined) => {
         const error = chrome.runtime.lastError;
         chrome.runtime.onMessage.removeListener(verify);
         inventoryCloseToken = undefined;
+        // A cancelled close does not mean pricing failed. Keep the page open;
+        // only surface actual background/Chrome failures, with their real cause.
+        if (response?.reason === 'disabled' || response?.reason === 'page-changed') return;
         if ((error || !response?.ok) && isInventoryCurrent(revision)) {
-            AES.reportContentScriptError('content_inventory', new Error(error?.message || AESI18n.t('The page changed.')));
+            AES.reportContentScriptError('content_inventory', new Error(error?.message || response?.error || AESI18n.t('AES background did not respond.')));
         }
     });
 }
