@@ -77,6 +77,7 @@ test('log listing, individual export and log-only clearing preserve other record
     assert.deepEqual(Object.keys(download.data), ['aesLog_20260908']);
     assert.equal(download.metadata.date, '20260908');
     p.run('clearLogData()');
+    await until(()=>p.w.document.querySelector<HTMLButtonElement>('#aes-download-log-btn')!.disabled);
     assert.deepEqual(p.saved, { settings: { keep: true } });
     assert.equal(p.w.document.querySelector<HTMLButtonElement>('#aes-download-log-btn')!.disabled, true);
 });

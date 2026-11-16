@@ -777,5 +777,9 @@
   "Salary update stopped: {0}/{1} completed. {2}": "Mise à jour des salaires arrêtée : {0}/{1} terminés. {2}",
   "Salary update completed: {0} positions submitted.": "Mise à jour des salaires terminée : {0} postes envoyés.",
   "Price update completed.": "Mise à jour des prix terminée.",
-  "Submitting prices; waiting for confirmation...": "Envoi des prix ; en attente de confirmation…"
+  "Submitting prices; waiting for confirmation...": "Envoi des prix ; en attente de confirmation…",
+  "Server cooldown until {0}; prices remain queued.": "Pause du serveur jusqu’à {0} ; les tarifs restent en attente.",
+  "Invalid storage scope.": "Périmètre de stockage non valide.",
+  "Invalid storage operation.": "Opération de stockage non valide.",
+  "Invalid log entry.": "Entrée de journal non valide."
 }

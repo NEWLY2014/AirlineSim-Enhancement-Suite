@@ -777,5 +777,9 @@
   "Salary update stopped: {0}/{1} completed. {2}": "Actualización salarial detenida: {0}/{1} completados. {2}",
   "Salary update completed: {0} positions submitted.": "Actualización salarial completada: {0} puestos enviados.",
   "Price update completed.": "Actualización de precios completada.",
-  "Submitting prices; waiting for confirmation...": "Enviando precios; esperando confirmación…"
+  "Submitting prices; waiting for confirmation...": "Enviando precios; esperando confirmación…",
+  "Server cooldown until {0}; prices remain queued.": "Pausa del servidor hasta las {0}; los precios siguen en cola.",
+  "Invalid storage scope.": "Ámbito de almacenamiento no válido.",
+  "Invalid storage operation.": "Operación de almacenamiento no válida.",
+  "Invalid log entry.": "Entrada de registro no válida."
 }

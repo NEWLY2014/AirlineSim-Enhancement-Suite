@@ -227,7 +227,8 @@ test('extraction fetches finished/inflight data without tabs and reports queue f
     const p = flights(t, rows + flightRow(3,'AAA','BBB','09.09. 01:00','09.09. 03:00','scheduled'));
     const opened: {op: string; url: string; kind: string}[] = [];
     const requests=(require('./support/read-pages.cts') as import('./support/read-pages.cts').API).install(p);
-    p.w.chrome.runtime.sendMessage = (message: {op: string; url: string; kind: string}, callback: (arg0: { ok: boolean; state: string; expires: number; error: string; }) => void) => { if (message.op === 'enqueue') opened.push(message); callback({ok:opened.length === 1 || message.op === 'cancel', state:'running', expires:Date.now()+10000,error:'blocked'}); };
+    const send=p.w.chrome.runtime.sendMessage;
+    p.w.chrome.runtime.sendMessage = (message: {type: string; op: string; url: string; kind: string}, callback: (arg0: { ok: boolean; state: string; expires: number; error: string; }) => void) => { if(message.type!=='AES_PAGE_QUEUE') return send!(message,callback); if (message.op === 'enqueue') opened.push(message); callback({ok:opened.length === 1 || message.op === 'cancel', state:'running', expires:Date.now()+10000,error:'blocked'}); };
     p.w.open = () => null;
     p.load('content_aircraftFlights.js');
     await until(() => p.w.document.querySelector<HTMLElement>('.aes-aircraft-flights-block'));
@@ -264,6 +265,9 @@ test('aircraft startup waits for profit and fleet reads before replacing a saved
     assert.equal(pending.length,1);
     assert.equal(p.saved.paineaircraftFlights123.profit,777);
     pending.shift()();
+    p.w.chrome.storage.local.get=originalGet;
+    while(pending.length) pending.shift()();
+    await until(()=>p.saved.paineaircraftFlights123.profit===100);
     assert.equal(p.saved.paineaircraftFlights123.profit,100);
     assert.equal(p.saved.paineaircraftFlights123.profitFlights,1);
 });
@@ -336,7 +340,7 @@ test('an outdated background produces actionable recovery instructions and does 
     const p=fleet(t,aircraftRow(123,'AA-123'),{[fleetKey]:before});
     let requests=0;
     p.w.chrome.runtime.sendMessage=(message,reply)=>{
-        requests++;
+        if(message.type==='AES_RECORD_PATCH') requests++;
         p.w.chrome.runtime.lastError={message:'The message port closed before a response was received.'};
         reply();delete p.w.chrome.runtime.lastError;
     };

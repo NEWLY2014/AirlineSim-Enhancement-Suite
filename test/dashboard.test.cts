@@ -70,6 +70,7 @@ test('numeric filters preserve inclusive thresholds and selection ignores hidden
 test('column preferences survive regeneration without changing route data',async t=>{
     const p=dashboard(t,'routeManagement',{paine42schedule:schedule()});await load(p,'#aes-table-routeManagement tbody tr');
     const input=p.w.document.querySelector<HTMLInputElement>('.aes-dashboard-column-choice input[value="aes-origin"]');input!.click();
+    await until(()=>p.saved.settings.routeManagement.tableColumns.find((c: VMValue)=>c.class==='aes-origin').show===0);
     assert.equal(p.saved.settings.routeManagement.tableColumns.find((c: { class: string; })=>c.class==='aes-origin').show,0);
     assert.equal(p.w.document.querySelector<HTMLElement>('#aes-row-AAABBB .aes-origin'),null);assert.deepEqual(p.saved.paine42schedule,schedule());
 });

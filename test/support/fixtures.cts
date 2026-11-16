@@ -30,7 +30,7 @@ export interface StorageCall {operation: 'set' | 'remove' | 'clear'; values?: Fi
 export type BrowserPage = ReturnType<import('./browser.cts').API['browser']>;
 
 export interface PlannerState {serverDelay: number; serverDoneDelay: number; serverResponds: boolean; serverFails: boolean; pendingUpdates: number; maxPendingUpdates: number}
-export interface QueueReply {ok: boolean; state?: string; error?: string; expires?: number}
+export interface QueueReply {ok: boolean; state?: string; error?: string; expires?: number; cooldownUntil?: number}
 
 /** DOM identity and browser APIs survive execution in jsdom; injected globals do not. */
 export interface TestWindow {

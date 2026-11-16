@@ -64,14 +64,12 @@ namespace AESI18n {
         const status=document.createElement('span');status.setAttribute('role','status');label.append(status);
         select.addEventListener('change',()=>{
             const previous=preference,next=select.value;select.disabled=true;
-            chrome.storage.local.set({aesLanguage:next},()=>{
-                select.disabled=false;
-                if(chrome.runtime.lastError){select.value=previous;status.lang=language;status.textContent=t('Unable to save language. Please try again.');return;}
+            void AESPersistence.set({aesLanguage:next}).then(()=>{
                 preference=next;
                 const targetLanguage=next==='auto' ? followedLanguage : normalize(next) || 'en';
                 status.lang=targetLanguage;
                 status.textContent=t('Language saved. Reload this page to apply.',{},targetLanguage);
-            });
+            },()=>{select.value=previous;status.lang=language;status.textContent=t('Unable to save language. Please try again.');}).finally(()=>{select.disabled=false;});
         });
         return label;
     }
@@ -83,7 +81,7 @@ namespace AESI18n {
         if(location.protocol==='chrome-extension:')document.documentElement.lang=language;
         ready=true;waiting.splice(0).forEach(callback=>callback());
         if(location.protocol==='https:' && detected && stored.aesGameLanguage!==detected && /\.airlinesim\.aero$/.test(location.hostname)){
-            chrome.storage.local.set({aesGameLanguage:detected},()=>{void chrome.runtime.lastError;});
+            void AESPersistence.set({aesGameLanguage:detected}).catch(()=>{});
         }
     };
     if(typeof chrome!=='undefined' && chrome.storage?.local?.get)chrome.storage.local.get(['aesLanguage','aesGameLanguage'],data=>{const failed=chrome.runtime.lastError;finish(failed ? {} : data);});

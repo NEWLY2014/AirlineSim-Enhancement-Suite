@@ -777,5 +777,9 @@
   "Salary update stopped: {0}/{1} completed. {2}": "Salarisupdate gestopt: {0}/{1} voltooid. {2}",
   "Salary update completed: {0} positions submitted.": "Salarisupdate voltooid: {0} functies verzonden.",
   "Price update completed.": "Prijsupdate voltooid.",
-  "Submitting prices; waiting for confirmation...": "Prijzen verzenden; wachten op bevestiging…"
+  "Submitting prices; waiting for confirmation...": "Prijzen verzenden; wachten op bevestiging…",
+  "Server cooldown until {0}; prices remain queued.": "Serverpauze tot {0}; de prijzen blijven in de wachtrij.",
+  "Invalid storage scope.": "Ongeldig opslagbereik.",
+  "Invalid storage operation.": "Ongeldige opslagbewerking.",
+  "Invalid log entry.": "Ongeldige logboekvermelding."
 }

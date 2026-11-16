@@ -777,5 +777,9 @@
   "Salary update stopped: {0}/{1} completed. {2}": "Bérfrissítés leállítva: {0}/{1} kész. {2}",
   "Salary update completed: {0} positions submitted.": "Bérfrissítés kész: {0} munkakör elküldve.",
   "Price update completed.": "Árfrissítés befejezve.",
-  "Submitting prices; waiting for confirmation...": "Árak küldése; várakozás a megerősítésre…"
+  "Submitting prices; waiting for confirmation...": "Árak küldése; várakozás a megerősítésre…",
+  "Server cooldown until {0}; prices remain queued.": "Szerveroldali várakozás {0}-ig; az árak a sorban maradnak.",
+  "Invalid storage scope.": "Érvénytelen tárolási hatókör.",
+  "Invalid storage operation.": "Érvénytelen tárolási művelet.",
+  "Invalid log entry.": "Érvénytelen naplóbejegyzés."
 }

@@ -312,21 +312,12 @@ function restoreData() {
             if (restoreMode === "replace") {
                 void replaceStorageData(backup.data);
             } else {
-                // Merge mode
-                chrome.storage.local.set(backup.data, function () {
-                    if (chrome.runtime.lastError) {
-                        showStatusMessage(
-                            AESI18n.t("Error restoring data: {0}", {"0": chrome.runtime.lastError.message}),
-                            "error"
-                        );
-                    } else {
-                        showStatusMessage(
-                            AESI18n.t("Data merged successfully! Please refresh the page."),
-                            "success"
-                        );
-                        setTimeout(() => location.reload(), 2000);
-                    }
-                });
+                restoreBusy = true;
+                void AESPersistence.options('merge',backup.data).then(() => {
+                    showStatusMessage(AESI18n.t('Data merged successfully! Please refresh the page.'),'success');
+                    setTimeout(() => location.reload(),2000);
+                },error => showStatusMessage(AESI18n.t('Error restoring data: {0}',{0:String(error)}),'error'))
+                    .finally(() => {restoreBusy=false;});
             }
         } catch (error) {
             showStatusMessage(
@@ -342,53 +333,16 @@ function restoreData() {
     reader.readAsText(file);
 }
 
-function optionStorageGet(): Promise<AESModel.StorageSnapshot> {
-    return new Promise((resolve, reject) => chrome.storage.local.get(null, items => {
-        if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
-        else resolve(items);
-    }));
-}
-function optionStorageSet(data: AESModel.StorageSnapshot): Promise<void> {
-    return new Promise((resolve, reject) => chrome.storage.local.set(data, () => {
-        if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
-        else resolve();
-    }));
-}
-function optionStorageRemove(keys: string[]): Promise<void> {
-    return new Promise((resolve, reject) => chrome.storage.local.remove(keys, () => {
-        if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
-        else resolve();
-    }));
-}
-function comparableStorage(value: unknown): string {
-    const normalize = (value: unknown): unknown => Array.isArray(value) ? value.map(normalize) :
-        isOptionsRecord(value) ? Object.fromEntries(Object.keys(value).sort().map(key => [key, normalize(value[key])])) : value;
-    return JSON.stringify(normalize(value));
-}
-async function writeReplacement(data: AESModel.StorageSnapshot) {
-    await optionStorageSet(data);
-    const written = await optionStorageGet();
-    if (Object.entries(data).some(([key, value]) => comparableStorage(written[key]) !== comparableStorage(value))) {
-        throw new Error(AESI18n.t("Restored data could not be verified."));
-    }
-    await optionStorageRemove(Object.keys(written).filter(key => key !== RESTORE_RECOVERY_KEY && !Object.hasOwn(data, key)));
-    await optionStorageRemove([RESTORE_RECOVERY_KEY]);
-}
 async function replaceStorageData(data: AESModel.StorageSnapshot) {
     if (restoreBusy) return;
     restoreBusy = true;
     try {
-        if (Object.hasOwn(data, RESTORE_RECOVERY_KEY)) throw new Error(AESI18n.t("Backup contains a reserved recovery key."));
-        const previous = await optionStorageGet();
-        if (Object.hasOwn(previous, RESTORE_RECOVERY_KEY)) throw new Error(AESI18n.t("Recover the previous interrupted restore before trying again."));
-        const recovery = {previous, created:new Date().toISOString()};
-        await optionStorageSet({[RESTORE_RECOVERY_KEY]:recovery});
-        displayRestoreRecovery(recovery);
-        await writeReplacement(data);
+        await AESPersistence.options('replace',data);
         $('#aes-restore-recovery').remove();
         showStatusMessage(AESI18n.t('Data restored successfully! Please refresh the page.'), 'success');
         setTimeout(() => location.reload(), 2000);
     } catch (error) {
+        try {displayRestoreRecovery((await chrome.storage.local.get(RESTORE_RECOVERY_KEY))[RESTORE_RECOVERY_KEY]);} catch { /* Keep the original restore error visible. */ }
         showStatusMessage(AESI18n.t("Restore did not complete. Original data is retained or available through recovery. {0}", {"0": (error instanceof Error ? error.message : String(error))}), 'error');
     } finally { restoreBusy = false; }
 }
@@ -402,11 +356,7 @@ function displayRestoreRecovery(value: unknown) {
     button.on('click', () => {
         if (restoreBusy) return;
         restoreBusy = true;button.prop('disabled',true);
-        void chrome.storage.local.get(RESTORE_RECOVERY_KEY).then(items => {
-            const journal = items[RESTORE_RECOVERY_KEY];
-            if (!isOptionsRecord(journal) || !isOptionsRecord(journal.previous)) throw new Error('Storage unavailable.');
-            return writeReplacement(journal.previous);
-        }).then(() => {
+        void AESPersistence.options('recover').then(() => {
             panel.remove();showStatusMessage(AESI18n.t('Previous data recovered. Please refresh the page.'), 'success');
         }, error => showStatusMessage(AESI18n.t("Recovery incomplete; the recovery copy is retained. {0}", {"0": String(error)}), 'error'))
             .finally(() => {restoreBusy=false;button.prop('disabled',false);});
@@ -480,22 +430,12 @@ function clearLogData() {
         return;
     }
 
-    chrome.storage.local.remove(keys, function () {
-        if (chrome.runtime.lastError) {
-            showStatusMessage(
-                AESI18n.t("Error clearing logs: {0}", {"0": chrome.runtime.lastError.message}),
-                "error"
-            );
-            return;
-        }
-
-        keys.forEach(function (key) {
-            delete allStorageData[key];
-        });
+    void AESPersistence.options('clearLogs').then(() => {
+        keys.forEach(key => {delete allStorageData[key];});
         displayDataStatistics();
         displayLogFiles();
-        showStatusMessage(AESI18n.t("Cleared {0} log files.", {"0": keys.length}), "success");
-    });
+        showStatusMessage(AESI18n.t('Cleared {0} log files.',{0:keys.length}),'success');
+    },error => showStatusMessage(AESI18n.t('Error clearing logs: {0}',{0:String(error)}),'error'));
 }
 
 function getLogStorageItems(data: AESModel.StorageSnapshot): AESModel.LogFileSummary[] {
@@ -538,17 +478,10 @@ function formatLogDateForFilename(date: unknown) {
 function clearAllData() {
     showStatusMessage(AESI18n.t("Clearing all data..."), "warning");
 
-    chrome.storage.local.clear(function () {
-        if (chrome.runtime.lastError) {
-            showStatusMessage(
-                AESI18n.t("Error clearing data: {0}", {"0": chrome.runtime.lastError.message}),
-                "error"
-            );
-        } else {
-            showStatusMessage(AESI18n.t("All data cleared successfully!"), "success");
-            setTimeout(() => location.reload(), 1500);
-        }
-    });
+    void AESPersistence.options('clear').then(() => {
+        showStatusMessage(AESI18n.t('All data cleared successfully!'),'success');
+        setTimeout(() => location.reload(),1500);
+    },error => showStatusMessage(AESI18n.t('Error clearing data: {0}',{0:String(error)}),'error'));
 }
 
 function showStatusMessage(message: string, type: AESModel.NotificationType | "info") {

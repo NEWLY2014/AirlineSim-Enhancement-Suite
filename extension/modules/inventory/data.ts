@@ -64,10 +64,10 @@ export function readInventorySettings(value: unknown): AESModel.InventorySetting
         return {minPrice: rec.minPrice, maxPrice: rec.maxPrice, steps, points:points || undefined};
     };
     const history = AES.isRecord(source.historyTable) ? source.historyTable : {};
-    const enabled = (value: unknown) => value === true || value === 1 || value === '1';
+    const enabled = AES.isEnabledSetting;
     return { invPricing: { mode, autoAnalysisSave: enabled(source.autoAnalysisSave) ? 1 : 0, autoPriceUpdate: enabled(source.autoPriceUpdate) ? 1 : 0,
         autoClose: enabled(source.autoClose) ? 1 : 0, showReferenceRecommendation: enabled(source.showReferenceRecommendation) ? 1 : 0,
-        historyTable: {showNow: history.showNow ? 1 : 0, showOnlyPricing: history.showOnlyPricing ? 1 : 0, numberOfDates: typeof history.numberOfDates === 'string' ? history.numberOfDates : '5'},
+        historyTable: {showNow: enabled(history.showNow) ? 1 : 0, showOnlyPricing: enabled(history.showOnlyPricing) ? 1 : 0, numberOfDates: typeof history.numberOfDates === 'string' ? history.numberOfDates : '5'},
         recommendation: {Y: readConfig('Y'), C: readConfig('C'), F: readConfig('F'), Cargo: readConfig('Cargo')} } };
 }
 

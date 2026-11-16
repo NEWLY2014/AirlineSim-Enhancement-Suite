@@ -3,7 +3,7 @@ const assert: typeof import('node:assert/strict') = require('node:assert/strict'
 const { browser, until, snapshot } = (require('./support/browser.cts') as import('./support/browser.cts').API);
 const frontend = '<script>window.frontendSettings = {"theme":"light","server":{"time":"2026-09-08T00:43:12Z"}};</script>';
 
-test('release dialog follows theme, paginates and records the version on dismissal', t => {
+test('release dialog follows theme, paginates and records the version on dismissal', async t => {
     const p = browser(t, { html: frontend + '<footer id="footer"><span id="version">v1.2.3</span></footer>' });
     p.load('modules/release-notes.js');
     const dialog = p.w.document.querySelector<HTMLDialogElement>('#aes-release-notes-dialog');
@@ -19,6 +19,7 @@ test('release dialog follows theme, paginates and records the version on dismiss
     next.click();
     assert.match(dialog!.querySelector<HTMLElement>('.modal-title')!.textContent, /0\.8\.13/);
     p.w.document.dispatchEvent(new p.w.KeyboardEvent('keydown', { key: 'Escape' }));
+    await until(()=>!dialog!.isConnected);
     assert.equal(p.saved.aesReleaseNotesSeenVersion, '0.8.13');
     assert.equal(dialog!.isConnected, false);
     assert.equal(p.w.document.body.classList.contains('modal-open'), false);
@@ -163,4 +164,27 @@ test('flight info saves and renders profitable flights with explicit positive si
     assert.equal(p.saved.paineflightInfo42.money.CM1.Total,1500);
     assert.equal(p.saved.paineflightInfo42.money.CM2.Total,-250);
     assert.equal(p.errors.length,0);
+});
+
+for(const outcome of ['success','disabled','page-changed','close-error','save-error'])test(`flight auto-close follows confirmed save and separates ${outcome}`,async t=>{
+    const p=browser(t,{html:flightHtml,path:'/action/info/flight?id=42',data:{settings:{flightInfo:{autoClose:'1'}}}});
+    const send=p.w.chrome.runtime.sendMessage;let closes=0;
+    p.w.chrome.runtime.sendMessage=(message,reply)=>{
+        if(message.type==='AES_CLOSE_TAB') {
+            closes++;assert.equal(message.kind,'flightInfo');assert.ok(p.saved.paineflightInfo42);
+            reply(outcome==='success' ? {ok:true} : outcome==='close-error' ? {ok:false,error:'Tab strip is locked'} : {ok:false,reason:outcome});
+            return;
+        }
+        send!(message,reply);
+    };
+    if(outcome==='save-error')p.failures.set='Disk full';
+    p.load('modules/notification.js');p.load('modules/notifications.js');p.load('modules/flightInfo/flightInfo.js');
+    await until(()=>p.w.document.querySelector('.aes-table'));
+    assert.equal(closes,outcome==='save-error' ? 0 : 1);
+    if(outcome==='save-error') assert.equal(p.saved.paineflightInfo42,undefined);
+    else assert.ok(p.saved.paineflightInfo42);
+    if(outcome==='close-error') {
+        assert.match(String(p.errors.flat().join(' ')),/Tab strip is locked/);
+        assert.doesNotMatch(p.w.document.body.textContent || '',/Flight information save failed/);
+    } else if(outcome!=='save-error')assert.equal(p.errors.length,0);
 });

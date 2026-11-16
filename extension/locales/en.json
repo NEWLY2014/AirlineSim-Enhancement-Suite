@@ -777,5 +777,9 @@
   "Salary update stopped: {0}/{1} completed. {2}": "Salary update stopped: {0}/{1} completed. {2}",
   "Salary update completed: {0} positions submitted.": "Salary update completed: {0} positions submitted.",
   "Price update completed.": "Price update completed.",
-  "Submitting prices; waiting for confirmation...": "Submitting prices; waiting for confirmation..."
+  "Submitting prices; waiting for confirmation...": "Submitting prices; waiting for confirmation...",
+  "Server cooldown until {0}; prices remain queued.": "Server cooldown until {0}; prices remain queued.",
+  "Invalid storage scope.": "Invalid storage scope.",
+  "Invalid storage operation.": "Invalid storage operation.",
+  "Invalid log entry.": "Invalid log entry."
 }

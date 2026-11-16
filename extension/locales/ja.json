@@ -777,5 +777,9 @@
   "Salary update stopped: {0}/{1} completed. {2}": "給与更新を停止しました：{0}/{1} 件完了。{2}",
   "Salary update completed: {0} positions submitted.": "給与更新が完了しました：{0} 職種を送信済み。",
   "Price update completed.": "価格の更新が完了しました。",
-  "Submitting prices; waiting for confirmation...": "価格を送信中。確認を待っています…"
+  "Submitting prices; waiting for confirmation...": "価格を送信中。確認を待っています…",
+  "Server cooldown until {0}; prices remain queued.": "サーバーの待機時間は {0} までです。運賃はキューで待機しています。",
+  "Invalid storage scope.": "保存範囲が無効です。",
+  "Invalid storage operation.": "保存操作が無効です。",
+  "Invalid log entry.": "ログ項目が無効です。"
 }

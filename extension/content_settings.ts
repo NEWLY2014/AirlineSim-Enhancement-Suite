@@ -134,7 +134,7 @@ function displaySettings() {
 //FLight Info
 function displayFlightInfoSettings() {
     let input = $<HTMLInputElement>('<input type="checkbox">');
-    if (getSettingsSection(settings, "flightInfo").autoClose) {
+    if (AES.isEnabledSetting(getSettingsSection(settings, "flightInfo").autoClose)) {
         input.prop('checked', true);
     }
     $(input).click(function() {
@@ -222,16 +222,16 @@ function displayInvPricingSettings() {
 //Pricing sub functions
 function invPricingAutoPricingHandle() {
     //Set autoprice toggle
-    if (getSettingsSection(settings, "invPricing").autoAnalysisSave) {
+    if (AES.isEnabledSetting(getSettingsSection(settings, "invPricing").autoAnalysisSave)) {
         $("#aes-input-inventory-automateSnapshotSave").prop("checked", true);
     }
-    if (getSettingsSection(settings, "invPricing").autoPriceUpdate) {
+    if (AES.isEnabledSetting(getSettingsSection(settings, "invPricing").autoPriceUpdate)) {
         $("#aes-input-automateInvPricing").prop("checked", true);
     }
-    if (getSettingsSection(settings, "invPricing").autoClose) {
+    if (AES.isEnabledSetting(getSettingsSection(settings, "invPricing").autoClose)) {
         $("#aes-input-inventory-automateCloseTab").prop("checked", true);
     }
-    if (getSettingsSection(settings, "invPricing").showReferenceRecommendation) {
+    if (AES.isEnabledSetting(getSettingsSection(settings, "invPricing").showReferenceRecommendation)) {
         $("#aes-input-inventory-showReferenceRecommendation").prop("checked", true);
     }
     //Add click event to auto price

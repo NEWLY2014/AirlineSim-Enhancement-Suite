@@ -777,5 +777,9 @@
   "Salary update stopped: {0}/{1} completed. {2}": "薪資調整已停止：已完成 {0}/{1}。{2}",
   "Salary update completed: {0} positions submitted.": "薪資調整完成：已提交 {0} 個職位。",
   "Price update completed.": "票價調整已完成。",
-  "Submitting prices; waiting for confirmation...": "正在提交票價，等待確認…"
+  "Submitting prices; waiting for confirmation...": "正在提交票價，等待確認…",
+  "Server cooldown until {0}; prices remain queued.": "伺服器冷卻至 {0}；票價仍在佇列中等待提交。",
+  "Invalid storage scope.": "儲存範圍無效。",
+  "Invalid storage operation.": "儲存操作無效。",
+  "Invalid log entry.": "日誌項目無效。"
 }

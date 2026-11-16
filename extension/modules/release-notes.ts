@@ -1403,9 +1403,9 @@ class ReleaseNotesDialog {
     }
 
     dismiss() {
-        chrome.storage.local.set({ [AES_RELEASE_NOTES_STORAGE_KEY]: this.#seenVersion }, () => {
-            this.destroy()
-        })
+        void AESPersistence.set({ [AES_RELEASE_NOTES_STORAGE_KEY]: this.#seenVersion }).then(
+            () => this.destroy(), error => {this.destroy(); console.error('[AES] Unable to save release notes state',error);}
+        )
     }
 
     destroy() {

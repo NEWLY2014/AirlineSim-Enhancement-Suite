@@ -27,16 +27,16 @@ function background(settings: VMValue) {
             PageStateMatcher: function() {}, ShowAction: function() {}
         }
     };
-    runInNewContext(source, { chrome, URL, importScripts() {} });
+    runInNewContext(readFileSync(`${__dirname}/../build/extension/modules/storage-coordinator.js`,'utf8') + '\n' + source, { chrome, URL, importScripts() {} });
     const message = (value: VMValue,sender={}) => {
         let response;
         const pending = listeners.message(value, sender, (result: VMValue) => { response = snapshot(result); });
         return { pending, response };
     };
-    return { saved, opened, chrome, install: () => listeners.install(), message };
+    return { saved, opened, chrome, install: async () => {listeners.install(); await new Promise(resolve=>setImmediate(resolve));}, message };
 }
 
-test('installation fills defaults without overwriting old settings, arrays or unknown keys', () => {
+test('installation fills defaults without overwriting old settings, arrays or unknown keys', async () => {
     const original = {
         general: { defaultDashboard: 'aircraftProfitability', custom: true },
         invPricing: { autoAnalysisSave: 0, recommendation: { Y: { minPrice: 51, steps: [] } } },
@@ -44,7 +44,7 @@ test('installation fills defaults without overwriting old settings, arrays or un
     };
     const before = snapshot(original);
     const b = background(original);
-    b.install();
+    await b.install();
     assert.deepEqual(original, before);
     const saved = b.saved.settings;
     assert.equal(saved!.general.defaultDashboard, 'aircraftProfitability');
@@ -55,19 +55,19 @@ test('installation fills defaults without overwriting old settings, arrays or un
     assert.equal(saved!.invPricing.recommendation.Y.maxPrice, 200);
     assert.equal(saved!.invPricing.recommendation.C.steps.length, 7);
     assert.deepEqual(saved!.extensionSetting, { enabled: false });
-    b.install();
+    await b.install();
     assert.deepEqual(b.saved.settings, saved);
 });
 
-test('installation recovers missing or malformed settings containers', () => {
+test('installation recovers missing or malformed settings containers', async () => {
     for (const value of [undefined, null, [], 'broken', 3]) {
         const b = background(value);
-        b.install();
+        await b.install();
         assert.equal(b.saved.settings!.general.defaultDashboard, 'general');
         assert.equal(b.saved.settings!.invPricing.recommendation.Cargo.minPrice, 60);
     }
     const b = background({ invPricing: { recommendation: [] } });
-    b.install();
+    await b.install();
     assert.equal(b.saved.settings!.invPricing.recommendation.F.maxPrice, 200);
 });
 

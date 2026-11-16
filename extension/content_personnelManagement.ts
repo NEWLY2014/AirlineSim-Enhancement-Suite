@@ -496,7 +496,7 @@ function finishSalaryUpdate(message: string | null, options: AESModel.SalaryUpda
             const data: Record<string,unknown> = {...previous, server, airline, type:'personnelManagement', date:today.date,time:today.time};
             // Retire journals from versions that verified and resumed salary writes.
             delete data.pending;
-            await chrome.storage.local.set({[key]:data});
+            await AES.patchRecord(key, stored[key], data);
             if (!AES.isPageOwner()) return;
             updatePersonnelLastUpdate(data);
 

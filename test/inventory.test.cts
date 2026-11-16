@@ -12,14 +12,14 @@ function row(c='Y', price=100, booked=80,status='finished') {return `<tr><td></t
 function inventory(t: TestContext,{rows=row(),current=100,data={},grouped=false}={}) {
     const prices = `<form class="pricing"><table><tbody>${cabins.map(c => `<tr><td>${c}</td><td>${current}</td><td><input value="${current}"></td><td></td><td>100</td></tr>`).join('')}</tbody></table><button name="submit-prices">Submit</button></form>`;
     const validation = '<ul><li class="active">All Flight Numbers</li></ul><div><div><div><fieldset></fieldset><fieldset></fieldset><fieldset><div><input type="checkbox" checked><input type="checkbox" checked><input type="checkbox"><input type="checkbox"></div></fieldset></div></div></div>';
-    const p = Object.assign(browser(t,{data:{settings:settings(),...data},html:header+`<h1>Inventory</h1><h2><a>AAA</a><a>BBB</a></h2><div class="container-fluid"><div class="row"><div class="col-md-10"><div><div class="as-panel">${prices}</div><div class="as-panel">${validation}</div><table id="${grouped?'inventory-grouped-table':'inventory-table'}"><tbody>${rows}</tbody></table></div></div></div></div>`}), {submissions: [] as FixtureData[], closed: 0});
+    const p = Object.assign(browser(t,{path:'/app/com/inventory/AAABBB',data:{settings:settings(),...data},html:header+`<h1>Inventory</h1><h2><a>AAA</a><a>BBB</a></h2><div class="container-fluid"><div class="row"><div class="col-md-10"><div><div class="as-panel">${prices}</div><div class="as-panel">${validation}</div><table id="${grouped?'inventory-grouped-table':'inventory-table'}"><tbody>${rows}</tbody></table></div></div></div></div>`}), {submissions: [] as FixtureData[], closed: 0});
     Object.defineProperty(p.w.HTMLElement.prototype,'innerText',{get(){return this.textContent;},set(v){this.textContent=v;},configurable:true});
     // Resolve the controlled airline without relying on unrelated enterprise-page markup.
     p.run('AES.getAirline = AES.getCurrentAirline');
     p.w.close = (() => { const close=p.w.close.bind(p.w); t.after(close); return () => {p.closed++;};})();
     const send=p.w.chrome.runtime.sendMessage;
     p.w.chrome.runtime.sendMessage=(message: { type: string; },reply: (arg0: { ok: boolean; }) => void)=>{
-        if(message.type==='AES_CLOSE_INVENTORY'){p.closed++;reply({ok:true});return;}
+        if(message.type==='AES_CLOSE_TAB'){p.closed++;reply({ok:true});return;}
         return send!(message,reply);
     };
     p.w.document.querySelector<HTMLFormElement>('form')!.addEventListener('submit',(event: { preventDefault: () => void; })=>{event.preventDefault();p.submissions.push(p.saved[key] === undefined ? undefined : JSON.parse(JSON.stringify(p.saved[key])));});
@@ -53,7 +53,7 @@ test('cancelled automatic close keeps confirmed pricing visible without a conten
         const send=p.w.chrome.runtime.sendMessage;
         let closes=0;
         p.w.chrome.runtime.sendMessage=(message,reply)=>{
-            if(message.type==='AES_CLOSE_INVENTORY'){closes++;reply({ok:false,reason});return;}
+            if(message.type==='AES_CLOSE_TAB'){closes++;reply({ok:false,reason});return;}
             return send!(message,reply);
         };
         p.load('content_inventory.js');await until(()=>closes===1);
@@ -140,7 +140,7 @@ test('native table replacement with unchanged row counts refreshes analysis',asy
 test('loss of ownership during pending persistence prevents form submission',async t=>{
     const p=inventory(t);await load(p);
     const original=p.w.chrome.storage.local.set;let finish!: () => void;
-    p.w.chrome.storage.local.set=(values,callback)=>values[key]?new Promise<void>(resolve=>{finish=()=>{original(values);resolve();};}):original(values,callback);
+    p.w.chrome.storage.local.set=(values,callback)=>values[key]?new Promise<void>(resolve=>{finish=()=>{original(values,callback);resolve();};}):original(values,callback);
     click(p,'#aes-btn-invPricing-apply-new-prices');await until(()=>finish);
     p.run('AES.isPageOwner=()=>false; AES._ownershipLostCallbacks.forEach(fn=>fn());');finish();
     await new Promise(resolve=>setTimeout(resolve,20));
@@ -184,7 +184,7 @@ test('invalid edited prices block the entire submission and leave the action ret
 test('native pricing changes during a pending save invalidate the old submit action',async t=>{
     const p=inventory(t);await load(p);
     const original=p.w.chrome.storage.local.set;let finish!: () => void;
-    p.w.chrome.storage.local.set=(values,callback)=>values[key]?new Promise<void>(resolve=>{finish=()=>{original(values);resolve();};}):original(values,callback);
+    p.w.chrome.storage.local.set=(values,callback)=>values[key]?new Promise<void>(resolve=>{finish=()=>{original(values,callback);resolve();};}):original(values,callback);
     click(p,'#aes-btn-invPricing-apply-new-prices');await until(()=>finish);
     p.w.document.querySelector<HTMLTableCellElement>('.pricing tbody tr td:nth-child(2)')!.textContent='120';finish();
     await new Promise(resolve=>setTimeout(resolve,80));
@@ -274,7 +274,7 @@ for(const mode of ['steps','curve']) for(const boundary of ['min','max']) {
 test('limit no-op waits for snapshot persistence and stays open after a failed save',async t=>{
     const p=inventory(t,{current:200,rows:row('Y',200),data:{settings:settings({autoPriceUpdate:1,autoAnalysisSave:1,autoClose:1})}});
     const original=p.w.chrome.storage.local.set;let finish!: (...args: import("./support/fixtures.cts").VMValue[]) => void;
-    p.w.chrome.storage.local.set=(values,callback)=>values[key]?new Promise((resolve,reject)=>{finish=()=>original(values,callback).then(resolve,reject);}):original(values,callback);
+    p.w.chrome.storage.local.set=(values,callback)=>values[key]?new Promise((resolve,reject)=>{finish=()=>{const result=original(values,callback);if(result)result.then(resolve,reject);else resolve(undefined);};}):original(values,callback);
     await load(p);await until(()=>finish);assert.equal(p.closed,0);
     p.failures.set='Write failed';finish();
     await until(()=>/Unable to save/.test(p.w.document.querySelector<HTMLElement>('#aes-div-analysis')!.textContent));
@@ -418,4 +418,25 @@ test('load display rounds to whole percentages without rounding stored load data
     click(p,'#aes-btn-invPricing-save-snapshot');await until(()=>p.saved[key]);
     const item=p.saved[key].date['20260908'].data.Y;
     assert.equal(item.totalBkd,81);assert.equal(item.totalCap,123);
+});
+
+
+test('history flags use the same legacy toggle rules as pricing automation',async t=>{
+    const config=settings();config.invPricing.historyTable.showNow='0';config.invPricing.historyTable.showOnlyPricing='0';
+    const p=inventory(t,{data:{settings:config,[key]:{key,date:{'20260901':{data:{}}}}}});await load(p);
+    assert.equal(p.w.document.querySelector<HTMLInputElement>('#aes-check-inventory-history-showNow')!.checked,false);
+    assert.equal(p.w.document.querySelector<HTMLInputElement>('#aes-check-inventory-history-showOnlyPricing')!.checked,false);
+});
+
+
+test('a stale inventory page cannot overwrite another page confirmation or submit again',async t=>{
+    const p=inventory(t);await load(p);
+    const confirmed={key,date:{'20260908':{data:{},pricingUpdated:1,updateTime:'12:00'}}};
+    p.saved[key]=confirmed;
+    click(p,'#aes-btn-invPricing-apply-new-prices');
+    await until(()=>p.w.document.querySelector('#aes-pricing-status')!.textContent.includes('changed in another page'));
+    assert.deepEqual(p.saved[key],confirmed);assert.equal(p.submissions.length,0);
+    click(p,'#aes-btn-invPricing-save-snapshot');
+    await until(()=>!p.w.document.querySelector<HTMLButtonElement>('#aes-btn-invPricing-save-snapshot')!.disabled);
+    assert.deepEqual(p.saved[key],confirmed);
 });

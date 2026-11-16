@@ -78,3 +78,17 @@ test('old competitor page cannot overwrite newer history from read-only collecti
     assert.equal(reply.ok,true);
     assert.deepEqual(p.saved[key],{tracking:1,tab0:{20260915:{pax:100}},tab2:{}});
 });
+
+test('inventory saves serialize competing pages and reject stale or out-of-scope writes',async t=>{
+    const key='paine42AAABBBrouteAnalysis';
+    const p=browser(t),from=sender('https://paine.airlinesim.aero/app/com/inventory/AAABBB');
+    const save=(before: VMValue,after: VMValue,identity=from)=>new Promise<VMValue>(resolve=>p.dispatch({type:'AES_RECORD_PATCH',key,before,after},identity,resolve));
+    const first={key,date:{'20261116':{pricingUpdatePending:{targetPrices:{Y:110}}}}};
+    const other={key,date:{'20261116':{pricingUpdated:0}}};
+    const results=await Promise.all([save(undefined,first),save(undefined,other)]);
+    assert.equal(results[0].ok,true);assert.equal(results[1].ok,false);
+    assert.equal((await save(undefined,first)).ok,true,'a lost acknowledgement may repeat the same write');
+    assert.deepEqual(p.saved[key],first);
+    assert.equal((await save(first,other,sender('https://paine.airlinesim.aero/app/info/ors'))).ok,false);
+    assert.deepEqual(p.saved[key],first);
+});

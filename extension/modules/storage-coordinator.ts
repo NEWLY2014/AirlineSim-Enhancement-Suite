@@ -2,14 +2,40 @@
 class AESStorage {
     private static pending: Array<() => void> = [];
     private static busy = false;
-    static enqueue(action: (finish: () => void) => void) {
+    private static enqueue(action: (finish: () => void) => void) {
         this.pending.push(() => action(() => {this.busy=false;this.drain();}));
         this.drain();
     }
-    static run<T>(action: () => Promise<T>): Promise<T> {
+    static get(keys: string | string[] | null): Promise<Record<string, unknown>> {
+        return new Promise((resolve,reject) => chrome.storage.local.get(keys, data => {
+            if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message)); else resolve(data);
+        }));
+    }
+    // Call these primitives only inside run(): keep the whole read/modify/write transaction together.
+    static set(values: Record<string, unknown>): Promise<void> {
+        return new Promise((resolve,reject) => chrome.storage.local.set(values, () => {
+            if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message)); else resolve();
+        }));
+    }
+    static remove(keys: string | string[]): Promise<void> {
+        return new Promise((resolve,reject) => chrome.storage.local.remove(keys, () => {
+            if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message)); else resolve();
+        }));
+    }
+    static clear(): Promise<void> {
+        return new Promise((resolve,reject) => chrome.storage.local.clear(() => {
+            if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message)); else resolve();
+        }));
+    }
+    static run<T>(action: () => Promise<T>, allowRecovery = false): Promise<T> {
         return new Promise<T>((resolve,reject) => this.enqueue(finish => {
             let result: Promise<T>;
-            try {result=action();} catch(error) {result=Promise.reject(error);}
+            try {result=(async () => {
+                if (!allowRecovery && (await this.get('aesRestoreRecoveryV1')).aesRestoreRecoveryV1 !== undefined) {
+                    throw new Error('Recover the previous interrupted restore before trying again.');
+                }
+                return action();
+            })();} catch(error) {result=Promise.reject(error);}
             void result.then(resolve,reject).finally(finish);
         }));
     }
@@ -50,18 +76,9 @@ class AESStorage {
 /** Background-only mutations. Keep read/compare/write in one worker queue. */
 (() => {
     const record = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
-    function enqueue(action: (finish: () => void) => void) {
-        AESStorage.enqueue(action);
-    }
-    const getLocal = (key: string) => new Promise<Record<string, unknown>>((resolve, reject) => chrome.storage.local.get(key, data => {
-        if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message)); else resolve(data);
-    }));
-    const setLocal = (data: Record<string, unknown>) => new Promise<void>((resolve, reject) => chrome.storage.local.set(data, () => {
-        if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message)); else resolve();
-    }));
-    const removeLocal = (key: string) => new Promise<void>((resolve, reject) => chrome.storage.local.remove(key, () => {
-        if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message)); else resolve();
-    }));
+    const getLocal = AESStorage.get;
+    const setLocal = AESStorage.set;
+    const removeLocal = AESStorage.remove;
     chrome.runtime.onMessage.addListener((message: unknown, sender, reply) => {
         if (!record(message) || message.type !== 'AES_PRUNE_HISTORY') return false;
         if (sender.id !== chrome.runtime.id || sender.url !== 'chrome-extension://' + chrome.runtime.id + '/options.html') {
@@ -100,9 +117,7 @@ class AESStorage {
                 else if (changed) updates[key]=next;
             }
             if (Object.keys(updates).length) await setLocal(updates);
-            if (removals.length) await new Promise<void>((resolve,reject) => chrome.storage.local.remove(removals, () => {
-                if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));else resolve();
-            }));
+            if (removals.length) await removeLocal(removals);
             return {ok:true,records:removals.length,snapshots};
         }).then(reply,error=>reply({ok:false,error:String(error)}));
         return true;
@@ -113,15 +128,20 @@ class AESStorage {
             !sender.url || !/^https:\/\/[^/]+\.airlinesim\.aero\//.test(sender.url)) {
             reply({ok:false, error:'A top-level AirlineSim page is required.'}); return false;
         }
-        enqueue(finish => {
-            const respond = (value: unknown) => { try { reply(value); } finally { finish(); } };
+        void AESStorage.run(() => new Promise<unknown>(resolve => {
+            const respond = resolve;
             if (message.type === 'AES_RECORD_PATCH') {
                 void (async () => {
                     const prefix = new URL(sender.url!).hostname.split('.')[0];
                     const key = message.key;
-                    if (typeof key !== 'string' || !key.startsWith(prefix) || !/^(?:\d+(?:_\d+)?competitorMonitoring|\d+competitorMonitoringIndex|\d+aircraftFleet|aircraftFlights\d+|\d+aircraftFlightPlanHub\d+)$/.test(key.slice(prefix.length))) throw new Error('Invalid record scope.');
+                    if (typeof key !== 'string' || !key.startsWith(prefix) || !/^(?:\d+(?:_\d+)?competitorMonitoring|\d+competitorMonitoringIndex|\d+aircraftFleet|aircraftFlights\d+|flightInfo\d+|\d+personnelManagement|\d+aircraftFlightPlanHub\d+|\d+[A-Z]{6}routeAnalysis)$/.test(key.slice(prefix.length))) throw new Error('Invalid record scope.');
                     const current = (await getLocal(key))[key];
-                    const value = AESStorage.merge(message.before, message.after, current);
+                    const inventory = key.endsWith('routeAnalysis');
+                    if (inventory && (!/^\/app\/com\/inventory\//.test(new URL(sender.url!).pathname) ||
+                        (JSON.stringify(current) !== JSON.stringify(message.before) && JSON.stringify(current) !== JSON.stringify(message.after)))) {
+                        throw new Error('This record changed in another page. Refresh before retrying.');
+                    }
+                    const value = inventory ? message.after : AESStorage.merge(message.before, message.after, current);
                     if (value === undefined) throw new Error('Cannot remove this record.');
                     await setLocal({[key]: value});
                     return {ok:true, value};
@@ -130,14 +150,13 @@ class AESStorage {
             }
             if (message.type === 'AES_SETTINGS_CAS') {
                 if (!record(message.next)) { respond({ok:false,error:'Invalid settings.'}); return; }
-                chrome.storage.local.get('settings', result => {
-                    if (chrome.runtime.lastError) { respond({ok:false,error:chrome.runtime.lastError.message}); return; }
+                void (async () => {
+                    const result = await getLocal('settings');
                     const current = record(result.settings) ? result.settings : {};
-                    if (JSON.stringify(current) !== message.expected) { respond({ok:true,conflict:true}); return; }
-                    chrome.storage.local.set({settings:message.next}, () => {
-                        respond(chrome.runtime.lastError ? {ok:false,error:chrome.runtime.lastError.message} : {ok:true});
-                    });
-                });
+                    if (JSON.stringify(current) !== message.expected) return {ok:true,conflict:true};
+                    await setLocal({settings:message.next});
+                    return {ok:true};
+                })().then(respond,error=>respond({ok:false,error:String(error)}));
                 return;
             }
             void (async () => {
@@ -180,7 +199,81 @@ class AESStorage {
                 } else if (message.op !== 'check') throw new Error('Unsupported job operation.');
                 return {ok:true};
             })().then(respond, error => respond({ok:false,error:error instanceof Error ? error.message : String(error)}));
-        });
+        })).then(reply, error => reply({ok:false,error:String(error instanceof Error ? error.message : error)}));
+        return true;
+    });
+})();
+
+/** Scoped scalar writes, log append and whole backup transactions share the same queue. */
+(() => {
+    const record = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
+    const recoveryKey = 'aesRestoreRecoveryV1';
+    const comparable = (value: unknown): string => JSON.stringify(value, (_key, item: unknown) =>
+        record(item) ? Object.fromEntries(Object.keys(item).sort().map(key => [key,item[key]])) : item);
+    const validateBackup = (data: unknown): Record<string, unknown> => {
+        if (!record(data)) throw new Error('Invalid backup file format');
+        if (Object.hasOwn(data,recoveryKey)) throw new Error('Backup contains a reserved recovery key.');
+        return data;
+    };
+    async function writeReplacement(data: Record<string, unknown>) {
+        await AESStorage.set(data);
+        const written = await AESStorage.get(null);
+        if (Object.entries(data).some(([key,value]) => comparable(written[key]) !== comparable(value))) {
+            throw new Error('Restored data could not be verified.');
+        }
+        await AESStorage.remove(Object.keys(written).filter(key => key !== recoveryKey && !Object.hasOwn(data,key)));
+        await AESStorage.remove(recoveryKey);
+    }
+    chrome.runtime.onMessage.addListener((message: unknown,sender,reply) => {
+        if (!record(message) || !['AES_STORAGE_MUTATE','AES_OPTIONS_STORAGE','AES_APPEND_LOG'].includes(String(message.type))) return false;
+        const options = sender.id === chrome.runtime.id && sender.url === 'chrome-extension://' + chrome.runtime.id + '/options.html';
+        const game = sender.id === chrome.runtime.id && sender.frameId === 0 && !!sender.documentId && typeof sender.tab?.id === 'number' &&
+            !!sender.url && /^https:\/\/[^/:]+\.airlinesim\.aero\/(?:app|action)\//.test(sender.url);
+        const popup = sender.id === chrome.runtime.id && sender.url === 'chrome-extension://' + chrome.runtime.id + '/popup.html';
+        if ((!game && !options && !popup) || (message.type === 'AES_OPTIONS_STORAGE' && !options)) {
+            reply({ok:false,error:'Invalid storage scope.'}); return false;
+        }
+        void AESStorage.run(async () => {
+            if (message.type === 'AES_OPTIONS_STORAGE') {
+                if (message.op === 'recover') {
+                    const journal = (await AESStorage.get(recoveryKey))[recoveryKey];
+                    if (!record(journal) || !record(journal.previous)) throw new Error('Storage unavailable.');
+                    await writeReplacement(validateBackup(journal.previous));
+                } else if (message.op === 'clear') {
+                    await AESStorage.clear();
+                } else {
+                    if ((await AESStorage.get(recoveryKey))[recoveryKey] !== undefined) throw new Error('Recover the previous interrupted restore before trying again.');
+                    if (message.op === 'clearLogs') {
+                        const stored = await AESStorage.get(null);
+                        await AESStorage.remove(Object.keys(stored).filter(key => /^aesLog_\d{8}$/.test(key) || record(stored[key]) && stored[key].type === 'log'));
+                    } else if (message.op === 'merge') {
+                        await AESStorage.set(validateBackup(message.data));
+                    } else if (message.op === 'replace') {
+                        const data = validateBackup(message.data);
+                        const previous = await AESStorage.get(null);
+                        await AESStorage.set({[recoveryKey]:{previous,created:new Date().toISOString()}});
+                        await writeReplacement(data);
+                    } else throw new Error('Invalid storage operation.');
+                }
+            } else if (message.type === 'AES_APPEND_LOG') {
+                if (!/^aesLog_\d{8}$/.test(String(message.key)) || !record(message.entry)) throw new Error('Invalid log entry.');
+                const key = String(message.key), raw = (await AESStorage.get(key))[key];
+                const old = record(raw) ? raw : {};
+                const entries = Array.isArray(old.entries) ? old.entries : [];
+                await AESStorage.set({[key]:{...old,type:'log',date:key.slice(7),updateTime:message.entry.time,entries:[...entries,message.entry].slice(-300)}});
+            } else {
+                const values = message.values, keys = message.op === 'set' && record(values) ? Object.keys(values) : message.keys;
+                const prefix = game ? new URL(sender.url!).hostname.split('.')[0] : '';
+                if (!Array.isArray(keys) || !keys.length || !keys.every(key => typeof key === 'string' &&
+                    (['aesLanguage','aesGameLanguage','aesReleaseNotesSeenVersion'].includes(key) ||
+                     (game && /^\/app\/fleets\/aircraft\/\d+\/0(?:[;/]|$)/.test(new URL(sender.url!).pathname) && key.startsWith(prefix) &&
+                     /^\d+(?:flightPlanTemplate|flightPlanAssistantOffsetDays|aircraftFlightPlanHub\d+)$/.test(key.slice(prefix.length)))))) throw new Error('Invalid record scope.');
+                if (message.op === 'set' && record(values)) await AESStorage.set(values);
+                else if (message.op === 'remove') await AESStorage.remove(keys as string[]);
+                else throw new Error('Invalid storage operation.');
+            }
+            return {ok:true};
+        }, message.type === 'AES_OPTIONS_STORAGE').then(reply,error=>reply({ok:false,error:error instanceof Error ? error.message : String(error)}));
         return true;
     });
 })();

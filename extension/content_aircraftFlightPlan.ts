@@ -256,26 +256,16 @@ function afp_storageGet(keys: string[]) {
     });
 }
 
-function afp_storageSet(values: Record<string, unknown>) {
-    return new Promise<void>(function(resolve, reject) {
-        afp_assertPageOwner();
-        chrome.storage.local.set(values, function() {
-            if (chrome.runtime.lastError) return reject(new Error(chrome.runtime.lastError.message));
-            if (!AES.isPageOwner()) return reject(new FlightPlanCancelled(AESI18n.t('Page ownership lost')));
-            resolve();
-        });
-    });
+async function afp_storageSet(values: Record<string, unknown>) {
+    afp_assertPageOwner();
+    await AESPersistence.set(values);
+    afp_assertPageOwner();
 }
 
-function afp_storageRemove(keys: string[]) {
-    return new Promise<void>(function(resolve, reject) {
-        afp_assertPageOwner();
-        chrome.storage.local.remove(keys, function() {
-            if (chrome.runtime.lastError) return reject(new Error(chrome.runtime.lastError.message));
-            if (!AES.isPageOwner()) return reject(new FlightPlanCancelled(AESI18n.t('Page ownership lost')));
-            resolve();
-        });
-    });
+async function afp_storageRemove(keys: string[]) {
+    afp_assertPageOwner();
+    await AESPersistence.remove(keys);
+    afp_assertPageOwner();
 }
 
 function afp_normalizeOffsetDays(value: unknown) {

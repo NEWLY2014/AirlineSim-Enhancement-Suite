@@ -53,3 +53,20 @@ test('a long cooldown keeps the waiting lease alive with bounded recovery checks
     const permit=await p.run("AES.queuePage(location.href,'salary')");
     assert.equal(polls,3);assert.ok(permit.expires>Date.now());
 });
+
+test('waiting clients receive cooldown deadlines from polls and live updates',async t=>{
+    const p=browser(t);let id,ready=false,polls=0;
+    const untilTime=Date.now()+60000;
+    p.w.chrome.runtime.sendMessage=(message,reply)=>{
+        id=message.id;if(message.op==='poll')polls++;
+        reply({ok:true,state:ready?'running':'queued',expires:Date.now()+10000,cooldownUntil:untilTime});
+    };
+    p.run('window.queueWaits=[]');
+    const waiting=p.run("AES.queuePage(location.href,'price',()=>true,until=>window.queueWaits.push(until))");
+    await until(()=>polls===1);
+    assert.equal(p.run('window.queueWaits.at(-1)'),untilTime);
+    notify(p.w.chrome,{type:'AES_PAGE_QUEUE_READY',id,cooldownUntil:untilTime+60000,notBefore:untilTime+60000});
+    assert.equal(p.run('window.queueWaits.at(-1)'),untilTime+60000);
+    ready=true;notify(p.w.chrome,{type:'AES_PAGE_QUEUE_READY',id,cooldownUntil:0,notBefore:Date.now()});
+    await waiting;assert.equal(p.run('window.queueWaits.at(-1)'),0);
+});

@@ -6,6 +6,8 @@
     const gap = () => 55 + Math.floor(Math.random() * 11);
     const PAGE_TIMEOUT = 120000;
     const COOLDOWN = 60000;
+    const RATE_LIMIT_COOLDOWN = 5000;
+    const MAX_RATE_LIMIT_COOLDOWN = 30000;
     const LEASE = 10000;
     const CLIENT_TIMEOUT = 120000; // Background-tab polling can be throttled to once a minute.
     const TAB_EDIT_ERROR = 'Tabs cannot be edited right now (user may be dragging a tab).';
@@ -18,7 +20,7 @@
         tabEditDeadline?: number; tabEditRetries?: number; navigationStarted?: boolean;
         error?: string;
     }
-    interface State { jobs: Job[]; next: number; backoff?: number; lastFailure?: number }
+    interface State { jobs: Job[]; next: number; backoff?: number; lastFailure?: number; cooldownUntil?: number }
     let serial: Promise<unknown> = Promise.resolve();
     const record = (x: unknown): x is Record<string, unknown> => !!x && typeof x === 'object' && !Array.isArray(x);
     function allowed(url: unknown, kind: Kind): url is string {
@@ -50,7 +52,9 @@
             const state: State = record(stored) && Array.isArray(stored.jobs) && stored.jobs.every(isJob) && typeof stored.next === 'number'
                 ? { jobs: stored.jobs, next: stored.next,
                     backoff: typeof stored.backoff === 'number' ? stored.backoff : undefined,
-                    lastFailure: typeof stored.lastFailure === 'number' ? stored.lastFailure : undefined } : {jobs: [], next: 0};
+                    lastFailure: typeof stored.lastFailure === 'number' ? stored.lastFailure : undefined,
+                    cooldownUntil: typeof stored.cooldownUntil === 'number' ? stored.cooldownUntil :
+                        typeof stored.lastFailure === 'number' && typeof stored.backoff === 'number' ? Math.max(stored.next, stored.lastFailure + stored.backoff) : 0 } : {jobs: [], next: 0};
             return change(state);
         });
         serial = result.catch(() => {});
@@ -70,13 +74,13 @@
     const save = async (s: State) => {
         await chrome.storage.session.set({[KEY]: s});
         const head = s.jobs.find(j => j.state === 'queued');
+        const cooldownUntil = (s.cooldownUntil || 0) > Date.now() ? s.cooldownUntil! : 0;
         for (const job of s.jobs) {
-            if (job.state === 'queued' && job !== head) continue;
-            const notBefore = job.state === 'queued' ? wakeAt(s) : 0;
-            const signature = job.state + ':' + notBefore;
+            const notBefore = job.state === 'queued' ? job === head ? wakeAt(s) : undefined : 0;
+            const signature = job.state + ':' + notBefore + ':' + cooldownUntil;
             if (notices.get(job.id) === signature) continue;
             notices.set(job.id, signature);
-            void chrome.tabs.sendMessage(job.source, {type:'AES_PAGE_QUEUE_READY',id:job.id,notBefore}, {documentId:job.document}).catch(() => {
+            void chrome.tabs.sendMessage(job.source, {type:'AES_PAGE_QUEUE_READY',id:job.id,notBefore,cooldownUntil}, {documentId:job.document}).catch(() => {
                 // A suspended or closed document cannot receive a notification.
                 // Its bounded recovery check can read the persisted state later.
                 notices.delete(job.id);
@@ -157,14 +161,20 @@
             const now = Date.now();
             if (message.op === 'cooldown') {
                 if (!sender.url || !/^https:\/\/[^/]+\.airlinesim\.aero\/(?:app|action)\//.test(sender.url)) return {ok:false,error:'Unsupported queue destination.'};
-                s.backoff = s.lastFailure !== undefined && now - s.lastFailure < 600000
-                    ? Math.min(900000, (s.backoff || COOLDOWN) * 2) : COOLDOWN;
-                s.lastFailure = now;
+                // Concurrent requests can report the same limiting episode. Only
+                // increase backoff when requests resume and encounter another error.
+                if (now >= (s.cooldownUntil || 0)) {
+                    s.backoff = s.lastFailure !== undefined && now - s.lastFailure < 600000
+                        ? Math.min(MAX_RATE_LIMIT_COOLDOWN, (s.backoff || RATE_LIMIT_COOLDOWN) * 2) : RATE_LIMIT_COOLDOWN;
+                    s.lastFailure = now;
+                    s.cooldownUntil = now + s.backoff;
+                }
                 const requested = typeof message.delay === 'number' && Number.isFinite(message.delay)
                     ? Math.min(86400000, Math.max(0, message.delay)) : 0;
-                s.next = Math.max(s.next, now + Math.max(s.backoff, requested));
+                s.cooldownUntil = Math.max(s.cooldownUntil || 0, requested ? now + requested : 0);
+                s.next = Math.max(s.next, s.cooldownUntil);
                 await save(s);
-                return {ok:true,notBefore:s.next};
+                return {ok:true,notBefore:s.next,cooldownUntil:s.cooldownUntil};
             }
             let job = s.jobs.find(j => j.id === requestId);
             if (job && (job.source !== source || job.document !== doc)) return {ok:false,error:'Queue request owner mismatch.'};
@@ -198,6 +208,7 @@
             }
             await save(s);
             return {ok:job.state !== 'failed', state:job.state, expires:job.expires, error:job.error,
+                cooldownUntil:s.cooldownUntil,
                 retryAfter:Math.max(5, s.next - Date.now()),
                 notBefore: s.jobs.find(j => j.state === 'queued') === job ? wakeAt(s) : undefined,
                 position:s.jobs.filter(j => j.state === 'queued').indexOf(job) + 1};

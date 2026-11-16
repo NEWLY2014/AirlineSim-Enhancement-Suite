@@ -11,8 +11,11 @@ class FlightInfo {
      */
     async init() {
         if (this.#isPrivateFlight() && this.#isCorrectTabOpen()) {
+            const key = AES.getServerName() + 'flightInfo' + this.#getFlightId();
+            const before = (await chrome.storage.local.get(key))[key];
+            if (!AES.isPageOwner()) return;
             this.#data = this.#collectFlightData();
-            await this.#saveData();
+            await this.#saveData(before);
             this.#render();
         }
     }
@@ -59,22 +62,22 @@ class FlightInfo {
      * Saves the flight data to local storage
      * @returns {Promise<void>}
      */
-    async #saveData() {
+    async #saveData(before: unknown) {
         const data = this.#data;
         if (!data) return;
         const key = `${data.server}${data.type}${data.flightId}`;
         const notifications = new Notifications();
         try {
-            await chrome.storage.local.set({ [key]: data });
-            const result = await chrome.storage.local.get(['settings']);
-            if (AES.isRecord(result.settings) && AES.isRecord(result.settings.flightInfo) && result.settings.flightInfo.autoClose) {
-                window.close();
-            }
+            await AES.patchRecord(key,before,data);
             notifications.add("Flight information saved successfully.", {type: "success"});
         } catch (e) {
             notifications.add("Flight information save failed.", {type: "error"});
             console.error(e);
+            return;
         }
+        const href = location.href;
+        await AES.closeSavedTab('flightInfo',() => AES.isPageOwner() && location.href === href && !!this.#isCorrectTabOpen())
+            .catch(error => AES.reportContentScriptError('flightInfo.close',error));
     }
 
     /**

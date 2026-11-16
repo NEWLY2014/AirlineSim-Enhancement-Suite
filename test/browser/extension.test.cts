@@ -35,6 +35,8 @@ test('Chromium loads the extension runtime, exports real storage and injects the
     const prices=`<form class="pricing" method="post"><table><tbody>${cabins.map(c=>`<tr><td>${c}</td><td>100</td><td><input name="price${c}" value="100"></td><td></td><td>100</td></tr>`).join('')}</tbody></table><button name="submit-prices">Submit prices</button></form>`;
     const validation='<ul><li class="active">All Flight Numbers</li></ul><div><div><div><fieldset></fieldset><fieldset></fieldset><fieldset><div><input type="checkbox" checked><input type="checkbox" checked><input type="checkbox"><input type="checkbox"></div></fieldset></div></div></div>';
     const inventoryFixture=fixture+`<h2><a>AAA</a><a>BBB</a></h2><div class="container-fluid"><div class="row"><div class="col-md-10"><div><div class="as-panel">${prices}</div><div class="as-panel">${validation}</div><table id="inventory-table"><tbody><tr><td></td><td><a href="numbers/1">AA 100</a></td><td>08.09.</td><td></td><td></td><td>Y</td><td>100</td><td>80</td><td></td><td>100</td><td>finished</td></tr></tbody></table></div></div></div></div>`;
+    const flightFixture=fixture+`<div id="privInf"></div><div id="flight-page"><ul><li class="active">Overview</li></ul></div>
+        <table>${Array.from({length:5},()=>'<tr class="cm">'+'<td>100</td>'.repeat(6)+'</tr>').join('')}</table>`;
     server=createServer({key:await readFile(join(profile,'key.pem')),cert:await readFile(join(profile,'cert.pem'))},async(req,res)=>{
         if (req.url!!.startsWith('/app/com/inventory/')) {
             if (req.method === 'POST') priceRequests.push(Date.now());
@@ -43,7 +45,7 @@ test('Chromium loads the extension runtime, exports real storage and injects the
                 res.writeHead(200,{'Content-Type':'text/html'});res.end('<title>Unexpected Error</title><h1>Unexpected Error</h1>');return;
             }
         }
-        res.writeHead(200,{'Content-Type':'text/html'});req.resume();res.end(req.url!!.startsWith('/app/com/inventory/') ? inventoryFixture : fixture);
+        res.writeHead(200,{'Content-Type':'text/html'});req.resume();res.end(req.url!!.startsWith('/app/com/inventory/') ? inventoryFixture : req.url!!.startsWith('/action/info/flight') ? flightFixture : fixture);
     });
     await new Promise<void>(resolve=>server.listen(0,'127.0.0.1',resolve));
     const port=(server.address() as import('node:net').AddressInfo).port;
@@ -182,20 +184,55 @@ test('Chromium loads the extension runtime, exports real storage and injects the
     assert.equal(confirmedRecord.date['20260908'].pricingUpdated,1);
     assert.equal(confirmedRecord.date['20260908'].pricingUpdatePending,undefined);
     assert.deepEqual(errors, []);
+    // A manually opened flight tab closes only after its financial record is saved.
+    await worker.evaluate(async()=>{
+        const {settings}=await chrome.storage.local.get<import('../support/fixtures.cts').FixtureData>('settings');
+        settings.flightInfo={autoClose:'1'};await chrome.storage.local.set({settings});
+    });
+    const flightPage=await context.newPage();
+    const flightClosed=flightPage.waitForEvent('close');
+    await flightPage.goto('https://paine.airlinesim.aero/action/info/flight?id=42').catch(error=>{if(!flightPage.isClosed())throw error;});
+    await flightClosed;
+    assert.equal(await worker.evaluate(async()=>(await chrome.storage.local.get<import('../support/fixtures.cts').FixtureData>('paineflightInfo42')).paineflightInfo42.money.CM5.Total),100);
     // An HTTP 200 game error page must pause future operations from other tabs.
     const rejected=await context.newPage();
     await rejected.goto('https://paine.airlinesim.aero/app/com/inventory/RATE-LIMIT');
     assert.equal(await worker.evaluate(async()=>{
         for(let i=0;i<100;i++){
             const state=(await chrome.storage.session.get<import('../support/fixtures.cts').FixtureData>('aesPageQueueV1')).aesPageQueueV1;
-            if(state.next>Date.now()+50000)return true;
+            if(state.next>Date.now()+3000)return true;
             await new Promise(resolve=>setTimeout(resolve,20));
         }
         return false;
     }),true,'standalone Unexpected Error triggers a shared cooldown');
+    const firstCooldown=await worker.evaluate(async()=>(await chrome.storage.session.get<import('../support/fixtures.cts').FixtureData>('aesPageQueueV1')).aesPageQueueV1.cooldownUntil);
+    await rejected.reload();
+    const repeatedCooldown=await worker.evaluate(async()=>(await chrome.storage.session.get<import('../support/fixtures.cts').FixtureData>('aesPageQueueV1')).aesPageQueueV1);
+    assert.equal(repeatedCooldown.backoff,5000,'refreshing the error page must not multiply the backoff');
+    assert.equal(repeatedCooldown.cooldownUntil,firstCooldown);
+    // Keep the pause deterministic under slow CI before advancing it below.
+    await worker.evaluate(async()=>{
+        const {aesPageQueueV1:state}=await chrome.storage.session.get<import('../support/fixtures.cts').FixtureData>('aesPageQueueV1');
+        state.cooldownUntil=state.next=Date.now()+30000;
+        await chrome.storage.session.set({aesPageQueueV1:state});
+    });
+    await inventoryPages[2].locator('[name="submit-prices"]').click();
+    await inventoryPages[2].locator('#aes-price-queue-status').filter({hasText:'Server cooldown until'}).waitFor();
+    assert.equal(priceRequests.length,2,'prices must remain queued during the pause');
     const beforePause=inventoryRequests.length;
     await page.getByRole('button',{name:'Open inventory (max 10)',exact:true}).click();
     await new Promise(resolve=>setTimeout(resolve,1700));
     assert.equal(inventoryRequests.length,beforePause,'another tab cannot dispatch during the shared cooldown');
     assert.ok(await worker.evaluate(async()=>(await chrome.storage.session.get<import('../support/fixtures.cts').FixtureData>('aesPageQueueV1')).aesPageQueueV1.jobs.some((j: { state: string; })=>j.state==='queued')));
+    // Advance the persisted deadline without waiting a real minute in the test.
+    await worker.evaluate(async()=>{
+        const {aesPageQueueV1:state}=await chrome.storage.session.get<import('../support/fixtures.cts').FixtureData>('aesPageQueueV1');
+        state.cooldownUntil=state.next=Date.now()+700;
+        await chrome.storage.session.set({aesPageQueueV1:state});
+        for(const job of state.jobs.filter((j: VMValue)=>j.state==='queued')){
+            await chrome.tabs.sendMessage(job.source,{type:'AES_PAGE_QUEUE_READY',id:job.id,notBefore:state.next,cooldownUntil:state.cooldownUntil},{documentId:job.document});
+        }
+    });
+    await waitUntil(()=>priceRequests.length===3);
+    assert.equal(priceRequests.length,3,'queued prices resume automatically after the cooldown');
 });

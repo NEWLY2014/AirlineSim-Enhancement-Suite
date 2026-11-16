@@ -15,11 +15,13 @@ test('settings edits preserve unrelated and newly stored preferences', async t =
     await until(() => p.w.document.querySelector<HTMLInputElement>('#aes-input-automateInvPricing'));
     p.saved.settings.addedAfterLoad = 'keep';
     p.w.document.querySelector<HTMLInputElement>('#aes-input-automateInvPricing')!.click();
+    await until(()=>p.saved.settings.invPricing.autoPriceUpdate===1);
     assert.equal(p.saved.settings.invPricing.autoPriceUpdate, 1);
     assert.equal(p.saved.settings.addedAfterLoad, 'keep');
     assert.deepEqual(p.saved.settings.custom, { keep: true });
     p.w.document.querySelector<HTMLElement>('#aes-settings-group-2')!.click();
     p.w.document.querySelector<HTMLInputElement>('#aes-settings-section-2 input')!.click();
+    await until(()=>p.saved.settings.flightInfo?.autoClose===1);
     assert.equal(p.saved.settings.flightInfo.autoClose, 1);
     assert.equal(p.saved.settings.invPricing.autoPriceUpdate, 1);
 });
@@ -31,6 +33,7 @@ test('pricing editor saves valid steps and rejects invalid price bounds', async 
     await until(() => p.w.document.querySelector<HTMLButtonElement>('#aes-btn-invPricing-save'));
     p.w.document.querySelector<HTMLInputElement>('#aes-input-invPricing-min-price')!.value = '70';
     p.w.document.querySelector<HTMLButtonElement>('#aes-btn-invPricing-save')!.click();
+    await until(()=>p.saved.settings.invPricing.recommendation.Y.minPrice===70);
     assert.equal(p.saved.settings.invPricing.recommendation.Y.minPrice, 70);
     assert.equal(p.saved.settings.invPricing.recommendation.C.minPrice, 60);
     const writes = p.calls.length;
@@ -79,6 +82,7 @@ test('personnel stops automation and restores the action button when no salary t
     await until(() => p.w.document.querySelector<HTMLElement>('.aes-personnel-management-apply'));
     const button = p.w.document.querySelector<HTMLButtonElement>('.aes-personnel-management-apply');
     button!.click();
+    await until(()=>!button!.disabled);
     assert.equal(button!.disabled, false);
     assert.equal(p.saved.settings.personnelManagement.auto, 0);
     assert.ok(p.w.document.querySelector<HTMLElement>('.feedbackPanelERROR'));
@@ -163,6 +167,7 @@ test('curve editor preserves legacy rules, validates points, sorts them and reta
     $('#aes-select-invPricing-cmp').val('Y').trigger('change');
     assert.equal($('#aes-pricing-mode').val(),'curve');assert.equal($('.aes-curve-table tbody tr').eq(1).find('input').eq(1).val(),'-2.5');
     $('#aes-btn-invPricing-save').trigger('click');
+    await until(()=>p.saved.settings.invPricing.mode==='curve');
     assert.equal(p.saved.settings.invPricing.mode,'curve');
     assert.deepEqual(p.saved.settings.invPricing.recommendation.Y.steps,original.recommendation.Y.steps);
     assert.equal(p.saved.settings.invPricing.recommendation.Y.points[1].load,40.5);
@@ -173,6 +178,7 @@ test('curve editor preserves legacy rules, validates points, sorts them and reta
     $('#aes-btn-invPricing-save').trigger('click');assert.match($('#aes-span-invPricing').text(),/distinct loads/);
     $('.aes-curve-table tbody tr').eq(1).find('input').eq(1).val('-2.5').trigger('input');
     $('#aes-pricing-mode').val('steps').trigger('change');$('#aes-btn-invPricing-save').trigger('click');
+    await until(()=>p.saved.settings.invPricing.mode==='steps');
     assert.equal(p.saved.settings.invPricing.mode,'steps');
     assert.equal(p.saved.settings.invPricing.recommendation.Y.points[1].change,-2.5);
 });
@@ -299,6 +305,7 @@ test('pricing clipboard copies only active cabin rules and bounds without changi
     assert.equal($('#aes-pricing-mode').val(),'steps');
     $('#aes-input-invPricing-min-price').val('80');
     $('#aes-btn-invPricing-save').trigger('click');
+    await until(()=>p.saved.settings.invPricing.recommendation.C.minPrice===80);
     assert.equal(p.saved.settings.invPricing.recommendation.C.minPrice,80);
     assert.equal(p.saved.settings.invPricing.recommendation.Y.minPrice,60);
     assert.notEqual(p.saved.settings.invPricing.recommendation.C.points[0].change,-12);
@@ -310,6 +317,7 @@ test('pricing clipboard copies only active cabin rules and bounds without changi
     assert.equal($('#aes-pricing-mode').val(),'steps','global mode must stay unchanged');
     assert.equal($('#aes-input-invPricing-min-price').val(),'72','clipboard is independent from edits to either cabin');
     $('#aes-btn-invPricing-save').trigger('click');
+    await until(()=>p.saved.settings.invPricing.recommendation.F.steps[0].name==='Copied rule');
     assert.equal(p.saved.settings.invPricing.recommendation.F.steps[0].name,'Copied rule');
     $('#aes-select-invPricing-cmp').val('Y').trigger('change');
     assert.equal($('#aes-input-invPricing-min-price').val(),'74','source draft is preserved');
@@ -318,6 +326,7 @@ test('pricing clipboard copies only active cabin rules and bounds without changi
     assert.equal($('.aes-curve-table tbody tr').first().find('input').eq(1).val(),'-12');
     assert.equal($('#aes-table-invPricing tbody input').first().val(),'Copied rule','curve paste preserves target steps');
     $('#aes-btn-invPricing-save').trigger('click');
+    await until(()=>p.saved.settings.invPricing.recommendation.C.points[0].change===-12);
     assert.equal(p.saved.settings.invPricing.recommendation.C.points[0].change,-12);
     assert.equal(p.saved.settings.invPricing.recommendation.C.steps[0].name,'Copied rule');
     $('#aes-input-invPricing-min-price').val('250');$('#aes-pricing-copy').trigger('click');
@@ -378,4 +387,15 @@ test('salary caps in-flight work at five and preserves the last successful date 
     assert.equal(releases.length,5,'do not start remaining positions after the first failure');
     assert.equal(p.saved[key].date,'20260901');
     assert.match(p.w.document.querySelector<HTMLElement>('#aes-salary-status')!.textContent,/stopped: 4\/6/);
+});
+
+
+test('legacy string switches agree with runtime and do not enable disabled automation', async t => {
+    const p = browser(t, {html:header+'<div class="bootstrap container-fluid"><h1>Settings</h1></div>',
+        path:'/app/enterprise/settings',data:{settings:{invPricing:{...pricing(),autoPriceUpdate:'0',autoAnalysisSave:'1',autoClose:'0'},flightInfo:{autoClose:'0'}}}});
+    p.load('content_settings.js');
+    await until(()=>p.w.document.querySelector('#aes-input-automateInvPricing'));
+    assert.equal(p.w.document.querySelector<HTMLInputElement>('#aes-input-automateInvPricing')!.checked,false);
+    p.w.document.querySelector<HTMLElement>('#aes-settings-group-2')!.click();
+    assert.equal(p.w.document.querySelector<HTMLInputElement>('#aes-settings-section-2 input')!.checked,false);
 });

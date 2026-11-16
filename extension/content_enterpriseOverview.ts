@@ -150,7 +150,7 @@ function updateCompetitorMonitoringIndex(tracking: boolean) {
 }
 
 function displayAutomation(actionBar: JQuery) {
-    if (!compData.autoExtract) { //
+    if (!AES.isEnabledSetting(compData.autoExtract)) { //
         let btn = $(AESI18n.html('<button type="button" class="btn btn-default">save all tab data</button>'));
         btn.on('click', async function() {
             if (btn.prop('disabled')) return;
@@ -232,7 +232,7 @@ function displayTab0(actionBar: JQuery) {
             btnSave.remove();
             void refreshCompetitorSummary().catch(error=>AES.reportContentScriptError("content_enterpriseOverview",error));
             span.removeClass().addClass("good").text(AESI18n.t("Overview Tab data Saved!"));
-            if (compData.autoExtract) void AES.queuePage('./' + airline.id + '?tab=2', 'navigate').catch(error => AES.reportContentScriptError('page_queue', error));
+            if (AES.isEnabledSetting(compData.autoExtract)) void AES.queuePage('./' + airline.id + '?tab=2', 'navigate').catch(error => AES.reportContentScriptError('page_queue', error));
         }, function(error) {
             if (previous === undefined) delete compData.tab0[time.date];
             else compData.tab0[time.date] = previous;
@@ -244,7 +244,7 @@ function displayTab0(actionBar: JQuery) {
     actionBar.append(li);
 
     //Automation
-    if (compData.autoExtract) {
+    if (AES.isEnabledSetting(compData.autoExtract)) {
         btnSave.click();
     }
 }
@@ -281,7 +281,7 @@ function displayTab2(actionBar: JQuery) {
                 btnSave.remove();
                 void refreshCompetitorSummary().catch(error=>AES.reportContentScriptError("content_enterpriseOverview",error));
                 span.removeClass().addClass("good").text(AESI18n.t("Fact and figures Tab data Saved!"));
-                if (compData.autoExtract) void AES.queuePage('./' + airline.id + '?tab=3', 'navigate').catch(error => AES.reportContentScriptError('page_queue', error));
+                if (AES.isEnabledSetting(compData.autoExtract)) void AES.queuePage('./' + airline.id + '?tab=3', 'navigate').catch(error => AES.reportContentScriptError('page_queue', error));
             }, function(error) {
                 if (previous === undefined) delete compData.tab2[time.date];
                 else compData.tab2[time.date] = previous;
@@ -299,7 +299,7 @@ function displayTab2(actionBar: JQuery) {
     actionBar.append(li);
 
     //Automation
-    if (compData.autoExtract) {
+    if (AES.isEnabledSetting(compData.autoExtract)) {
         if (update) {
             btnSave.click();
         } else {

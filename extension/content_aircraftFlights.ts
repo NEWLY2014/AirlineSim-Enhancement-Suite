@@ -3,6 +3,7 @@
 //MAIN
 //Global vars
 const fleetBaselines = new WeakMap<object, unknown>();
+let summaryBaseline: unknown;
 let aircraftFlightData: AESModel.AircraftFlightData;
 let aircraftFlightAirline: AESModel.Airline;
 let aircraftFleetKey: string;
@@ -60,10 +61,12 @@ function getStorageData() {
         keys.push(key);
     }
     let flightPlanHubKey = aircraftFlightData.server + aircraftFlightAirline.id + 'aircraftFlightPlanHub' + aircraftFlightData.aircraftId;
-    keys.push(flightPlanHubKey);
+    const summaryKey = aircraftFlightData.server + aircraftFlightData.type + aircraftFlightData.aircraftId;
+    keys.push(flightPlanHubKey,summaryKey);
     chrome.storage.local.get(keys, function(result) {
         if (!storageCallbackSucceeded()) return;
         AES.tryRun("content_aircraftFlights", function() {
+        summaryBaseline = AES.cloneData(result[summaryKey]);
         const flightPlanHubData: unknown = result[flightPlanHubKey];
         if (
             AES.isRecord(flightPlanHubData) &&
@@ -138,16 +141,12 @@ function persistAircraftFlightSummary(callback?: () => void, failed?: (error: Er
         totalFlights: aircraftFlightData.totalFlights,
         type: aircraftFlightData.type,
     }
-    chrome.storage.local.set({
-        [key]: saveData }, function() {
-        if (chrome.runtime.lastError) {
-            const error = new Error(chrome.runtime.lastError.message);
-            if(failed) failed(error); else storageCallbackSucceeded();
-            return;
-        }
-        if (callback) {
-            callback();
-        }
+    void AES.patchRecord(key,summaryBaseline,saveData).then(value => {
+        summaryBaseline = AES.cloneData(value);
+        callback?.();
+    },error => {
+        if (failed) failed(error);
+        else showAircraftFlightsNotification(AESI18n.t("Aircraft data could not be read or saved. {0}", {0:String(error)}),'error');
     });
 }
 
@@ -379,10 +378,12 @@ function getFlightInfoUrl(flight: AESModel.AircraftFlight) {
 
 async function collectFlightInfoPage(url: string, id: number, current: () => boolean): Promise<AESModel.TabOpenResult> {
     try {
+        const key = aircraftFlightData.server+'flightInfo'+id;
+        const baseline = (await chrome.storage.local.get(key))[key];
         const doc = await AESRead.fetchDocument(url,current);
         const data = AESRead.flight(doc,id);
         if (!current()) throw new Error(AESI18n.t("Page ownership or airline changed"));
-        await chrome.storage.local.set({[data.server+'flightInfo'+id]:data});
+        await AES.patchRecord(key,baseline,data);
         if(current()) {
             const flight=aircraftFlightData.flights.find(flight=>flight.id===id);
             if(flight) flight.data={money:{CM5:{Total:data.money.CM5.Total!}},date:data.date,time:data.time};

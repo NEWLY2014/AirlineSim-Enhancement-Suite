@@ -20,6 +20,11 @@ function inventoryMutationsRelevant(changes: MutationRecord[]) {
             (node.matches(inventoryNativeSelector) || !!node.querySelector(inventoryNativeSelector)));
     });
 }
+let inventoryStoredRecord: unknown;
+async function saveInventoryRecord(next: AESModel.InventoryRecord) {
+    await AES.patchRecord(next.key, inventoryStoredRecord, next);
+    inventoryStoredRecord = AES.cloneData(next);
+}
 let inventoryRevision = 0;
 let inventoryActionPending = false;
 let authorizedPriceSubmit = false;
@@ -27,25 +32,12 @@ let inventoryCloseToken: string | undefined;
 function closeInventoryTab(revision: number) {
     if (!settings.invPricing.autoClose || !isInventoryCurrent(revision) || inventoryCloseToken ||
         Object.keys(pricingData.date).some(hasPendingUpdate)) return;
-    const token = inventoryCloseToken = crypto.randomUUID();
+    inventoryCloseToken = crypto.randomUUID();
     const signature = getInventorySignature();
-    const verify = (message: {type?:string;token?:string}, _sender: chrome.runtime.MessageSender, reply: (value: {ok:boolean}) => void) => {
-        if (message?.type !== 'AES_CONFIRM_INVENTORY_CLOSE') return false;
-        reply({ok:message.token === token && isInventoryCurrent(revision) && signature === getInventorySignature()});
-        return false;
-    };
-    chrome.runtime.onMessage.addListener(verify);
-    chrome.runtime.sendMessage({type:'AES_CLOSE_INVENTORY',token}, (response: {ok?:boolean;reason?:string;error?:string} | undefined) => {
-        const error = chrome.runtime.lastError;
-        chrome.runtime.onMessage.removeListener(verify);
-        inventoryCloseToken = undefined;
-        // A cancelled close does not mean pricing failed. Keep the page open;
-        // only surface actual background/Chrome failures, with their real cause.
-        if (response?.reason === 'disabled' || response?.reason === 'page-changed') return;
-        if ((error || !response?.ok) && isInventoryCurrent(revision)) {
-            AES.reportContentScriptError('content_inventory', new Error(error?.message || response?.error || AESI18n.t('AES background did not respond.')));
-        }
-    });
+    void AES.closeSavedTab('inventory',() => isInventoryCurrent(revision) && signature === getInventorySignature() &&
+        !Object.keys(pricingData.date).some(hasPendingUpdate)).catch(error => {
+        if (isInventoryCurrent(revision)) AES.reportContentScriptError('content_inventory',error);
+    }).finally(() => {inventoryCloseToken=undefined;});
 }
 const watchedPriceForms = new WeakSet<HTMLFormElement>();
 const inventoryNodeIds = new WeakMap<Node, number>();
@@ -187,18 +179,10 @@ async function displayInventory(revision: number) {
     let storageKey = getPricingInventoryKey();
 
     //Check if any snapshots saved
-    let defaultPricingData = {
-        server: storageKey.server,
-        airline: storageKey.airline,
-        type: storageKey.type,
-        origin: storageKey.origin,
-        destination: storageKey.destination,
-        key: storageKey.key,
-        date: {}
-    }
-    const storageData = await chrome.storage.local.get({[storageKey.key]: defaultPricingData})
+    const storageData = await chrome.storage.local.get(storageKey.key)
     if (!isInventoryCurrent(revision)) return;
     const raw: unknown = storageData[storageKey.key];
+    inventoryStoredRecord = AES.cloneData(raw);
     pricingData = { ...storageKey, ...(AES.isRecord(raw) ? raw : {}), key: storageKey.key,
         date: AES.isRecord(raw) && AES.isRecord(raw.date) ? raw.date : {} }
     const confirmed = await confirmPendingPricingUpdate(prices, revision)
@@ -296,7 +280,7 @@ async function confirmPendingPricingUpdate(prices: AESModel.InventoryPrices, rev
     delete confirmed.pricingUpdatePending;
     const next = {...pricingData, date: {...pricingData.date, [pendingDate]: confirmed}};
     try {
-        await chrome.storage.local.set({[next.key]: next});
+        await saveInventoryRecord(next);
         if (isInventoryCurrent(revision)) { pricingData = next; return true; }
     } catch (error) {
         console.error('[AES] Unable to confirm the saved pricing update.', error);
@@ -1122,7 +1106,7 @@ function displayAnalysis(analysis: AESModel.InventoryAnalysis, prices: AESModel.
                 // Preserve even an unrecognized pending marker: a snapshot cannot confirm a submitted price.
                 const savedSnapshot = AES.isRecord(previous) && previous.pricingUpdatePending ? {...snapshot, pricingUpdatePending: previous.pricingUpdatePending} : snapshot;
                 const next = {...pricingData, date: {...pricingData.date, [todayDate]: savedSnapshot}};
-                await chrome.storage.local.set({[next.key]: next});
+                await saveInventoryRecord(next);
                 if (!isInventoryCurrent(revision)) return;
                 pricingData = next;
                 invPricingAnalysisBarSpan.removeClass().addClass('good').text(AESI18n.t('Data Saved!'));
@@ -1232,6 +1216,12 @@ function priceFormSignature(form: HTMLFormElement) {
     }).map(x => JSON.stringify(x)).join('|');
 }
 
+function showPriceQueueStatus(status: JQuery, cooldownUntil = 0) {
+    status.text(cooldownUntil > Date.now()
+        ? AESI18n.t('Server cooldown until {0}; prices remain queued.', {0:new Date(cooldownUntil).toLocaleTimeString()})
+        : AESI18n.t('Waiting in the page queue to submit prices...'));
+}
+
 function watchNativePriceSubmission() {
     const submission=getPriceSubmission();
     if (!submission || watchedPriceForms.has(submission.form)) return;
@@ -1249,8 +1239,8 @@ function watchNativePriceSubmission() {
         void runInventoryAction(async () => {
             const signature = priceFormSignature(form);
             const current = () => isInventoryCurrent(revision) && form.isConnected && signature === priceFormSignature(form);
-            status.text(AESI18n.t('Waiting in the page queue to submit prices...'));
-            const slot = await AES.queuePage(location.href, 'price', current);
+            showPriceQueueStatus(status);
+            const slot = await AES.queuePage(location.href, 'price', current, until => showPriceQueueStatus(status, until));
             try {
                 if (!current() || Date.now() >= (slot.expires || 0)) throw new Error(AESI18n.t("Prices or page changed while waiting. Please review and retry."));
                 authorizedPriceSubmit = true;
@@ -1270,8 +1260,8 @@ async function submitPendingPricingUpdate(targetPrices: Partial<Record<AESModel.
     const {form,submitter}=submission;
     const signature = priceFormSignature(form);
     const current = () => isInventoryCurrent(revision) && form.isConnected && submitter.isConnected && submitter.form===form && !submitter.matches(':disabled') && signature === priceFormSignature(form);
-    status.text(AESI18n.t('Waiting in the page queue to submit prices...'));
-    const slot = await AES.queuePage(location.href, 'price', current);
+    showPriceQueueStatus(status);
+    const slot = await AES.queuePage(location.href, 'price', current, until => showPriceQueueStatus(status, until));
     try {
         if (!current()) throw new Error(AESI18n.t("Prices changed while waiting. Please review and retry."));
         const dates = {...pricingData.date};
@@ -1286,7 +1276,7 @@ async function submitPendingPricingUpdate(targetPrices: Partial<Record<AESModel.
         snapshot.pricingUpdatePending = {targetPrices, updateTime: snapshot.updateTime || ''};
         dates[todayDate] = snapshot;
         const next = {...pricingData, date: dates};
-        await chrome.storage.local.set({[next.key]: next});
+        await saveInventoryRecord(next);
         if (!current() || Date.now() >= (slot.expires || 0)) throw new Error(AESI18n.t("Prices or page changed while saving. Please review and retry."));
         pricingData = next;
         status.text(AESI18n.t('Submitting prices; waiting for confirmation...'));

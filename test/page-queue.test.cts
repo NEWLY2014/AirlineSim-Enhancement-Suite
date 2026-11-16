@@ -240,11 +240,11 @@ for(const kind of ['price','read','salary'])test(`cancelled ${kind} permit relea
 test('error pages pause every tab, persist across restarts and back off on repeated errors',async()=>{
     const q=queue(0);await q.message('cooldown','error');
     await q.message('enqueue','b','open',2);q.boot();
-    q.advance(59999);assert.equal((await q.message('poll','b','open',2)).state,'queued');
+    q.advance(4999);assert.equal((await q.message('poll','b','open',2)).state,'queued');
     q.advance(1);assert.equal((await q.message('poll','b','open',2)).state,'done');
     await settle(q,100);await q.message('cooldown','error2');
-    assert.equal(q.saved.aesPageQueueV1.next,280000);
-    q.advance(600000);await q.message('cooldown','error3');assert.equal(q.saved.aesPageQueueV1.backoff,60000);
+    assert.equal(q.saved.aesPageQueueV1.next,115000);
+    q.advance(600000);await q.message('cooldown','error3');assert.equal(q.saved.aesPageQueueV1.backoff,5000);
 });
 
 test('cooldown honors Retry-After and completion/cancellation cannot shorten it',async()=>{
@@ -254,6 +254,44 @@ test('cooldown honors Retry-After and completion/cancellation cannot shorten it'
     q.advance(179000);await q.message('enqueue','b','open',2);
     assert.equal(q.opened.length,0);q.boot();q.advance(1000);
     assert.equal((await q.message('poll','b','open',2)).state,'done');
+});
+
+test('one burst of rate limits shares a cooldown across tabs and resumes price submissions',async()=>{
+    const q=queue(0);
+    await q.message('enqueue','a','price');
+    await q.message('enqueue','b','price',2);
+    await q.message('cooldown','limit1');
+    for(let i=0;i<5;i++){
+        q.advance(100);q.boot();await q.message('cooldown','limit'+(i+2));
+        assert.equal(q.saved.aesPageQueueV1.backoff,5000);
+        assert.equal(q.saved.aesPageQueueV1.cooldownUntil,105000);
+    }
+    const notice=q.notices.filter(n=>n.message.id==='b').at(-1);
+    assert.equal(notice.message.cooldownUntil,105000,'pages behind the head also see the pause');
+    q.advance(4499);assert.equal((await q.message('poll','a','price')).state,'queued');
+    q.advance(1);assert.equal((await q.message('poll','a','price')).state,'running');
+    q.advance(55);assert.equal((await q.message('poll','b','price',2)).state,'running');
+    await q.message('cooldown','new-episode');
+    assert.equal(q.saved.aesPageQueueV1.backoff,10000,'a fresh error after resuming still backs off');
+});
+
+test('duplicate error reports do not move the deadline except for an explicit Retry-After',async()=>{
+    const q=queue(0);await q.message('cooldown','first');
+    q.advance(1000);await q.message('cooldown','second','open',2,url,'doc2',url,180000);
+    assert.equal(q.saved.aesPageQueueV1.cooldownUntil,281000);
+    q.advance(1000);q.boot();await q.message('cooldown','refreshed');
+    assert.equal(q.saved.aesPageQueueV1.next,281000);
+    assert.equal(q.saved.aesPageQueueV1.backoff,5000);
+});
+
+test('default rate-limit pauses increase from five seconds and stop at thirty seconds',async()=>{
+    const q=queue(0);
+    for(const delay of [5000,10000,20000,30000,30000]){
+        const result=await q.message('cooldown','error');
+        assert.equal(q.saved.aesPageQueueV1.backoff,delay);
+        assert.equal(result.cooldownUntil,q.saved.aesPageQueueV1.lastFailure+delay);
+        q.advance(delay);
+    }
 });
 
 for(const kind of ['open','navigate'])test(`${kind} cannot treat the tab API old complete state as a finished navigation`,async()=>{

@@ -777,5 +777,9 @@
   "Salary update stopped: {0}/{1} completed. {2}": "Aktualizacja wynagrodzeń zatrzymana: ukończono {0}/{1}. {2}",
   "Salary update completed: {0} positions submitted.": "Aktualizacja wynagrodzeń zakończona: wysłano {0} stanowisk.",
   "Price update completed.": "Aktualizacja cen zakończona.",
-  "Submitting prices; waiting for confirmation...": "Wysyłanie cen; oczekiwanie na potwierdzenie…"
+  "Submitting prices; waiting for confirmation...": "Wysyłanie cen; oczekiwanie na potwierdzenie…",
+  "Server cooldown until {0}; prices remain queued.": "Przerwa serwera do {0}; ceny pozostają w kolejce.",
+  "Invalid storage scope.": "Nieprawidłowy zakres zapisu.",
+  "Invalid storage operation.": "Nieprawidłowa operacja zapisu.",
+  "Invalid log entry.": "Nieprawidłowy wpis dziennika."
 }

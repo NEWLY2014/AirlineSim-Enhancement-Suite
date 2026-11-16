@@ -8,7 +8,7 @@ importScripts('modules/page-queue.js');
 importScripts('modules/storage-coordinator.js');
 importScripts('modules/schedule-storage.js');
 importScripts('modules/options-summary.js');
-importScripts('modules/inventory-close.js');
+importScripts('modules/tab-close.js');
 (() => {
 //Functions
 function setDefaultSettings() {
@@ -20,12 +20,10 @@ function setDefaultSettings() {
         schedule: setDefaultScheduleSettings(),
         personnelManagement: setDefaultPersonnelManagementSettings()
     };
-    chrome.storage.local.get(['settings'], function(result) {
-        let settings = mergeDefaultSettings(result.settings || {}, aesSettings);
-        chrome.storage.local.set({ settings: settings }, function() {
-
-        });
-    });
+    void AESStorage.run(async () => {
+        const result = await AESStorage.get('settings');
+        await AESStorage.set({settings:mergeDefaultSettings(result.settings || {}, aesSettings)});
+    }).catch(error => console.error('[AES] Unable to initialize settings',error));
     //
 }
 

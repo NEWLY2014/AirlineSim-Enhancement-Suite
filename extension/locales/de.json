@@ -777,5 +777,9 @@
   "Salary update stopped: {0}/{1} completed. {2}": "Gehaltsänderung gestoppt: {0}/{1} abgeschlossen. {2}",
   "Salary update completed: {0} positions submitted.": "Gehaltsänderung abgeschlossen: {0} Positionen übermittelt.",
   "Price update completed.": "Preisänderung abgeschlossen.",
-  "Submitting prices; waiting for confirmation...": "Preise werden übermittelt; Bestätigung wird abgewartet…"
+  "Submitting prices; waiting for confirmation...": "Preise werden übermittelt; Bestätigung wird abgewartet…",
+  "Server cooldown until {0}; prices remain queued.": "Serverpause bis {0}; die Preise bleiben in der Warteschlange.",
+  "Invalid storage scope.": "Ungültiger Speicherbereich.",
+  "Invalid storage operation.": "Ungültiger Speichervorgang.",
+  "Invalid log entry.": "Ungültiger Protokolleintrag."
 }

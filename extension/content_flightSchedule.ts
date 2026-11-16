@@ -3,6 +3,7 @@
 //MAIN
 var settings: Record<string, unknown>;
 var compData: AESModel.CompetitorRecord | undefined;
+let storedCompetitor: unknown;
 var server: string;
 var airline: AESModel.Airline;
 var ownerAirline: AESModel.Airline;
@@ -55,7 +56,7 @@ function initializeFlightSchedule(result: Record<string, unknown>) {
     });
 
     //Automation
-    if (AES.isRecord(settings.schedule) && settings.schedule.autoExtract) {
+    if (AES.isRecord(settings.schedule) && AES.isEnabledSetting(settings.schedule.autoExtract)) {
         AES.updateSettings(function(currentSettings) {
             const scheduleSettings = AES.isRecord(currentSettings.schedule) ? currentSettings.schedule : {};
             scheduleSettings.autoExtract = 0;
@@ -74,9 +75,10 @@ function initializeFlightSchedule(result: Record<string, unknown>) {
                 AES.reportContentScriptError("content_flightSchedule", new Error(chrome.runtime.lastError.message));
                 return;
             }
+            storedCompetitor = AES.cloneData(compMonitoringData[key]);
             compData = AES.getCompetitorPageData(compMonitoringData[key] || compMonitoringData[legacyKey], server, ownerAirline, airline);
             if (compData) {
-                if (compData.autoExtract) {
+                if (AES.isEnabledSetting(compData.autoExtract)) {
                     compData.key = key;
                     compData.ownerId = ownerAirline.id;
                     compData.ownerAirline = ownerAirline;
@@ -132,12 +134,9 @@ async function extractSchedule() {
             snapshot:{date:date.date,updateTime:date.time,schedule}}, () => AES.isPageOwner());
         if (!AES.isPageOwner()) return;
         const competitor = compData;
-        const automatedCompetitorSave = !!competitor?.autoExtract;
-        if (competitor?.autoExtract) {
-            await new Promise<void>((resolve, reject) => chrome.storage.local.set({[competitor.key]: {...competitor, autoExtract:0}}, () => {
-                if (chrome.runtime.lastError) reject(new Error(AESI18n.t("Schedule saved, but automation could not be completed: {0}", {0: chrome.runtime.lastError.message})));
-                else resolve();
-            }));
+        const automatedCompetitorSave = AES.isEnabledSetting(competitor?.autoExtract);
+        if (competitor && AES.isEnabledSetting(competitor.autoExtract)) {
+            await AES.patchRecord(competitor.key, storedCompetitor, {...competitor, autoExtract:0});
             if (!AES.isPageOwner()) return;
             competitor.autoExtract = 0;
         }

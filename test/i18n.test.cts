@@ -17,11 +17,11 @@ test('all nine catalogs have complete keys and preserve message placeholders',()
         }
     }
 });
-test('game language takes priority over HTML lang and the last visited game; override takes priority over game',t=>{
+test('game language takes priority over HTML lang and the last visited game; override takes priority over game',async t=>{
     const auto=browser(t,{html:'<html lang="de">'+config('zh-TW'),data:{aesGameLanguage:'fr'}});
-    assert.equal(auto.run('AESI18n.locale()'),'zh-TW');assert.equal(auto.saved.aesGameLanguage,'zh-TW');
+    await until(()=>auto.saved.aesGameLanguage==='zh-TW');assert.equal(auto.run('AESI18n.locale()'),'zh-TW');assert.equal(auto.saved.aesGameLanguage,'zh-TW');
     const override=browser(t,{html:config('de'),data:{aesLanguage:'ja'}});
-    assert.equal(override.run('AESI18n.locale()'),'ja');assert.equal(override.saved.aesGameLanguage,'de');
+    await until(()=>override.saved.aesGameLanguage==='de');assert.equal(override.run('AESI18n.locale()'),'ja');assert.equal(override.saved.aesGameLanguage,'de');
     const cached=browser(t,{data:{aesGameLanguage:'pl'}});assert.equal(cached.run('AESI18n.locale()'),'pl');
     const unknown=browser(t,{data:{aesLanguage:'invalid',aesGameLanguage:'xx'}});assert.equal(unknown.run('AESI18n.locale()'),'en');
 });
@@ -48,17 +48,18 @@ for(const locale of Object.keys(catalogs))test(`${locale}: settings translate on
     p.w.$('#aes-language').val('ja').trigger('change');
     // Native change event is needed for addEventListener.
     d.querySelector<HTMLElement>('#aes-language')!.dispatchEvent(new p.w.Event('change'));
+    await until(()=>!d.querySelector<HTMLSelectElement>('#aes-language')!.disabled);
     assert.equal(p.saved.aesLanguage,'ja');assert.equal(d.querySelector<HTMLInputElement>('#draft')!.value,'Keep this');
     assert.equal(d.querySelector<HTMLInputElement>('#aes-input-invPricing-min-price')!.value,'73');
     assert.equal(p.saved.settings.invPricing.recommendation.Y.minPrice,60);
     assert.equal(p.run('AESI18n.locale()'),locale);
     assert.match(d.querySelector<HTMLElement>('.aes-language-control [role="status"]')!.textContent,new RegExp(catalogs.ja['Language saved. Reload this page to apply.'].replace(/[.*+?^${}()|[\]\\]/g,'\\$&')));
 });
-test('translated option text retains English enum values and language save failures retain preference',t=>{
+test('translated option text retains English enum values and language save failures retain preference',async t=>{
     const p=browser(t,{data:{aesLanguage:'de'}});
     p.run(`document.body.innerHTML=AESI18n.html('<select><option>Added</option><option>Removed</option></select>');document.body.append(AESI18n.selector());`);
     assert.equal(p.w.document.querySelector<HTMLInputElement>('option')!.value,'Added');assert.equal(p.w.document.querySelector<HTMLElement>('option')!.textContent,catalogs.de.Added);
-    p.failures.set='Disk full';const select=p.w.document.querySelector<HTMLButtonElement>('#aes-language');select!.value='fr';select!.dispatchEvent(new p.w.Event('change'));
+    p.failures.set='Disk full';const select=p.w.document.querySelector<HTMLButtonElement>('#aes-language');select!.value='fr';select!.dispatchEvent(new p.w.Event('change'));await until(()=>!select!.disabled);
     assert.equal(select!.value,'de');assert.equal(p.saved.aesLanguage,'de');assert.equal(select!.disabled,false);
 });
 test('translated dashboard filters store stable operators and preserve airport values',async t=>{
@@ -90,7 +91,7 @@ for(const locale of Object.keys(catalogs))test(`${locale}: schedule diff transla
 test('UI initialization waits for the stored language instead of briefly using the game language',t=>{
     const p=browser(t,{helpers:false,html:config('de')});
     let finish;p.w.chrome.storage.local.get=(_,callback)=>{finish=callback;};
-    p.load('modules/i18n-data.js');p.load('modules/i18n.js');
+    p.load('modules/storage-client.js');p.load('modules/i18n-data.js');p.load('modules/i18n.js');
     p.run(`window.rendered=false;AESI18n.whenReady(()=>{window.rendered=AESI18n.t('Save')});`);
     assert.equal(p.w.rendered,false);finish!({aesLanguage:'ja'});assert.equal(p.w.rendered,catalogs.ja.Save);
 });
@@ -102,27 +103,27 @@ for(const locale of Object.keys(catalogs))test(`${locale}: backend errors transl
     assert.equal(p.run(`AESI18n.errorMessage('A user supplied value')`),'A user supplied value');
 });
 
-test('reload notice uses the selected language, including following the game after an override',t=>{
+test('reload notice uses the selected language, including following the game after an override',async t=>{
     const p=browser(t,{html:config('de'),data:{aesLanguage:'zh-TW'}});
     p.run('document.body.append(AESI18n.selector())');
-    const select=p.w.document.querySelector<HTMLInputElement>('#aes-language'),status=p.w.document.querySelector<HTMLElement>('[role="status"]');
+    const select=p.w.document.querySelector<HTMLSelectElement>('#aes-language'),status=p.w.document.querySelector<HTMLElement>('[role="status"]');
     for(const target of Object.keys(catalogs)){
-        select!.value=target;select!.dispatchEvent(new p.w.Event('change'));
+        select!.value=target;select!.dispatchEvent(new p.w.Event('change'));await until(()=>!select!.disabled);
         assert.equal(status!.textContent,catalogs[target]['Language saved. Reload this page to apply.']);
         assert.equal(status!.lang,target);assert.equal(p.run('AESI18n.locale()'),'zh-TW');
     }
-    select!.value='auto';select!.dispatchEvent(new p.w.Event('change'));
+    select!.value='auto';select!.dispatchEvent(new p.w.Event('change'));await until(()=>!select!.disabled);
     assert.equal(status!.textContent,catalogs.de['Language saved. Reload this page to apply.']);assert.equal(status!.lang,'de');
-    p.failures.set='Disk full';select!.value='ja';select!.dispatchEvent(new p.w.Event('change'));
+    p.failures.set='Disk full';select!.value='ja';select!.dispatchEvent(new p.w.Event('change'));await until(()=>!select!.disabled);
     assert.equal(select!.value,'auto');assert.equal(status!.lang,'zh-TW');
     assert.equal(status!.textContent,catalogs['zh-TW']['Unable to save language. Please try again.']);
 });
 
-test('extension language notice follows the cached game language instead of its overridden document language',t=>{
+test('extension language notice follows the cached game language instead of its overridden document language',async t=>{
     const p=browser(t,{helpers:false,data:{aesLanguage:'ja',aesGameLanguage:'pl'}});
-    p.load('modules/i18n-data.js');p.load('modules/i18n.js');
+    p.load('modules/storage-client.js');p.load('modules/i18n-data.js');p.load('modules/i18n.js');
     p.w.document.documentElement.lang='ja';
     p.run('document.body.append(AESI18n.selector())');
-    const select=p.w.document.querySelector<HTMLInputElement>('#aes-language');select!.value='auto';select!.dispatchEvent(new p.w.Event('change'));
+    const select=p.w.document.querySelector<HTMLSelectElement>('#aes-language');select!.value='auto';select!.dispatchEvent(new p.w.Event('change'));await until(()=>!select!.disabled);
     assert.equal(p.w.document.querySelector<HTMLElement>('[role="status"]')!.textContent,catalogs.pl['Language saved. Reload this page to apply.']);
 });

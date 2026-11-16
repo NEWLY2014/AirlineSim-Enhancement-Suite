@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Route all extension-local storage mutations through one background transaction queue, including defaults, logs, preferences, flight summaries, salary records and backup operations. Preserve concurrent log entries and reject conflicting stale record edits.
+- Keep backup replacement, verification and cleanup in one transaction. Retain interrupted-restore recovery data across worker restarts and block normal writes until recovery completes.
+- Use one document-verified background auto-close flow for Inventory and FlightInfo, including manually opened tabs. Keep close errors separate from successful saves and recheck navigation before closing.
+- Interpret legacy string switches consistently in Settings, Inventory history, flight auto-close and schedule collection.
+- Reject stale Inventory writes before they can replace another page’s pricing confirmation or pending submission; serialize saves in the background.
+- Complete competitor schedule automation by patching its flag without overwriting history collected by another page.
+- Treat simultaneous rate-limit responses as one cooldown instead of multiplying the delay for every page. Preserve Retry-After and back off again only after requests resume and hit another error.
+- Start default rate-limit pauses at five seconds, increasing to 10, 20 and at most 30 seconds on subsequent limiting episodes. Honor longer server-provided Retry-After deadlines.
+- Show the server cooldown deadline on waiting Inventory price submissions and resume them automatically when the pause expires.
+
 ## [0.9.0] - 2026-11-14
 
 All changes since the previous stable release, 0.8.13: multilingual AES, pricing curves, schedule comparisons, reliable scheduling, faster queued operations and improved data recovery.

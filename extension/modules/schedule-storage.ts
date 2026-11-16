@@ -54,10 +54,7 @@
             }
             const acknowledgement = await chrome.tabs.sendMessage(sender.tab!.id!, {type:'AES_SCHEDULE_OWNER_CHECK',token:message.token}, {documentId:sender.documentId});
             if (!record(acknowledgement) || acknowledgement.ok !== true) throw new Error('Schedule page is no longer active.');
-            await new Promise<void>((resolve, reject) => chrome.storage.local.set({[key]:value}, () => {
-                if (chrome.runtime.lastError) reject(new Error('Unable to save schedule: ' + chrome.runtime.lastError.message));
-                else resolve();
-            }));
+            await AESStorage.set({[key]:value});
         });
         void operation.then(() => reply({ok:true}), error => reply({ok:false, error:error instanceof Error ? error.message : String(error)}));
         return true;

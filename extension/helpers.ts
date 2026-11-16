@@ -1,5 +1,34 @@
 /** Shared logic */
 class AES {
+    /** Stored toggles accept legacy numeric strings, never general truthiness. */
+    static isEnabledSetting(value: unknown): boolean {
+        return value === true || value === 1 || value === '1';
+    }
+
+    /** A cancelled close is a normal outcome; failures remain separate from save failures. */
+    static async closeSavedTab(kind: 'inventory' | 'flightInfo', current: () => boolean): Promise<void> {
+        if (!current()) return;
+        const token = crypto.randomUUID();
+        const verify = (message: {type?:string;token?:string}, sender: chrome.runtime.MessageSender, reply: (value:{ok:boolean})=>void) => {
+            if (message?.type !== 'AES_CONFIRM_TAB_CLOSE') return false;
+            reply({ok:sender.id === chrome.runtime.id && message.token === token && current()});
+            return false;
+        };
+        chrome.runtime.onMessage.addListener(verify);
+        try {
+            const response = await new Promise<{ok?:boolean;reason?:string;error?:string}>((resolve,reject) => {
+                chrome.runtime.sendMessage({type:'AES_CLOSE_TAB',kind,token},response => {
+                    if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
+                    else resolve(response || {});
+                });
+            });
+            if (response.reason === 'disabled' || response.reason === 'page-changed' || !current()) return;
+            if (!response.ok) throw new Error(response.error || AESI18n.t('AES background did not respond.'));
+        } catch (error) {
+            if (current()) throw error;
+        } finally {chrome.runtime.onMessage.removeListener(verify);}
+    }
+
     static cloneData<T>(value: T): T {
         return value === undefined ? value : JSON.parse(JSON.stringify(value));
     }
@@ -809,7 +838,7 @@ class AES {
         });
     }
 
-    static async queuePage(url: string, kind: 'open' | 'price' | 'navigate' | 'read' | 'salary' = 'open', current: () => boolean = () => AES.isPageOwner()): Promise<{cancel: () => Promise<void>; complete: () => Promise<void>; expires?: number}> {
+    static async queuePage(url: string, kind: 'open' | 'price' | 'navigate' | 'read' | 'salary' = 'open', current: () => boolean = () => AES.isPageOwner(), onWaiting?: (cooldownUntil: number) => void): Promise<{cancel: () => Promise<void>; complete: () => Promise<void>; expires?: number}> {
         const sourceUrl = location.href;
         const valid = () => current() && location.href === sourceUrl;
         if (!valid()) throw new Error(AESI18n.t("The requesting page is no longer current."));
@@ -853,6 +882,7 @@ class AES {
                             permitExpires = result.expires; finish(); return;
                         }
                         if (result.state === 'done' || (kind !== 'price' && kind !== 'read' && kind !== 'salary' && result.state === 'running')) { finish(); return; }
+                        onWaiting?.(typeof result.cooldownUntil === 'number' ? result.cooldownUntil : 0);
                         schedule(typeof result.notBefore === 'number' ? result.notBefore : undefined);
                     } catch (error) { finish(error); }
                     finally {
@@ -863,6 +893,7 @@ class AES {
                 const notify = (message: unknown, sender: chrome.runtime.MessageSender, reply: (response: unknown) => void) => {
                     if (sender.id !== chrome.runtime.id || !AES.isRecord(message) || message.type !== 'AES_PAGE_QUEUE_READY' || message.id !== id || finished) return;
                     reply({ok:true});
+                    onWaiting?.(typeof message.cooldownUntil === 'number' ? message.cooldownUntil : 0);
                     if (polling) { notifiedWhilePolling = true; return; }
                     schedule(typeof message.notBefore === 'number' ? message.notBefore : undefined);
                 };
@@ -1145,32 +1176,8 @@ class AES {
             entry.details = details;
         }
 
-        chrome.storage.local.get([storageKey], function(result) {
-            if (chrome.runtime.lastError) {
-                console.error("[AES] Unable to read log storage", chrome.runtime.lastError);
-                return;
-            }
-
-            const logData = AES.isRecord(result[storageKey])
-                ? result[storageKey]
-                : {
-                    type: "log",
-                    date: dateKey,
-                    entries: [],
-                };
-            const entries = Array.isArray(logData.entries) ? logData.entries : [];
-
-            entries.push(entry);
-            logData.type = "log";
-            logData.date = dateKey;
-            logData.updateTime = now.toISOString();
-            logData.entries = entries.slice(-300);
-
-            chrome.storage.local.set({ [storageKey]: logData }, function() {
-                if (chrome.runtime.lastError) {
-                    console.error("[AES] Unable to write log storage", chrome.runtime.lastError);
-                }
-            });
+        void AESPersistence.request({type:'AES_APPEND_LOG',key:storageKey,entry}).catch(error => {
+            console.error('[AES] Unable to write log storage',error);
         });
     }
 
