@@ -5,7 +5,11 @@ const financial=()=>frontend()+'<div id="privInf"></div><div id="flight-page"><u
 const overview='<div class="layout-col-md-4"><div class="as-fieldset"><table><tbody><tr><td>Rating</td><td>AAA</td></tr></tbody></table></div><div class="as-fieldset"><table><tbody>'+[1000,200,3,4,50].map(x=>`<tr><td>Metric</td><td>${x}</td></tr>`).join('')+'</tbody></table></div></div>';
 const facts='<div class="tab-content"><table><thead><tr><th>Metric</th><th>Value</th><th>Week 362026</th></tr></thead><tbody>'+['Airports served','Operated flights','Seats offered','Seat kilometer offered','Units offered','Freight kilometer offered'].map(x=>`<tr><td>${x}</td><td>100</td></tr>`).join('')+'</tbody></table></div>';
 const schedule='<div class="flight-schedule"><table><tbody><tr class="important origin"><td><a>AAA</a></td></tr><tr class="destination"><td><a>BBB</a></td></tr><tr><td class="code">OA 100</td><td class="days">1234567</td><td class="remarks"></td><td class="valid">Now</td></tr></tbody></table></div>';
-function enterprise(tab: string|null){return frontend()+`<div><h2>Other Air</h2><div><ul class="nav-tabs"><li class="tab${tab} active">Tab</li></ul>${tab==='0'?overview:tab==='2'?facts:schedule}</div></div>`;}
+function enterprise(tab: string|null){
+    // Request parameters select fixed fixtures; never interpolate them into HTML.
+    const safeTab=tab==='2'?'2':tab==='3'?'3':'0';
+    return frontend()+`<div><h2>Other Air</h2><div><ul class="nav-tabs"><li class="tab${safeTab} active">Tab</li></ul>${safeTab==='0'?overview:safeTab==='2'?facts:schedule}</div></div>`;
+}
 // Empty tab structure observed in AirlineSim 6.13.17; deliberately no flight-schedule.
 function emptySchedule(){return frontend()+`<div><h2>Other Air</h2><div class="as-panel"><ul class="nav nav-tabs"><li class="tab3 active"><a href="./99?tab=3">Flight schedule</a></li></ul><div class="tab-content"><div class="tab-pane active"><div class="warnBox">No data available.</div></div></div></div></div>`;}
 function respond(url: string | URL,html: string){return {ok:true,status:200,url,text:async()=>html};}

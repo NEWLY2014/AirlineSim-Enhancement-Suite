@@ -113,4 +113,10 @@ test('Chrome performs read-only batches in the initiating pages with shared paci
     assert.match((await feedback.locator('dialog pre').textContent())!,/HTTP 503/);
     await feedback.getByRole('button',{name:'Close',exact:true}).click();
     t.diagnostic(JSON.stringify({readRequests:requests.length,newTabs:context.pages().length-tabCount,crossPageGapMs:requests[1].time-requests[0].finished}));
+    const injectedTab='\"><script>document.documentElement.dataset.aesInjected="true"</script><li class="';
+    const response=await a.goto('https://paine.airlinesim.aero/app/info/enterprises/99?tab='+encodeURIComponent(injectedTab));
+    assert.equal(response?.status(),200);
+    assert.equal((await response!.text()).includes(injectedTab),false);
+    assert.equal(await a.locator('html').getAttribute('data-aes-injected'),null);
+    assert.equal(await a.locator('.nav-tabs .active').getAttribute('class'),'tab0 active');
 });
