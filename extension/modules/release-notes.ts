@@ -1,5 +1,26 @@
 const AES_RELEASE_NOTES_STORAGE_KEY = "aesReleaseNotesSeenVersion"
 const AES_RELEASE_NOTES: Record<string, AESModel.ReleaseNotes | undefined> = {
+    "0.9.1": {
+        "title": "Release Notes",
+        "releaseDate": "2026-11-17",
+        "summary": "Reliability fixes since 0.9.0: shorter rate-limit pauses, safer concurrent saves, recoverable backups and consistent automatic tab closing.",
+        "sections": [
+            {
+                "title": "Fixed",
+                "items": [
+                    "Route all extension-local storage mutations through one background transaction queue, including defaults, logs, preferences, flight summaries, salary records and backup operations. Preserve concurrent log entries and reject conflicting stale record edits.",
+                    "Keep backup replacement, verification and cleanup in one transaction. Retain interrupted-restore recovery data across worker restarts and block normal writes until recovery completes.",
+                    "Use one document-verified background auto-close flow for Inventory and FlightInfo, including manually opened tabs. Keep close errors separate from successful saves and recheck navigation before closing.",
+                    "Interpret legacy string switches consistently in Settings, Inventory history, flight auto-close and schedule collection.",
+                    "Reject stale Inventory writes before they can replace another page’s pricing confirmation or pending submission; serialize saves in the background.",
+                    "Complete competitor schedule automation by patching its flag without overwriting history collected by another page.",
+                    "Treat simultaneous rate-limit responses as one cooldown instead of multiplying the delay for every page. Preserve Retry-After and back off again only after requests resume and hit another error.",
+                    "Start default rate-limit pauses at five seconds, increasing to 10, 20 and at most 30 seconds on subsequent limiting episodes. Honor longer server-provided Retry-After deadlines.",
+                    "Show the server cooldown deadline on waiting Inventory price submissions and resume them automatically when the pause expires."
+                ]
+            }
+        ]
+    },
     "0.9.0": {
         "title": "Release Notes",
         "releaseDate": "2026-11-14",

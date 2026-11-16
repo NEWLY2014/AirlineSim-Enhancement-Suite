@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-11-17
+
+Reliability fixes since 0.9.0: shorter rate-limit pauses, safer concurrent saves, recoverable backups and consistent automatic tab closing.
+
 ### Fixed
 
 - Route all extension-local storage mutations through one background transaction queue, including defaults, logs, preferences, flight summaries, salary records and backup operations. Preserve concurrent log entries and reject conflicting stale record edits.
@@ -1481,7 +1485,8 @@ for pointing it out).
 
 _First release._
 
-[Unreleased]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.9.1...HEAD
+[0.9.1]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.13...v0.9.0
 [0.9.0-beta.16]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/7b39e680640fc4d1b9302fb5e7463a0bad82547d...c4616c5b10766996e15b448012dd5974e2ccb4a1
 [0.9.0-beta.15]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/637131313359b61ffcf9fcce39c9d64c530df686...7b39e680640fc4d1b9302fb5e7463a0bad82547d
