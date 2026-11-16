@@ -59,29 +59,30 @@ test('version ordering includes numbered betas without changing legacy ordering'
     } finally { p.close(); }
 });
 
-test('beta release notes retain stable history and support paging back to the current release', () => {
+test('stable release notes page through consolidated history and back to the current release', () => {
     const p = page(settings + header);
     try {
         p.aes.runContentScript = () => {};
         p.w.HTMLDialogElement.prototype.showModal = function() { this.open = true; };
         p.w.HTMLDialogElement.prototype.close = function() { this.open = false; };
         p.load('modules/release-notes.js');
-        runInContext("new ReleaseNotesDialog('0.9.0-beta.2')", p.dom.getInternalVMContext());
+        runInContext("new ReleaseNotesDialog('0.9.1')", p.dom.getInternalVMContext());
+        assert.equal(runInContext("Object.keys(AES_RELEASE_NOTES).some(version => version.startsWith('0.9.0-'))", p.dom.getInternalVMContext()), false);
         const d = p.w.document;
         const previous = d.querySelector<HTMLElement>('[aria-label="Previous release"]');
         const next = d.querySelector<HTMLButtonElement>('[aria-label="Next release"]');
         const version = () => d.querySelector<HTMLElement>('.aes-release-notes-page-indicator')!.textContent;
-        assert.equal(version(), 'v0.9.0-beta.2');
+        assert.equal(version(), 'v0.9.1');
         assert.equal(next!.disabled, true);
         previous!.click();
-        assert.equal(version(), 'v0.9.0-beta');
+        assert.equal(version(), 'v0.9.0');
         previous!.click();
         assert.equal(version(), 'v0.8.13');
         assert.ok(d.querySelector<HTMLElement>('.aes-release-notes-sections')!.textContent.length > 0);
         previous!.click();
         assert.equal(version(), 'v0.8.12');
         next!.click(); next!.click(); next!.click();
-        assert.equal(version(), 'v0.9.0-beta.2');
+        assert.equal(version(), 'v0.9.1');
     } finally { p.close(); }
 });
 
@@ -95,6 +96,7 @@ test('stable release dialog includes the complete Changelog since the previous s
         runInContext("new ReleaseNotesDialog('0.9.0')", p.dom.getInternalVMContext());
         const d = p.w.document;
         const changelog = readFileSync(`${__dirname}/../CHANGELOG.md`, 'utf8');
+        assert.doesNotMatch(changelog, /^## \[0\.9\.0-/m);
         const stable = changelog.split('## [0.9.0] - ')[1].split('\n## ')[0];
         const items = Array.from(stable.matchAll(/^- (.+)$/gm), match => match[1]);
         assert.deepEqual(Array.from(d.querySelectorAll('.aes-release-notes-sections li'), item => item.textContent), items);
@@ -102,7 +104,7 @@ test('stable release dialog includes the complete Changelog since the previous s
         assert.match(d.querySelector('.aes-release-notes-sections')!.textContent!, /partial-failure counts/);
         assert.equal(d.querySelector('.aes-release-notes-page-indicator')!.textContent, 'v0.9.0');
         d.querySelector<HTMLElement>('[aria-label="Previous release"]')!.click();
-        assert.equal(d.querySelector('.aes-release-notes-page-indicator')!.textContent, 'v0.9.0-beta.16');
+        assert.equal(d.querySelector('.aes-release-notes-page-indicator')!.textContent, 'v0.8.13');
     } finally { p.close(); }
 });
 

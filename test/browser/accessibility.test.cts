@@ -18,15 +18,19 @@ async function pageFor(t: TestContext){
 test('release notes isolate background focus and restore the opener after Escape',async t=>{
     const page=await pageFor(t);
     await page.addScriptTag({path:'build/extension/modules/release-notes.js'});
-    await page.evaluate(()=>document.querySelector<HTMLButtonElement>('#trigger')!.onclick=()=>new ReleaseNotesDialog('0.8.13'));
+    await page.evaluate(()=>document.querySelector<HTMLButtonElement>('#trigger')!.onclick=()=>new ReleaseNotesDialog('0.9.1'));
     await page.click('#trigger');
     assert.equal(await page.locator('#aes-release-notes-dialog').evaluate(el=>el.matches(':modal')),true);
+    for(const version of ['v0.9.1','v0.9.0','v0.8.13']){
+        assert.equal(await page.locator('.aes-release-notes-page-indicator').textContent(),version);
+        if(version!=='v0.8.13')await page.getByRole('button',{name:'Previous release',exact:true}).click();
+    }
     await page.focus('#background');
     assert.equal(await page.evaluate(()=>!!document.activeElement!.closest('#aes-release-notes-dialog')),true);
     await page.keyboard.press('Escape');
     assert.equal(await page.locator('#aes-release-notes-dialog').count(),0);
     assert.equal(await page.evaluate(()=>document.activeElement!.id),'trigger');
-    assert.equal(await page.evaluate(()=>saved.aesReleaseNotesSeenVersion),'0.8.13');
+    assert.equal(await page.evaluate(()=>saved.aesReleaseNotesSeenVersion),'0.9.1');
 });
 
 test('schedule comparison follows the game theme independently of system colors',async t=>{
