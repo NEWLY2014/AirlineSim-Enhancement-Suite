@@ -4,7 +4,7 @@ import type { VMValue } from '../support/fixtures.cts';
 
 const { test } = (require('node:test') as typeof import('node:test'));
 const assert: typeof import('node:assert/strict') = require('node:assert/strict');
-const { chromium } = (require('@playwright/test') as typeof import('@playwright/test'));
+const { chromium, expect } = (require('@playwright/test') as typeof import('@playwright/test'));
 const { mkdtemp, rm, readFile } = (require('node:fs/promises') as typeof import('node:fs/promises'));
 const { tmpdir } = (require('node:os') as typeof import('node:os'));
 const { join, resolve } = (require('node:path') as typeof import('node:path'));
@@ -79,6 +79,10 @@ test('Chromium loads the extension runtime, exports real storage and injects the
         }) as typeof chrome.tabs.create;
     });
     assert.equal(await worker.evaluate(() => chrome.runtime.getManifest().version), require('../../extension/manifest.json').version);
+    // A fresh profile's onInstalled handler writes the defaults asynchronously.
+    // Wait for that write before replacing the settings with our pricing rule.
+    await expect.poll(() => worker.evaluate(async () => 'settings' in await chrome.storage.local.get('settings')),
+        {message: 'Fresh installation persisted its default settings'}).toBe(true);
     await worker.evaluate(async () => {
         await chrome.storage.local.clear();
         await chrome.storage.local.set({settings:{general:{defaultDashboard:'general'},schedule:{},invPricing:{autoAnalysisSave:0,autoPriceUpdate:0,autoClose:0,showReferenceRecommendation:1,historyTable:{showNow:1,showOnlyPricing:0,numberOfDates:'5'},recommendation:Object.fromEntries(['Y','C','F','Cargo'].map(c=>[c,{minPrice:60,maxPrice:200,steps:[{min:0,max:100,name:'Raise',step:10}]}]))}}, migrationSmoke:{preserve:true},
@@ -149,6 +153,7 @@ test('Chromium loads the extension runtime, exports real storage and injects the
     assert.equal(inventoryRequests.length,10);
     const inventoryPages=context.pages().filter(p=>p.url().includes('/app/com/inventory/'));
     await Promise.all(inventoryPages.slice(0,2).map(p=>p.locator('#aes-table-analysis').waitFor()));
+    await expect(inventoryPages[0].locator('input[name="priceY"]')).toHaveValue('110');
     // One AES submission and one native submission must share the navigation queue.
     await inventoryPages[0].locator('#aes-btn-invPricing-apply-new-prices').click();
     await inventoryPages[1].locator('[name="submit-prices"]').click();
