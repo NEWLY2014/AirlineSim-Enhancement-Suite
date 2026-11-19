@@ -17,7 +17,7 @@
         id: string; kind: Kind; url: string; source: number; document: string;
         seen: number; state: 'queued' | 'running' | 'done' | 'failed';
         started?: number; expires?: number; target?: number; loading?: boolean;
-        tabEditDeadline?: number; tabEditRetries?: number; navigationStarted?: boolean;
+        tabEditDeadline?: number; tabEditRetries?: number; navigationStarted?: boolean; awaitingDispatch?: boolean;
         error?: string;
     }
     interface State { jobs: Job[]; next: number; backoff?: number; lastFailure?: number; cooldownUntil?: number }
@@ -44,6 +44,7 @@
             (x.tabEditDeadline === undefined || typeof x.tabEditDeadline === 'number') &&
             (x.tabEditRetries === undefined || typeof x.tabEditRetries === 'number') &&
             (x.target === undefined || typeof x.target === 'number') && (x.loading === undefined || typeof x.loading === 'boolean') &&
+            (x.awaitingDispatch === undefined || typeof x.awaitingDispatch === 'boolean') &&
             (x.navigationStarted === undefined || typeof x.navigationStarted === 'boolean');
     }
     async function transaction(change: (s: State) => Promise<unknown>) {
@@ -68,6 +69,8 @@
         // Navigation and all other operations still require exclusive tab access.
         const sameTab = head?.kind !== 'open' ? active.filter(j => j.target === head?.source && !(head?.kind === 'salary' && j.kind === 'salary' && j.document === head.document)) : [];
         return Math.max(s.next,
+            // A delayed salary permit can reach its page after the original gap elapsed.
+            ...active.filter(j => j.awaitingDispatch).map(j => j.expires || 0),
             active.length >= CONCURRENCY ? Math.min(...active.map(j => j.expires || 0)) : 0,
             ...sameTab.map(j => j.expires || 0));
     }
@@ -189,6 +192,10 @@
             }
             if (!job) return {ok:false,error:'Queue request expired. Please retry.'};
             job.seen = now;
+            if (message.op === 'dispatched' && job.state === 'running' && job.awaitingDispatch) {
+                delete job.awaitingDispatch;
+                s.next = Math.max(s.next, now + gap());
+            }
             if (message.op === 'complete' && (job.kind === 'price' || job.kind === 'read' || job.kind === 'salary') && job.state === 'running') {
                 job.state = 'done';
                 if (job.kind === 'price') { job.loading = true; job.expires = now + PAGE_TIMEOUT; }
@@ -204,6 +211,7 @@
             if (message.op === 'poll' && (job.kind === 'price' || job.kind === 'read' || job.kind === 'salary') && job.state === 'queued' &&
                 s.jobs.find(j => j.state === 'queued') === job && Date.now() >= wakeAt(s)) {
                 const started = Date.now();
+                if (job.kind === 'salary') job.awaitingDispatch = true;
                 job.state = 'running'; job.started = started; job.expires = started + (job.kind === 'read' || job.kind === 'salary' ? 30000 : LEASE); job.target = source; s.next = started + gap();
             }
             await save(s);

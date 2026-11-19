@@ -230,7 +230,8 @@ async function submitSalaryChanges(buttons: JQuery[]) {
         try {
             if (!current() || !form.isConnected || Date.now() >= (permit.expires || 0)) throw new Error(AESI18n.t('The page changed.'));
             submittedSalaryForms.add(form);
-            const response = await fetch(action.href, {method:'POST', body, credentials:'same-origin', signal:controller.signal});
+            const request = fetch(action.href, {method:'POST', body, credentials:'same-origin', signal:controller.signal});
+            const [response] = await Promise.all([request, permit.dispatched()]);
             await AES.checkServerResponse(response);
             // Consume the response before releasing the shared slot. Inspect only
             // server errors; wage clamping remains the game's responsibility.

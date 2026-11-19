@@ -310,9 +310,15 @@ test('independent salary requests share a document while retaining global capaci
     assert.equal((await salary(q,'poll','a')).state,'running');
     await salary(q,'enqueue','b');
     assert.equal((await salary(q,'poll','b')).state,'queued');
-    q.advance(55);
+    q.advance(200);
+    assert.equal((await salary(q,'poll','b')).state,'queued');
+    await salary(q,'dispatched','a');
+    q.advance(54);
+    assert.equal((await salary(q,'poll','b')).state,'queued');
+    q.advance(1);
     assert.equal((await salary(q,'poll','b')).state,'running');
     q.boot();
+    await salary(q,'dispatched','b');
     await salary(q,'enqueue','c');q.advance(55);
     assert.equal((await salary(q,'poll','c')).state,'running');
 });

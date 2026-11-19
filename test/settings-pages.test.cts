@@ -211,7 +211,7 @@ for(const value of [200,-200])test(`salary form queue dispatch accepts game limi
     const key='paine42personnelManagement';
     const p=browser(t,{html:staffBatch,path:'/action/enterprise/staffOverview',data:{settings:{personnelManagement:{type:'perc',value}},[key]:{date:'20260901',pending:{targets:{old:123},inFlight:['old']}}}});
     const submitted: import("./support/fixtures.cts").VMValue[]=[],events: string[]=[];
-    p.run(`AES.queuePage=async(url,kind)=>{window.salaryEvents.push(kind);return {expires:Date.now()+30000,complete:async()=>window.salaryEvents.push('complete')}}`);
+    p.run(`AES.queuePage=async(url,kind)=>{window.salaryEvents.push(kind);return {expires:Date.now()+30000,dispatched:async()=>{},complete:async()=>window.salaryEvents.push('complete')}}`);
     p.w.salaryEvents=events;
     p.w.fetch=async(url,options)=>{
         assert.equal(options.method,'POST','no verification GETs');
@@ -341,7 +341,7 @@ test('salary overlaps independent positions but waits for all response bodies be
     let permits=0,submissions=0,releaseBody;
     const pending=new Promise(resolve=>{releaseBody=resolve;});
     p.run('AES.queuePage=async()=>window.salaryPermit()');
-    p.w.salaryPermit=async()=>{permits++;return {expires:Date.now()+30000,complete:async()=>{},cancel:async()=>{}};};
+    p.w.salaryPermit=async()=>{permits++;return {expires:Date.now()+30000,dispatched:async()=>{},complete:async()=>{},cancel:async()=>{}};};
     p.w.fetch=async()=>{const index=++submissions;return {ok:true,text:async()=>{if(index===1)await pending;return staff;}};};
     p.load('content_personnelManagement.js');await until(()=>p.w.document.querySelector<HTMLElement>('.aes-personnel-management-apply'));
     const button=p.w.document.querySelector<HTMLButtonElement>('.aes-personnel-management-apply');button!.click();
@@ -371,7 +371,7 @@ test('salary caps in-flight work at five and preserves the last successful date 
     const many=staff.replace('</tbody>',Array.from({length:5},()=>'<tr><td>Crew</td><td><form method="post" action="staffOverview"><input name="action" value="salary" type="hidden"><input name="amount" value="700"><button type="submit">Save salary</button></form></td><td>900 AS$</td></tr>').join('')+'</tbody>');
     const key='paine42personnelManagement';
     const p=browser(t,{html:many,path:'/action/enterprise/staffOverview',data:{settings:{personnelManagement:{type:'absolute',value:3}},[key]:{date:'20260901'}}});
-    p.run('AES.queuePage=async()=>({expires:Date.now()+30000,complete:async()=>{},cancel:async()=>{}})');
+    p.run('AES.queuePage=async()=>({expires:Date.now()+30000,dispatched:async()=>{},complete:async()=>{},cancel:async()=>{}})');
     const releases: ((arg0: {ok: boolean; status?: number; text?: () => Promise<string>}) => void)[]=[];
     p.w.fetch=()=>new Promise(resolve=>releases.push(resolve));
     p.load('content_personnelManagement.js');await until(()=>p.w.document.querySelector<HTMLElement>('.aes-personnel-management-apply'));

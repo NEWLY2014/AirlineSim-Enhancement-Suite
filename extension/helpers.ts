@@ -838,7 +838,7 @@ class AES {
         });
     }
 
-    static async queuePage(url: string, kind: 'open' | 'price' | 'navigate' | 'read' | 'salary' = 'open', current: () => boolean = () => AES.isPageOwner(), onWaiting?: (cooldownUntil: number) => void): Promise<{cancel: () => Promise<void>; complete: () => Promise<void>; expires?: number}> {
+    static async queuePage(url: string, kind: 'open' | 'price' | 'navigate' | 'read' | 'salary' = 'open', current: () => boolean = () => AES.isPageOwner(), onWaiting?: (cooldownUntil: number) => void): Promise<{cancel: () => Promise<void>; complete: () => Promise<void>; dispatched: () => Promise<void>; expires?: number}> {
         const sourceUrl = location.href;
         const valid = () => current() && location.href === sourceUrl;
         if (!valid()) throw new Error(AESI18n.t("The requesting page is no longer current."));
@@ -902,7 +902,8 @@ class AES {
                 if (context.signal.aborted) { abort(); return; }
                 void AES.pageQueueMessage({op:'enqueue', id, url:new URL(url, location.href).href, kind}).then(() => check(), finish);
             });
-            return {cancel, complete, expires};
+            const dispatched = async () => { await AES.pageQueueMessage({op:'dispatched', id}); };
+            return {cancel, complete, dispatched, expires};
         } catch (error) { await cancel(); throw error; }
         finally { context.dispose(); }
     }
