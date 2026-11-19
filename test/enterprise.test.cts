@@ -343,3 +343,24 @@ test('changing schedule rows between extraction batches preserves the previous s
     assert.deepEqual(p.saved.paine99schedule,original);
     assert.equal(p.w.document.querySelector<HTMLButtonElement>('#aes-extractSchedule-btn')!.disabled,false);
 });
+
+for (const asxTiming of ['absent', 'early', 'late']) {
+    test('overview route map uses the viewed airline and director with ASX ' + asxTiming, async t => {
+        const oldMap = ' | <a href="https://www.asroutemap.info/rm.asp?w=paine&c=99&asxs=42">as-route-map</a>';
+        const controls = '<p><a class="routeNetworkLink">long-haul</a>' + (asxTiming === 'early' ? oldMap : '') + '</p>';
+        const p = enterprise(t, 0, overview + '<table><tr><td><a href="../users/21">Other player</a></td></tr></table>' + controls);
+        p.load('content_enterpriseOverview.js');
+        await until(() => p.w.document.querySelector('.aes-route-map-entry'));
+        const row = p.w.document.querySelector('.routeNetworkLink')!.parentElement!;
+        if (asxTiming === 'late') row.innerHTML += oldMap;
+        await until(() => row.querySelectorAll('a[href*="asroutemap.info"]').length === 1);
+        assert.equal(row.querySelector<HTMLAnchorElement>('.aes-route-map-entry a')!.href,
+            'https://www.asroutemap.info/?world=paine&player=Other+player&airline=99');
+        assert.equal(row.textContent, 'long-haul | AS Route Map');
+        const fresh = row.cloneNode(false) as Element;
+        fresh.innerHTML = '<a class="routeNetworkLink">short-haul</a>';
+        row.replaceWith(fresh);
+        await until(() => fresh.querySelector('.aes-route-map-entry'));
+        assert.equal(fresh.textContent, 'short-haul | AS Route Map');
+    });
+}

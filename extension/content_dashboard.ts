@@ -67,6 +67,7 @@ if (DASHBOARD_SCRIPT_ENABLED) {
 }
 
 function initializeDashboard() {
+    AESRouteMap.dashboard();
     todayDate = AES.getServerDate();
     let currentAirline = AES.getCurrentAirline();
     airline = currentAirline && currentAirline.id ? currentAirline : AES.getAirline();

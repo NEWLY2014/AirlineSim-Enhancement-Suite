@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.2] - 2026-11-19
+
+Open the redesigned AS Route Map for the airline you are viewing.
+
+### Added
+
+- Open your airline’s map from Flight Map in the Dashboard company details.
+- Open another airline’s map from Route Network on its Overview page.
+
+### Changed
+
+- When ASX is installed, AES replaces its legacy map links with one entry. The Dashboard link aligns with the company name.
+- The release history now groups the changes introduced in 0.9.0 under its stable release notes.
+
 ## [0.9.1] - 2026-11-17
 
 Reliability fixes since 0.9.0: shorter rate-limit pauses, safer concurrent saves, recoverable backups and consistent automatic tab closing.
@@ -556,7 +570,8 @@ for pointing it out).
 
 _First release._
 
-[Unreleased]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.9.1...HEAD
+[Unreleased]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.9.2...HEAD
+[0.9.2]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.13...v0.9.0
 [0.8.13]: https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/compare/v0.8.12...v0.8.13

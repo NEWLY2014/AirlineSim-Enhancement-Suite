@@ -1,5 +1,26 @@
 const AES_RELEASE_NOTES_STORAGE_KEY = "aesReleaseNotesSeenVersion"
 const AES_RELEASE_NOTES: Record<string, AESModel.ReleaseNotes | undefined> = {
+    "0.9.2": {
+        "title": "Release Notes",
+        "releaseDate": "2026-11-19",
+        "summary": "Open the redesigned AS Route Map for the airline you are viewing.",
+        "sections": [
+            {
+                "title": "Added",
+                "items": [
+                    "Open your airline’s map from Flight Map in the Dashboard company details.",
+                    "Open another airline’s map from Route Network on its Overview page."
+                ]
+            },
+            {
+                "title": "Changed",
+                "items": [
+                    "When ASX is installed, AES replaces its legacy map links with one entry. The Dashboard link aligns with the company name.",
+                    "The release history now groups the changes introduced in 0.9.0 under its stable release notes."
+                ]
+            }
+        ]
+    },
     "0.9.1": {
         "title": "Release Notes",
         "releaseDate": "2026-11-17",

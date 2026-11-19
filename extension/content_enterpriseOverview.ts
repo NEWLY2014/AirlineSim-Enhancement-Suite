@@ -39,6 +39,7 @@ function initializeEnterpriseOverview() {
     server = AES.getServerName();
     airline = AES.getAirline();
     ownerAirline = AES.getCurrentAirline();
+    if (airline.id) AESRouteMap.overview(String(airline.id));
     activeTab = ($(".nav-tabs .active").attr('class') || '').split(" ")[0];
     let key = AES.getCompetitorMonitoringKey(server, ownerAirline.id, airline.id);
     let legacyKey = AES.getCompetitorMonitoringKey(server, null, airline.id);

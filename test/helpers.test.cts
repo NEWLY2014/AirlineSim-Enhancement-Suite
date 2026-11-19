@@ -66,14 +66,16 @@ test('stable release notes page through consolidated history and back to the cur
         p.w.HTMLDialogElement.prototype.showModal = function() { this.open = true; };
         p.w.HTMLDialogElement.prototype.close = function() { this.open = false; };
         p.load('modules/release-notes.js');
-        runInContext("new ReleaseNotesDialog('0.9.1')", p.dom.getInternalVMContext());
+        runInContext("new ReleaseNotesDialog('0.9.2')", p.dom.getInternalVMContext());
         assert.equal(runInContext("Object.keys(AES_RELEASE_NOTES).some(version => version.startsWith('0.9.0-'))", p.dom.getInternalVMContext()), false);
         const d = p.w.document;
         const previous = d.querySelector<HTMLElement>('[aria-label="Previous release"]');
         const next = d.querySelector<HTMLButtonElement>('[aria-label="Next release"]');
         const version = () => d.querySelector<HTMLElement>('.aes-release-notes-page-indicator')!.textContent;
-        assert.equal(version(), 'v0.9.1');
+        assert.equal(version(), 'v0.9.2');
         assert.equal(next!.disabled, true);
+        previous!.click();
+        assert.equal(version(), 'v0.9.1');
         previous!.click();
         assert.equal(version(), 'v0.9.0');
         previous!.click();
@@ -81,8 +83,8 @@ test('stable release notes page through consolidated history and back to the cur
         assert.ok(d.querySelector<HTMLElement>('.aes-release-notes-sections')!.textContent.length > 0);
         previous!.click();
         assert.equal(version(), 'v0.8.12');
-        next!.click(); next!.click(); next!.click();
-        assert.equal(version(), 'v0.9.1');
+        next!.click(); next!.click(); next!.click(); next!.click();
+        assert.equal(version(), 'v0.9.2');
     } finally { p.close(); }
 });
 

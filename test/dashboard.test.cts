@@ -300,3 +300,22 @@ test('salary status retains confirmed dates even when another submission is pend
         assert.ok(row!.cells[1].querySelector<HTMLElement>('.'+tone));
     }
 });
+
+for (const asxTiming of ['absent', 'early', 'late']) {
+    test('dashboard route map uses the company info row with ASX ' + asxTiming, async t => {
+        const p = dashboard(t);
+        const doc = p.w.document;
+        const oldRow = '<tr><th>AS Route Map</th><td><a href="https://www.asroutemap.info/rm.asp?w=paine&c=123">Flight Map</a> | <a href="https://www.asroutemap.info/updatefpn.asp">Update ASRM</a></td></tr>';
+        doc.body.insertAdjacentHTML('afterbegin', '<div id="as-navbar-meta-collapse"><span class="fa-user"></span><span class="as-icon-label">A &amp; B</span></div>');
+        doc.querySelector('#enterprise-dashboard')!.innerHTML = '<table><tbody></tbody><tfoot><tr><td><a href="../info/enterprises/123?tab=0">Info page</a></td></tr></tfoot></table>';
+        const table = doc.querySelector<HTMLTableElement>('#enterprise-dashboard table')!;
+        const body = table.tBodies[0];
+        if (asxTiming === 'early') body.insertAdjacentHTML('afterbegin', oldRow);
+        await load(p);
+        if (asxTiming === 'late') body.innerHTML += oldRow;
+        await until(() => table.querySelectorAll('a[href*="asroutemap.info"]').length === 1 &&
+            table.querySelector<HTMLAnchorElement>('.aes-route-map-entry a')?.href === 'https://www.asroutemap.info/?world=paine&player=A+%26+B&airline=123');
+        assert.equal(table.rows.length, 2);
+        assert.ok(body.querySelector('.aes-route-map-entry'));
+    });
+}
