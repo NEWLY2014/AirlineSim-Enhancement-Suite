@@ -19,8 +19,9 @@ for(const fast of [true,false])test(`salary submissions finish the table without
         await rm(profile,{recursive:true,force:true});
     });
     execFileSync('openssl',['req','-x509','-newkey','rsa:2048','-nodes','-keyout',join(profile,'key.pem'),'-out',join(profile,'cert.pem'),'-days','1','-subj','/CN=paine.airlinesim.aero'],{stdio:'ignore'});
-    const amounts=[800,700],requests: {id: number; amount: number; time: number}[]=[],responses: (ServerResponse<IncomingMessage>&{ req: IncomingMessage; })[]=[];
+    const amounts=[800,700],requests: {id: number; amount: number}[]=[],responses: (ServerResponse<IncomingMessage>&{ req: IncomingMessage; })[]=[];
 
+    let overlappingRequests=false;
     const render=()=>`<!doctype html><script>window.frontendSettings = {"fixedEnterpriseId":42,"server":{"time":"2026-09-08T00:00:00Z"}};</script>
     <div id="header"><div><button aria-haspopup="menu"><span class="_name_test">AES Airlines</span></button><div role="menubar"></div></div></div>
     <div class="bootstrap container-fluid"><h1>Employee Overview</h1><table>
@@ -33,7 +34,8 @@ for(const fast of [true,false])test(`salary submissions finish the table without
         if(req.method==='POST' && req.url==='/action/enterprise/staffOverview'){
             let body='';for await(const chunk of req)body+=chunk;
             const data=new URLSearchParams(body),id=Number(data.get('id')),amount=Number(data.get('amount'));
-            requests.push({id,amount,time:Date.now()});amounts[id]=Math.min(amount,1100);
+            if(responses.length) overlappingRequests=true;
+            requests.push({id,amount});amounts[id]=Math.min(amount,1100);
             responses.push(res);
             // Hold the first response to verify that the second POST can overlap it.
             if(!fast)await new Promise(resolve=>setTimeout(resolve,1600));
@@ -50,6 +52,14 @@ for(const fast of [true,false])test(`salary submissions finish the table without
     const worker=context.serviceWorkers()[0]||await context.waitForEvent('serviceworker');
     await worker.evaluate(()=>chrome.storage.local.set({aesReleaseNotesSeenVersion:chrome.runtime.getManifest().version_name,settings:{personnelManagement:{type:'perc',value:200,auto:0,alreadyUpdated:[]}}}));
     const page=await context.newPage();
+    const network=await context.newCDPSession(page);
+    const dispatches: number[]=[];
+    await network.send('Network.enable');
+    network.on('Network.requestWillBeSent', event=>{
+        if(event.request.method==='POST' && event.request.url==='https://paine.airlinesim.aero/action/enterprise/staffOverview') {
+            dispatches.push(event.timestamp*1000);
+        }
+    });
     let navigations=0;page.on('framenavigated',frame=>{if(frame===page.mainFrame())navigations++;});
     await page.goto('https://paine.airlinesim.aero/action/enterprise/staffOverview');
     await page.locator('#aes-select-personnelManagement-type').selectOption('perc');
@@ -61,9 +71,10 @@ for(const fast of [true,false])test(`salary submissions finish the table without
         assert.equal(requests.length,2,'one click must dispatch every position even when the first response is immediate');
     });
     await page.locator('.aes-personnel-management-apply:not([disabled])').waitFor();
-    assert.deepEqual(requests.map(({id,amount})=>({id,amount})),[{id:0,amount:3000},{id:1,amount:2700}]);
-    assert.ok(requests[1].time-requests[0].time>=55,'shared queue must pace form dispatch');
-    if(!fast) assert.ok(requests[1].time-requests[0].time<1600,'independent positions must overlap');
+    assert.deepEqual(requests,[{id:0,amount:3000},{id:1,amount:2700}]);
+    assert.equal(dispatches.length,2);
+    assert.ok(dispatches[1]-dispatches[0]>=55, `shared queue must pace form dispatch: ${dispatches[1]-dispatches[0]} ms`);
+    if(!fast) assert.ok(overlappingRequests,'independent positions must overlap');
     assert.match(await page.locator('#aes-salary-status').innerText(),/completed: 2/);
     assert.deepEqual(amounts,[1100,1100]);
     assert.equal(navigations,1,'salary responses must not replace the submitting page');
