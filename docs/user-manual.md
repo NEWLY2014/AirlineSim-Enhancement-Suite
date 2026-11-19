@@ -74,6 +74,8 @@ applying prices.
 
 ## Fleet extraction
 
+For a worked example with two fleets, see [Update your fleet data](https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/wiki/Update-your-fleet-data).
+
 Open the game's Fleet Management page to save the aircraft in the displayed fleet
 automatically. AES refreshes the stored data when the game replaces the aircraft
 table. Other fleets remain in storage; visit each fleet you want to update.
