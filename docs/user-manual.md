@@ -88,9 +88,9 @@ Refreshing preserves your filters and their expanded/collapsed state.
 If extraction fails, the toolbar shows an error and keeps the button available to
 retry. Wait for the aircraft list to load before retrying.
 
-## Additional feature guide
+## Route analysis walkthrough
 
-Marcipanas wrote [a guide](https://docs.google.com/document/d/1hzMHb3hTBXSZNtuDKoBuvx1HP9CgB7wVYR59yDYympg/) on how to use the extension’s features.
+Follow [Analyze your first route with AES](https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/wiki/Analyze-your-first-route-with-AES) to read cabin loads at a specific fare and save a snapshot for comparison. You can find the walkthrough in the [AES player guide](https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/wiki).
 
 ## Privacy
 

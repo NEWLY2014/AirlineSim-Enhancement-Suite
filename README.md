@@ -17,6 +17,8 @@ The AirlineSim Enhancement Suite (AES) offers a set of tools to help CEOs build 
 
 ## Documentation
 
+Start with the [player guide](https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/wiki) for a walkthrough of [your first route analysis](https://github.com/NEWLY2014/AirlineSim-Enhancement-Suite/wiki/Analyze-your-first-route-with-AES).
+
 - [Documentation index](docs/README.md): development references, store materials and historical records.
 - [User manual](docs/user-manual.md): installation, pricing settings and feature guidance.
 - [Developer manual](docs/developer-manual.md): local development, testing, notifications, the shared page queue, localization and releases.
